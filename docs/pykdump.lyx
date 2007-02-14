@@ -1,0 +1,1770 @@
+#LyX 1.4.3 created this file. For more info see http://www.lyx.org/
+\lyxformat 245
+\begin_document
+\begin_header
+\textclass docbook
+\language english
+\inputencoding auto
+\fontscheme default
+\graphics default
+\paperfontsize default
+\papersize default
+\use_geometry false
+\use_amsmath 0
+\cite_engine basic
+\use_bibtopic false
+\paperorientation portrait
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\defskip medskip
+\quotes_language english
+\papercolumns 1
+\papersides 1
+\paperpagestyle default
+\tracking_changes false
+\output_changes true
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Pykdump - Tutorial And Reference
+\end_layout
+
+\begin_layout Date
+Date 
+\end_layout
+
+\begin_layout Author
+\begin_inset CharStyle Firstname
+status inlined
+
+\begin_layout Standard
+Alex
+\end_layout
+
+\end_inset
+
+
+\begin_inset CharStyle Surname
+status inlined
+
+\begin_layout Standard
+Sidorenko
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Author
+asid@hp.com
+\end_layout
+
+\begin_layout Abstract
+This is a brief tutorial explaining how to use Pykdump.
+ 
+\end_layout
+
+\begin_layout Section
+Tutorial
+\end_layout
+
+\begin_layout Standard
+If you have never used Python before, please read an excellent tutorial
+ at 
+\begin_inset LatexCommand \url[http://docs.python.org/tut/tut.html]{http://docs.python.org/tut/tut.html}
+
+\end_inset
+
+ 
+\end_layout
+
+\begin_layout Standard
+An absolute minimum you need to know about Python to understand all our
+ examples: 
+\end_layout
+
+\begin_layout Itemize
+code blocks in Python are marked by indentation only - no {} brackets! 
+\end_layout
+
+\begin_layout Itemize
+printing expressions:
+\end_layout
+
+\begin_layout Code
+
+\family typewriter
+    print expr1, expr2, ..., exprn
+\family default
+ 
+\end_layout
+
+\begin_layout Itemize
+printing and formatting: somewhat similar to C-printf, but arguments are
+ specified in a tuple after percent operator:
+\end_layout
+
+\begin_layout Code
+
+\family typewriter
+    print "%s %d" % (s1, i1) 
+\end_layout
+
+\begin_layout Itemize
+if-statements are similar to C but you cannot use assignment in them, e.g.
+ the following will not work:
+\end_layout
+
+\begin_layout Code
+
+\family typewriter
+    if (s1 = func()) 
+\end_layout
+
+\begin_layout Itemize
+for-statements loop over a sequence (or an iterable).
+ Examples: 
+\end_layout
+
+\begin_layout Code
+      for s in ("s1", "s2", "s3"):
+\end_layout
+
+\begin_layout Code
+          print s
+\end_layout
+
+\begin_layout Code
+      for i in range(1, 10):
+\end_layout
+
+\begin_layout Code
+          print i
+\end_layout
+
+\begin_layout Quotation
+
+\family roman
+Here 
+\family typewriter
+range(1,10)
+\family roman
+ expands to sequence of integers starting at 1 and ending at 9, similar
+ to C
+\end_layout
+
+\begin_deeper
+\begin_layout Code
+ for (i=1; i < 10; i++)
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+functions and methods can have a variable number of arguments.
+ Some of them can be defined as keyword arguments, e.g.
+ 
+\end_layout
+
+\begin_layout Code
+
+\family typewriter
+     func(1, 2, mykeyarg=3)
+\end_layout
+
+\begin_layout Itemize
+comments are introduced using a hash # sign
+\end_layout
+
+\begin_layout Standard
+Uniform Python API is used both for PTY-driven and loadable extension-based
+ versions.
+ A very basic example showing how to use API:
+\end_layout
+
+\begin_layout Code
+#!/usr/bin/env python
+\end_layout
+
+\begin_layout Code
+# This imports all the functions you can use from pykdump
+\end_layout
+
+\begin_layout Code
+from pykdump.API import *
+\end_layout
+
+\begin_layout Code
+
+\end_layout
+
+\begin_layout Code
+# Check whether symbol exists
+\end_layout
+
+\begin_layout Code
+if (symbol_exists('all_bdevs')):
+\end_layout
+
+\begin_layout Code
+    print "all_bdevs exists"
+\end_layout
+
+\begin_layout Code
+# Read the contents of 'tcp_hashinfo' table.
+ The result type is chosen 
+\end_layout
+
+\begin_layout Code
+# automatically according to symbol definition
+\end_layout
+
+\begin_layout Code
+tcp_hashinfo = readSymbol('tcp_hashinfo')
+\end_layout
+
+\begin_layout Code
+# Print the size of ESTABLISHED hash-table
+\end_layout
+
+\begin_layout Code
+print tcp_hashinfo.__tcp_ehash_size
+\end_layout
+
+\begin_layout Subsection
+Mapping C-structures To Python Objects
+\end_layout
+
+\begin_layout Standard
+The Linux kernel is written in C (plus a bit of assembly).
+ To be able to write useful scripts easily, we need two things: 
+\end_layout
+
+\begin_layout Itemize
+to be able to read variables and struct/union contents 
+\end_layout
+
+\begin_layout Itemize
+to be able to write Python code easily looking at related C-sources
+\end_layout
+
+\begin_layout Standard
+For example, if we want to write a program printing routing tables from
+ a dump, we start from looking at how this is implemented in /proc routines.
+ It would be nice to be able to copy and paste pieces of related C-sources
+ to our script, but this would be extremely tricky, even if we used an embedded
+ C-intepreter instead of Python.
+ 
+\end_layout
+
+\begin_layout Standard
+Python has most operators that C does, but there is no direct analog for
+ operators '*', '->', and '&' as Python passes everything by reference -
+ there are no pointers.
+ So it is easy to mimic reading and accessing fields of C struct/union in
+ Python as both C and Python have a dot '.' operator:
+\end_layout
+
+\begin_layout Code
+struct blk_major_name {
+\end_layout
+
+\begin_layout Code
+   struct blk_major_name *next;
+\end_layout
+
+\begin_layout Code
+   int major;
+\end_layout
+
+\begin_layout Code
+   char name[16];
+\end_layout
+
+\begin_layout Code
+} svar;
+\end_layout
+
+\begin_layout Code
+
+\end_layout
+
+\begin_layout Code
+s = readSU('struct blk_major_name', addr)
+\end_layout
+
+\begin_layout Code
+major = s.major 
+\end_layout
+
+\begin_layout Code
+print "%3d       %-11s" % (major, s.name) 
+\end_layout
+
+\begin_layout Standard
+Here we read 'struct blk_major_name' from a given address and print the
+ 'major' field.
+ Python has many built-in data types, including integers, floating-point
+ numbers and strings.
+ We would like to return properly typed values automatically, we don't want
+ to specify type explicitly.
+ As there is no pointer type in Python we can represent pointers by integers.
+ In the example above we expect to get:
+\end_layout
+
+\begin_layout Itemize
+s.next as integer 
+\end_layout
+
+\begin_layout Itemize
+s.major as integer 
+\end_layout
+
+\begin_layout Itemize
+s.name as string 
+\end_layout
+
+\begin_layout Standard
+There are some problems with this approach.
+ If we meet 'char name[16]' declaration, how do we know whether it is intended
+ to be used as a string or an array of 1-byte integers? We cannot know this
+ from symbolic information available in vmcore.
+ To workaround this, we introduce a special 'SmartString' type which mimics
+ null-terminated strings but lets you access info just like a normal array.
+ So if 'name' is a SmartString, printing it will result in truncation on
+ NULL byte but we still can access any byte using array access:
+\end_layout
+
+\begin_layout Code
+name="abc
+\backslash
+0
+\backslash
+5
+\backslash
+6
+\backslash
+7
+\backslash
+8
+\backslash
+9
+\backslash
+10
+\backslash
+11
+\backslash
+12
+\backslash
+13
+\backslash
+14
+\backslash
+15
+\backslash
+16"
+\end_layout
+
+\begin_layout Code
+print s.name  # will print abc 
+\end_layout
+
+\begin_layout Code
+print s.name[5] # will print 5
+\end_layout
+
+\begin_layout Standard
+By default, struct/union members that are defined as char pointers or char
+ arrays, are returned as 'SmartString' type.
+ If they have explicit 'signed' or 'unsigned' specifiers, they are returned
+ as integer arrays.
+\end_layout
+
+\begin_layout Subsection
+Dereferencing Pointers in Structs and Unions (Emulating * and -> Operators)
+\end_layout
+
+\begin_layout Standard
+What if we want to follow the 'next' pointer in the example above? In C
+ we can write
+\end_layout
+
+\begin_layout Code
+svar->next;
+\end_layout
+
+\begin_layout Code
+svar->next->next;
+\end_layout
+
+\begin_layout Standard
+and it will take into account the pointer type automatically (as compiler
+ has access to definitions).
+ There is no dereference operator in Python but we still can dereference
+ using one of the following approaches: 
+\end_layout
+
+\begin_layout Itemize
+load the needed structure from the known address manually 
+\end_layout
+
+\begin_layout Itemize
+use a special 'Deref' attribute which emulates dereference, e.g.
+\end_layout
+
+\begin_layout Code
+next = readSU("'struct blk_major_name", s.next) # the 1st approach
+\end_layout
+
+\begin_layout Code
+next = s.Deref.next                             # the 2nd approach
+\end_layout
+
+\begin_layout Standard
+To emulate the missing features we can define some attributes as special
+ (in Python you can bind an arbitrary action for attribute access).
+ Obviously this would not work if we had a struct field with 'Deref' name.
+ Luckily, this is highly improbable for kernel structures.
+ The "Linux Coding Style" document, 
+\begin_inset LatexCommand \url[Coding_Style]{http://www.llnl.gov/linux/slurm/coding_style.pdf}
+
+\end_inset
+
+, says: "mixed-case names are frowned upon" so using 'Deref' should be safe
+ enough.
+ The "internal" methods of Python classes are all named like __aname__ and
+ once again we have never seen Linux kernel structures with a pattern like
+ that.
+ 
+\end_layout
+
+\begin_layout Subsection
+Emulating & Operator
+\end_layout
+
+\begin_layout Standard
+In some cases we need to find the address of struct/union member instead
+ of accessing its value.
+ For example, we have a field which is defined as a struct (not a pointer),
+ e.g.
+\end_layout
+
+\begin_layout Code
+type = struct task_struct {
+\end_layout
+
+\begin_layout Code
+   volatile long int state;
+\end_layout
+
+\begin_layout Code
+   ...
+\end_layout
+
+\begin_layout Code
+   struct list_head tasks;
+\end_layout
+
+\begin_layout Code
+}
+\end_layout
+
+\begin_layout Standard
+When we access 'tasks' attribute, we obtain an object representing a structure.
+ For such objects we can use Addr(obj) function to obtain the associated
+ address, e.g.
+ 
+\end_layout
+
+\begin_layout Code
+init_task = readSymbol('init_task')
+\end_layout
+
+\begin_layout Code
+init_task_saddr = Addr(init_task.tasks) 
+\end_layout
+
+\begin_layout Standard
+If we need to obtain address of a field of another type (e.g.
+ int) we have to compute it manually using low-level functions, e.g.
+ 
+\end_layout
+
+\begin_layout Code
+dev_base = readSymbol("dev_base")
+\end_layout
+
+\begin_layout Code
+offset = member_offset("struct net_device", "next")
+\end_layout
+
+\begin_layout Code
+addr_next = Addr(dev_base) + offset
+\end_layout
+
+\begin_layout Standard
+In the future we might add a special attribute similar to 'Deref' doing
+ the needed work for us - but this is not implemented yet.
+\end_layout
+
+\begin_layout Code
+
+\end_layout
+
+\begin_layout Section
+Environment And Command-line Options
+\end_layout
+
+\begin_layout Subsection
+Loading The Extension
+\end_layout
+
+\begin_layout Standard
+Extension is a shared library built so that it can be loaded from 
+\series bold
+\emph on
+Crash 
+\series default
+\emph default
+using a built-in 
+\emph on
+extend
+\emph default
+ command, e.g.
+\end_layout
+
+\begin_layout Code
+
+\family typewriter
+crash> extend /path/to/extension/python32.so
+\family default
+ 
+\end_layout
+
+\begin_layout Standard
+It is not very practical to do this manually every time, so it is recommended
+ to put it into your crash startup file.
+ The name of this file is derived from the name of your 
+\series bold
+\emph on
+Crash 
+\series default
+\emph default
+executable, so if it is named 
+\series bold
+\emph on
+crash32
+\series default
+\emph default
+, the initialization file will be .crash32rc.
+ This is handy if you are using AMD64 host running 64-bits as your dedicated
+ dump-analysis host.
+ In this case you need to have two 
+\series bold
+\emph on
+Crash
+\series default
+\emph default
+ executables - one built for 32-bit, another one for 64-bit.
+ You will need two copies of extensions too.
+ So you can name 
+\series bold
+\emph on
+Crash 
+\series default
+\emph default
+executables 
+\series bold
+\emph on
+crash32
+\series default
+\emph default
+ and 
+\series bold
+\emph on
+crash64
+\series default
+\emph default
+ and they will use initialization files .
+\emph on
+crash32rc
+\emph default
+ and .
+\emph on
+crash64rc.
+\end_layout
+
+\begin_layout Standard
+The initialization files are first searched in your current directory, then
+ in your home directory.
+ So if you create in your home directory a file ~/.crashrc32 containing the
+ line
+\end_layout
+
+\begin_layout Code
+
+\family typewriter
+extend /path/to/extension/python32.so
+\family default
+ 
+\end_layout
+
+\begin_layout Standard
+it will be loaded every time your start 
+\series bold
+\emph on
+Crash
+\series default
+\emph default
+.
+\end_layout
+
+\begin_layout Subsection
+Options
+\end_layout
+
+\begin_layout Standard
+You can pass a number of options that are consumed by API itself; if you
+ specify them on the command line they will modify the behavior of framework
+ itself but will not be passed to the application.
+ The parsing is not very sophisticated at this moment, so we use the following
+ approach:
+\end_layout
+
+\begin_layout Itemize
+long options (those starting from two dashes, --) are intended for API itself
+\end_layout
+
+\begin_layout Itemize
+short options (those starting from one dash, -) are intended for applications
+\end_layout
+
+\begin_layout Standard
+So if you invoke your program as
+\end_layout
+
+\begin_layout Code
+crash32> epython mytest.py --debug=1 -d1 arg1 arg2
+\end_layout
+
+\begin_layout Standard
+the application will see in sys.argv only
+\end_layout
+
+\begin_layout Code
+-d1 arg1 arg2
+\end_layout
+
+\begin_layout Standard
+and API will print some internal debugging messages
+\end_layout
+
+\begin_layout Subsection
+Environment
+\end_layout
+
+\begin_layout Itemize
+PYKDYMPDEBUG=1 enables debugging messages of C-extension
+\end_layout
+
+\begin_layout Itemize
+PYTHONPATH can be used in mixed 64 bit environment to specify where 32-bit
+ Python libraries are located.
+ This is not ready for general usage yet.
+\end_layout
+
+\begin_layout Subsection
+Starting Python Scripts Outside Crash
+\end_layout
+
+\begin_layout Standard
+Using Python programs in Crash environment consists of three steps:
+\end_layout
+
+\begin_layout Enumerate
+Start 
+\series bold
+\emph on
+crash
+\series default
+\emph default
+ specifying the needed dump files and options
+\end_layout
+
+\begin_layout Enumerate
+Load the 
+\series bold
+\emph on
+pykdump
+\series default
+\emph default
+ extension
+\end_layout
+
+\begin_layout Enumerate
+Start you program using 
+\series bold
+\emph on
+epython
+\series default
+\emph default
+ command
+\end_layout
+
+\begin_layout Standard
+For example:
+\end_layout
+
+\begin_layout Code
+{asid 13:46:46} crash32  /data/Dumps/Fermi/vmlinux-2.4.21-47.ELsmp 
+\backslash
+          
+\end_layout
+
+\begin_layout Code
+    /data/Dumps/Fermi/vmcore 
+\end_layout
+
+\begin_layout Code
+...
+\end_layout
+
+\begin_layout Code
+crash32> extend /uuu/users/sid/tools/pykdump/Extension/pykdump32.so /uuu/users/si
+d/tools/pykdump/Extension/pykdump32.so: shared object loaded 
+\end_layout
+
+\begin_layout Code
+crash32> epython progs/netdev.py 
+\end_layout
+
+\begin_layout Standard
+If 'netdev.py' is a highly untrivial program doing automated dump-analysis,
+ you may like to run it on several dumps without doing anything else.
+ So it would be nice to be able to automate the three steps above (well,
+ loading the extension can be automated by doing it in crash initialization
+ file).
+ If you have 
+\series bold
+\emph on
+Pexpect 
+\series default
+\emph default
+Python module installed, the following should work, started from normal
+ shell prompt:
+\end_layout
+
+\begin_layout Code
+{asid 14:00:27} progs/netdev.py /data/Dumps/Fermi
+\end_layout
+
+\begin_layout Standard
+This command does the following:
+\end_layout
+
+\begin_layout Itemize
+searches for needed files in /data/Dumps/Fermi directory (see below for
+ how this is done)
+\end_layout
+
+\begin_layout Itemize
+starts 
+\series bold
+\emph on
+crash 
+\series default
+\emph default
+using Pexpect (i.e.
+ uses 
+\series bold
+\emph on
+pty
+\series default
+\emph default
+ to communicate with 
+\series bold
+\emph on
+crash
+\series default
+\emph default
+ process).
+ We add '--no_crashrc' option so that crash does not use its initialization
+ file (we want to start from clean slate)
+\end_layout
+
+\begin_layout Itemize
+reads and parses crashrc-files in home and current directories searching
+ for 'extend' command, loads the found extension
+\end_layout
+
+\begin_layout Itemize
+sets scroll off and increases window width
+\end_layout
+
+\begin_layout Itemize
+runs our program using 'epython' command
+\end_layout
+
+\begin_layout Itemize
+sends 'quit' to crash to exit
+\end_layout
+
+\begin_layout Subsubsection
+Searching For Needed Files
+\end_layout
+
+\begin_layout Standard
+To pass the dump location on the command line, you specify the base dump
+ directory.
+ The program will search this directory for files needed to be passed to
+ crash as arguments.
+ If you do not specify any directory at all, it will try to use the files
+ in the current directory.
+ If no dump/vmlinux files are available in the current directory, the program
+ will try to use the live kernel and /dev/crash.
+ Here is how files are searched (using * wildcard in usual sense):
+\end_layout
+
+\begin_layout Itemize
+if there is 'System.map*' file, it will be used (the 1st one if there are
+ several of them) 
+\end_layout
+
+\begin_layout Itemize
+if there is 'vmlinux*' file and it is has a reasonable full name (at this
+ moment this means that it does not have .gz, .bz2, .tgz or .debug extension)
+ it will be used 
+\end_layout
+
+\begin_layout Itemize
+if there is 'vmcore*' file and it has a reasonable name, it will be used
+\end_layout
+
+\begin_layout Standard
+This works in most cases, but still needs improvements
+\end_layout
+
+\begin_layout Section
+Reference
+\end_layout
+
+\begin_layout Standard
+You access API by importing pykdump.API in your Python program:
+\end_layout
+
+\begin_layout Code
+from pykdump.API import *
+\end_layout
+
+\begin_layout Standard
+Note: if you want your program to be as portable as possible, please put
+ this import in the beginning, before importing anything else.
+ In some cases (e.g.
+ mixed 32/64 bit environment) this import changes the order of directories
+ used to locate the needed modules (e.g.
+ sys.path)
+\end_layout
+
+\begin_layout Code
+
+\end_layout
+
+\begin_layout Subsection
+Some Useful Globals
+\end_layout
+
+\begin_layout Standard
+Immediately after importing pykdump.API you can access some useful variables
+ grouped in a 'sys_info' object
+\end_layout
+
+\begin_layout Subsubsection*
+sys_info
+\end_layout
+
+\begin_layout Standard
+this is an object with several attributes obtained from 'sys' command.
+ For example:
+\end_layout
+
+\begin_layout Code
+      KERNEL: /Dumps/Linux/test/vmlinux-2.6.9-22.ELsmp
+\end_layout
+
+\begin_layout Code
+    DUMPFILE: /Dumps/Linux/test/vmcore-netdump-2.6.9-22.ELsmp  [PARTIAL DUMP]
+\end_layout
+
+\begin_layout Code
+        CPUS: 4
+\end_layout
+
+\begin_layout Code
+        DATE: Wed Feb  8 10:19:55 2006
+\end_layout
+
+\begin_layout Code
+      UPTIME: 23:08:52
+\end_layout
+
+\begin_layout Code
+LOAD AVERAGE: 0.19, 0.07, 0.02
+\end_layout
+
+\begin_layout Code
+       TASKS: 111
+\end_layout
+
+\begin_layout Code
+    NODENAME: whittle
+\end_layout
+
+\begin_layout Code
+     RELEASE: 2.6.9-22.ELsmp
+\end_layout
+
+\begin_layout Code
+     VERSION: #1 SMP Mon Sep 19 18:32:14 EDT 2005
+\end_layout
+
+\begin_layout Code
+     MACHINE: i686  (3002 Mhz)
+\end_layout
+
+\begin_layout Code
+      MEMORY: 8.4 GB
+\end_layout
+
+\begin_layout Code
+       PANIC: "Oops: 0002 [#1]" (check log for details)
+\end_layout
+
+\begin_layout Standard
+each string is split into key/value and stored in 'sys_info'.
+ The access can be done in two ways:
+\end_layout
+
+\begin_layout Itemize
+for those keys that do not contain spaces we can use sys_info.CPUS syntax
+ to obtain number of CPUs (converted to integer type for convenience) 
+\end_layout
+
+\begin_layout Itemize
+for any key (both with and without spaces) we can retrieve the value using
+ syntax 
+\family typewriter
+\emph on
+sys_info["LOAD AVERAGE"]
+\end_layout
+
+\begin_layout Standard
+In addition to values obtained from 'sys' command, we put some other useful
+ values into 
+\emph on
+sys_info
+\emph default
+:
+\end_layout
+
+\begin_layout Itemize
+HZ - the HZ value 
+\end_layout
+
+\begin_layout Itemize
+pointersize - this is the size of (void *) in this dump, in bytes 
+\end_layout
+
+\begin_layout Itemize
+livedump - is true if we are running on a live dump (i.e.
+ using /dev/crash on a live machine) 
+\end_layout
+
+\begin_layout Itemize
+kernel - the stripped version of KERNEL containing just three digits, e.g.
+ "2.6.9"
+\end_layout
+
+\begin_layout Standard
+Examples:
+\end_layout
+
+\begin_layout Code
+    if (sys_info.kernel >= "2.6.0"):
+\end_layout
+
+\begin_layout Code
+        sched_clock2ms = sched_clock2ms_26_jiffies
+\end_layout
+
+\begin_layout Code
+    else:
+\end_layout
+
+\begin_layout Code
+        sched_clock2ms = sched_clock2ms_24
+\end_layout
+
+\begin_layout Code
+    for cpu in range(0, sys_info.CPUS):
+\end_layout
+
+\begin_layout Code
+       ...
+\end_layout
+
+\begin_layout Subsection
+Sending Commands To GDB And CRASH
+\end_layout
+
+\begin_layout Standard
+Sometimes it is useful to execute a GDB or CRASH command and obtain the
+ result.
+ For example, instead of writing your own 'ps' command you want to use built-in
+ 'ps' command to parse its output and use this data.
+ Here are two commands that perform these tasks:
+\end_layout
+
+\begin_layout Description
+exec_gdb_command - execute a GDB command and return result as string
+\end_layout
+
+\begin_layout Code
+result = exec_gdb_command(command)
+\end_layout
+
+\begin_layout Description
+exec_crash_command - execute a CRASH command and return result as string
+\end_layout
+
+\begin_layout Code
+result = exec_crash_command(command)
+\end_layout
+
+\begin_layout Standard
+If we use these commands from extension, we do direct calls to internal
+ GDB and CRASH functions.
+ 
+\end_layout
+
+\begin_layout Subsection
+Functions To Read Data
+\end_layout
+
+\begin_layout Description
+readSU - read a Struct or Union
+\end_layout
+
+\begin_layout Code
+obj = readSU(suname, addr) 
+\end_layout
+
+\begin_layout Standard
+
+\emph on
+suname
+\emph default
+ is a string specifying struct or union name, addr is an address (integer).
+ On success, returns an object (an instance of StructResult) representing
+ the read info.
+ This object can be used to access separate fields.
+ This is similar to crash/GDB 'struct name addr' command.
+\end_layout
+
+\begin_layout Standard
+Example:
+\end_layout
+
+\begin_layout Code
+
+\family typewriter
+obj = readSU('struct gendisk', 0x12345678)
+\end_layout
+
+\begin_layout Description
+readSymbol - read information using a global variable
+\end_layout
+
+\begin_layout Code
+obj = readSymbol(symname[, art=def])
+\end_layout
+
+\begin_layout Standard
+We analyze the type of the global variable and return the result accordingly.
+ This is similar to crash/GDB 'p symname' command 
+\end_layout
+
+\begin_layout Standard
+At this moment we don't support all possible types.
+ Here is what is supported: 
+\end_layout
+
+\begin_layout Itemize
+a simple type (e.g.
+ int/long), we return result as an integer 
+\end_layout
+
+\begin_layout Itemize
+a struct/union (in this case we return an object similar to that returned
+ by readSU) 
+\end_layout
+
+\begin_layout Itemize
+an array of simple types - we return a Python list of values 
+\end_layout
+
+\begin_layout Itemize
+an array of struct/union - we return a Python list of StructResult objects
+ 
+\end_layout
+
+\begin_layout Standard
+Examples: 
+\end_layout
+
+\begin_layout Code
+    tcp_hashinfo = readSymbol('tcp_hashinfo')
+\end_layout
+
+\begin_layout Code
+    for addr in readSymbol('major_names'):
+\end_layout
+
+\begin_layout Code
+        print addr
+\end_layout
+
+\begin_layout Standard
+In some cases we know the definition of the symbol but this information
+ is not accessible from the dump.
+ This happens, for example, when symbol definition resides in a loadable
+ module.
+ We still can obtain symbol's address but cannot find its definition.
+ In this case you can pass a 2nd argument as a string containing C-statement
+ with variable definition ('art' stands for 'artificial').
+ Example: 
+\end_layout
+
+\begin_layout Code
+    # On those kernels where unix sockets are built as a module, we cannot
+ find
+\end_layout
+
+\begin_layout Code
+    # symbolic info for unix_socket_table
+\end_layout
+
+\begin_layout Code
+    try:
+\end_layout
+
+\begin_layout Code
+        ust = whatis("unix_socket_table")
+\end_layout
+
+\begin_layout Code
+        unix_socket_table = readSymbol("unix_socket_table")
+\end_layout
+
+\begin_layout Code
+    except:
+\end_layout
+
+\begin_layout Code
+        descr = "struct hlist_head unix_socket_table[257];"
+\end_layout
+
+\begin_layout Code
+        print "We don't have symbolic access to unix_socket_table, assuming"
+\end_layout
+
+\begin_layout Code
+        print descr
+\end_layout
+
+\begin_layout Code
+        unix_socket_table = readSymbol("unix_socket_table", descr)
+\end_layout
+
+\begin_layout Description
+readSUListFromHead - read a linked list of struct/union
+\end_layout
+
+\begin_layout Code
+pairlist = readSUListFromHead(off_need, off_list, addr, inchead = False)
+ 
+\end_layout
+
+\begin_layout Code
+
+\end_layout
+
+\begin_layout Standard
+We specify two offsets and address of the 1st list_head structure.
+ We assume that list_head structure is embedded in our structure of real
+ interest.
+ Offsets can be specified either as integers or symbolic 'struct.field' format.
+ If addr is an integer, it is used as it is; if it is a string we assume
+ this is a name of a global variable and try to resolve it.
+ 
+\end_layout
+
+\begin_layout Code
+
+\end_layout
+
+\begin_layout Standard
+We return a list of (addr1, addr2) values where addr1 is the address of
+ the struct where list_head is embedded, addr2 is the value of the field
+ at offset off_need 
+\end_layout
+
+\begin_layout Standard
+This is a bit tricky, you need to read Linux documentation about the standard
+ approach to linked lists using list_head structures.
+ 
+\end_layout
+
+\begin_layout Standard
+Example: 
+\end_layout
+
+\begin_layout Code
+u = {}
+\end_layout
+
+\begin_layout Code
+for addr, val in readSUListFromHead('block_device.bd_disk', 'block_device.bd_list'
+,
+\end_layout
+
+\begin_layout Code
+                                           'all_bdevs'):
+\end_layout
+
+\begin_layout Code
+    u[val] = 1
+\end_layout
+
+\begin_layout Standard
+And here are some relevant definitions: 
+\end_layout
+
+\begin_layout Code
+crash64> whatis all_bdevs
+\end_layout
+
+\begin_layout Code
+struct list_head all_bdevs;
+\end_layout
+
+\begin_layout Code
+crash64> struct block_device
+\end_layout
+
+\begin_layout Code
+struct block_device {
+\end_layout
+
+\begin_layout Code
+    dev_t bd_dev;
+\end_layout
+
+\begin_layout Code
+    struct inode *bd_inode;
+\end_layout
+
+\begin_layout Code
+    int bd_openers;
+\end_layout
+
+\begin_layout Code
+    struct semaphore bd_sem;
+\end_layout
+
+\begin_layout Code
+    struct semaphore bd_mount_sem;
+\end_layout
+
+\begin_layout Code
+    struct list_head bd_inodes;
+\end_layout
+
+\begin_layout Code
+    void *bd_holder;
+\end_layout
+
+\begin_layout Code
+    int bd_holders;
+\end_layout
+
+\begin_layout Code
+    struct block_device *bd_contains;
+\end_layout
+
+\begin_layout Code
+    unsigned int bd_block_size;
+\end_layout
+
+\begin_layout Code
+    struct hd_struct *bd_part;
+\end_layout
+
+\begin_layout Code
+    unsigned int bd_part_count;
+\end_layout
+
+\begin_layout Code
+    int bd_invalidated;
+\end_layout
+
+\begin_layout Code
+    struct gendisk *bd_disk;                             <=== we want these
+ structures
+\end_layout
+
+\begin_layout Code
+    struct list_head bd_list;                            <=== embedded list_head
+ 
+\end_layout
+
+\begin_layout Code
+    struct backing_dev_info *bd_inode_backing_dev_info;
+\end_layout
+
+\begin_layout Code
+    long unsigned int bd_private;
+\end_layout
+
+\begin_layout Code
+}
+\end_layout
+
+\begin_layout Code
+SIZE: 192
+\end_layout
+
+\begin_layout Description
+readList - traverse a simple linked list
+\end_layout
+
+\begin_layout Code
+ptrlist = readList(start, offset=0, maxel = 1000, inchead = True) 
+\end_layout
+
+\begin_layout Standard
+Returns a list of integers (addresses).
+ We assume that the list starts at 'start', the next pointer is at 'offset'.
+ List traversal stops when the next pointer is NULL, has the same value
+ as start or we have reached 'maxel' value (by default, 1000).
+ 'inchead' parameter specifies whether the result will include 'start' address
+ itself or not.
+ Some Linux kernel macros (e.g.
+ list_for_each_entry) assume that the head list_head structure is standalone
+ but the next nodes are embedded in some other structure.
+ In cases like that we don't want the address of the head itself to be included.
+ 
+\end_layout
+
+\begin_layout Description
+readPtr - read a pointer from address
+\end_layout
+
+\begin_layout Code
+newaddr = readPtr(addr) 
+\end_layout
+
+\begin_layout Standard
+Dereferences a pointer giving a new address.
+\end_layout
+
+\begin_layout Description
+readmem - read the needed number of bytes from memory
+\end_layout
+
+\begin_layout Code
+stringvalue = readmem(addr, size, memtype = 'KVADDR')
+\end_layout
+
+\begin_layout Standard
+Returns a String object (may contain any bytes including NULLs).
+ If you use this without C-extension loaded, you can read only 'KVADDR'
+ memory (this is what is needed in 99% of all cases).
+ If C-extension is loaded, you can specify UVADDR and PHYSADR too
+\end_layout
+
+\begin_layout Subsection
+Functions For Symbolic Info Access
+\end_layout
+
+\begin_layout Description
+symbol_exists - check whether the global symbol exists
+\end_layout
+
+\begin_layout Code
+boolval = symbol_exists(symbol) 
+\end_layout
+
+\begin_layout Standard
+returns True/False (or 0/1) depending on whether this symbol is present
+ in the kernel/dump symbol table 
+\end_layout
+
+\begin_layout Description
+sym2addr - return the address of symbol
+\end_layout
+
+\begin_layout Code
+addr = sym2addr(symbol) 
+\end_layout
+
+\begin_layout Standard
+Returns the address matching this symbol.
+ 
+\end_layout
+
+\begin_layout Description
+addr2sym - return the symbol name matching this addr
+\end_layout
+
+\begin_layout Code
+strval = addr2sym(addr) 
+\end_layout
+
+\begin_layout Standard
+Return the symbolic name matching this addr 
+\end_layout
+
+\begin_layout Description
+getSizeOf - return the size of type or symbol
+\end_layout
+
+\begin_layout Code
+size = getSizeOf(strval) 
+\end_layout
+
+\begin_layout Standard
+Emulates "C" macro sizeof(strval).
+ That is, it can be used both for types and global variables, e.g.
+ 
+\end_layout
+
+\begin_layout Code
+    sint = getSizeOf("unsigned long int")
+\end_layout
+
+\begin_layout Code
+    ssock = getSizeOf("struct sock")
+\end_layout
+
+\begin_layout Code
+    sizetable = getSizeOF("tcp_hashinfo")
+\end_layout
+
+\begin_layout Description
+struct_size - return the size of the struct or union
+\end_layout
+
+\begin_layout Code
+size = struct_size(sname) 
+\end_layout
+
+\begin_layout Standard
+This returns the size of struct or union based on its symbolic name.
+ It is somewhat similar to getSizeOf(sname) but will work for struct/union
+ only.
+ If this is not a struct/union or if this struct/union does not exists,
+ the function returns -1 
+\end_layout
+
+\begin_layout Description
+member_size - return the size of struct/union member
+\end_layout
+
+\begin_layout Code
+size = member_size(sname, mname) 
+\end_layout
+
+\begin_layout Standard
+Returns the size of struct/union member (if it exists), -1 otherwise.
+ sname is a string with struct name, mname is a string with member name
+ 
+\end_layout
+
+\begin_layout Description
+member_offset - return the offset of struct/union member
+\end_layout
+
+\begin_layout Code
+offset - member_offset(sname, mname) 
+\end_layout
+
+\begin_layout Standard
+Returns offset relative to struct/union 
+\end_layout
+
+\begin_layout Description
+getTypedefInfo - convert ''typedef'' to real type
+\end_layout
+
+\begin_layout Code
+strval = getTypedefInfo(ptype) 
+\end_layout
+
+\begin_layout Standard
+Can be used to find the real type of typedefs.
+ E.g.
+ for "__u32" we'll get "unsigned int".
+ If the type does not exits, returns None 
+\end_layout
+
+\begin_layout Subsubsection
+Working with struct/union representation
+\end_layout
+
+\begin_layout Standard
+In some cases you need to compute offsets manually or check whether a certain
+ field exists at all.
+ If we cannot use the simple functions described above (e.g.
+ 'member_offset') we can retrieve the full structure definition and access
+ information for individual fields.
+\end_layout
+
+\begin_layout Code
+info = getStructInfo(sname) 
+\end_layout
+
+\begin_layout Standard
+Here an argument is a string with structure/union name (including 'struct/union'
+ specifier) and result is an object that can be used for retrieving further
+ details.
+ Obtaining struct info is computationally expensive (at this moment we parse
+ the text output of 'ptype' command).
+ To improve the performance, we cache results using structure name as a
+ key.
+ So it's OK to call this function many times for the same type - the first
+ time the real parsing will be done and next invocations will reuse the
+ already available information.
+ You can use the obtained 'info' object to find many different things, for
+ example 
+\end_layout
+
+\begin_layout Itemize
+info.size returns the size of this structure
+\end_layout
+
+\begin_layout Itemize
+info.stype returns the type definition (e.g.
+ 'struct sock') 
+\end_layout
+
+\begin_layout Standard
+To obtain info about a specific field: 
+\end_layout
+
+\begin_layout Code
+fieldinfo = info[fieldname] 
+\end_layout
+
+\begin_layout Standard
+here the returned object will describe field-specific information.
+ Example: 
+\end_layout
+
+\begin_layout Code
+    rtable_i = getStructInfo("struct rtable")
+\end_layout
+
+\begin_layout Code
+    rt_next_off = rtable_i["u"].offset
+\end_layout
+
+\begin_layout Code
+    rt_next_size = rtable_i["u"].size
+\end_layout
+
+\begin_layout Standard
+Here we find the offset and size of field 'u' in 'struct rtable'.
+ Once again, in many cases we can do the same using simplified functions
+ (like 'member_offset/member_size').
+ 
+\end_layout
+
+\begin_layout Standard
+Using getStructInfo is mainly of interest for API developers, not end-users.
+ But there are some cases where there is no simplified API (yet).
+ For example, the structure definition may include several levels of 'internal'
+ struct definitions.
+ 
+\end_layout
+
+\begin_layout Code
+struct AAA {
+\end_layout
+
+\begin_layout Code
+  struct {
+\end_layout
+
+\begin_layout Code
+    int a;
+\end_layout
+
+\begin_layout Code
+    struct {
+\end_layout
+
+\begin_layout Code
+       void *a;
+\end_layout
+
+\begin_layout Code
+    } s2;
+\end_layout
+
+\begin_layout Code
+  } s1;
+\end_layout
+
+\begin_layout Code
+} t;
+\end_layout
+
+\begin_layout Standard
+In this case it is rather difficult to obtain info about 't.s1.s2.a'.
+ As a matter of fact, in some cases crash does not report offsets of nested
+ structs while using 'struct -o ...' command.
+ 
+\end_layout
+
+\begin_layout Standard
+Another case where we need to use StructInfo objects in programs is the
+ case when structure/union definition is missing in vmlinux/vmcore.
+ There are even some cases when it is there but crash is not able to retrieve
+ it! In such cases we can create 'artificial' StructInfo objects.
+ Here is a practical example how to create 'struct sock_inet' when its definitio
+n is missing: 
+\end_layout
+
+\begin_layout Code
+    # Let us create inet_sock if needed
+\end_layout
+
+\begin_layout Code
+    if (struct_size("struct inet_sock") == -1):
+\end_layout
+
+\begin_layout Code
+        as = ArtStructInfo("struct inet_sock")
+\end_layout
+
+\begin_layout Code
+        as.append("struct sock    sk;")
+\end_layout
+
+\begin_layout Code
+        if (symbol_exists("tcpv6_protocol") and
+\end_layout
+
+\begin_layout Code
+            symbol_exists("udpv6_protocol")):
+\end_layout
+
+\begin_layout Code
+            print "Adding struct ipv6_pinfo *pinet6;"
+\end_layout
+
+\begin_layout Code
+            as.append("struct ipv6_pinfo *pinet6;")
+\end_layout
+
+\begin_layout Code
+        iopti = getStructInfo("struct inet_opt")
+\end_layout
+
+\begin_layout Code
+        as.append(iopti)
+\end_layout
+
+\begin_layout Code
+        # print as
+\end_layout
+
+\begin_layout Code
+        # tcp_sock is inet_sock followed by tcp_opt
+\end_layout
+
+\begin_layout Code
+        tas = ArtStructInfo("struct tcp_sock")
+\end_layout
+
+\begin_layout Code
+        tas.append(as)
+\end_layout
+
+\begin_layout Code
+        tas.append("struct tcp_opt tcp;")
+\end_layout
+
+\begin_layout Standard
+We start from creating an empty 'artificial' StructInfo object specifying
+ its name.
+ After that we need to fill-in the info.
+ We can do this in two ways: 
+\end_layout
+
+\begin_layout Itemize
+copying info from already existing definitions, retrieved from the dump/vmlinux
+ 
+\end_layout
+
+\begin_layout Itemize
+add definitions using syntax similar to "C".
+ 
+\end_layout
+
+\begin_layout Standard
+In the example above we start from adding "struct sock sk;" as the first
+ field.
+ After that we conditionally add "struct ipv6_pinfo *pinet6;".
+ Finally, we obtain info about "struct inet_opt" using getStructInfo() and
+ append it.
+ 
+\end_layout
+
+\begin_layout Standard
+The created 'as' object is added to StructInfo cache so that it can be used
+ by other functions just as a real structinfo.
+ In particular, after constructing "struct inet_sock" we are using it to
+ construct "struct tcp_sock".
+ 
+\end_layout
+
+\begin_layout Standard
+Artificial unions can be constructed in a similar way using ArtUnionInfo.
+ The main difference between ArtStructInfo and ArtUnionInfo objects is that
+ for structs when we append new fields, their offset is increasing according
+ to type size; for unions all offsets are just zero.
+ 
+\end_layout
+
+\begin_layout Subsubsection
+Loading Extra Debugging Modules
+\end_layout
+
+\begin_layout Standard
+To be written
+\end_layout
+
+\begin_layout Subsubsection
+Error Processing
+\end_layout
+
+\begin_layout Standard
+To be written
+\end_layout
+
+\end_body
+\end_document

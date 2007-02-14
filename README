@@ -1,0 +1,58 @@
+This is a framework for programmatic dump-analysis on Linux using
+Python as an extension language for 'crash' tool. Even though there are still
+many things to do, it is always quite usable. The framework has been
+successfully used on X86 platform and AMD64 (both 32 and 64 bits). Preliminary
+testing has been done on Itanium (IA64) but it is not as well tested yet.
+
+License: GPL
+URL: http://sourceforge.net/projects/pykdump/
+
+For installation instructions, see INSTALL.
+
+QuickStart
+----------
+
+There are two ways to invoke programs written in Python:
+
+1. Start 'crash' with needed parameters, then load the extension using 'extend'
+command. The easiest way to automate this is to create .crashrc file (either
+in your home directory, or current directory) and add to it something like
+
+extend /usr/local/lib/pykdump32.so
+
+
+This will load the extension every time you start 'crash'.
+
+After that you invoke your program in the following way:
+
+crash> epython progname.py arg1 ...
+
+For example:
+
+{asid 15:37:00} crash32  /data/Dumps/Fermi/vmlinux-2.4.21-47.ELsmp \
+     /data/Dumps/Fermi/vmcore
+
+crash32 4.0-3.12
+...
+crash32> extend /uuu/users/sid/tools/pykdump/Extension/pykdump32.so
+/uuu/users/sid/tools/pykdump/Extension/pykdump32.so: shared object loaded
+crash32> epython progs/netdev.py
+...
+
+  --   0.82s --
+
+
+2. You can start programs by running them directly from shell - in this case
+the program will start 'crash' session (using pexpect module), load the extension,
+and invoke your program via 'epython'
+
+{asid 15:41:16} progs/netdev.py /data/Dumps/Fermi
+crash32  /data/Dumps/Fermi/vmlinux-2.4.21-47.ELsmp /data/Dumps/Fermi/vmcore
+epython progs/netdev.py /data/Dumps/Fermi
+--------------------------------------------------
+...
+  --   0.38s --
+
+
+3. Examples are provided in a separate package, 'LinuxDump', that can be
+loaded from the same SourceForge site site

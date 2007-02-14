@@ -1,0 +1,31 @@
+This is a Linux Dump-analysis library and some programs using it
+
+License: GPL
+
+At this moment this is mainly a proof of concept, the programs are not finished
+yet. The main idea is to collect generic functions in a library LinuxDump,
+to reuse them in applications. For example, a library function will return
+a list of 'tcp_sock' structures obtained from different hash-tables, and then
+applications will extract further details as needed. Some programs should be
+useful for everybody - for example, printing routing tables from dump.
+
+Installation
+------------
+
+Pre-requisite: 'pykdump' module and extension should be installed first
+
+1. Run 'python setup.py install' - this will install 'LinuxDump' module.
+
+2. There are three programs that are provided mainly for illustration
+purposes. They are not complete yet, but are already quite useful!
+
+- dev.py	- emulates 'dev' crash built-in
+
+- netdev.py	- prints information about networking devices
+
+- xportshow.py	- prints IPv4 info (similar to 'netstat -an'), routing table
+		  and protocol handlers stack (those added by dev_add_pack())
+
+
+
+

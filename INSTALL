@@ -1,0 +1,103 @@
+Installation instructions
+-------------------------
+
+At this moment there are no binary distributions available, you need to compile
+from sources.
+
+Before doing anything else, please install the following components:
+
+1. CRASH can be obtained from http://people.redhat.com/anderson
+2. Python programming language with runtime libraries, http://www.python.org
+3. PyParsing module, http://pyparsing.wikispaces.com/
+4. Pexpect, a Pure Python Expect-like module, http://pexpect.sourceforge.net/
+
+All these tools have licenses compatible with GPL and can be downloaded from
+sites referenced above. They are usually included in Linux distributions so
+it may be not necessary to download/install them separately if your
+distribution already has them. But at this moment you _need_ to compile
+'crash' from sources as we need to link against it.
+
+Compiling CRASH
+---------------
+
+Download a recent version from URL above and unpack it. Before compiling,
+edit extensions.c file and change the line
+
+        ext->handle = dlopen(ext->filename, RTLD_NOW);
+
+to
+
+        ext->handle = dlopen(ext->filename, RTLD_NOW | RTLD_GLOBAL);
+
+(i.e. add RTLD_GLOBAL flag - this is needed for Python to be able to use
+its C-extenstions implemented as shared libraries).
+
+After that do 'make' and copy the resulting binary to a directory in your PATH,
+e.g. /usr/local/bin. I recommend to rename the resulting executable to
+'crash32' on 32-bit platforms and to 'crash64' on 64-bit platforms. The reason
+for that is that it is possible to analyze both 32-bit and 64-bit dumps on AMD64
+- but you need different crash executables for that (crash32 compiled for
+32-bits and crash64 compiled for 64 bits)
+
+WARNING: it seems that 'crash' makefiles are not written very cleanly - if
+you interrupt compilation process with ^C and start 'make' again, it
+sometime fails.
+
+Installing Python
+-----------------
+
+All modern distributions usually include Python. The framework has been tested
+with Python-2.4 and Python-2.4; it may not work with eaelier versions of Python
+(some library functions can be missing). If needed, you can always compile
+Python froms sources yourself.
+
+Installing Pexpect and Pyparsing
+--------------------------------
+
+On Ubuntu/Edgy these packages are already available. Otherwise, you can
+download them and install following the instructions. Basically, after
+unpacking them you run 'python setup.py install' and this installs
+packages into you standard Python site-packages/
+
+Installing Pykdump
+------------------
+
+After unpacking the distribution, compile the extension. To do this,
+go to Extension subdirectory and copy Makefile.dist to Makefile. Edit it to
+match you 'crash' sources directory. For example,
+
+CRASHSRCDIR := /src/kerntools/crash-4.0-3.12
+
+
+After that run 'make', this should create pykdump32.so file (on a 32-bit
+X86) or pykdump64.so on AMD64 running 64-bits. After that you can copy this
+file to a directory of your choice or do 'make install' to install it in
+/usr/local/lib
+
+Edit your ~/.crashrc file and add a line to load this module automatically.
+Note: the name of this initialization file is derived from the name of 'crash'
+executables, so for crash32 it will be .crash32rc, for crash64 .crash64rc.
+This makes it possible to use different initializations for 32-bit and 64-bit
+executables.
+
+After extension is compiled/installed, go to top directory of Pykdump unpacked
+distribution and run 'python setup.py install' - this will install Pykdump
+package in site-packages/.
+
+If you have several versions of Python installed on your host, you can specify
+the needed version in the following way:
+
+For compiling the extension, do something like
+
+{asid 16:13:57} make PYTHON=python2.5
+gcc -pthread -c -fPIC -DX86 -I/src/kerntools/crash-4.0-3.12 -I/usr/include/python2.5 epython.c -o epython.o
+gcc -pthread -c -fPIC -DX86 -I/src/kerntools/crash-4.0-3.12 -I/usr/include/python2.5 functions.c -o functions.o
+gcc -pthread -nostartfiles -shared   -nostartfiles -shared -Xlinker -export-dynamic  epython.o functions.o -o pykdump32.so  -lpthread -ldl  -lutil -L. -lpython2.5 -lm
+
+
+For installing Python Pykdump module, do
+
+{asid 16:14:34} python2.5 setup.py install
+...
+
+

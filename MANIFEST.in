@@ -1,0 +1,5 @@
+include README INSTALL COPYING TODO
+recursive-include Extension *.c *.py Makefile.dist
+recursive-include html *.html
+recursive-include docs *.lyx *.pdf
+prune Extension/Python32
