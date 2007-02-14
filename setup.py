@@ -3,7 +3,7 @@
 from distutils.core import setup
 
 setup(name='Pykdump',
-      version='0.1',
+      version='0.2',
       description='Python API For Linux Kernel Dumps',
       author='Alex Sidorenko',
       author_email='asid@hp.com',

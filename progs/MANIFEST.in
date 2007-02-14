@@ -1,2 +1,2 @@
 recursive-include LinuxDump *.py
-include dev.py xportshow.py netdev.py
+include dev.py xportshow.py

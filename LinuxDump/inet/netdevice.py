@@ -1,6 +1,6 @@
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <07/02/14 10:48:57 alexs>
+# Time-stamp: <07/02/14 11:29:42 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -489,6 +489,12 @@ def print_If(dev, details):
 
     print "    flags=<%s>" % flags
 
+    # Bonding info
+    try:
+        master = dev.Deref.master
+        print "    master=%s" % master.name
+    except IndexError:
+        pass
     if (not details):
         return
     print "    LINK_STATE %3d %s" %(dev.state, decodeDevState(dev.state))

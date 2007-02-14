@@ -29,7 +29,7 @@
 
 int debug = 0;
 
-static const char *crash_version = "0.1";
+static const char *crash_version = "0.2";
 
 /* Initialize the crashmodule stuff */
 void initcrash(const char *) ;

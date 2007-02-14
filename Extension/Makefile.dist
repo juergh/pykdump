@@ -7,6 +7,12 @@ CRASHSRCDIR := /src/kerntools/crash-4.0-3.12
 
 PYTHON := python
 
+INSTALL := /usr/bin/install
+
+# This is a directory where extension file will be copied
+DESTDIR := /usr/local/lib
+DIRMODE= 755
+
 ifdef STATICBUILD
   DEFINES := -DSTATICBUILD
   buildtype := --static
@@ -26,16 +32,19 @@ INCLUDES := -I$(CRASHSRCDIR) $(PYINCLUDE)
 DEFINES += -D$(TARGET)
 
 
+# Older 'make' does not support 'else ifeq'
+
+EXT = pykdump64.so
 
 ifeq ($(TARGET),X86)
   EXT = pykdump32.so
-else ifeq ($(TARGET),X86_64)
-  EXT = pykdump64.so
-else
-  EXT = pykdump.so
 endif
 
-.PHONY: clean distclean
+ifeq ($(TARGET),X86_64)
+  EXT = pykdump64.so
+endif
+
+.PHONY: clean distclean install
 
 %o: %c
 	$(CC) -c $(CFLAGS) $(DEFINES) $(INCLUDES) $< -o $@
@@ -43,6 +52,13 @@ endif
 
 $(EXT): epython.o functions.o
 	$(CC) -nostartfiles -shared  $(LINKFLAGS)  $^ -o $@  $(LIBS)
+
+install: $(EXT)
+	if test ! -d $(DESTDIR); then \
+		echo "Creating directory $(DESTDIR)"; \
+		$(INSTALL) -d -m $(DIRMODE) $(DESTDIR); \
+	fi;
+	$(INSTALL) $(EXT) $(DESTDIR)
 
 clean:
 	rm -f epython.o functions.o $(EXT)

@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/02/12 15:17:53 alexs>
+# Time-stamp: <07/02/14 11:04:48 alexs>
 
 # This is the only module from pykdump that should be directly imported
 # by applications. We want to hide the details of specific implementation from
@@ -329,8 +329,13 @@ def getDebugDir():
 #  MODULE   NAME          SIZE  OBJECT FILE
 # f8a95800  sunrpc      139173  /data/Dumps/test/sunrpc.ko.debug
 
+__loaded_Mods = {}
 def loadModule(modname, ofile = None):
     """Load module file into crash"""
+    try:
+        return __loaded_Mods[modname]
+    except KeyError:
+        pass
     if (ofile == None):
         for t in sys_info.debuginfo:
             ofile = possibleModuleNames(t, modname)
@@ -341,7 +346,9 @@ def loadModule(modname, ofile = None):
     if (ofile == None):
         return False
     rc = exec_crash_command("mod -s %s %s" % (modname, ofile))
-    return (rc.find("MODULE") != -1)
+    success = (rc.find("MODULE") != -1)
+    __loaded_Mods[modname] = success
+    return success
     
 # Execute 'sys' command and put its split output into a dictionary
 # Some names contain space and should be accessed using a dict method, e.g.

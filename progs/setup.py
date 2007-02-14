@@ -3,7 +3,7 @@
 from distutils.core import setup
 
 setup(name='LinuxDump',
-      version='0.1',
+      version='0.2',
       description='Linux Dump Analysis Using Pykdump',
       author='Alex Sidorenko',
       author_email='asid@hp.com',

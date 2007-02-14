@@ -1,7 +1,7 @@
 """PyKdump Python API for CRASH Dumpanalysis Tool
 """
 # Version number
-__version__ = '0.1'
+__version__ = '0.2'
 
 # Copyright notice string
 __copyright__ = """\
