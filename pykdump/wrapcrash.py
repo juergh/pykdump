@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/02/14 09:22:12 alexs>
+# Time-stamp: <07/02/15 15:06:09 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -199,6 +199,14 @@ class Dereference:
         stype = self.sr.PYT_sinfo[f].basetype
         return readSU(stype, addr) 
 
+
+# A cache to simplify access fo StructResult atributes. Indexed by
+# (PYT_symbol, attr)
+# Value is (type,  off, sz, signed)
+# At this moment for 1-dim
+# integer values only
+_cache_access = {}
+
 # Raw Struct Result - read directly from memory, lazy evaluation
 
 
@@ -253,11 +261,35 @@ class StructResult(object):
 	else:
 	    return StructResult(sname, self.PYT_addr)
 	
-    
+
     # It is highly untrivial to read the field properly as there
     # are many subcases. We probably need to split it into several subroutines,
     # maybe internal to avoid namespace pollution
     def __getattr__(self, name):
+        # First of all, try to use shortcut from cache
+        cacheind = (self.PYT_symbol, name)
+        try:
+            itype, off, sz, signed = _cache_access[cacheind]
+            s = self.PYT_data[off:off+sz]
+            fieldaddr = self.PYT_addr + off
+            #print "_cache_access", cacheind, itype
+            if (itype == "Int"):
+                return  mem2long(s, signed=signed)
+            elif (itype == "String"):
+                val = mem2long(s)
+                if (val == 0):
+                    val = None
+                else:
+                    s = readmem(val, 256)
+                    val = SmartString(s, fieldaddr)
+                return  val
+            elif (itype == "CharArray"):
+                return SmartString(s, fieldaddr)
+            else:
+                raise TypeError
+        except KeyError:
+            pass
+        
         # A special case - dereference
         if (name == self.PYT_deref):
             return Dereference(self)
@@ -365,6 +397,7 @@ class StructResult(object):
                 # Return it as a string - may contain ugly characters!
                 # not NULL-terminated like String reprtype
                 val = SmartString(s, fieldaddr)
+                _cache_access[cacheind] = ("CharArray", off, sz, False)
         elif (reprtype == "String" and dim == 1):
             val = mem2long(s)
             if (val == 0):
@@ -372,6 +405,7 @@ class StructResult(object):
             else:
                 s = readmem(val, 256)
                 val = SmartString(s, fieldaddr)
+            _cache_access[cacheind] = ("String", off, sz, False)
         else:
             # ----- A kitchen sink: integer types --------
             signed = False
@@ -384,9 +418,12 @@ class StructResult(object):
                 if (ni.has_key("bitfield")):
                     val = (val&(~(~0<<ni.bitoffset+ ni.bitfield)))>>ni.bitoffset
                 # Are we SUptr?
-                if (reprtype == "SUptr"):
+                elif (reprtype == "SUptr"):
                     val =  _SUPtr(val)
                     val.sutype = stype
+                else:
+                    pass
+                    _cache_access[(self.PYT_symbol, name)]=("Int", off, sz, signed)
             elif (dim == 0):
                 # We assume we should return a pointer to this offset
                 val = fieldaddr
