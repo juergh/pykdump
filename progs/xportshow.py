@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/02/12 15:37:03 alexs>
+# Time-stamp: <07/02/15 15:57:44 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -560,3 +560,6 @@ if ( __name__ == '__main__'):
             print_UNIX()
 
 
+
+from pykdump.wrapcrash import print_stats
+print_stats()
