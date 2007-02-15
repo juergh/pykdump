@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/02/14 11:04:48 alexs>
+# Time-stamp: <07/02/15 15:52:35 alexs>
 
 # This is the only module from pykdump that should be directly imported
 # by applications. We want to hide the details of specific implementation from
@@ -439,6 +439,10 @@ def openDump():
               action="store", type="int",
               help="enable debugging output")
 
+    op.add_option("--experimental", dest="experimental", default=0,
+              action="store_true",
+              help="enable experimental features (for developers only)")
+
     # Before real parsing, separate API-options from
     # userscript-options
 
@@ -455,6 +459,7 @@ def openDump():
     useext = o.UseExt                   # Use extension if possible
 
     debug = API_options.debug = o.debug
+    wrapcrash.experimental = API_options.experimental = o.experimental
     
 
     filtered_argv = [script]

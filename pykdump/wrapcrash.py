@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/02/15 15:06:09 alexs>
+# Time-stamp: <07/02/15 16:03:02 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -214,6 +214,8 @@ _cache_access = {}
 # has a field with the same name as one of our methods. I am not sure
 # whether we shall ever meet this but just in case there should be a method
 # to bypass the normal accessor approach (GDBderef at this moment)
+count_cached_attr = 0
+count_total_attr = 0
 class StructResult(object):
     def __init__(self, sname, addr, data = None):
         # If addr is symbolic, convert it to real addr
@@ -266,48 +268,57 @@ class StructResult(object):
     # are many subcases. We probably need to split it into several subroutines,
     # maybe internal to avoid namespace pollution
     def __getattr__(self, name):
+        # For some reason sk.__sk_common does not work as expected
+        # when we do this inside a class method. For example,
+        # if we do this inside 'class IP_conn',
+        # it passes to __getattr__  '_IP_conn__sk_common'
+        # Python mangling is applied to class attributes starting from
+        # two underscores - but why do we append _IP_Conn to an attribute
+        # of StructResult?.
+        ind = name.find('__')
+        if (ind > 0):
+            name = name[ind:]
+
+        global count_total_attr, count_cached_attr
+
+        count_total_attr += 1
         # First of all, try to use shortcut from cache
         cacheind = (self.PYT_symbol, name)
-        try:
-            itype, off, sz, signed = _cache_access[cacheind]
-            s = self.PYT_data[off:off+sz]
-            fieldaddr = self.PYT_addr + off
-            #print "_cache_access", cacheind, itype
-            if (itype == "Int"):
-                return  mem2long(s, signed=signed)
-            elif (itype == "String"):
-                val = mem2long(s)
-                if (val == 0):
-                    val = None
+        if (experimental):
+            try:
+                itype, off, sz, spec = _cache_access[cacheind]
+                count_cached_attr += 1
+                s = self.PYT_data[off:off+sz]
+                fieldaddr = self.PYT_addr + off
+                #print "_cache_access", cacheind, itype, off, sz, spec
+                if (itype == "Int"):
+                    return  mem2long(s, signed=spec)
+                elif (itype == "String"):
+                    val = mem2long(s)
+                    if (val == 0):
+                        val = None
+                    else:
+                        s = readmem(val, 256)
+                        val = SmartString(s, fieldaddr)
+                    return  val
+                elif (itype == "CharArray"):
+                    return SmartString(s, fieldaddr)
+                elif (itype == "SU"):
+                    return  StructResult(spec, fieldaddr, s)
+                elif (itype == "SUptr"):
+                    val =  _SUPtr(mem2long(s))
+                    val.sutype = spec
+                    return val
                 else:
-                    s = readmem(val, 256)
-                    val = SmartString(s, fieldaddr)
-                return  val
-            elif (itype == "CharArray"):
-                return SmartString(s, fieldaddr)
-            else:
-                raise TypeError
-        except KeyError:
-            pass
+                    raise TypeError
+            except KeyError:
+                pass
         
         # A special case - dereference
         if (name == self.PYT_deref):
             return Dereference(self)
-        try:
-            ni = self.PYT_sinfo[name]
-        except KeyError:
-            # For some reason sk.__sk_common does not work as expected
-            # when we do this inside a class methog. For example,
-            # if we do this inside 'class IP_conn',
-            # it passes to __getattr__  '_IP_conn__sk_common'
-            # Python mangling is applied to class attributes starting from
-            # two underscores - but why do we append _IP_Conn to an attribute
-            # of StructResult?.
-            ind = name.find('__')
-            if (ind == -1):
-                raise KeyError, name
-            else:
-                ni = self.PYT_sinfo[name[ind:]]
+
+        ni = self.PYT_sinfo[name]
 
         #print "NI", ni
         sz = ni.size
@@ -388,6 +399,7 @@ class StructResult(object):
             else:
 		# We return this in case of SU with an 'external' type
                 val = StructResult(ftype, fieldaddr, s)
+                _cache_access[cacheind]= ("SU", off, sz, ftype)
             # ------- end of SU --------------------
         elif (reprtype == "CharArray"):
 	    if (dim == 0):
@@ -397,7 +409,7 @@ class StructResult(object):
                 # Return it as a string - may contain ugly characters!
                 # not NULL-terminated like String reprtype
                 val = SmartString(s, fieldaddr)
-                _cache_access[cacheind] = ("CharArray", off, sz, False)
+                _cache_access[cacheind] = ("CharArray", off, sz, None)
         elif (reprtype == "String" and dim == 1):
             val = mem2long(s)
             if (val == 0):
@@ -405,7 +417,7 @@ class StructResult(object):
             else:
                 s = readmem(val, 256)
                 val = SmartString(s, fieldaddr)
-            _cache_access[cacheind] = ("String", off, sz, False)
+            _cache_access[cacheind] = ("String", off, sz, None)
         else:
             # ----- A kitchen sink: integer types --------
             signed = False
@@ -421,9 +433,10 @@ class StructResult(object):
                 elif (reprtype == "SUptr"):
                     val =  _SUPtr(val)
                     val.sutype = stype
+                    _cache_access[cacheind]=("SUptr", off, sz, stype)
                 else:
                     pass
-                    _cache_access[(self.PYT_symbol, name)]=("Int", off, sz, signed)
+                    _cache_access[cacheind]=("Int", off, sz, signed)
             elif (dim == 0):
                 # We assume we should return a pointer to this offset
                 val = fieldaddr
@@ -440,7 +453,7 @@ class StructResult(object):
 
                     val.append(val1)
 
-            # OK, if this is pointer to char, retrieve the string. To prevent
+            # OK, if this is a pointer to char, retrieve the string. To prevent
             # problems because of bogus strings, do no retrieve more than 256 bytes
         #self.__dict__[name] = val
         return val
@@ -1182,3 +1195,6 @@ try:
     GDBmember_offset = crash.member_offset
 except:
     pass
+
+def print_stats():
+    print "count_cached_attr=%d (%d)" % (count_cached_attr, count_total_attr)
