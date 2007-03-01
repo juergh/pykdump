@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/02/15 15:57:44 alexs>
+# Time-stamp: <07/03/01 15:38:46 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -405,7 +405,7 @@ def printTaskSockets(t):
 		sockopt = sock
             print IPv4_conn(left='\t', sock=sockopt)
 
-def print_iface(details=False):
+def print_iface(if1="", details=False):
 
     # read device list starting from dev_base
 
@@ -413,7 +413,8 @@ def print_iface(details=False):
     dev_base = readSymbol("dev_base")
     for a in readList(dev_base, offset):
         dev = readSU("struct net_device", a)
-        netdevice.print_If(dev, details)
+        if (if1 == "" or if1 == dev.name):
+            netdevice.print_If(dev, details)
 
 # Print syctl info for net.
 def print_sysctl():
@@ -466,6 +467,10 @@ if ( __name__ == '__main__'):
                   action="store_true",
                   help="Print Interface Info")
 
+    op.add_option("--interface", dest="If1", default = "",
+                  action="store",
+                  help="Limit output to the specified interface only")
+
     op.add_option("-l", "--listening", dest="Listen", default = 0,
                   action="store_true",
                   help="Print LISTEN sockets only")
@@ -516,7 +521,7 @@ if ( __name__ == '__main__'):
         sys.exit(0)
 
     if (o.Ifaces):
-        print_iface(details)
+        print_iface(o.If1, details)
         sys.exit(0)
 
     if (o.Summary):

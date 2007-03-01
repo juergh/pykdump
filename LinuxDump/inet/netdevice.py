@@ -1,6 +1,6 @@
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <07/02/14 11:29:42 alexs>
+# Time-stamp: <07/03/01 15:30:24 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -177,7 +177,26 @@ def decodeDevState(state):
         if ((state >> val) & 1):
             outstr.append(name[lpref:])
     return "(" + string.join(outstr, '|') + ")"
-    
+
+
+__NETIF_FEATURES_c = '''
+#define NETIF_F_SG		1	/* Scatter/gather IO. */
+#define NETIF_F_IP_CSUM		2	/* Can checksum only TCP/UDP over IPv4. */
+#define NETIF_F_NO_CSUM		4	/* Does not require checksum. F.e. loopack. */
+#define NETIF_F_HW_CSUM		8	/* Can checksum all the packets. */
+#define NETIF_F_HIGHDMA		32	/* Can DMA to high memory. */
+#define NETIF_F_FRAGLIST	64	/* Scatter/gather IO. */
+#define NETIF_F_HW_VLAN_TX	128	/* Transmit VLAN hw acceleration */
+#define NETIF_F_HW_VLAN_RX	256	/* Receive VLAN hw acceleration */
+#define NETIF_F_HW_VLAN_FILTER	512	/* Receive filtering on VLAN */
+#define NETIF_F_VLAN_CHALLENGED	1024	/* Device cannot handle VLAN packets */
+#define NETIF_F_TSO		2048	/* Can offload TCP/IP segmentation */
+#define NETIF_F_LLTX		4096	/* LockLess TX */
+#define NETIF_F_UFO             8192    /* Can offload UDP Large Send*/
+'''
+NETIF_FEATURES = CDefine(__NETIF_FEATURES_c)
+
+
 # Print QDisc data if possible
 def printQdisc(qdisc):
     qdiscalign = 32
@@ -468,6 +487,7 @@ def print_If(dev, details):
     last_rx = dev.last_rx
     trans_start = dev.trans_start
     flags = dbits2str(dev.flags, IFF_FLAGS)
+    features = dbits2str(dev.features, NETIF_FEATURES, 8)
     # If this is Ethernet, print its MAC-address
     if (dev.type == ARP_HW.ARPHRD_ETHER):
         da = dev.dev_addr
@@ -488,6 +508,8 @@ def print_If(dev, details):
                                            ifa.prefix_len)
 
     print "    flags=<%s>" % flags
+    if (features):
+        print "    features=<%s>" % features
 
     # Bonding info
     try:
