@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <06/11/27 14:49:59 alexs>
+  Time-stamp: <07/02/28 14:46:36 alexs>
 
   Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -559,6 +559,24 @@ py_getFullBuckets(PyObject *self, PyObject *args) {
   free(buffer);
   return list;
 }
+
+#if 0
+#include "gdb-6.1/gdb/objfiles.h"
+
+static CORE_ADDR
+ia64_convert_from_func_ptr_addr (CORE_ADDR addr)
+{
+  struct obj_section *s;
+
+  s = find_pc_section (addr);
+
+  /* check if ADDR points to a function descriptor.  */
+  if (s && strcmp (s->the_bfd_section->name, ".opd") == 0)
+    return read_memory_unsigned_integer (addr, 8);
+
+  return addr;
+}
+#endif
 
 static PyMethodDef crashMethods[] = {
   {"symbol_exists",  py_crash_symbol_exists, METH_VARARGS},

@@ -1,7 +1,7 @@
 #
 #  Code that does not depend on whether we use embedded API or PTY
 #
-# Time-stamp: <07/02/09 16:59:01 alexs>
+# Time-stamp: <07/03/01 15:29:55 alexs>
 #
 import string
 import pprint
@@ -220,7 +220,9 @@ def _smartType(fi):
     except:
         star = ''
 
-    if (stype == 'Char'):
+    if (fi.has_key('func')):
+        fullstype = 'Ptr'
+    elif (stype == 'Char'):
         if (star == '*'):
             fullstype = 'String'
         elif (fi.has_key("array")):
@@ -252,14 +254,14 @@ def printSICache():
 # names/values are in a dict-like object, return a string. For example,
 # decoding interface flags we will print "UP|BROADCAST|RUNNING|MULTICAST"
 
-def dbits2str(flags, d):
+def dbits2str(flags, d, offset = 0):
     out = ""
     for name, val in d.items():
         if (val and (flags & val)):
             if (out == ""):
-                out = name
+                out = name[offset:]
             else:
-                out += "|" + name
+                out += "|" + name[offset:]
     return out
 
 

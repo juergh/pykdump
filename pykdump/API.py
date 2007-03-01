@@ -1,6 +1,7 @@
 # module pykdump.API
 #
-# Time-stamp: <07/02/15 15:52:35 alexs>
+# Time-stamp: <07/03/01 15:42:10 alexs>
+
 
 # This is the only module from pykdump that should be directly imported
 # by applications. We want to hide the details of specific implementation from
@@ -33,7 +34,7 @@ import pykdump                          # For version check
 import sys, os, os.path
 import zlib
 
-from optparse import OptionParser
+from optparse import OptionParser, Option
 
 # Check the version of Python interpreter we are using
 if (sys.maxint < 2**32):
@@ -407,6 +408,15 @@ def __findFile(dirlist, fname):
             return pathname
     return None
 
+class SOption(Option):
+    def take_action(self, action, dest, opt, value, values, parser):
+        if (action == "help"):
+            parser.print_help()
+        else:
+            Option.take_action(self, action, dest, opt, value, values, parser)
+        return 1
+
+
 
 # This routine is called automatically when you import API. It analyzes
 # sys.argv to obtain info about dump location when the script is running
@@ -422,7 +432,7 @@ def __findFile(dirlist, fname):
 def openDump():
     """Open dump by executing 'crash' if needed."""
     
-    op = OptionParser()
+    op = OptionParser(add_help_option=False, option_class=Option)
     op.add_option("--ext", dest="UseExt",
               action="store", type="int", default=1,
               help="enable/disable extension if available")
@@ -439,6 +449,10 @@ def openDump():
               action="store", type="int",
               help="enable debugging output")
 
+    op.add_option("-h", "--help", dest="help",
+              action="store_true",
+              help="print help")
+ 
     op.add_option("--experimental", dest="experimental", default=0,
               action="store_true",
               help="enable experimental features (for developers only)")
@@ -465,6 +479,10 @@ def openDump():
     filtered_argv = [script]
     if (uargs):
         filtered_argv += uargs
+    if (o.help):
+        print "Generic ",
+        op.print_help()
+        filtered_argv.append("--help")
     
     # Check whether we can import 'crash' - if yes, we are inside extension and
     # should not try to open the dump again
