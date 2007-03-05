@@ -221,7 +221,7 @@ def _smartType(fi):
         star = ''
 
     if (fi.has_key('func')):
-        fullstype = 'Ptr'
+        fullstype = 'FPtr'
     elif (stype == 'Char'):
         if (star == '*'):
             fullstype = 'String'

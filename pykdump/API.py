@@ -8,8 +8,8 @@
 # end-user. In particular, this module decides what backends to use
 # depending on availability of low-level shared library dlopened from crash
 #
-# Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -186,6 +186,9 @@ def initAfterDumpIsOpen():
 
     # Convert CPUS to integer
     sys_info.CPUS = int(sys_info.CPUS)
+    
+    # Extract hardware from MACHINE
+    sys_info.machine = wrapcrash.machine = sys_info["MACHINE"].split()[0]
     
     # This is where debug kernel resides
     try:

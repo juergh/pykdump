@@ -205,7 +205,7 @@ class Dereference:
 # Value is (type,  off, sz, signed)
 # At this moment for 1-dim
 # integer values only
-_cache_access = {}
+
 
 # Raw Struct Result - read directly from memory, lazy evaluation
 
@@ -217,6 +217,7 @@ _cache_access = {}
 count_cached_attr = 0
 count_total_attr = 0
 class StructResult(object):
+    _cache_access = {}
     def __init__(self, sname, addr, data = None):
         # If addr is symbolic, convert it to real addr
         if (type(addr) == types.StringType):
@@ -286,7 +287,7 @@ class StructResult(object):
         cacheind = (self.PYT_symbol, name)
         if (experimental):
             try:
-                itype, off, sz, spec = _cache_access[cacheind]
+                itype, off, sz, spec = StructResult._cache_access[cacheind]
                 count_cached_attr += 1
                 s = self.PYT_data[off:off+sz]
                 fieldaddr = self.PYT_addr + off
@@ -399,7 +400,7 @@ class StructResult(object):
             else:
 		# We return this in case of SU with an 'external' type
                 val = StructResult(ftype, fieldaddr, s)
-                _cache_access[cacheind]= ("SU", off, sz, ftype)
+                StructResult._cache_access[cacheind]= ("SU", off, sz, ftype)
             # ------- end of SU --------------------
         elif (reprtype == "CharArray"):
 	    if (dim == 0):
@@ -409,7 +410,7 @@ class StructResult(object):
                 # Return it as a string - may contain ugly characters!
                 # not NULL-terminated like String reprtype
                 val = SmartString(s, fieldaddr)
-                _cache_access[cacheind] = ("CharArray", off, sz, None)
+                StructResult._cache_access[cacheind] = ("CharArray", off, sz, None)
         elif (reprtype == "String" and dim == 1):
             val = mem2long(s)
             if (val == 0):
@@ -417,7 +418,7 @@ class StructResult(object):
             else:
                 s = readmem(val, 256)
                 val = SmartString(s, fieldaddr)
-            _cache_access[cacheind] = ("String", off, sz, None)
+            StructResult._cache_access[cacheind] = ("String", off, sz, None)
         else:
             # ----- A kitchen sink: integer types --------
             signed = False
@@ -433,10 +434,15 @@ class StructResult(object):
                 elif (reprtype == "SUptr"):
                     val =  _SUPtr(val)
                     val.sutype = stype
-                    _cache_access[cacheind]=("SUptr", off, sz, stype)
+                    StructResult._cache_access[cacheind]=("SUptr", off, sz, stype)
+		elif (reprtype == "FPtr"):
+		    # This is a function pointer - might be a function descriptor
+		    # (IA64)
+		    if (val and machine == "ia64"):
+			val = readPtr(val)
                 else:
                     pass
-                    _cache_access[cacheind]=("Int", off, sz, signed)
+                    StructResult._cache_access[cacheind]=("Int", off, sz, signed)
             elif (dim == 0):
                 # We assume we should return a pointer to this offset
                 val = fieldaddr
