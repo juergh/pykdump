@@ -1,7 +1,7 @@
 #
 #  Code that does not depend on whether we use embedded API or PTY
 #
-# Time-stamp: <07/03/01 15:29:55 alexs>
+# Time-stamp: <07/03/07 12:24:52 alexs>
 #
 import string
 import pprint
@@ -13,7 +13,6 @@ d = None
 
 # GLobals used my this module
 
-PYT__sinfo_cache = {}
 
 # The standard hex() appends L for longints
 def hexl(l):
@@ -37,6 +36,8 @@ EXTRASPECS = ('static', 'const', 'volatile')
 
 # Here we assume that the full type name is used - with struct/union word if needed
 class BaseStructInfo(dict):
+    # This is used for global caching of StructInfo
+    PYT__sinfo_cache = {}
     def __init__(self, stype):
         dict.__init__(self, {})
         self.stype = stype
@@ -57,6 +58,10 @@ class BaseStructInfo(dict):
         return "StructInfo <%s> size=%d" % (self.stype, self.size) +\
                "\n" + pp.pformat(self.body)
 
+    def addToCache(self):
+        stype = self.stype
+        #print "++Adding to cache: ", stype
+        BaseStructInfo.PYT__sinfo_cache[stype] = self
 
 
 
@@ -173,6 +178,11 @@ def _smartType(fi):
     # Analyse ctype
     def analyseCtype(ctype):
         spl = ctype.split()
+        # The new type can be a function declaration.
+        # At this moment we detect this by a presense of '(*)' string
+        if (ctype.find('(*)') != -1):
+            return 'FPtr'
+
         signtype = 'S'
         maintype = 'Int'
         if ('unsigned' in spl):
@@ -220,7 +230,7 @@ def _smartType(fi):
     except:
         star = ''
 
-    if (fi.has_key('func')):
+    if (fi.has_key('func') or fullstype == 'FPtr'):
         fullstype = 'FPtr'
     elif (stype == 'Char'):
         if (star == '*'):
@@ -235,19 +245,13 @@ def _smartType(fi):
     #print 'SMARTTYPE for <%s>  is %s (stype=%s)' % (fi.ctype, fullstype, stype)
     return fullstype
     
-def addSI2Cache(si):
-    global PYT__sinfo_cache
-    stype = si.stype
-    #print "++Adding to cache: ", stype
-    PYT__sinfo_cache[stype] = si
     
 def getSIfromCache(stype):
-    global PYT__sinfo_cache
-    return PYT__sinfo_cache[stype]
+    return BaseStructInfo.PYT__sinfo_cache[stype]
 
 # For debugging
 def printSICache():
-    pp.pprint(PYT__sinfo_cache.keys())
+    pp.pprint(BaseStructInfo.PYT__sinfo_cache.keys())
 
             
 # If 'flags' integer variable has some bits set and we assume their

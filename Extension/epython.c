@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <06/11/27 14:35:37 alexs>
+  Time-stamp: <07/03/06 12:08:01 alexs>
 
   Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -52,6 +52,59 @@ Py_Exit(int sts) {
     printf("sys.exit(%d)\n", sts);
 }
 #endif
+
+
+// The next pair of functions makes it possible to run some tasks
+// just before we start executing 'epython ...' and before we return
+// to 'crash' prompt
+
+// Entering
+static void
+call_sys_enterepython(void)
+{
+        PyObject *enterfunc = PySys_GetObject("enterepython");
+
+        if (enterfunc) {
+                PyObject *res;
+                Py_INCREF(enterfunc);
+                //PySys_SetObject("enterepython", (PyObject *)NULL);
+                res = PyEval_CallObject(enterfunc, (PyObject *)NULL);
+                if (res == NULL) {
+                        if (!PyErr_ExceptionMatches(PyExc_SystemExit)) {
+                                PySys_WriteStderr("Error in sys.enterepython:\n");
+                        }
+                        PyErr_Print();
+                }
+                Py_DECREF(enterfunc);
+        }
+
+        if (Py_FlushLine())
+                PyErr_Clear();
+}
+
+// Exiting
+static void
+call_sys_exitepython(void)
+{
+        PyObject *exitfunc = PySys_GetObject("exitepython");
+
+        if (exitfunc) {
+                PyObject *res;
+                Py_INCREF(exitfunc);
+                //PySys_SetObject("exitepython", (PyObject *)NULL);
+                res = PyEval_CallObject(exitfunc, (PyObject *)NULL);
+                if (res == NULL) {
+                        if (!PyErr_ExceptionMatches(PyExc_SystemExit)) {
+                                PySys_WriteStderr("Error in sys.exitepython:\n");
+                        }
+                        PyErr_Print();
+                }
+                Py_DECREF(exitfunc);
+        }
+
+        if (Py_FlushLine())
+                PyErr_Clear();
+}
 
 void cmd_epython();     /* Declare the commands and their help data. */
 char *help_epython[];
@@ -108,6 +161,11 @@ cmd_epython()
   char buffer[BUFLEN];
   
   scriptfp = fopen(args[1], "r");
+  /* No need to do anything if the file does not exist */
+  if (scriptfp == NULL) {
+    fprintf(fp, " Cannot open the file <%s>\n", args[1]);
+    return;
+  }
   if (!Py_IsInitialized()) {
     // A hack - add a correct PATH if needed
     pypath = getenv("PYTHONPATH");
@@ -155,6 +213,11 @@ cmd_epython()
     PyRun_SimpleString("import sys");
     PySys_SetArgv(argcnt-1, args+1);
     PyModule_AddObject(sysm, "stdout", crashfp);
+
+    /* The function will be available only on the 2nd and further invocations
+     of epython as it is normally defined in API.py which is not loaded yet */
+    call_sys_enterepython();
+    /* This is where we run the real user-provided script */
     PyRun_SimpleFile(scriptfp, args[1]);
     
     // PyRun_SimpleFile inserts the path of command every time it is executed
@@ -164,10 +227,12 @@ cmd_epython()
     // No arguments passed
     PyRun_SimpleString("import sys; print sys.path");
   }
-    times(&t2);
-    fprintf(fp, "  -- %6.2fs --\n",
-       ((double)(t2.tms_utime-t1.tms_utime))/TICKSPS);
-   fflush(fp);    
+  // Run epython exitfuncs (if registered)
+  call_sys_exitepython();
+  times(&t2);
+  fprintf(fp, "  -- %6.2fs --\n",
+	  ((double)(t2.tms_utime-t1.tms_utime))/TICKSPS);
+  fflush(fp);    
     
   // Destroy - unfortunately this sometimes leads to segfaults, better not to
   // not it here

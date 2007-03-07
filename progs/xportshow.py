@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/03/01 15:38:46 alexs>
+# Time-stamp: <07/03/06 16:29:36 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -309,8 +309,8 @@ def print_FragmentCache():
     pass
 
 def print_dev_pack():
-    ptype_all = Addr(readSymbol("ptype_all"))
-    #print "ptype_all=", readSymbol("ptype_all"), "\n"
+    ptype_all = readSymbol("ptype_all")
+    #print "ptype_all=", ptype_all, "\n"
     # For 2.4 packet_type has next pointer, for 2.6 list_head is embedded
     newstyle = (whatis("ptype_base").ctype == "struct list_head")
     if (newstyle):
@@ -321,7 +321,8 @@ def print_dev_pack():
 
     print "--------ptype_all-------------------------------------------"
     if (newstyle):
-        for pt in readSUListFromHead(ptype_all, "list", "struct packet_type"):
+        for pt in readSUListFromHead(Addr(ptype_all), "list",
+                                     "struct packet_type"):
             print pt
 
             ptype = ntohs(pt.type)
@@ -505,6 +506,9 @@ if ( __name__ == '__main__'):
         details = True
 
     if (o.New):
+        from LinuxDump.inet.netfilter import nf
+        nf()
+        sys.exit(0)
         pass
     # First, check for options that are not netstat-like. If any is present, do
     # do not do netstat stuff after them

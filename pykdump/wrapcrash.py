@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/02/15 16:03:02 alexs>
+# Time-stamp: <07/03/07 10:59:29 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -119,7 +119,7 @@ class ArtStructInfo(BaseStructInfo):
     def __init__(self, stype):
         BaseStructInfo.__init__(self, stype)
         # Add ourselves to cache
-        Gen.addSI2Cache(self)
+        self.addToCache()
 
     # Append info. Reasonable approaches:
     # 1. Append (inline) an already existing structinfo.
@@ -165,7 +165,7 @@ class ArtUnionInfo(BaseStructInfo):
     def __init__(self, stype):
         BaseStructInfo.__init__(self, stype)
         # Add ourselves to cache
-        Gen.addSI2Cache(self)
+        self.addToCache()
 
     # Append info. Reasonable approaches:
     # 1. Append a field manually (do we need to parse its definition string?)
@@ -645,6 +645,14 @@ def readSymbol(symbol, art = None):
     else:
         dim = 1
 
+    # For multidimensional arrays (at this moment we support only 2-dim)
+    # compute everything as 1-dim with N1xN2 size, later convert it back
+    if (dim !=1 and type(dim) == type([])):
+        multidim = dim
+        dim = reduce(lambda x,y: x*y, dim)
+    else:
+        multidim = None
+    
     size = getSizeOf(symbol)
     # There is a special case - on some kernels we obtain zero-dimensioned
     # arrays, e.g. on 2.6.9 sizeof(ipv4_table) = 0 and it ise declared as
@@ -661,6 +669,7 @@ def readSymbol(symbol, art = None):
     s = readmem(addr, size)
     
     #print "ctype=<%s> swtype=<%s> dim=%d" % (symi.ctype, swtype, dim)
+    out = None
     if (swtype == "SU"):
         #elsi = getStructInfo(stype)
         #size = elsi.size
@@ -668,9 +677,8 @@ def readSymbol(symbol, art = None):
             out = []
             for i in range(0,dim):
                 out.append(readSU(stype, addr+i*sz1))
-            return out
         else:
-            return readSU(stype, addr)
+            out = readSU(stype, addr)
     elif ((swtype == "Ptr" or swtype == "SUptr") and dim > 1):
         out = []
         for i in range(0,dim):
@@ -679,16 +687,14 @@ def readSymbol(symbol, art = None):
                 ptr = _SUPtr(ptr)
                 ptr.sutype = stype
             out.append(ptr)
-        return out
     elif (swtype == "SInt"):
         if (dim == 1):
-            return mem2long(s, signed=True)
+            out = mem2long(s, signed=True)
         else:
             out = []
             for i in range(0, dim):
                 val = mem2long(s[i*pointersize:(i+1)*pointersize], signed=True)
                 out.append(val)
-            return out
     elif (swtype == "UInt" or swtype == "UChar" or 
           swtype == "Ptr" or swtype == "SUptr"):
         if (dim == 1):
@@ -696,9 +702,9 @@ def readSymbol(symbol, art = None):
             if (swtype == "SUptr"):
                 ptr = _SUPtr(addr)
                 ptr.sutype = stype
-                return ptr
+                out = ptr
             else:
-                return addr
+                out = addr
         else:
             out = []
             for i in range(0, dim):
@@ -707,10 +713,44 @@ def readSymbol(symbol, art = None):
                     val = _SUPtr(val)
                     val.sutype = stype
                 out.append(val)
-            return out
-    else:
-        return None
 
+    # If we have multidim set and 'out' is a list, convert it to
+    # list of lists as needed
+    if (multidim != None):
+        # We do this for 2- and 3-dim only
+        out1 = multilist(multidim)
+        if (len(multidim) == 2):
+            I = multidim[0]
+            J = multidim[1]
+            for i in range(I):
+                for j in range(J):
+                    out1[i][j] = out[i*J+j]
+        
+        elif (len(multidim) == 3):
+            I = multidim[0]
+            J = multidim[1]
+            K = multidim[2]
+            for i in range(I):
+                for j in range(J):
+                    for k in range(K):
+                        out1[i][j] = out[i*J*K+j*K +k]
+        else:
+            raise TypeError, "Array with dim >3"
+        out = out1
+
+    return out
+
+# An auxiliary function: create a multi-dim list based on index list,
+# e.g. [2,3,4] =>  a[2][3][4] filled with None
+def multilist(mdim):
+    d1 = mdim[0]
+    if (len(mdim) > 1):
+        a = []
+        for i in range(d1):
+            a.append(multilist(mdim[1:]))
+    else:
+        a =  [None for i in range(d1)]
+    return a
 
 # Get sizeof(type)
 def getSizeOf(vtype):
@@ -881,7 +921,7 @@ def getStructInfo(stype, createnew = True):
             pass
     #print "  -- SI Cache miss:", stype
     si = StructInfo(stype)
-    Gen.addSI2Cache(si)
+    si.addToCache()
     #.__sinfo_cache[stype] = si
     return si
 

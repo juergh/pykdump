@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/03/01 15:42:10 alexs>
+# Time-stamp: <07/03/06 12:16:15 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -85,6 +85,19 @@ print2columns = gen.print2columns
 shelf = None
 PersistentCache = True
 
+
+# A function called when 'epython loads an interpreter
+
+def enter_epython():
+    global t_start, t_starta
+    t_start = os.times()[0]
+    t_starta = time.time()
+    #print "Entering Epython"
+
+
+# We call this when exiting epython
+def exit_epython():
+    cleanup()
 
 # Similar to sys.exit() but does not call the os._exit()
 
@@ -604,14 +617,19 @@ def openDump():
     return
 
 
-
 # ----------- do some initializations ----------------
 
 openDump()
 debug = API_options.debug
 initAfterDumpIsOpen()
+sys.enterepython = enter_epython
+sys.exitepython = exit_epython
+
+# The first time when we use epython enter_epython is not called as
+# API is not imported yet.
+
+enter_epython()
+
 if (API_options.debug):
     print "-------PyKdump %s-------------" % pykdump.__version__
-t_start = os.times()[0]
-t_starta = time.time()
 #atexit.register(cleanup)
