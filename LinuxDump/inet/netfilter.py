@@ -1,6 +1,6 @@
 # module LinuxDump.inet.netfilter
 #
-# Time-stamp: <07/03/07 12:30:02 alexs>
+# Time-stamp: <07/03/08 09:52:26 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -39,6 +39,31 @@ pp = pprint.PrettyPrinter(indent=4)
 # 	/* Hooks are ordered in ascending priority. */
 # 	int priority;
 # };
+
+_NF_IP_HOOK_PRIORITIES_c = '''
+enum nf_ip_hook_priorities {
+	NF_IP_PRI_FIRST = INT_MIN,
+	NF_IP_PRI_CONNTRACK_DEFRAG = -400,
+	NF_IP_PRI_RAW = -300,
+	NF_IP_PRI_SELINUX_FIRST = -225,
+	NF_IP_PRI_CONNTRACK = -200,
+	NF_IP_PRI_BRIDGE_SABOTAGE_FORWARD = -175,
+	NF_IP_PRI_MANGLE = -150,
+	NF_IP_PRI_NAT_DST = -100,
+	NF_IP_PRI_BRIDGE_SABOTAGE_LOCAL_OUT = -50,
+	NF_IP_PRI_FILTER = 0,
+	NF_IP_PRI_NAT_SRC = 100,
+	NF_IP_PRI_SELINUX_LAST = 225,
+	NF_IP_PRI_CONNTRACK_HELPER = INT_MAX - 2,
+	NF_IP_PRI_NAT_SEQ_ADJUST = INT_MAX - 1,
+	NF_IP_PRI_CONNTRACK_CONFIRM = INT_MAX,
+	NF_IP_PRI_LAST = INT_MAX,
+};
+'''
+
+# Does not work with our current implementation of CEnum - it cannot
+# process INT_MAX and INT_MIN
+#NF_IP_HOOK_PRIORITIES = CEnum(_NF_IP_HOOK_PRIORITIES_c)
 
 def nf():
     symi = whatis("nf_hooks")

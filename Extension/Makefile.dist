@@ -3,7 +3,7 @@
 # and its development packages installed properly, you only need to customize
 # the next line (CRASH sources location)
 
-CRASHSRCDIR := /src/kerntools/crash-4.0-3.12
+CRASHSRCDIR := /src/kerntools/crash-4.0-3.19
 
 PYTHON := python
 
@@ -13,9 +13,12 @@ INSTALL := /usr/bin/install
 DESTDIR := /usr/local/lib
 DIRMODE= 755
 
+OBJEXT := epython.o functions.o
+
 ifdef STATICBUILD
   DEFINES := -DSTATICBUILD
   buildtype := --static
+  OBJEXT += pythonrun.o
 endif
 
 
@@ -50,7 +53,8 @@ endif
 	$(CC) -c $(CFLAGS) $(DEFINES) $(INCLUDES) $< -o $@
 
 
-$(EXT): epython.o functions.o
+
+$(EXT): $(OBJEXT)
 	$(CC) -nostartfiles -shared  $(LINKFLAGS)  $^ -o $@  $(LIBS)
 
 install: $(EXT)

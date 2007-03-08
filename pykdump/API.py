@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/03/06 12:16:15 alexs>
+# Time-stamp: <07/03/08 10:13:10 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -68,7 +68,6 @@ import time
 import stat
 import atexit
 
-import LowLevel as ll
 import wrapcrash
 import Generic as gen
 from Generic import Bunch
@@ -505,7 +504,7 @@ def openDump():
     try:
         # If we can do this, we are called from crash
         import crash as crashmod
-        ll.GDBgetOutput = crashmod.get_GDB_output
+        #ll.GDBgetOutput = crashmod.get_GDB_output
         sys.argv = filtered_argv
         if (debug):
             print "-------crash module %s--------" % crashmod.version
@@ -516,6 +515,7 @@ def openDump():
     # --------------------------------------------------------------------
     # If we are here, we are running externally, maybe without extension
     # --------------------------------------------------------------------
+    import LowLevel as ll
     
     #print args
     if (len(args) ==  1):

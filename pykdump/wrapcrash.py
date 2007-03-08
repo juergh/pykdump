@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/03/07 10:59:29 alexs>
+# Time-stamp: <07/03/08 10:21:36 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -46,12 +46,6 @@ from Generic import BaseStructInfo
 
 hexl = Gen.hexl
 
-import crashspec
-from crashspec import sym2addr, addr2sym
-
-import LowLevel as ll
-from LowLevel import getOutput, exec_gdb_command
-exec_crash_command = getOutput
 
 # GLobals used my this module
 
@@ -1205,7 +1199,6 @@ def getTypedefInfo_new(tname):
         except:
             return None
 
-noncached_symbol_exists = crashspec.symbol_exists
 
 # A cached version
 __cache_symbolexists = {}
@@ -1240,7 +1233,14 @@ try:
     readmem = crash.readmem
     GDBmember_offset = crash.member_offset
 except:
-    pass
+    import crashspec
+    from crashspec import sym2addr, addr2sym
+
+    import LowLevel as ll
+    from LowLevel import getOutput, exec_gdb_command
+    exec_crash_command = getOutput
+    noncached_symbol_exists = crashspec.symbol_exists
+
 
 def print_stats():
     print "count_cached_attr=%d (%d)" % (count_cached_attr, count_total_attr)
