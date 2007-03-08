@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/03/08 10:13:10 alexs>
+# Time-stamp: <07/03/08 11:48:54 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -27,6 +27,10 @@ not call low-level functions directly but use this module instead.
 '''
 
 import pykdump                          # For version check
+
+import pprint
+
+pp = pprint.PrettyPrinter(indent=4)
 
 # sys is a builtin and does not depend on sys.path. But we cannot load 'os' yet
 # if we are running a binary distribution with Python libraries at

@@ -1,6 +1,6 @@
 # module LinuxDump.sysctl
 #
-# Time-stamp: <07/02/01 15:14:30 alexs>
+# Time-stamp: <07/03/08 11:45:36 alexs>
 #
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -66,7 +66,7 @@ def readCtlTable(root, parent = ''):
         # procname to NULL, e.g.
         # t->neigh_vars[12].procname = NULL;
         if (ct.procname != None):
-            __entries[parent + ct.procname] =  ct
+            __entries[str(parent + ct.procname)] =  ct
 
 
 def getCtlTables():

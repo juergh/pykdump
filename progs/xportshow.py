@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/03/06 16:29:36 alexs>
+# Time-stamp: <07/03/08 12:30:14 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -417,19 +417,75 @@ def print_iface(if1="", details=False):
         if (if1 == "" or if1 == dev.name):
             netdevice.print_If(dev, details)
 
-# Print syctl info for net.
-def print_sysctl():
+def get_net_sysctl():
     from LinuxDump import sysctl
+    re_if = re.compile(r'^net\.ipv[46]\.\w+\.(eth\d+)\..*$')
     ctbl = sysctl.getCtlTables()
     names = ctbl.keys()
     names.sort()
     # Leave only those starting from 'net.'
     names = [n for n in names if n.find("net.") == 0]
+    # Create a dictionary of those values that we can use as defaults
+    # Some values are per interface, e.g.
+    # net.ipv{4,6}.conf.eth0.*
+    # net.ipv{4,6}.neigh.eth0.*
+    dall = {}
+    ddef = {}
     for n in names:
         cte = ctbl[n]
-        print n.ljust(45), sysctl.getCtlData(cte)
+        vals = sysctl.getCtlData(cte)
+        dall[n] = vals
+        m = re_if.match(n)
+        if (not m):
+            ddef[n] = vals
+    return (dall, ddef)
+    
+def print_sysctl():
+    (dall, ddef) = get_net_sysctl()
+    names = dall.keys()
+    names.sort()
+
+    for n in names:
+        print n.ljust(45), dall[n]
+    #pp.pprint(ddef)
     sys.exit(0)
-        
+
+# Print those values that are not equal to default ones
+def print_sysctl_nodef():
+    (dall, ddef) = get_net_sysctl()
+
+    #pp.pprint(ddef)
+    #return
+    names = dall.keys()
+    names.sort()
+
+
+    default_vals = default_vals_24
+    for n in names:
+        if (not default_vals.has_key(n)):
+            continue
+        cval = dall[n]
+        dval = default_vals[n]
+        #print cval, dval
+        nondef = False
+        if (type(cval) == type([])):
+            try:
+                for c, d in zip(cval, dval):
+                    if (c != d):
+                        nondef = True
+                        break
+            except:
+                nondef = True
+        else:
+            nondef = (cval != dval)
+        if (nondef):
+            print "[%s]  %s != default %s" %(n, repr(cval), repr(dval))
+            nondef = False
+    
+            
+
+    
+
 if ( __name__ == '__main__'):
     import sys
     from optparse import OptionParser
@@ -459,6 +515,10 @@ if ( __name__ == '__main__'):
     op.add_option("--new", dest="New", default = 0,
                   action="store_true",
                   help="Test new Routines")
+
+    op.add_option("--netfilter", dest="Netfilter", default = 0,
+                  action="store_true",
+                  help="Print Netfilter Hooks")
 
     op.add_option("--summary", dest="Summary", default = 0,
                   action="store_true",
@@ -506,10 +566,13 @@ if ( __name__ == '__main__'):
         details = True
 
     if (o.New):
+        pass
+
+    if (o.Netfilter):
         from LinuxDump.inet.netfilter import nf
         nf()
         sys.exit(0)
-        pass
+
     # First, check for options that are not netstat-like. If any is present, do
     # do not do netstat stuff after them
     if (o.sysctl):
