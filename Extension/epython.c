@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <07/03/08 10:07:07 alexs>
+  Time-stamp: <07/03/12 12:34:41 alexs>
 
   Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -229,10 +229,14 @@ cmd_epython()
   }
   // Run epython exitfuncs (if registered)
   call_sys_exitepython();
+
+  /* 
   times(&t2);
   fprintf(fp, "  -- %6.2fs --\n",
 	  ((double)(t2.tms_utime-t1.tms_utime))/TICKSPS);
-  fflush(fp);    
+  fflush(fp);
+
+  */
     
   // Destroy - unfortunately this sometimes leads to segfaults, better not to
   // not it here

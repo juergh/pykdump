@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/03/08 11:48:54 alexs>
+# Time-stamp: <07/03/12 12:49:34 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -27,16 +27,23 @@ not call low-level functions directly but use this module instead.
 '''
 
 import pykdump                          # For version check
-
 import pprint
 
-pp = pprint.PrettyPrinter(indent=4)
 
 # sys is a builtin and does not depend on sys.path. But we cannot load 'os' yet
 # if we are running a binary distribution with Python libraries at
 # non-standard location
 import sys, os, os.path
 import zlib
+
+
+# On Ubuntu the debug kernel has name /boot/vmlinux-dbg-<uname>
+# On CG it is /usr/lib/kernel-image-<uname>-dbg/vmlinux
+kerntemplates = ("/boot/vmlinux-%s", "/boot/vmlinux-dbg-%s",
+                 "/usr/lib/kernel-image-%s-dbg/vmlinux")
+
+
+pp = pprint.PrettyPrinter(indent=4)
 
 from optparse import OptionParser, Option
 
@@ -96,6 +103,7 @@ def enter_epython():
     t_start = os.times()[0]
     t_starta = time.time()
     #print "Entering Epython"
+    openDump()
 
 
 # We call this when exiting epython
@@ -111,7 +119,7 @@ def cleanup():
         shelf[getDumpstring()] = gen.PYT__sinfo_cache
         shelf.close()
 
-    print "Execution took %6.2fs (real) %6.2fs (CPU)" % (time.time() - t_starta,
+    print "\n ** Execution took %6.2fs (real) %6.2fs (CPU)" % (time.time() - t_starta,
                                                          os.times()[0] - t_start)
 
 
@@ -299,7 +307,13 @@ def findDumpFiles(dir):
         uname = os.uname()[2]
         # Now try to find in /boot System.map-<uname> and vmlinux-<uname>
         testmap =  "/boot/System.map-"+uname
-        testkern = "/boot/vmlinux-"+uname
+        testkern = None
+        for t in kerntemplates:
+            tfile = t % uname
+            if (os.access(tfile, os.R_OK)):
+                testkern = tfile
+                break
+
         if (os.access(testmap, os.R_OK) and os.access(testkern, os.R_OK)):
             mapfile = testmap
             namelist = testkern
@@ -450,7 +464,7 @@ class SOption(Option):
 
 def openDump():
     """Open dump by executing 'crash' if needed."""
-    
+
     op = OptionParser(add_help_option=False, option_class=Option)
     op.add_option("--ext", dest="UseExt",
               action="store", type="int", default=1,
@@ -623,16 +637,16 @@ def openDump():
 
 # ----------- do some initializations ----------------
 
-openDump()
-debug = API_options.debug
-initAfterDumpIsOpen()
-sys.enterepython = enter_epython
-sys.exitepython = exit_epython
 
 # The first time when we use epython enter_epython is not called as
 # API is not imported yet.
 
 enter_epython()
+
+debug = API_options.debug
+initAfterDumpIsOpen()
+sys.enterepython = enter_epython
+sys.exitepython = exit_epython
 
 if (API_options.debug):
     print "-------PyKdump %s-------------" % pykdump.__version__

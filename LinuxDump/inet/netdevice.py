@@ -1,6 +1,6 @@
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <07/03/01 15:30:24 alexs>
+# Time-stamp: <07/03/12 10:25:24 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -260,16 +260,30 @@ tx_window_errors
 
 
 # Loopback stats - percpu on 2.6, generic net_device_stats on 2.4
+# On 2.6.20 they have changed the algorithm again
 
 def lb_get_stats(priv):
     try:
         # Per-cpu
-        addrs = percpu.get_cpu_var("loopback_stats")
-        out = []
-        for a in addrs:
-            stats = readSU("struct net_device_stats", a)
-            out.append(stats)
-        return out
+        if (symbol_exists("per_cpu__pcpu_lstats")):
+            # 2.6.20
+            addrs = percpu.get_cpu_var("pcpu_lstats")
+            out = []
+            for a in addrs:
+                lb_stats = readSU("struct pcpu_lstats", a)
+                stats = Bunch()
+                stats.tx_packets = stats.rx_packets = lb_stats.packets
+                stats.tx_bytes = stats.rx_bytes = lb_stats.bytes
+                out.append(stats)
+            return out
+            
+        else:
+            addrs = percpu.get_cpu_var("loopback_stats")
+            out = []
+            for a in addrs:
+                stats = readSU("struct net_device_stats", a)
+                out.append(stats)
+            return out
     except TypeError:
         stats = readSU("struct net_device_stats", priv)
         return stats

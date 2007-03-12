@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/03/08 10:21:36 alexs>
+# Time-stamp: <07/03/12 11:50:06 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -93,11 +93,35 @@ class StructInfo(BaseStructInfo):
         self.size = getSizeOf(self.stype)
         bitfieldpos = 0
         for f  in self.body:
-            fname = f.fname
             f.parentstype = self.stype
+
+            # GCC can handle unions without field name (not ANSI-compatible!)
+            # e.g. in "struct inode" (2.6.20):
+            #	union {
+            # 		struct pipe_inode_info	*i_pipe;
+            # 		struct block_device	*i_bdev;
+            # 		struct cdev		*i_cdev;
+            # 	};
+            # Then if that union is declared inside struct b, the compiler
+            # can handle b.i_pipe
+            #
+            try:
+                fname = f.fname
+            except AttributeError:
+                # Non-ANSI internal union w/o fieldname
+                # crash does support direct access to fields but GDB does
+                # Add all union fields as to our dict with the same offset
+                offset = None
+                for uf in f.body:
+                    ufname = uf.fname
+                    if (offset == None):
+                        offset = GDBmember_offset(self.stype, ufname)
+                    uf.offset = offset
+                    self[ufname] = uf
+                continue
             if (f.has_key("bitfield")):
                 #print self.stype, fname
-                f.offset = GDBmember_offset(self.stype, fname)
+                f.offset = nc_member_offset(self.stype, fname)
                 f.bitoffset = bitfieldpos%8
                 bitfieldpos += f.bitfield
             else:
@@ -1231,7 +1255,7 @@ try:
     # For some reason the next line runs slower than GDB version
     #GDB_sizeof = crash.struct_size
     readmem = crash.readmem
-    GDBmember_offset = crash.member_offset
+    nc_member_offset = crash.member_offset
 except:
     import crashspec
     from crashspec import sym2addr, addr2sym
@@ -1240,6 +1264,7 @@ except:
     from LowLevel import getOutput, exec_gdb_command
     exec_crash_command = getOutput
     noncached_symbol_exists = crashspec.symbol_exists
+    nc_member_offset = GDBmember_offset
 
 
 def print_stats():

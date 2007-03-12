@@ -1,7 +1,7 @@
 #
 #  Code that does not depend on whether we use embedded API or PTY
 #
-# Time-stamp: <07/03/07 12:24:52 alexs>
+# Time-stamp: <07/03/12 11:39:50 alexs>
 #
 import string
 import pprint
@@ -45,7 +45,6 @@ class BaseStructInfo(dict):
         self.body = []
         self.reclevel = 0
 
-
     # Field ptype suitable for passing to crash/gdb, e.g.
     # for 'struct tcp_ehash_bucket *__tcp_ehash;' we return
     # 'struct tcp_ehash_bucket'
@@ -55,8 +54,9 @@ class BaseStructInfo(dict):
     #    return fi.basetype
     
     def __repr__(self):
-        return "StructInfo <%s> size=%d" % (self.stype, self.size) +\
-               "\n" + pp.pformat(self.body)
+        return "StructInfo <%s> size=%d" % \
+                   (self.stype, self.size) +\
+                   "\n" + pp.pformat(self.body)
 
     def addToCache(self):
         stype = self.stype
