@@ -65,7 +65,7 @@ asid@hp.com
 
 \begin_layout Abstract
 This is a brief tutorial explaining how to use Pykdump.
- 
+ The current version is 0.2 
 \end_layout
 
 \begin_layout Section
@@ -510,8 +510,68 @@ In the future we might add a special attribute similar to 'Deref' doing
  the needed work for us - but this is not implemented yet.
 \end_layout
 
-\begin_layout Code
+\begin_layout Subsection
+Some Special Types
+\end_layout
 
+\begin_layout Standard
+We base all C integer types to Python native 'long integer' type and we
+ map C struct/union instances to 'class StructResult' instances.
+ Pointers and arrays are normally represented by Python integers and lists.
+ But in some cases we would like to preserve additional information while
+ returning value so that we use classes instead of Python integers strings.
+ Please note that you shoud not construct objects of this type yourself,
+ they will be initialized and return as needed when using 
+\series bold
+\emph on
+readSymbol
+\series default
+\emph default
+ and similar functions.
+ Two most important cases are:
+\end_layout
+
+\begin_layout Subsubsection
+SmartString
+\end_layout
+
+\begin_layout Standard
+We use this instead of Python basic String.
+ If a struct field or global symbol is a char pointer, 'char *', in most
+ cases we would like to convert it to Python String.
+ But if we return just a String, we will not be able to find an address
+ of this object just from it .
+ Another case are char arrays - if we have 'char a[16];' this can be a string
+ or it can be an array of 1-byte flags.
+\end_layout
+
+\begin_layout Standard
+SmartString behaves mostly like a normal Python String - you can print it
+ or use most String methods on it.
+ But it has its address stored internally so that you can retrieve it using
+ Addr(smartstring).
+ If this object was constructed from char array, the printable representation
+ will interpret data as NULL-terminated string.
+ But you will still be able to access any element of array (including NULL
+ byte and chars after it if any) using index, e.g.
+ smartstring[4].
+\end_layout
+
+\begin_layout Subsubsection
+_SUPtr
+\end_layout
+
+\begin_layout Standard
+We return this type when a global variable or struct member is defined as
+ a pointer to struct.
+ It contains internally both address and pointer type.
+ You can access it as Python 'long' type and you can dereference it using
+ Deref atribute.
+ For example:
+\end_layout
+
+\begin_layout Code
+shead = shead.Deref
 \end_layout
 
 \begin_layout Section
@@ -630,16 +690,31 @@ Options
 You can pass a number of options that are consumed by API itself; if you
  specify them on the command line they will modify the behavior of framework
  itself but will not be passed to the application.
- The parsing is not very sophisticated at this moment, so we use the following
- approach:
+ Here are these options:
 \end_layout
 
 \begin_layout Itemize
-long options (those starting from two dashes, --) are intended for API itself
+--debug=n
 \end_layout
 
 \begin_layout Itemize
-short options (those starting from one dash, -) are intended for applications
+--ext=0/1
+\end_layout
+
+\begin_layout Itemize
+--crash=crashcommandpath
+\end_layout
+
+\begin_layout Itemize
+--nopysco
+\end_layout
+
+\begin_layout Itemize
+--experimental
+\end_layout
+
+\begin_layout Standard
+They should be used by developers
 \end_layout
 
 \begin_layout Standard
@@ -1117,7 +1192,14 @@ an array of simple types - we return a Python list of values
 
 \begin_layout Itemize
 an array of struct/union - we return a Python list of StructResult objects
- 
+\end_layout
+
+\begin_layout Itemize
+a multidimensional (up to 3 indices) array of basic types or structs/unions
+\end_layout
+
+\begin_layout Itemize
+a pointer to struct/union
 \end_layout
 
 \begin_layout Standard
@@ -1369,7 +1451,8 @@ Returns a list of integers (addresses).
 \end_layout
 
 \begin_layout Description
-readPtr - read a pointer from address
+readPtr - read a pointer from address, i.e.
+ an integer of appropriate for this architecture size
 \end_layout
 
 \begin_layout Code
@@ -1378,6 +1461,22 @@ newaddr = readPtr(addr)
 
 \begin_layout Standard
 Dereferences a pointer giving a new address.
+\end_layout
+
+\begin_layout Description
+readU16 - read an unsigned u16 integer
+\end_layout
+
+\begin_layout Code
+i = readU16(addr)
+\end_layout
+
+\begin_layout Description
+readU32 - read an unsigned u32 integer
+\end_layout
+
+\begin_layout Code
+i = readU32(addr)
 \end_layout
 
 \begin_layout Description

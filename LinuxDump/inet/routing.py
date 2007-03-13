@@ -1,6 +1,6 @@
 # module LinuxDump.inet.routing
 #
-# Time-stamp: <06/11/24 15:12:20 alexs>
+# Time-stamp: <07/03/13 11:46:17 alexs>
 #
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -82,13 +82,32 @@ def do_fib_print(g):
             print "%s\t%08X\t%08X\t%04X\t%d\t%08X\t%d" % \
                   (e.dev, e.dest, e.gw, e.flags, e.metric, e.mask, e.mtu)
                         
-        
+
+
 def get_fib_v26():
-    #struct fn_hash *table = (struct fn_hash *) ip_fib_main_table->tb_data;
-    RT_TABLE_MAIN = readSymbol("main_rule").r_table
-    #print "RT_TABLE_MAIN=",RT_TABLE_MAIN
-    fib_tables = readSymbol("fib_tables")
-    table_main = readSU("struct fib_table", fib_tables[RT_TABLE_MAIN])
+    if (symbol_exists("fib_tables")):
+        #struct fn_hash *table = (struct fn_hash *) ip_fib_main_table->tb_data;
+        RT_TABLE_MAIN = readSymbol("main_rule").r_table
+        #print "RT_TABLE_MAIN=",RT_TABLE_MAIN
+        fib_tables = readSymbol("fib_tables")
+        table_main = readSU("struct fib_table", fib_tables[RT_TABLE_MAIN])
+    else:
+        RT_TABLE_MAIN = readSymbol("main_rule").common.table
+        #print "RT_TABLE_MAIN=",RT_TABLE_MAIN
+
+        #static struct hlist_head fib_table_hash[FIB_TABLE_HASHSZ];
+        fib_table_hash = readSymbol("fib_table_hash")
+        offset = member_offset("struct fib_table", "tb_hlist")
+
+	table_main = None
+        for b in fib_table_hash:
+            first = b.first
+            if (first):
+                for a in readList(first, 0):
+                    tb = readSU("struct fib_table", a-offset)
+                    if (tb.tb_id == RT_TABLE_MAIN):
+                        table_main = tb
+                        break
 
     #     unsigned char tb_data[0];
     fn_hash = readSU("struct fn_hash", table_main.tb_data)
