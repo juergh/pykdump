@@ -428,6 +428,12 @@ def check_inet_sock():
         uas.append(as)
         uas.append("struct udp_opt udp;")
         #print uas
+	
+	# raw_sock is inet_sock followed by raw_opt
+	ras = ArtStructInfo("struct raw_sock")
+        ras.append(as)
+        ras.append("struct raw_opt udp;")
+	#print ras
 
 
 # Initialize INET_Stuff
