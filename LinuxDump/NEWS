@@ -1,0 +1,29 @@
+What's new in version 0.2?
+--------------------------
+
+The networking program 'xportshow.py' has been significantly extended and can
+now print many things that are not easy to do manually:
+
+- information about TCP/UDP/RAW/UNIX connections both for IPv4 and IPv6.
+  This includes TIME_WAIT sockets that are not present at all in 'net -s'
+  standard CRASH command
+
+- print a summary about all connections and unusual situations, e.g. total
+  number of TCP connections in different states, number of listen queues
+  full, number of NAGLE enabled connections and flow-controlled TCP
+
+- information about interfaces: IPv4/6 addresses (including multiple/alias),
+  flags, features, Qdisc statistics, interface statistics for some drivers
+  (e.g. loopback and tg3), last RX/TX timestamp
+
+- protocol handler stack (ptype_all/ptype_base)
+
+- registered NETFILTER hooks
+
+- the list of tunable/value from sysctl tree (similar to 'sysctl -a')
+
+- routing tables (at this moment only the main table for IPv4)
+
+
+The program works on kernels from 2.4.20 to 2.6.20
+

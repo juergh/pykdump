@@ -1,0 +1,24 @@
+What's new in version 0.2?
+--------------------------
+
+Many minor bugs fixed, some new features added:
+
+- Support for multidimensional arrays
+
+- Pointers to struct/union now are not just addresses but objects that
+  contain type info
+
+- New functions to read lists
+
+- Pointers to functions are now processed differently from generic pointers
+  This is needed on IA64 where they are really Function Descriptors
+
+- Performance improvements in struct/union field access
+
+- Documentation updated
+
+
+- The companion 'LinuxDump' package now contains a powerful utility
+  'xportshow.py' that can print many types of networking information:
+  interface info, tunables, NETFILTER, routing, summary, IPv4/6 connections
+  for kernels 2.4.20 - 2.6.20

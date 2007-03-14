@@ -20,8 +20,10 @@ distribution already has them. But at this moment you _need_ to compile
 Compiling CRASH
 ---------------
 
-Download a recent version from URL above and unpack it. Before compiling,
-edit extensions.c file and change the line
+Download a recent version from URL above and unpack it. For versions older
+than 4.0.3-19 you need to do some source editing before compilation.
+
+Edit extensions.c file and change the line
 
         ext->handle = dlopen(ext->filename, RTLD_NOW);
 
@@ -30,7 +32,8 @@ to
         ext->handle = dlopen(ext->filename, RTLD_NOW | RTLD_GLOBAL);
 
 (i.e. add RTLD_GLOBAL flag - this is needed for Python to be able to use
-its C-extenstions implemented as shared libraries).
+its C-extenstions implemented as shared libraries). This flag has been added
+to generic CRASH sources starting from 4.0.3-19.
 
 After that do 'make' and copy the resulting binary to a directory in your PATH,
 e.g. /usr/local/bin. I recommend to rename the resulting executable to
