@@ -1271,26 +1271,17 @@ In some cases we know the definition of the symbol but this information
 \end_layout
 
 \begin_layout Description
-readSUListFromHead - read a linked list of struct/union
+readSUListFromHead - read a list of struct/union linked by 
+\emph on
+list_head
 \end_layout
 
 \begin_layout Code
-pairlist = readSUListFromHead(off_need, off_list, addr, inchead = False)
- 
+slist = readSUListFromHead(headaddr, listfieldname, mystruct,
 \end_layout
 
 \begin_layout Code
-
-\end_layout
-
-\begin_layout Standard
-We specify two offsets and address of the 1st list_head structure.
- We assume that list_head structure is embedded in our structure of real
- interest.
- Offsets can be specified either as integers or symbolic 'struct.field' format.
- If addr is an integer, it is used as it is; if it is a string we assume
- this is a name of a global variable and try to resolve it.
- 
+                               maxel=1000, inchead = False)
 \end_layout
 
 \begin_layout Code
@@ -1298,15 +1289,71 @@ We specify two offsets and address of the 1st list_head structure.
 \end_layout
 
 \begin_layout Standard
-We return a list of (addr1, addr2) values where addr1 is the address of
- the struct where list_head is embedded, addr2 is the value of the field
- at offset off_need 
+This function can be used to traverse a list of structures linked by embedded
+ 
+\emph on
+list_head
+\emph default
+ member.
+ We recommend to read the Linux documentation to better understand how this
+ is normally used.
+ C-headers define some macros to work with such lists and we tried to emulate
+ these macros.
+ 
 \end_layout
 
 \begin_layout Standard
-This is a bit tricky, you need to read Linux documentation about the standard
- approach to linked lists using list_head structures.
+For example, the C-structure definition is:
+\end_layout
+
+\begin_layout Code
+struct Ex {
+\end_layout
+
+\begin_layout Code
+    int a;
+\end_layout
+
+\begin_layout Code
+    list_head next;
+\end_layout
+
+\begin_layout Code
+};
+\end_layout
+
+\begin_layout Code
  
+\end_layout
+
+\begin_layout Code
+struct Ex head;
+\end_layout
+
+\begin_layout Standard
+To traverse this list, we need to specify the address of the first struct,
+ the name of 'list_head' field and the name of structure itself.
+ We can specify the maximum number of elements the function will return
+ and whether to return the head itself.
+ There are two different ways how 
+\emph on
+list_head 
+\emph default
+is used in kernel sources: we can have a separate instance of it (not embedded
+ in any other structure), or it can be already embedded.
+ In most cases 
+\emph on
+list_head 
+\emph default
+is declared standalone like that:
+\end_layout
+
+\begin_layout Code
+static LIST_HEAD(all_bdevs);
+\end_layout
+
+\begin_layout Standard
+and we should not return any structure matching the head itself.
 \end_layout
 
 \begin_layout Standard
@@ -1318,16 +1365,15 @@ u = {}
 \end_layout
 
 \begin_layout Code
-for addr, val in readSUListFromHead('block_device.bd_disk', 'block_device.bd_list'
-,
+for s in readSUListFromHead('all_bdevs', 'bd_list', 'struct block_device'):
 \end_layout
 
 \begin_layout Code
-                                           'all_bdevs'):
+        u[s.bd_disk] = 1
 \end_layout
 
 \begin_layout Code
-    u[val] = 1
+
 \end_layout
 
 \begin_layout Standard
@@ -1448,6 +1494,71 @@ Returns a list of integers (addresses).
  but the next nodes are embedded in some other structure.
  In cases like that we don't want the address of the head itself to be included.
  
+\end_layout
+
+\begin_layout Description
+readStructNext - traverse a list of structs connected by 'next' pointer
+\end_layout
+
+\begin_layout Code
+structlist = readStructNext(head, nextname)
+\end_layout
+
+\begin_layout Standard
+This function is built on top of 
+\series bold
+\emph on
+readList 
+\series default
+\emph default
+and the 1st paramater can be either a 
+\emph on
+struct 
+\emph default
+object or a a pointer to 
+\emph on
+struct
+\emph default
+ object.
+ For example, we have the following definitions in 
+\emph on
+C:
+\end_layout
+
+\begin_layout Code
+struct Example {
+\end_layout
+
+\begin_layout Code
+    int a;
+\end_layout
+
+\begin_layout Code
+    struct Example *nptr;
+\end_layout
+
+\begin_layout Code
+};
+\end_layout
+
+\begin_layout Code
+struct Example *elist;
+\end_layout
+
+\begin_layout Standard
+Then in Pykdump we can traverse this list in the following way:
+\end_layout
+
+\begin_layout Code
+elist = readSymbol("elist)      # This is a pointer to struct
+\end_layout
+
+\begin_layout Code
+for s in readStructNext(elist, "nptr"):
+\end_layout
+
+\begin_layout Code
+    print s.a
 \end_layout
 
 \begin_layout Description
@@ -1854,7 +1965,55 @@ Loading Extra Debugging Modules
 \end_layout
 
 \begin_layout Standard
-To be written
+Sometimes we need symbolic information that is present only in DLKMs.
+ For example, we want to print private information for 
+\emph on
+tg3
+\emph default
+ driver.
+ In this case the debugging version of this module need to be present either
+ in distribution-specific standard location, or in the dump directory.
+ Then you can load that info by using 
+\series bold
+loadModule
+\series default
+ function:
+\end_layout
+
+\begin_layout Code
+rc = loadModule(modname, ofile = None)
+\end_layout
+
+\begin_layout Standard
+The first argument is a module name (as listed by 
+\emph on
+lsmod
+\emph default
+).
+ If the second argument is not specified, the object file will be searched
+ in standard locations.
+ Or you can specify the exact filename (with path) using the second argument.
+ Examples
+\end_layout
+
+\begin_layout Code
+rc = loadModule("tg3")
+\end_layout
+
+\begin_layout Code
+rc = loadModule("e1000", "/debugmods/e1000.ko")
+\end_layout
+
+\begin_layout Standard
+In both cases the return value will be 
+\emph on
+True
+\emph default
+ (of loading succeeded) or 
+\emph on
+False
+\emph default
+ (if it failed)
 \end_layout
 
 \begin_layout Subsubsection
@@ -1862,7 +2021,19 @@ Error Processing
 \end_layout
 
 \begin_layout Standard
-To be written
+In most cases we use the standard Python exceptions to report errors.
+ For example, if you try to read a struct with a type that is not available,
+ 
+\emph on
+TypeError
+\emph default
+ is raised.
+ When an error occurs in C-extension module, e.g.
+ we cannot read the specified memory address, 
+\emph on
+crashError
+\emph default
+ exception is raised.
 \end_layout
 
 \end_body
