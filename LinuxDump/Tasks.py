@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/03/16 14:27:40 alexs>
+# Time-stamp: <07/03/16 15:02:56 alexs>
 
 # Tasks and Pids
 
@@ -119,7 +119,11 @@ def taskFds(task, short = False):
                     out.append(filep)
                     continue
                 sfile = readSU("struct file", filep)
-                dentry = sfile.Deref.f_dentry
+                # On 2.6.20 f_dentry is really f_path.dentry
+                try:
+                    dentry = sfile.Deref.f_dentry
+                except KeyError:
+                    dentry = sfile.f_path.Deref.dentry
                 inode = dentry.Deref.d_inode
                 out.append((i, filep, dentry, inode))
     return out

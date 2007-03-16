@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/03/16 14:50:24 alexs>
+# Time-stamp: <07/03/16 15:11:20 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -380,7 +380,8 @@ def print_dev_pack():
 
             
         
-def printTaskSockets(tt, t):
+def printTaskSockets(t):
+    print "-----PID=%d  COMM=%s" % (t.pid, t.comm)
     print " fd     file              socket"
     print " --     ----              ------"
     for fd, filep, dentry, inode in taskFds(t):
@@ -417,7 +418,6 @@ def printTaskSockets(tt, t):
 	    else:
 		sockopt = sock
             print IPv4_conn(left='\t', sock=sockopt)
-        print "\t", [(t.pid, t.comm) for t in tt.getByFile(filep)]
     print ""
 
 def print_iface(if1="", details=False):
@@ -612,7 +612,7 @@ if ( __name__ == '__main__'):
     if (o.Program):
         tt = TaskTable()
         for task in  tt.getByComm(o.Program):
-            printTaskSockets(tt, task)
+            printTaskSockets(task)
         sys.exit(0)
 
     if (o.Pid != -1):
