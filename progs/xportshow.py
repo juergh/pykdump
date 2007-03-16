@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/03/16 14:44:05 alexs>
+# Time-stamp: <07/03/16 14:50:24 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -330,13 +330,17 @@ def print_dev_pack():
             pdev = pt.dev
             pfunc = addr2sym(pt.func)
             print "\ttype=0x%04x dev=0x%x func=%s" % (ptype, pdev, pfunc)
+
+            # for SOCK_PACKET and AF_PACKET we can find PID
             if (pt.af_packet_priv == 0):
                 continue
-            sock = readSU("struct sock", pt.af_packet_priv)
-            socket = sock.Deref.sk_socket
-            filep = socket.file
-            for t in tt.getByFile(filep):
-                print "\t    pid=%d, command=%s" %(t.pid, t.comm)
+
+            if (pfunc == 'packet_rcv' or pfunc == 'packet_rcv_spkt'):
+                sock = readSU("struct sock", pt.af_packet_priv)
+                socket = sock.Deref.sk_socket
+                filep = socket.file
+                for t in tt.getByFile(filep):
+                    print "\t    pid=%d, command=%s" %(t.pid, t.comm)
     else:
         # 2.4
         for pa in readList(ptype_all, offset):
