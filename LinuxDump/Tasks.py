@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/01/08 11:15:53 alexs>
+# Time-stamp: <07/03/16 14:27:40 alexs>
 
 # Tasks and Pids
 
@@ -49,6 +49,7 @@ class TaskTable:
                                  inchead = True, maxel=100000)
         self.pids = {}
         self.comms = {}
+        self.filepids = {}
         self.toffset = member_offset("struct task_struct", "thread_group")
 
     # Get threads for task
@@ -65,7 +66,7 @@ class TaskTable:
     def __init_dicts(self):
         for t in self.tt:
             self.pids[t.pid] = t
-            self.comms[t.comm] = t
+            self.comms.setdefault(t.comm, []).append(t)
     # get task by pid
     def getByPid(self, pid):
         if (len(self.pids) == 0):
@@ -82,11 +83,25 @@ class TaskTable:
         try:
             return self.comms[comm]
         except KeyError:
-            return None
+            return []
+        
+    # get task by 'struct file *' pointer. As there can be several
+    # processes sharing the same file, we return a list
+    def getByFile(self, filep):
+        if (len(self.filepids) == 0):
+            for t in self.tt:
+                for fp in taskFds(t, True):
+                    self.filepids.setdefault(fp, []).append(t)
+
+        try:
+            return self.filepids[filep]
+        except KeyError:
+            return []
+        
             
             
 # Get fds from 'task_struct'
-def taskFds(task):
+def taskFds(task, short = False):
     out = []
     if (task.files):
         files = task.Deref.files
@@ -100,6 +115,9 @@ def taskFds(task):
         for i in range(max_fds):
             filep = readPtr(fd + pointersize * i)
             if (filep):
+                if (short):
+                    out.append(filep)
+                    continue
                 sfile = readSU("struct file", filep)
                 dentry = sfile.Deref.f_dentry
                 inode = dentry.Deref.d_inode

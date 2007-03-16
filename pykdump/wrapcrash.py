@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/03/12 11:50:06 alexs>
+# Time-stamp: <07/03/16 14:06:18 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -257,8 +257,8 @@ class StructResult(object):
         return "<%s 0x%x>" % \
                (self.PYT_symbol, self.PYT_addr)
     def __repr__(self):
-        return "StructResult <%s> \tsize=%d, addr=0x%x" % \
-               (self.PYT_symbol, self.PYT_size, self.PYT_addr)
+        return "StructResult <%s 0x%x> \tsize=%d" % \
+               (self.PYT_symbol, self.PYT_addr, self.PYT_size)
     def __nonzero__(self):
         return True
     def __len__(self):

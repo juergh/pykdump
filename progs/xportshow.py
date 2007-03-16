@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/03/08 12:30:14 alexs>
+# Time-stamp: <07/03/16 14:44:05 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -320,6 +320,7 @@ def print_dev_pack():
 
 
     print "--------ptype_all-------------------------------------------"
+    tt = TaskTable()
     if (newstyle):
         for pt in readSUListFromHead(Addr(ptype_all), "list",
                                      "struct packet_type"):
@@ -329,6 +330,13 @@ def print_dev_pack():
             pdev = pt.dev
             pfunc = addr2sym(pt.func)
             print "\ttype=0x%04x dev=0x%x func=%s" % (ptype, pdev, pfunc)
+            if (pt.af_packet_priv == 0):
+                continue
+            sock = readSU("struct sock", pt.af_packet_priv)
+            socket = sock.Deref.sk_socket
+            filep = socket.file
+            for t in tt.getByFile(filep):
+                print "\t    pid=%d, command=%s" %(t.pid, t.comm)
     else:
         # 2.4
         for pa in readList(ptype_all, offset):
@@ -368,7 +376,7 @@ def print_dev_pack():
 
             
         
-def printTaskSockets(t):
+def printTaskSockets(tt, t):
     print " fd     file              socket"
     print " --     ----              ------"
     for fd, filep, dentry, inode in taskFds(t):
@@ -405,6 +413,8 @@ def printTaskSockets(t):
 	    else:
 		sockopt = sock
             print IPv4_conn(left='\t', sock=sockopt)
+        print "\t", [(t.pid, t.comm) for t in tt.getByFile(filep)]
+    print ""
 
 def print_iface(if1="", details=False):
 
@@ -597,9 +607,8 @@ if ( __name__ == '__main__'):
 
     if (o.Program):
         tt = TaskTable()
-        task = tt.getByComm(o.Program)
-        if (task):
-            printTaskSockets(task)
+        for task in  tt.getByComm(o.Program):
+            printTaskSockets(tt, task)
         sys.exit(0)
 
     if (o.Pid != -1):

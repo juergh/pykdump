@@ -309,9 +309,10 @@ Here we read 'struct blk_major_name' from a given address and print the
  'major' field.
  Python has many built-in data types, including integers, floating-point
  numbers and strings.
- We would like to return properly typed values automatically, we don't want
- to specify type explicitly.
- As there is no pointer type in Python we can represent pointers by integers.
+ We would like to return properly typed values automatically, without specifying
+ type explicitly every time.
+ There is no special pointer type in Python but we can represent pointers
+ by integers.
  In the example above we expect to get:
 \end_layout
 
@@ -374,6 +375,29 @@ print s.name  # will print abc
 
 \begin_layout Code
 print s.name[5] # will print 5
+\end_layout
+
+\begin_layout Standard
+In most cases you can work with these 
+\emph on
+SmartStrings 
+\emph default
+just like with normal Python strings, but in some cases Python library functions
+ check type explicitly (e.g.
+ you cannot pass 
+\emph on
+SmartString
+\emph default
+ to regular expressions functions).
+ For the example above case you can convert 
+\emph on
+SmartString
+\emph default
+ s.name to a normal string using 
+\end_layout
+
+\begin_layout Code
+str(s.name)
 \end_layout
 
 \begin_layout Standard
@@ -536,25 +560,15 @@ SmartString
 \end_layout
 
 \begin_layout Standard
-We use this instead of Python basic String.
- If a struct field or global symbol is a char pointer, 'char *', in most
- cases we would like to convert it to Python String.
- But if we return just a String, we will not be able to find an address
- of this object just from it .
- Another case are char arrays - if we have 'char a[16];' this can be a string
- or it can be an array of 1-byte flags.
-\end_layout
+This type has already been described abover, in 
+\begin_inset Quotes eld
+\end_inset
 
-\begin_layout Standard
-SmartString behaves mostly like a normal Python String - you can print it
- or use most String methods on it.
- But it has its address stored internally so that you can retrieve it using
- Addr(smartstring).
- If this object was constructed from char array, the printable representation
- will interpret data as NULL-terminated string.
- But you will still be able to access any element of array (including NULL
- byte and chars after it if any) using index, e.g.
- smartstring[4].
+Mapping C-structures To Python Objects
+\begin_inset Quotes erd
+\end_inset
+
+ subsection.
 \end_layout
 
 \begin_layout Subsubsection
@@ -680,10 +694,21 @@ Crash
 \series default
 \emph default
 .
+ The default directory where extension is installed when doing 'make install'
+ is /usr/local/lib.
 \end_layout
 
 \begin_layout Subsection
 Options
+\end_layout
+
+\begin_layout Standard
+Options that you pass to your program on the command-line (whether from
+ crash environment or shell environment) are parsed when you do 
+\end_layout
+
+\begin_layout Code
+from pykdump.API import *
 \end_layout
 
 \begin_layout Standard
