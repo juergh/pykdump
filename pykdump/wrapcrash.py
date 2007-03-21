@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/03/16 14:06:18 alexs>
+# Time-stamp: <07/03/21 15:17:34 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -458,6 +458,8 @@ class StructResult(object):
 		    # (IA64)
 		    if (val and machine == "ia64"):
 			val = readPtr(val)
+                elif (reprtype == "Ptr"):
+                    val =  tPtr(val, ni)
                 else:
                     pass
                     StructResult._cache_access[cacheind]=("Int", off, sz, signed)
@@ -509,12 +511,49 @@ def Addr(obj, extra = None):
     else:
         raise TypeError
 
+# Dereference a tPtr object - at this moment 1-dim pointers to SU only
+def Deref(obj):
+    if (isinstance(obj, tPtr)):
+        addr = long(obj)
+        dpt = obj.ptype.Deref()
+        # OK, now we either have another pointer or SU itself
+        if (dpt.smarttype == "SU"):
+            return readSU(dpt.basetype, addr)
+        elif (dpt.smarttype in ("Ptr", "SUptr")):
+            return tPtr(readPtr(addr), dpt)
+        else:
+            raise TypeError, str(obj.ptype)
+        
+
 # When we do readSymbol and have pointers to struct, we need a way
 # to record this info instead of just returnin integer address
 
 class _SUPtr(long):
     def getDeref(self):
         return readSU(self.sutype, self)
+    Deref = property(getDeref)
+
+# A general typed Pointer
+class tPtr(long):
+    def __new__(cls, l, ptype):
+        return long.__new__(cls, l)
+    def __init__(self, l, ptype):
+        self.ptype = ptype
+    # For pointers, index access is equivalent to pointer arithmetic
+    def __getitem__(self, i):
+        dpt = self.ptype.Deref()
+        smarttype = dpt.smarttype
+        if (smarttype == "SU"):
+            sz = sizeof(dpt.basetype)
+            return readSU(dpt.basetype, long(self) + i * sz)
+        elif (smarttype in ("Ptr", "SUptr")):
+            return tPtr(readPtr(self + i * pointersize), dpt)
+        else:
+            raise TypeError, str(self.ptype)
+    def getDeref(self):
+        return Deref(self)
+    def __repr__(self):
+        return "<tPtr addr=0x%x ctype='%s'>" % (self, self.ptype.ctype)
     Deref = property(getDeref)
 
 
@@ -655,7 +694,7 @@ def readSymbol(symbol, art = None):
     symi = whatis(symbol, art)
     stype = symi.basetype
     swtype = symi.smarttype
-    addr = sym2addr(symbol)
+    addr = symi.addr
 
     # This can be an array...
     if (symi.has_key("array")):
@@ -1007,6 +1046,8 @@ def whatis(symbol, art=None):
                     f.star = stars
             else:
                 f.type = spl
+
+    f.addr = sym2addr(symbol)
     __whatis_cache[symbol] = f 
     return f
 

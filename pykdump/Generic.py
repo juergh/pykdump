@@ -1,7 +1,7 @@
 #
 #  Code that does not depend on whether we use embedded API or PTY
 #
-# Time-stamp: <07/03/12 11:39:50 alexs>
+# Time-stamp: <07/03/21 14:00:39 alexs>
 #
 import string
 import pprint
@@ -77,7 +77,8 @@ class LazyEval(object):
         # Switch 
         #print " ~~lazy~~ ", self.name, '\t', obj.fname
         val = self.meth(obj)
-        obj.__setitem__(self.name, val)
+        setattr(obj, self.name, val)
+        #obj.__setattr__(self.name, val)
         return val
 
 # A dict-like container
@@ -108,8 +109,29 @@ class FieldInfo(dict):
     def __setitem__(self, name, value):
         dict.__setitem__(self, name, value)
         object.__setattr__(self, name, value)
+    def __delattr__(self, name):
+        dict.__delitem__(self, name)
+        object.__delattr__(self, name)
     def copy(self):
         return FieldInfo(dict.copy(self))
+
+    # If self desribes a pointer, Deref returns
+    # a new FieldInfo which describes a dereferenced pointer
+    def Deref(self):
+        try:
+            star = self.star
+        except AttributeError:
+            raise TypeError, "Cannot dereference non-pointers"
+        if (self.dim != 1):
+            raise TypeError, "Cannot dereference arrays"
+        newdict ={}
+        newdict['type'] = self.type
+        newdict['typedef'] = self.typedef
+        nf = FieldInfo(newdict)
+        newstar = star[1:]
+        if (newstar):
+            nf.star = newstar
+        return nf
 
     # Dimension
     def getDim(self):
@@ -141,7 +163,7 @@ class FieldInfo(dict):
     # The full statement incuding name, dimension and ; - suitable
     # for our parsed
     def getCstmt(self):
-        if (self.dim):
+        if (self.dim and self.dim != 1):
             dims = "[%d]" % self.dim
         else:
             dims = ""
