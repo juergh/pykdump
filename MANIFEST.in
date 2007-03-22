@@ -1,4 +1,4 @@
-include README INSTALL COPYING TODO
+include README INSTALL COPYING TODO NEWS
 recursive-include Extension *.c *.py Makefile.dist
 recursive-include html *.html
 recursive-include docs *.lyx *.pdf

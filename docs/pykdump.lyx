@@ -240,11 +240,12 @@ Mapping C-structures To Python Objects
 
 \begin_layout Standard
 The Linux kernel is written in C (plus a bit of assembly).
- To be able to write useful scripts easily, we need two things: 
+ To be able to write useful dump-analysis scripts easily, we need two things:
+ 
 \end_layout
 
 \begin_layout Itemize
-to be able to read variables and struct/union contents 
+to be able to read memory, global variables and struct/union contents 
 \end_layout
 
 \begin_layout Itemize
@@ -262,10 +263,10 @@ For example, if we want to write a program printing routing tables from
 
 \begin_layout Standard
 Python has most operators that C does, but there is no direct analog for
- operators '*', '->', and '&' as Python passes everything by reference -
+ operators '*', '->', and '&' as Python passes everything by reference,
  there are no pointers.
- So it is easy to mimic reading and accessing fields of C struct/union in
- Python as both C and Python have a dot '.' operator:
+ It is easy to mimic reading and accessing fields of C struct/union in Python
+ as both C and Python have the dot '.' operator:
 \end_layout
 
 \begin_layout Code
@@ -450,7 +451,8 @@ next = s.Deref.next                             # the 2nd approach
 \begin_layout Standard
 To emulate the missing features we can define some attributes as special
  (in Python you can bind an arbitrary action for attribute access).
- Obviously this would not work if we had a struct field with 'Deref' name.
+ Obviously this would not work as expected if we had a struct field with
+ 'Deref' name.
  Luckily, this is highly improbable for kernel structures.
  The "Linux Coding Style" document, 
 \begin_inset LatexCommand \url[Coding_Style]{http://www.llnl.gov/linux/slurm/coding_style.pdf}
@@ -539,13 +541,13 @@ Some Special Types
 \end_layout
 
 \begin_layout Standard
-We base all C integer types to Python native 'long integer' type and we
- map C struct/union instances to 'class StructResult' instances.
+We map all C integer types to Python native 'long integer' type and we map
+ C struct/union instances to 'class StructResult' instances.
  Pointers and arrays are normally represented by Python integers and lists.
  But in some cases we would like to preserve additional information while
  returning value so that we use classes instead of Python integers strings.
  Please note that you shoud not construct objects of this type yourself,
- they will be initialized and return as needed when using 
+ they will be initialized and returned as needed when using 
 \series bold
 \emph on
 readSymbol
@@ -586,6 +588,17 @@ We return this type when a global variable or struct member is defined as
 
 \begin_layout Code
 shead = shead.Deref
+\end_layout
+
+\begin_layout Standard
+The main reason why this special type is needed is to preserve information
+ while reading global pointers to structs using 
+\series bold
+\emph on
+readSymbol
+\series default
+\emph default
+ function (see below).
 \end_layout
 
 \begin_layout Section
@@ -635,7 +648,7 @@ crash32
 \emph default
 , the initialization file will be .crash32rc.
  This is handy if you are using AMD64 host running 64-bits as your dedicated
- dump-analysis host.
+ dump-analysis machine.
  In this case you need to have two 
 \series bold
 \emph on
@@ -714,7 +727,7 @@ from pykdump.API import *
 \begin_layout Standard
 You can pass a number of options that are consumed by API itself; if you
  specify them on the command line they will modify the behavior of framework
- itself but will not be passed to the application.
+ itself but will not be passed to an application.
  Here are these options:
 \end_layout
 
@@ -739,11 +752,11 @@ You can pass a number of options that are consumed by API itself; if you
 \end_layout
 
 \begin_layout Standard
-They should be used by developers
+These options are for developers and should not be used in normal programs.
 \end_layout
 
 \begin_layout Standard
-So if you invoke your program as
+An example of options preprocessing: if you invoke your program as
 \end_layout
 
 \begin_layout Code
@@ -843,7 +856,7 @@ crash32> epython progs/netdev.py
 
 \begin_layout Standard
 If 'netdev.py' is a highly untrivial program doing automated dump-analysis,
- you may like to run it on several dumps without doing anything else.
+ you may want to run it on several dumps without doing anything else.
  So it would be nice to be able to automate the three steps above (well,
  loading the extension can be automated by doing it in crash initialization
  file).
@@ -924,7 +937,7 @@ To pass the dump location on the command line, you specify the base dump
  If you do not specify any directory at all, it will try to use the files
  in the current directory.
  If no dump/vmlinux files are available in the current directory, the program
- will try to use the live kernel and /dev/crash.
+ will try to use the live kernel and /dev/crash (or /dev/mem).
  Here is how files are searched (using * wildcard in usual sense):
 \end_layout
 
@@ -1120,8 +1133,8 @@ Sending Commands To GDB And CRASH
 \end_layout
 
 \begin_layout Standard
-Sometimes it is useful to execute a GDB or CRASH command and obtain the
- result.
+Sometimes it is useful to execute an explicit GDB or CRASH command and obtain
+ the result.
  For example, instead of writing your own 'ps' command you want to use built-in
  'ps' command to parse its output and use this data.
  Here are two commands that perform these tasks:

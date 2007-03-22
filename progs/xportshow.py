@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/03/16 15:11:20 alexs>
+# Time-stamp: <07/03/22 12:17:12 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -574,6 +574,10 @@ if ( __name__ == '__main__'):
                   action="store_true",
                   help="Print dev_pack info")
 
+    op.add_option("--arp", dest="arp", default = 0,
+                  action="store_true",
+                  help="Print ARP & Neighbouring info")
+
     (o, args) = op.parse_args()
 
     if (o.Verbose):
@@ -595,6 +599,11 @@ if ( __name__ == '__main__'):
 
     if (o.devpack):
         print_dev_pack()
+        sys.exit(0)
+
+    if (o.arp):
+        from LinuxDump.inet import neighbour
+        neighbour.print_neighbour_info()
         sys.exit(0)
 
     if (o.Route):

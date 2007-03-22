@@ -1,6 +1,6 @@
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <07/03/12 10:25:24 alexs>
+# Time-stamp: <07/03/22 11:30:33 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -24,6 +24,7 @@ from LinuxDump.inet import *
 from LinuxDump import percpu
 
 from StringIO import StringIO
+import string
 
 
 __IFF_FLAGS_c = '''
@@ -196,6 +197,12 @@ __NETIF_FEATURES_c = '''
 '''
 NETIF_FEATURES = CDefine(__NETIF_FEATURES_c)
 
+# Convert hwaddr (a list of bytes) to string
+def hwaddr2str(ha, l):
+    out = []
+    for i in range(l):
+        out.append("%02x" % ha[i])
+    return string.join(out, ':')
 
 # Print QDisc data if possible
 def printQdisc(qdisc):
@@ -505,8 +512,7 @@ def print_If(dev, details):
     # If this is Ethernet, print its MAC-address
     if (dev.type == ARP_HW.ARPHRD_ETHER):
         da = dev.dev_addr
-        hwaddr = "%02x:%02x:%02x:%02x:%02x:%02x" % (
-            da[0], da[1], da[2], da[3], da[4], da[5])
+        hwaddr = hwaddr2str(da, 6)
     else:
         hwaddr = ""
     arptype = ARP_HW.value2key(dev.type)[7:]

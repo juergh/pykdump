@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/03/21 15:17:34 alexs>
+# Time-stamp: <07/03/21 16:32:33 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -473,9 +473,10 @@ class StructResult(object):
                     val1 = mem2long(s[i*sz1:(i+1)*sz1], signed=signed)
                     #val1 = mem2long(s, i*sz1, sz1)
                     # Are we SUptr?
-                    if (reprtype == "SUptr"):
-                        val1 =  _SUPtr(val1)
-                        val1.sutype = stype
+                    if (reprtype in ("Ptr", "SUptr")):
+                        ti = ni.mincopy()
+                        ti.star = ni.star
+                        val1 =  tPtr(val1, ti)
 
                     val.append(val1)
 

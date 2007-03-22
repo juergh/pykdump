@@ -1,7 +1,7 @@
 #
 #  Code that does not depend on whether we use embedded API or PTY
 #
-# Time-stamp: <07/03/21 14:00:39 alexs>
+# Time-stamp: <07/03/21 16:32:04 alexs>
 #
 import string
 import pprint
@@ -114,7 +114,14 @@ class FieldInfo(dict):
         object.__delattr__(self, name)
     def copy(self):
         return FieldInfo(dict.copy(self))
-
+    # A minimal copy - to be used in tPtr
+    def mincopy(self):
+        newdict ={}
+        newdict['type'] = self.type
+        newdict['typedef'] = self.typedef
+        nf = FieldInfo(newdict)
+        return nf
+    
     # If self desribes a pointer, Deref returns
     # a new FieldInfo which describes a dereferenced pointer
     def Deref(self):
@@ -124,10 +131,7 @@ class FieldInfo(dict):
             raise TypeError, "Cannot dereference non-pointers"
         if (self.dim != 1):
             raise TypeError, "Cannot dereference arrays"
-        newdict ={}
-        newdict['type'] = self.type
-        newdict['typedef'] = self.typedef
-        nf = FieldInfo(newdict)
+        nf = self.mincopy()
         newstar = star[1:]
         if (newstar):
             nf.star = newstar
