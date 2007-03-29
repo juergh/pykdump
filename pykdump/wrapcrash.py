@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/03/21 16:32:33 alexs>
+# Time-stamp: <07/03/29 15:05:13 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -137,6 +137,7 @@ class ArtStructInfo(BaseStructInfo):
     def __init__(self, stype):
         BaseStructInfo.__init__(self, stype)
         # Add ourselves to cache
+        self.size = 0
         self.addToCache()
 
     # Append info. Reasonable approaches:
@@ -182,6 +183,7 @@ class ArtStructInfo(BaseStructInfo):
 class ArtUnionInfo(BaseStructInfo):
     def __init__(self, stype):
         BaseStructInfo.__init__(self, stype)
+        self.size = 0
         # Add ourselves to cache
         self.addToCache()
 
@@ -287,202 +289,47 @@ class StructResult(object):
     # are many subcases. We probably need to split it into several subroutines,
     # maybe internal to avoid namespace pollution
     def __getattr__(self, name):
-        # For some reason sk.__sk_common does not work as expected
-        # when we do this inside a class method. For example,
-        # if we do this inside 'class IP_conn',
-        # it passes to __getattr__  '_IP_conn__sk_common'
-        # Python mangling is applied to class attributes starting from
-        # two underscores - but why do we append _IP_Conn to an attribute
-        # of StructResult?.
         ind = name.find('__')
         if (ind > 0):
             name = name[ind:]
-
-        global count_total_attr, count_cached_attr
-
-        count_total_attr += 1
-        # First of all, try to use shortcut from cache
-        cacheind = (self.PYT_symbol, name)
-        if (experimental):
-            try:
-                itype, off, sz, spec = StructResult._cache_access[cacheind]
-                count_cached_attr += 1
-                s = self.PYT_data[off:off+sz]
-                fieldaddr = self.PYT_addr + off
-                #print "_cache_access", cacheind, itype, off, sz, spec
-                if (itype == "Int"):
-                    return  mem2long(s, signed=spec)
-                elif (itype == "String"):
-                    val = mem2long(s)
-                    if (val == 0):
-                        val = None
-                    else:
-                        s = readmem(val, 256)
-                        val = SmartString(s, fieldaddr)
-                    return  val
-                elif (itype == "CharArray"):
-                    return SmartString(s, fieldaddr)
-                elif (itype == "SU"):
-                    return  StructResult(spec, fieldaddr, s)
-                elif (itype == "SUptr"):
-                    val =  _SUPtr(mem2long(s))
-                    val.sutype = spec
-                    return val
-                else:
-                    raise TypeError
-            except KeyError:
-                pass
-        
         # A special case - dereference
         if (name == self.PYT_deref):
             return Dereference(self)
 
         ni = self.PYT_sinfo[name]
-
-        #print "NI", ni
-        sz = ni.size
         off = ni.offset
-        # This can be an array...
-        if (ni.has_key("array")):
-            dim = ni.array
-        else:
-            dim = 1
+        sz = ni.size
 
+        # This can be an array...
         fieldaddr = self.PYT_addr + off
         reprtype = ni.smarttype
-        stype = ni.basetype
-	# Obtaining a slice of real data is rather expensive (as it needs
-	# object creation)
-        s = self.PYT_data[off:off+sz]
-        #print "name, off,sz, smarttype", name, off,sz, reprtype
 
-        # If this is an embedded SU, create a new struct object.
-        # If struct type is not externally visible, i.e. crash/gdb cannot do
-        # 'struct sname' we generate an 'internal' name
-        if (reprtype == "SU"):
-            # We can have here:
-            # 1. 'struct AAA field'
-            # 2. 'struct {...} field'
-            # 3. 'type_s field'
-            ftype = string.join(ni.type)
-            # Ok, let us check whether this type is external
-            if (struct_size(ftype) == -1 and not ni.typedef):
-                # No, this is an internal one - maybe even without
-                # a name
-                s_u = ni.type[0]
-                if (s_u == "struct"):
-		    fakename = self.PYT_symbol+'-'+ftype+'-'+name
-		    # Check whether it already has been created
-                    try:
-                        au = getStructInfo(fakename)
-                    except TypeError:
-                        au = ArtStructInfo(fakename)
-                        for fi in ni.body:
-                            au.append(fi.cstmt)
-                        #print au
-                    val = StructResult(fakename, fieldaddr)
-                    return val
-                elif (s_u == "union"):
-                    #print "NI", ni
-                    fakename = self.PYT_symbol+'-'+ftype+'-'+name
-                    # Check whether it already has been created
-                    try:
-                        au = getStructInfo(fakename)
-                    except TypeError:
-                        au = ArtUnionInfo(fakename)
-                        for fi in ni.body:
-                            au.append(fi.cstmt)
-                        #print au
-                    val = StructResult(fakename, fieldaddr)    
-                    return val
-                else:
-                    raise TypeError, s_u
-                
-            
-            # This can be an array...
-            if (dim != 1):
-                # We sometimes meet dim=0, e.g.
-                # struct sockaddr_un name[0];
-                # I am not sure about that but let us process by
-                # loading new data from this address
-                if (dim == 0):
-                    #print "dim=0", ftype, hexl(self.PYT_addr + off)
-                    val = StructResult(ftype, fieldaddr)
-                else:
-                    sz1 = sz/dim
-                    val = []
-                    for i in range(0, dim):
-                        s1 = s[i*sz1:(i+1)*sz1]
-                        one =  StructResult(ftype, fieldaddr+i*sz1, s1)
-                        val.append(one)
-            else:
-		# We return this in case of SU with an 'external' type
-                val = StructResult(ftype, fieldaddr, s)
-                StructResult._cache_access[cacheind]= ("SU", off, sz, ftype)
-            # ------- end of SU --------------------
-        elif (reprtype == "CharArray"):
-	    if (dim == 0):
-                # We assume we should return a pointer to this offset
-                val = fieldaddr
-	    else:
-                # Return it as a string - may contain ugly characters!
-                # not NULL-terminated like String reprtype
-                val = SmartString(s, fieldaddr)
-                StructResult._cache_access[cacheind] = ("CharArray", off, sz, None)
-        elif (reprtype == "String" and dim == 1):
-            val = mem2long(s)
-            if (val == 0):
-                val = None
-            else:
-                s = readmem(val, 256)
-                val = SmartString(s, fieldaddr)
-            StructResult._cache_access[cacheind] = ("String", off, sz, None)
+
+        # if sz == -1, this means that we cannot find the size of this
+        # field. It usually happens when we try to obtain the size
+        # of artificial SU before creating them. In this case, pass the
+        # whole chunk of data
+        if (sz == -1):
+            s = self.PYT_data
         else:
-            # ----- A kitchen sink: integer types --------
-            signed = False
-            if (reprtype == 'Char' or reprtype == 'SInt'):
-                signed = True
-            #print name, reprtype, sz, dim,  signed
-            if (dim == 1):
-                val = mem2long(s, signed=signed)
-                # Are we a bitfield??
-                if (ni.has_key("bitfield")):
-                    val = (val&(~(~0<<ni.bitoffset+ ni.bitfield)))>>ni.bitoffset
-                # Are we SUptr?
-                elif (reprtype == "SUptr"):
-                    val =  _SUPtr(val)
-                    val.sutype = stype
-                    StructResult._cache_access[cacheind]=("SUptr", off, sz, stype)
-		elif (reprtype == "FPtr"):
-		    # This is a function pointer - might be a function descriptor
-		    # (IA64)
-		    if (val and machine == "ia64"):
-			val = readPtr(val)
-                elif (reprtype == "Ptr"):
-                    val =  tPtr(val, ni)
-                else:
-                    pass
-                    StructResult._cache_access[cacheind]=("Int", off, sz, signed)
-            elif (dim == 0):
-                # We assume we should return a pointer to this offset
-                val = fieldaddr
-            else:
-                val = []
-                sz1 = sz/dim
-                for i in range(0,dim):
-                    val1 = mem2long(s[i*sz1:(i+1)*sz1], signed=signed)
-                    #val1 = mem2long(s, i*sz1, sz1)
-                    # Are we SUptr?
-                    if (reprtype in ("Ptr", "SUptr")):
-                        ti = ni.mincopy()
-                        ti.star = ni.star
-                        val1 =  tPtr(val1, ti)
+            s = self.PYT_data[off:off+sz]
+        #s = None
+        if (sz >0 and len(s) != sz):
+            print ni.ctype, name, off, sz, len(s), len(self.PYT_data)
+            raise TypeError
+        
+        if (reprtype == "SU"):
+            val = _getSU(fieldaddr, ni, s)
+        elif (reprtype == "CharArray"):
+            val = _getCharArray(fieldaddr, ni, s)
+        elif (reprtype == "String"):
+            val = _getString(fieldaddr, ni, s)
+        elif (reprtype in ('UInt', 'SInt', 'Ptr', 'FPtr', 'SUptr')):
+            val =  _getInt(fieldaddr, ni, s)
+        else:
+            raise 'TypeError', reprtype
+            #return oldStructResult.__getattr__(self, name)
 
-                    val.append(val1)
-
-            # OK, if this is a pointer to char, retrieve the string. To prevent
-            # problems because of bogus strings, do no retrieve more than 256 bytes
-        #self.__dict__[name] = val
         return val
     
     # An ugly hack till we implement something better
@@ -497,6 +344,196 @@ class StructResult(object):
         f = tparser.derefstmt.parseString(resp).asList()[0]
         return f
 
+
+__int_cache = {}
+
+
+def _getInt(fieldaddr, ni, s = None):
+    sz = ni.size
+    if (s == None):
+        s = readmem(fieldaddr, sz)
+
+    smarttype = ni.smarttype
+    dim = ni.dim
+
+    if (smarttype == 'FPtr'):
+        val = mem2long(s)
+        if (dim == 1):
+            if (val and machine == "ia64"):
+                val = readPtr(val)
+        else:
+            raise "TypeError", "Cannot process fptr arrays"
+    elif (smarttype == 'SInt'):
+        val = mem2long(s, signed = True, array=dim)
+    
+    elif (smarttype == 'UInt'):
+        val = mem2long(s, array=dim)
+        
+    elif (smarttype in ('SUptr', 'Ptr')):
+        if (dim == 1):
+            val = tPtr(mem2long(s), ni.basetype)
+        else:
+            val = []
+            sz1 = sz/dim
+            for i in range(dim):
+                val.append(tPtr(mem2long(s[i*sz1:(i+1)*sz1]), ni.basetype))
+    else:
+        raise TypeError, str(smarttype) + ' ' + str(dim)
+
+    return val
+ 
+
+def _getString(fieldaddr, ni, s = None):
+    if (s == None):
+        ptr = readPtr(fieldaddr)
+    else:
+        ptr = mem2long(s)
+    if (ptr == 0):
+        return None
+    else:
+        s = readmem(ptr, 256)
+        return SmartString(s, fieldaddr)
+
+def _getCharArray(fieldaddr, ni, s = None):
+    dim = ni.dim
+    sz = ni.size
+    if (dim == 0):
+        # We assume we should return a pointer to this offset
+        val = fieldaddr
+    else:
+        # Return it as a string - may contain ugly characters!
+        # not NULL-terminated like String reprtype
+        if (s == None):
+            s = readmem(fieldaddr, sz)
+        val = SmartString(s, fieldaddr)
+
+    return val
+
+def _getSU(fieldaddr, ni, s = None):
+    sz = ni.size
+    name = ni.fname
+    # This can be an array...
+    dim = ni.dim
+    ftype = ni.basetype
+
+    # This can be a fake type - in this case we might need to create it
+    if (ftype.find('-') != -1):
+        su = ni.type[0]
+        # Check whether we have already created this faketype
+        try:
+            au = getStructInfo(ftype, createnew=False)
+        except TypeError:
+            #print "Creating", ftype
+            if (su == 'struct'):
+                au = ArtStructInfo(ftype)
+            elif (su == 'union'):
+                au = ArtUnionInfo(ftype)
+            else:
+                raise TypeError, su
+            for fi in ni.body:
+                au.append(fi.cstmt)
+
+    # This can be an array...
+    if (dim != 1):
+        # We sometimes meet dim=0, e.g.
+        # struct sockaddr_un name[0];
+        # I am not sure about that but let us process by
+        # loading new data from this address
+        if (dim == 0):
+            #print "dim=0", ftype, hexl(self.PYT_addr + off)
+            val = StructResult(ftype, fieldaddr)
+        else:
+            sz1 = sz/dim
+            val = []
+            for i in range(0, dim):
+                if (s):
+                    s1 = s[i*sz1:(i+1)*sz1]
+                else:
+                    s1 = None
+                one =  StructResult(ftype, fieldaddr+i*sz1, s1)
+                val.append(one)
+    else:
+        # We return this in case of SU with an 'external' type
+        val = StructResult(ftype, fieldaddr, s)
+    return val
+# Convert a flat (1-dim) list to multidimensional
+
+def _flat2Multi(symi, out):    
+    multidim = symi.indices
+    if (type(multidim) == type([])):
+        # We do this for 2- and 3-dim only
+        out1 = multilist(multidim)
+        if (len(multidim) == 2):
+            I = multidim[0]
+            J = multidim[1]
+            for i in range(I):
+                for j in range(J):
+                    out1[i][j] = out[i*J+j]
+        
+        elif (len(multidim) == 3):
+            I = multidim[0]
+            J = multidim[1]
+            K = multidim[2]
+            for i in range(I):
+                for j in range(J):
+                    for k in range(K):
+                        out1[i][j] = out[i*J*K+j*K +k]
+        else:
+            raise TypeError, "Array with dim >3"
+        return out1
+    else:
+        return out
+    
+
+def newsmartType(ni):
+     # Are we signed or unsigned? All pointers are unsigned.
+    # Integer types are signed by default - we need an explicit 'unsigned'
+    # specifier to be able to tell
+
+    # Reduce typedefs if any
+    ptype = getTypedefInfo(ni.basetype)
+    # It is possible that our ptype is a pointer
+    try:
+        ctype = ptype + ni.star
+    except:
+        ctype = ptype
+    #print " _getInt %s|%s|%s|%s" % (ni.ctype, ni.smarttype, ctype, ni.fname)
+    spl = ctype.split()
+    # The new type can be a function declaration.
+    # At this moment we detect this by a presense of '(*)' string
+
+    if (ctype.find('(*)') != -1):
+        # This is a function pointer
+        # (IA64)
+        #print "\t->FPtr"
+        val = getFPtr(s)
+        __int_cache[ni.ctype] = getFPtr
+    elif (ctype.find('*') != -1):
+        # A pointer
+        val = mem2long(s)
+        if ('struct' in spl or 'union' in spl):
+            #print "\t->SUPtr"
+            val = tPtr(val, ni.basetype)
+        else:
+            #print "\t->tPtr"
+            val =  tPtr(val, ni)
+        #val =  tPtr(mem2long(s), ni)
+    elif ('unsigned' in spl):
+        #print "\t->UInt"
+        # This is an unsigned integer
+        val =  getUnsigned(s)
+        __int_cache[ni.ctype] = getUnsigned
+    elif ('struct' in spl or 'union' in spl):
+        # SU
+        #print "\t->SU"
+        val = StructResult(ctype, fieldaddr)
+    else:
+        # A signed integer
+        #print "\t->Sint"
+        val =  getSigned(s)
+        __int_cache[ni.ctype] = getSigned
+    return val
+
 # Wrapper functions to return attributes of StructResult
 
 def Addr(obj, extra = None):
@@ -510,7 +547,7 @@ def Addr(obj, extra = None):
     elif (isinstance(obj, SmartString)):
           return obj.addr
     else:
-        raise TypeError
+        raise TypeError, type(obj)
 
 # Dereference a tPtr object - at this moment 1-dim pointers to SU only
 def Deref(obj):
@@ -528,11 +565,6 @@ def Deref(obj):
 
 # When we do readSymbol and have pointers to struct, we need a way
 # to record this info instead of just returnin integer address
-
-class _SUPtr(long):
-    def getDeref(self):
-        return readSU(self.sutype, self)
-    Deref = property(getDeref)
 
 # A general typed Pointer
 class tPtr(long):
@@ -658,7 +690,7 @@ def readSUListFromHead(headaddr, listfieldname, mystruct, maxel=1000,
     return out
 
 # Read a list of structures connected via direct next pointer, not
-# an embedded listhead. 'shead' is either a structure or _SUptr pointer
+# an embedded listhead. 'shead' is either a structure or tPtr pointer
 # to structure
 
 def readStructNext(shead, nextname):
@@ -698,18 +730,8 @@ def readSymbol(symbol, art = None):
     addr = symi.addr
 
     # This can be an array...
-    if (symi.has_key("array")):
-        dim = symi.array
-    else:
-        dim = 1
+    dim = symi.dim
 
-    # For multidimensional arrays (at this moment we support only 2-dim)
-    # compute everything as 1-dim with N1xN2 size, later convert it back
-    if (dim !=1 and type(dim) == type([])):
-        multidim = dim
-        dim = reduce(lambda x,y: x*y, dim)
-    else:
-        multidim = None
     
     size = getSizeOf(symbol)
     # There is a special case - on some kernels we obtain zero-dimensioned
@@ -725,76 +747,21 @@ def readSymbol(symbol, art = None):
     sz1 = size/dim
 
     s = readmem(addr, size)
-    
+
     #print "ctype=<%s> swtype=<%s> dim=%d" % (symi.ctype, swtype, dim)
     out = None
     if (swtype == "SU"):
-        #elsi = getStructInfo(stype)
-        #size = elsi.size
-        if (dim > 1):
-            out = []
-            for i in range(0,dim):
-                out.append(readSU(stype, addr+i*sz1))
-        else:
-            out = readSU(stype, addr)
-    elif ((swtype == "Ptr" or swtype == "SUptr") and dim > 1):
-        out = []
-        for i in range(0,dim):
-            ptr =  mem2long(s[i*pointersize:(i+1)*pointersize])
-            if (swtype == "SUptr"):
-                ptr = _SUPtr(ptr)
-                ptr.sutype = stype
-            out.append(ptr)
-    elif (swtype == "SInt"):
-        if (dim == 1):
-            out = mem2long(s, signed=True)
-        else:
-            out = []
-            for i in range(0, dim):
-                val = mem2long(s[i*pointersize:(i+1)*pointersize], signed=True)
-                out.append(val)
-    elif (swtype == "UInt" or swtype == "UChar" or 
-          swtype == "Ptr" or swtype == "SUptr"):
-        if (dim == 1):
-            addr =  mem2long(s)
-            if (swtype == "SUptr"):
-                ptr = _SUPtr(addr)
-                ptr.sutype = stype
-                out = ptr
-            else:
-                out = addr
-        else:
-            out = []
-            for i in range(0, dim):
-                val = mem2long(s[i*sz1:(i+1)*sz1])
-                if (swtype == "SUptr"):
-                    val = _SUPtr(val)
-                    val.sutype = stype
-                out.append(val)
+        out = _getSU(addr, symi)
+    elif (swtype in ("SInt", "UInt", 'Ptr', 'SUptr')):
+        out = _getInt(addr, symi)
+    else:
+        raise TypeError, symi.ctype
 
     # If we have multidim set and 'out' is a list, convert it to
-    # list of lists as needed
-    if (multidim != None):
-        # We do this for 2- and 3-dim only
-        out1 = multilist(multidim)
-        if (len(multidim) == 2):
-            I = multidim[0]
-            J = multidim[1]
-            for i in range(I):
-                for j in range(J):
-                    out1[i][j] = out[i*J+j]
-        
-        elif (len(multidim) == 3):
-            I = multidim[0]
-            J = multidim[1]
-            K = multidim[2]
-            for i in range(I):
-                for j in range(J):
-                    for k in range(K):
-                        out1[i][j] = out[i*J*K+j*K +k]
-        else:
-            raise TypeError, "Array with dim >3"
-        out = out1
+    # a list of lists as needed
+
+    if (type(out) == type([])):
+        out = _flat2Multi(symi, out)
 
     return out
 
@@ -816,6 +783,17 @@ def getSizeOf(vtype):
         return PYT_sizetype[vtype]
     except KeyError:
         sz = GDB_sizeof(vtype)
+        if (sz == -1):
+            # Check whether we are in SU-cache and if yes, whether
+            # our size is already known. This is mainly needed for
+            # Artificial SU
+            try:
+                si = getStructInfo(vtype)
+                print "++Got si"
+                sz = si.size
+            except TypeError:
+                pass
+        #print "++getSizeOf", vtype, sz
         PYT_sizetype[vtype] = sz
         return sz
 
@@ -908,13 +886,24 @@ def flushCache():
 ustructcodes32 = [0, 'B', 'H', 3, 'I', 5, 6, 7, 'Q']
 structcodes32 = [0, 'b', 'h', 3, 'i', 5, 6, 7, 'q']
 
-def mem2long(s, signed=False):
-    sz = len(s)
-    if(signed):
-        val = struct.unpack(structcodes32[len(s)], s)[0]
+def mem2long(s, signed=False, array=False):
+    if (not array):
+        sz = len(s)
+        if(signed):
+            val = struct.unpack(structcodes32[sz], s)[0]
+        else:
+            val = struct.unpack(ustructcodes32[sz], s)[0]
+        return val
     else:
-        val = struct.unpack(ustructcodes32[len(s)], s)[0]
-    return val
+        sz = len(s)/array
+        out = []
+        for i in range(array):
+            if(signed):
+                val = struct.unpack(structcodes32[sz], s[i*sz:(i+1)*sz])[0]
+            else:
+                val = struct.unpack(ustructcodes32[sz], s[i*sz:(i+1)*sz])[0]
+            out.append(val)
+        return val
 
     
 # Get a list of non-empty bucket addrs (ppointers) from a hashtable.
@@ -1065,7 +1054,7 @@ def whatis(symbol, art=None):
 #           String  - this is a pointer to Char
 
 def isTypedef(basetype):
-    # If there is a 'struct' or 'union' word, it does not make sense to continue
+    #If there is a 'struct' or 'union' word, it does not make sense to continue
     spl = basetype.split()
     if ('struct' in spl or 'union' in spl):
         return None
@@ -1225,6 +1214,15 @@ def GDB_sizeof(vtype):
 def GDB_ptype(sym):
     rstr = exec_gdb_command("ptype " + sym)
     return GDBStructInfo(rstr)
+
+# Return a string with part of of 'ptype' command before the first {.
+# At this moment this will work only for typedefs that
+# reference an already existing type. This will not work for
+# typedefs like
+
+# typedef struct {
+# 	unsigned long fds_bits [__FDSET_LONGS];
+# } __kernel_fd_set;
 
 re_ptype = re.compile('^type = ([^{]+)\s*{*$')
 def getTypedefInfo(tname):

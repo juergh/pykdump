@@ -1,7 +1,7 @@
 #
 #  Code that does not depend on whether we use embedded API or PTY
 #
-# Time-stamp: <07/03/21 16:32:04 alexs>
+# Time-stamp: <07/03/29 14:49:21 alexs>
 #
 import string
 import pprint
@@ -25,11 +25,11 @@ def unsigned16(l):
 def unsigned32(l):
     return l & 0xffffffff
 
-INTTYPES = ('char', 'short', 'int', 'long', 'signed', 'unsigned',
-            '__u8', '__u16', '__u32', '__u64',
-             'u8', 'u16', 'u32', 'u64',
-            )
-EXTRASPECS = ('static', 'const', 'volatile')
+# INTTYPES = ('char', 'short', 'int', 'long', 'signed', 'unsigned',
+#             '__u8', '__u16', '__u32', '__u64',
+#              'u8', 'u16', 'u32', 'u64',
+#             )
+# EXTRASPECS = ('static', 'const', 'volatile')
 
 # Struct/Union info representation base class. It does not contain methods
 # to add info as they rely at this moment on parser
@@ -41,7 +41,7 @@ class BaseStructInfo(dict):
     def __init__(self, stype):
         dict.__init__(self, {})
         self.stype = stype
-        self.size = 0
+        self.size = -1
         self.body = []
         self.reclevel = 0
 
@@ -137,8 +137,17 @@ class FieldInfo(dict):
             nf.star = newstar
         return nf
 
-    # Dimension
+    # Dimension. For multidim arrays a total size, i.e. i1*i2*...*in
     def getDim(self):
+        if (type(self.indices) == type([])):
+            dimtot = reduce(lambda x,y: x*y, self.indices)
+        else:
+            dimtot = self.indices
+        return dimtot
+
+    # Indices as they found by parser. For 1-dim array just an int,
+    # for multidim a list, e.g. [2][3][4] -> [2,3,4]
+    def getIndices(self):
         if (self.has_key("array")):
             return self["array"]
         else:
@@ -148,8 +157,30 @@ class FieldInfo(dict):
     # 'struct hello *ptr[10];' we might need different pieces of it
     
     # Base type, without * and other modifiers - 'struct hello'
+    # For structs/unions declared inside other struct/union, we
+    # create a fakename and artificial struct/union as needed
     def getBaseType(self):
-        return string.join(self.type)
+        # Here we have a special case: a struct declared directly in another
+        # struct (so that it is not declared globally). For example:
+        #
+        # struct AA {
+        #   struct {} fname;
+        #
+        # struct AA {
+        #   struct BB {} fname;
+
+        # In this case (no type defined globally) we generate a fakename
+        # 'struct AA-struct-fname' or 'struct AA-struct-BB-fname'
+
+        #print '++', self.parentstype, self.type, self.fname
+        if (not self.has_key('body')):
+            # A normal case
+            return string.join(self.type)
+        else:
+            ftype = string.join(self.type, '-')
+            fakename = self.parentstype+ '-' + ftype + '-' + self.fname
+            return fakename
+
     
     # Ctype, i.e. the basetype with * as needed 'struct hello *'
     def getCtype(self):
@@ -163,6 +194,7 @@ class FieldInfo(dict):
     # 'SUptr'
     def getSmartType(self):
         return _smartType(self)
+
 
     # The full statement incuding name, dimension and ; - suitable
     # for our parsed
@@ -178,6 +210,7 @@ class FieldInfo(dict):
     smarttype = LazyEval("smarttype", getSmartType)
     cstmt = LazyEval("cstmt", getCstmt)
     dim = LazyEval("dim", getDim)
+    indices = LazyEval("indices", getIndices)
 
 
 
@@ -194,8 +227,7 @@ def fieldsize(f):
         size =  d.getSizeOf(ftype)
     # Correct the size if this is an array
     if (f.has_key("array")):
-        size *= f["array"]
-
+        size *= f.dim
     return size
 
 # Find the best data representation a field. E.g. we want (char *)
@@ -263,6 +295,10 @@ def _smartType(fi):
             fullstype = 'String'
         elif (fi.has_key("array")):
             fullstype = "CharArray"
+        else:
+            fullstype = 'SInt'
+    elif (stype == 'UChar'):
+        fullstype = 'UInt'
     elif (stype == 'SU' and star == '*'):
         fullstype = 'SUptr'
     elif (star):

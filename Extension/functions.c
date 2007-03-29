@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <07/02/28 14:46:36 alexs>
+  Time-stamp: <07/03/27 13:45:30 alexs>
 
   Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -390,34 +390,49 @@ nu_badsize(const char *p) {
 static PyObject *
 py_mem2long(PyObject *self, PyObject *args, PyObject *kwds) {
   char *str;
-  int strsize;
+  int size;
   unsigned long addr;
 
-  static char *kwlist[] = {"array", "size", "offset", "signed", NULL};
-  int size = 0;
-  int offset = 0;
+  static char *kwlist[] = {"source", "signed", "array", NULL};
+  int array = 0;
   int signedvar = 0;
 
-  if (!PyArg_ParseTupleAndKeywords(args, kwds, "s#|iii", kwlist,
-				   &str, &strsize,
-				   &size, &offset, &signedvar)) {
-    PyErr_SetString(crashError, "invalid parameter type");
+  if (!PyArg_ParseTupleAndKeywords(args, kwds, "s#|ii", kwlist,
+				   &str, &size,
+				   &signedvar, &array)) {
+    //PyErr_SetString(crashError, "invalid parameter type");
     return NULL;
   }
 
-  //printf("strsize=%d size=%d offset=%d, signed=%d\n",strsize,size,offset, signedvar);
-  if (size == 0)
-    size = strsize;
-  if (offset)
-    str += offset;
+  //printf("strsize=%d, signed=%d, array=%d\n",size, signedvar, array);
 
-  if (size < 0 || size > sizeof(functable_signed)/sizeof(conversion_func))
-    return nu_badsize(str);
-  if (signedvar)
-    return functable_signed[size-1](str);
-  else
-    return functable_usigned[size-1](str);
+  if (array <= 1) {
+    if (size < 0 || size > sizeof(functable_signed)/sizeof(conversion_func))
+      return nu_badsize(str);
+    if (signedvar)
+      return functable_signed[size-1](str);
+    else
+      return functable_usigned[size-1](str);
+  } else {
+    /* We have an array */
+    int sz1 = size/array;
+    int i;
+    PyObject *list, *val;
+    if (size < 0 || sz1*array != size ||
+	sz1 > sizeof(functable_signed)/sizeof(conversion_func))
+      return nu_badsize(str);
 
+    list = PyList_New(0);
+    for (i=0; i < array; i++) {
+      if (signedvar)
+	val = functable_signed[sz1-1](str + sz1*i);
+      else
+	val = functable_usigned[sz1-1](str + sz1 * i);
+      if (PyList_Append(list, val) == -1)
+	return NULL;
+    }
+    return list;
+  }
   return NULL;
 }
 

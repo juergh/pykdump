@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <07/03/12 12:34:41 alexs>
+  Time-stamp: <07/03/27 11:56:33 alexs>
 
   Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -29,7 +29,7 @@
 
 int debug = 0;
 
-static const char *crash_version = "0.2";
+static const char *crash_version = "0.3";
 
 /* Initialize the crashmodule stuff */
 void initcrash(const char *) ;
