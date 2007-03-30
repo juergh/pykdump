@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/03/29 15:05:13 alexs>
+# Time-stamp: <07/03/30 16:38:37 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -309,6 +309,7 @@ class StructResult(object):
         # field. It usually happens when we try to obtain the size
         # of artificial SU before creating them. In this case, pass the
         # whole chunk of data
+            
         if (sz == -1):
             s = self.PYT_data
         else:
@@ -349,12 +350,16 @@ __int_cache = {}
 
 
 def _getInt(fieldaddr, ni, s = None):
+    dim = ni.dim
+    if (dim == 0):
+        # We assume we should return a pointer to this offset
+        return fieldaddr
+
     sz = ni.size
     if (s == None):
         s = readmem(fieldaddr, sz)
 
     smarttype = ni.smarttype
-    dim = ni.dim
 
     if (smarttype == 'FPtr'):
         val = mem2long(s)
@@ -371,12 +376,12 @@ def _getInt(fieldaddr, ni, s = None):
         
     elif (smarttype in ('SUptr', 'Ptr')):
         if (dim == 1):
-            val = tPtr(mem2long(s), ni.basetype)
+            val = tPtr(mem2long(s), ni)
         else:
             val = []
             sz1 = sz/dim
             for i in range(dim):
-                val.append(tPtr(mem2long(s[i*sz1:(i+1)*sz1]), ni.basetype))
+                val.append(tPtr(mem2long(s[i*sz1:(i+1)*sz1]), ni))
     else:
         raise TypeError, str(smarttype) + ' ' + str(dim)
 
@@ -513,7 +518,7 @@ def newsmartType(ni):
         val = mem2long(s)
         if ('struct' in spl or 'union' in spl):
             #print "\t->SUPtr"
-            val = tPtr(val, ni.basetype)
+            val = tPtr(val, ni)
         else:
             #print "\t->tPtr"
             val =  tPtr(val, ni)

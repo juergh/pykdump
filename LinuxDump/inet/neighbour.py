@@ -1,6 +1,6 @@
 # module LinuxDump.inet.neighbour
 #
-# Time-stamp: <07/03/22 14:52:01 alexs>
+# Time-stamp: <07/03/30 16:44:00 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -46,6 +46,7 @@ def print_neighbour_info():
     neigh_tables = readSymbol("neigh_tables")
     
     for t in readStructNext(neigh_tables, "next"):
+        print t, type(t)
         print "===",t, P_FAMILIES.value2key(t.family), addr2sym(Addr(t))
         print_neighbour_table(t)
     
