@@ -503,7 +503,11 @@ def print_If(dev, details):
             else:
                 ipwithmask = "%s/%s" % (ipaddr, ipmask)
             ipm_list.append((ipwithmask, ifa.ifa_label, ifa.ifa_flags))
-        ipwithmask = ipm_list[0][0]
+        # The list may be empty in patologic cases
+        try: 
+            ipwithmask = ipm_list[0][0]
+        except IndexError:
+            pass
 
     last_rx = dev.last_rx
     trans_start = dev.trans_start
