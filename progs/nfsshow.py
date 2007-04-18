@@ -79,9 +79,9 @@ def init_Structures():
     print "RPC_DEBUG=", RPC_DEBUG, ", Recent=", RECENT
     
     if (not struct_exists("struct rpc_task")):
-        if (not loadModule("sunrpc")):
-	    print "Cannot proceed"
-	    #sys.exit(0)
+        if (not loadModule("sunrpc") or not struct_exists("struct rpc_task")):
+	    print "Cannot proceed, please install a debugging copy of 'sunrpc'"
+	    sys.exit(0)
 
 
 init_Structures()
@@ -149,10 +149,25 @@ def print_all_tasks():
 # Print info about RPC status
 def print_rpc_status():
     all_tasks = sym2addr("all_tasks")
-    print hexl(all_tasks)
     l = readList(all_tasks, 0, maxel=100000, inchead=False)
-    print len(l)
+    print "all_tasks has %d elements" % len(l)
     
 
+# Get dirty inodes
+#	struct list_head	s_dirty;	/* dirty inodes */
+#	struct list_head	s_io;		/* parked for writeback */
+
+def print_test():
+    for sa in readList(sym2addr("super_blocks"), 0, inchead=False):
+        sb = readSU("struct super_block", sa)
+        fsname = sb.Deref.s_type.name
+        if (fsname != "nfs"):
+            continue
+        s_dirty = readSUListFromHead(Addr(sb.s_dirty), "i_list", "struct inode")
+        s_io = readSUListFromHead(Addr(sb.s_io), "i_list", "struct inode")
+        if (len(s_dirty) | len(s_io)):
+            print sb, fsname, \
+                  "len(s_dirty)=%d len(s_io)=%d" % (len(s_dirty),len(s_io))
 
 print_rpc_status()
+print_test()
