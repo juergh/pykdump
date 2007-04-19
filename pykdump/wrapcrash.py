@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/03/30 17:04:59 alexs>
+# Time-stamp: <07/04/19 16:09:05 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -720,6 +720,59 @@ def SUArray(sname, addr, maxel = 10000):
         yield readSU(sname, addr)
     return
 
+# Walk list_Head and return the full list (or till maxel)
+#
+# Note: By default we do not include the 'start' address.
+# This emulates the behavior of list_for_each_entry kernel macro.
+# In most cases the head is standalone and other list_heads are embedded
+# in parent structures.
+
+def readListByHead(start, offset=0, maxel = 1000):
+    return readList(start, offset, maxel, False)
+
+# An alias
+list_for_each_entry = readListByHead
+
+# readList returns the addresses of all linked structures, including
+# the start address. If the start address is 0, it returns an empty list
+
+# For list declared using LIST_HEAD, the empty list is when both next and prev
+# of LIST_HEAD point to its own address
+
+def readList(start, offset=0, maxel = 1000, inchead = True):
+    if (start == 0):
+        return []
+    if (inchead):
+        count = 1
+        out = [start]
+    else:
+        out = []
+        count = 0
+    next = start
+    while (count < maxel):
+        next = readPtr(next + offset)
+        if (next == 0 or next == start):
+            break
+        out.append(next)
+        count += 1
+    return out
+
+#     ======= get list size for LIST_HEAD =====
+def getListSize(addr, offset, maxel):
+    if (addr == 0):
+        return 0
+
+
+    count = 0                           # We don't include list_head
+
+    next = addr
+    while (count < maxel):
+        next = readPtr(next + offset)
+        if (next == 0 or next == addr):
+            break
+        count += 1
+    return count
+
 #     ======= read from global according to its type  =========
 
 
@@ -1071,38 +1124,6 @@ def isTypedef(basetype):
 
 
 
-# Walk list_Head and return the full list (or till maxel)
-#
-# Note: By default we do not include the 'start' address.
-# This emulates the behavior of list_for_each_entry kernel macro.
-# In most cases the head is standalone and other list_heads are embedded
-# in parent structures.
-
-def readListByHead(start, offset=0, maxel = 1000):
-    return readList(start, offset, maxel, False)
-
-# An alias
-list_for_each_entry = readListByHead
-
-# readList returns the addresses of all linked structures, including
-# the start address. If the start address is 0, it returns an empty list
-
-def readList(start, offset=0, maxel = 1000, inchead = True):
-    if (start == 0):
-        return []
-    count = 1
-    if (inchead):
-        out = [start]
-    else:
-        out = []
-    next = start
-    while (count < maxel):
-        next = readPtr(next + offset)
-        if (next == 0 or next == start):
-            break
-        out.append(next)
-        count += 1
-    return out
 
 
 #
@@ -1297,6 +1318,7 @@ try:
     exec_gdb_command = crash.get_GDB_output
     getFullBuckets = crash.getFullBuckets
     readPtr = crash.readPtr
+    getListSize = crash.getListSize
     # For some reason the next line runs slower than GDB version
     #GDB_sizeof = crash.struct_size
     readmem = crash.readmem

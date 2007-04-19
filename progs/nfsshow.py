@@ -65,9 +65,11 @@ NFS2_C = '''
 NFS2_PROCS = CDefine(NFS2_C)
 NFS3_PROCS = CDefine(NFS3_C)
 
+__NFSMOD = True
 
 # Check whether all needed structures are present
 def init_Structures():
+    global __NFSMOD
     if (symbol_exists("nlmdbg_cookie2a")):
 	RPC_DEBUG = True
     else:
@@ -79,9 +81,13 @@ def init_Structures():
     print "RPC_DEBUG=", RPC_DEBUG, ", Recent=", RECENT
     
     if (not struct_exists("struct rpc_task")):
-        if (not loadModule("sunrpc") or not struct_exists("struct rpc_task")):
-	    print "Cannot proceed, please install a debugging copy of 'sunrpc'"
-	    sys.exit(0)
+        if (not loadModule("nfs") \
+            or not struct_exists("struct rpc_task") \
+            or not struct_exists("struct nfs_inode")):
+	    print "Some functionality missing. ",
+            print "Please install a debuginfo copy of 'nfs' module"
+            __NFSMOD = False
+	    #sys.exit(0)
 
 
 init_Structures()
@@ -149,8 +155,9 @@ def print_all_tasks():
 # Print info about RPC status
 def print_rpc_status():
     all_tasks = sym2addr("all_tasks")
-    l = readList(all_tasks, 0, maxel=100000, inchead=False)
-    print "all_tasks has %d elements" % len(l)
+    #l = readList(all_tasks, 0, maxel=100000, inchead=False)
+    #print "all_tasks has %d elements" % len(l)
+    print "C-extension says %d elements" % getListSize(all_tasks, 0, 1000000)
     
 
 # Get dirty inodes
@@ -164,7 +171,10 @@ def print_test():
         if (fsname != "nfs"):
             continue
         s_dirty = readSUListFromHead(Addr(sb.s_dirty), "i_list", "struct inode")
-        s_io = readSUListFromHead(Addr(sb.s_io), "i_list", "struct inode")
+        try:
+            s_io = readSUListFromHead(Addr(sb.s_io), "i_list", "struct inode")
+        except KeyError:
+            s_io = []
         if (len(s_dirty) | len(s_io)):
             print sb, fsname, \
                   "len(s_dirty)=%d len(s_io)=%d" % (len(s_dirty),len(s_io))

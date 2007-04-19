@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/03/21 14:24:43 alexs>
+# Time-stamp: <07/04/19 14:39:38 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -130,7 +130,7 @@ API_options = Bunch()
 dumpstring = None
 
 from wrapcrash import readPtr, readU16, readU32, readSymbol, readSU, \
-     readList, readListByHead,  list_for_each_entry, \
+     readList, getListSize, readListByHead,  list_for_each_entry, \
      readSUArray, readSUListFromHead, readStructNext, \
      getStructInfo, getFullBuckets,\
      struct_exists, struct_size, symbol_exists,\
@@ -332,6 +332,7 @@ def possibleModuleNames(topdir, fbase):
         return None
     exts = (".ko.debug", ".o.debug", ".ko", ".o")
     lfb = len(fbase)
+    #print "++ searching for", fbase, " at", topdir
 
     for d, dummy, files in os.walk(topdir):
         for f in files:

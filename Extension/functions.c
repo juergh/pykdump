@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <07/03/27 13:45:30 alexs>
+  Time-stamp: <07/04/19 16:18:04 alexs>
 
   Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -575,6 +575,50 @@ py_getFullBuckets(PyObject *self, PyObject *args) {
   return list;
 }
 
+/* Find a total number of elements in a list specified with addr, offset
+   Usage: count = getListSize(addr, offset, maxel = 1000)
+   We do not include the list_head
+*/
+
+static PyObject *
+py_getlistsize(PyObject *self, PyObject *args) {
+  char *addr;
+  long offset;
+  long maxel;
+  
+  char pb[256];
+  
+  int count = 0;
+  char *ptr, *next;
+  
+  PyObject *arg0 = PyTuple_GetItem(args, 0);
+  PyObject *arg1 = PyTuple_GetItem(args, 1);
+  PyObject *arg2 = PyTuple_GetItem(args, 2);
+
+  ptr = addr = PyLong_AsUnsignedLongLong(arg0);
+  offset = PyLong_AsLong(arg1);
+  maxel = PyLong_AsLong(arg2);
+
+
+  while (ptr && count < maxel) {
+    /* next = readPtr(ptr+offset) */
+    if (readmem(ptr + offset, KVADDR, &next, sizeof(void *), "Python",
+		RETURN_ON_ERROR) == FALSE) {
+          sprintf(pb, "readmem error at addr 0x%llx", addr);	\
+	  PyErr_SetString(crashError, pb);
+	  return NULL;
+    }
+
+    //printf("addr=%p next=%p\n", addr, next); 
+    if (next == addr)
+      break;
+    ptr = next;
+    count++;
+  }
+  return PyInt_FromLong(count);
+}
+
+  
 #if 0
 #include "gdb-6.1/gdb/objfiles.h"
 
@@ -607,6 +651,7 @@ static PyMethodDef crashMethods[] = {
   {"mem2long",  (PyCFunction)py_mem2long, METH_VARARGS | METH_KEYWORDS},
   {"readmem", py_readmem, METH_VARARGS},
   {"readPtr", py_readPtr, METH_VARARGS},
+  {"getListSize", py_getlistsize, METH_VARARGS},
   {"getFullBuckets", py_getFullBuckets, METH_VARARGS},
   {NULL,      NULL}        /* Sentinel */
 };
