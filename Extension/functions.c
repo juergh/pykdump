@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <07/04/19 16:18:04 alexs>
+  Time-stamp: <07/04/19 16:24:32 alexs>
 
   Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -595,14 +595,15 @@ py_getlistsize(PyObject *self, PyObject *args) {
   PyObject *arg1 = PyTuple_GetItem(args, 1);
   PyObject *arg2 = PyTuple_GetItem(args, 2);
 
-  ptr = addr = PyLong_AsUnsignedLongLong(arg0);
+  ptr = addr = (char *) PyLong_AsUnsignedLongLong(arg0);
   offset = PyLong_AsLong(arg1);
   maxel = PyLong_AsLong(arg2);
 
 
   while (ptr && count < maxel) {
     /* next = readPtr(ptr+offset) */
-    if (readmem(ptr + offset, KVADDR, &next, sizeof(void *), "Python",
+    if (readmem((ulonglong)ptr + offset, KVADDR, &next,
+		sizeof(void *), "Python",
 		RETURN_ON_ERROR) == FALSE) {
           sprintf(pb, "readmem error at addr 0x%llx", addr);	\
 	  PyErr_SetString(crashError, pb);
