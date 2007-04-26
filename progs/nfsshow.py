@@ -78,7 +78,7 @@ def init_Structures():
 	RECENT = True
     else:
 	RECENT = False
-    print "RPC_DEBUG=", RPC_DEBUG, ", Recent=", RECENT
+    #print "RPC_DEBUG=", RPC_DEBUG, ", Recent=", RECENT
     
     if (not struct_exists("struct rpc_task")):
         if (not loadModule("nfs") \
@@ -111,6 +111,41 @@ init_Structures()
 # 	atomic_t		tk_count;	/* Reference count */
 # 	struct list_head	tk_task;	/* global list of tasks */
 
+def print_rpc_task(s):
+    newk = (member_size("struct rpc_clnt", "cl_pmap_default") != -1)
+    # On a live system we can easily get bad addresses
+    try:
+	print s, hexl(s.tk_flags)
+	tk_client = s.Deref.tk_client
+	cl_xprt= tk_client.Deref.cl_xprt
+	print "\tProtocol=",cl_xprt.prot, ", Server=", tk_client.cl_server
+	inetsock = cl_xprt.Deref.inet
+	#print  "\t",IPv4_conn(sock=inetsock)
+	cl_procinfo = tk_client.Deref.cl_procinfo
+	#print "\tprocname=", cl_procinfo.p_procname, tk_client.cl_protname
+	tk_msg = s.tk_msg
+	if (newk):
+	    rpc_proc = tk_msg.Deref.rpc_proc.p_proc
+	else:
+	    rpc_proc = tk_msg.rpc_proc
+	if (newk):
+	    cl_pmap= tk_client.cl_pmap_default
+	else:
+	    cl_pmap= tk_client.cl_pmap
+	vers = cl_pmap.pm_vers
+	prog = cl_pmap.pm_prog
+	if (prog == 100003 and vers == 2):
+	    procname = "%d(%s)" % (rpc_proc, NFS2_PROCS.value2key(rpc_proc))
+	elif (prog == 100003 and vers == 3):
+	    procname = "%d(%s)" % (rpc_proc, NFS3_PROCS.value2key(rpc_proc))
+	else:
+	    procname = "%d" % rpc_proc
+	print "\trpc_proc=", procname 
+
+	print "\tpmap_prog=", cl_pmap.pm_prog, ", pmap_vers=", cl_pmap.pm_vers
+    except:
+	pass
+	
 
 # Obtain all_tasks
 def print_all_tasks():
@@ -120,7 +155,7 @@ def print_all_tasks():
     for s in all_tasks:
         # On a live system we can easily get bad addresses
         try:
-            print s
+            #print s
             tk_client = s.Deref.tk_client
             cl_xprt= tk_client.Deref.cl_xprt
             print "\tProtocol=",cl_xprt.prot, ", Server=", tk_client.cl_server
@@ -156,8 +191,22 @@ def print_all_tasks():
 def print_rpc_status():
     all_tasks = sym2addr("all_tasks")
     #l = readList(all_tasks, 0, maxel=100000, inchead=False)
-    #print "all_tasks has %d elements" % len(l)
-    print "C-extension says %d elements" % getListSize(all_tasks, 0, 1000000)
+    print "all_tasks has %d elements" % getListSize(all_tasks, 0, 10000000)
+    for qname in ("schedq", "childq", "delay_queue"):
+        tasks = readSU("struct rpc_wait_queue", sym2addr(qname)).tasks
+	print "Number of elements in %15s:" % qname,
+        for lh in tasks:
+	    #print hexl(Addr(lh))
+	    print " [%d] " % getListSize(Addr(lh), 0, 10000000),
+	print ""
+    
+    return
+    # Print schedq elements
+    shedq0 = readSU("struct rpc_wait_queue", sym2addr("schedq")).tasks[0]
+    for ta in readList(Addr(shedq0), 0, maxel=20, inchead=False):
+        rpct = readSU("struct rpc_task", ta)
+	print_rpc_task(rpct)
+	
     
 
 # Get dirty inodes
