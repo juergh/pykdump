@@ -314,6 +314,9 @@ def findDumpFiles(dir):
                 testkern = tfile
                 break
 
+	if (testkern == None):
+	    print "Cannot find the debug kernel"
+	    sys.exit(1)
         if (os.access(testmap, os.R_OK) and os.access(testkern, os.R_OK)):
             mapfile = testmap
             namelist = testkern
