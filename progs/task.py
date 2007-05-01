@@ -64,9 +64,7 @@ class Task:
             
         
 def printTasks():
-    basems = get_schedclockbase()
-    if (debug):
-        print "Basems", basems, "Uptime:",  ms2uptime(basems)
+    basems = None
     #quit()
     for task in readSUListFromHead(init_task_saddr, 'tasks',
                                    'struct task_struct',
@@ -76,9 +74,15 @@ def printTasks():
             last_ran_ms = t.last_ran
             if (i > 0):
                 print "\t",
-            print t.pid, t.comm, '\t', t.cpu, '\t', \
-                  basems-last_ran_ms, \
-                  t.state
+            if (basems == None):
+                basems = get_schedclockbase()
+                if (debug):
+                    print "Basems", basems, "Uptime:",  ms2uptime(basems)
+                    
+            print "%5d %15s %2d %10d %s" % (t.pid, t.comm,  t.cpu,
+                                            basems-last_ran_ms, t.state)
+            if (debug):
+                print "\tlast_ran_ms", last_ran_ms 
         
 
 
@@ -137,6 +141,7 @@ def task_state2str(state):
 
 def jiffies2ms(jiffies):
     if (symbol_exists("jiffies_64")):
+        #print "++", jiffies,
         # We have really passed jiffies_64
         if (sys_info.kernel >= "2.6.0"):
             wrapped = jiffies & 0xffffffff00000000
@@ -204,8 +209,14 @@ def get_uptime():
 def tsc_clock_base():
     #vx = readSymbol("__vxtime")
     #return cycles_2_ns(vx.last_tsc)/1000000
-    rq_cpu0 = readSU("struct runqueue", sys_info.runqueues_addrs[0])
-    return  sched_clock2ms(rq_cpu0.timestamp_last_tick)
+    # Older 2.6 use 'struct runqueue', newer ones 'struct rq'
+    rtype = percpu.get_cpu_var_type('runqueues')
+    rq_cpu0 = readSU(rtype, sys_info.runqueues_addrs[0])
+    try:
+        recent = rq_cpu0.timestamp_last_tick
+    except KeyError:
+        recent = rq_cpu0.most_recent_timestamp
+    return  sched_clock2ms(recent)
 
 
 # Find the current jiffies/jiffies_64 value. We convert it to milliseconds
@@ -230,7 +241,9 @@ HZ = sys_info.HZ
 
 
 # Check whether we are using jiffies or tsc for sched_clock.
-if (symbol_exists("__vxtime")):
+# Recent kernels use struct rq with most_recent_timestamp field
+# Older 2.6 kernels do not have it, but those using TSC define __vxtime
+if (struct_exists("struct rq") or symbol_exists("__vxtime")):
     if (debug):
         print "Using TSC for sched_clock"
     # last_ran is in ns, derived from TSC
@@ -264,7 +277,7 @@ except:
 
 
 if ( __name__ == '__main__'):
-    print "sys.argv=", sys.argv
+    #print "sys.argv=", sys.argv
 
     printTasks()
 

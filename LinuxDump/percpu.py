@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <06/11/24 13:39:58 alexs>
+# Time-stamp: <07/05/01 15:31:23 alexs>
 
 # Per-cpu functions
 
@@ -27,6 +27,11 @@ def get_cpu_var_24(varname, cpu = None):
     for cpu in range(CPUS):
         addrlist.append(saddr +  ssize*cpu)
     return addrlist
+
+def get_cpu_var_type(varname):
+    if (get_cpu_var ==  get_cpu_var_26):
+        varname = "per_cpu__" + varname
+    return whatis(varname).ctype
 
 CPUS = sys_info.CPUS
 if (symbol_exists("per_cpu__runqueues")):
