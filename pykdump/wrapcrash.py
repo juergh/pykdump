@@ -49,6 +49,10 @@ hexl = Gen.hexl
 
 # GLobals used my this module
 
+# the default number of elements returned from list traversal
+
+_MAXEL = 10000
+
 PYT_sizetype = {} 
 
 	
@@ -683,7 +687,7 @@ def readSUArray(suname, startaddr, dim=0):
 #
 # If we pass a string as 'headaddr', this is the symbol pointing
 # to structure itself, not its listhead member
-def readSUListFromHead(headaddr, listfieldname, mystruct, maxel=1000,
+def readSUListFromHead(headaddr, listfieldname, mystruct, maxel=_MAXEL,
                      inchead = False):
     msi = getStructInfo(mystruct)
     offset = msi[listfieldname].offset
@@ -712,7 +716,7 @@ def readStructNext(shead, nextname):
     return out 
 
 #     ======= return a Generator to iterate through SU array
-def SUArray(sname, addr, maxel = 10000):
+def SUArray(sname, addr, maxel = _MAXEL):
     size = getSizeOf(sname)
     addr -= size
     while (maxel):
@@ -727,7 +731,7 @@ def SUArray(sname, addr, maxel = 10000):
 # In most cases the head is standalone and other list_heads are embedded
 # in parent structures.
 
-def readListByHead(start, offset=0, maxel = 1000):
+def readListByHead(start, offset=0, maxel = _MAXEL):
     return readList(start, offset, maxel, False)
 
 # An alias
@@ -739,7 +743,7 @@ list_for_each_entry = readListByHead
 # For list declared using LIST_HEAD, the empty list is when both next and prev
 # of LIST_HEAD point to its own address
 
-def readList(start, offset=0, maxel = 1000, inchead = True):
+def readList(start, offset=0, maxel = _MAXEL, inchead = True):
     if (start == 0):
         return []
     if (inchead):
@@ -797,7 +801,7 @@ def readSymbol(symbol, art = None):
     # ctl_table ipv4_table[] = {...}
     # In this case we return a generator to this array and expect that
     # there is an end marker that lets programmer detect EOF. For safety
-    # reasons, we limit the number of returned entries to 10000
+    # reasons, we limit the number of returned entries to _MAXEL
     if (dim == 0 and size == 0 and swtype == "SU"):
         sz1 = getSizeOf(stype)
         return SUArray(stype, addr)
@@ -995,7 +999,7 @@ def getFullBuckets(start, bsize, items, chain_off=0):
 # d.emulateCrashList('block_device.bd_disk', 'block_device.bd_list', 'all_bdevs')
 #                        what to get               list_head              symbol
 
-def emulateCrashList(off_need, off_list, addr, maxel=1000):
+def emulateCrashList(off_need, off_list, addr, maxel=_MAXEL):
     # All arguments can be either symbolic or integer. In case the first two
     # are integer we expect them to specify the same structure
     if (type(off_need) == types.StringType):
@@ -1010,7 +1014,7 @@ def emulateCrashList(off_need, off_list, addr, maxel=1000):
         addr = sym2addr(addr)
 
     offset = off_need - off_list
-    ptrs = readList(addr, 0, 1000)
+    ptrs = readList(addr, 0, _MAXEL)
     # Now recompute so that we'll point to struct of interest
     ptrs = [(p - off_list, readPtr(p+offset)) for p in ptrs]
     return ptrs
