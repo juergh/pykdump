@@ -17,14 +17,13 @@ def printTasks():
         print "Basems", tt.basems, "Uptime:",  ms2uptime(tt.basems)
     for task in tt.tt:
         # This is a process
-        t = Task(task)
-        last_ran_ms = t.last_ran
-        print "%5d   %15s %2d %10d %s" % (t.pid, t.comm,  t.cpu,
-                                        tt.basems-last_ran_ms, t.state)
+        mt = Task(task)
+        last_ran_ms = mt.last_ran
+        print "%5d   %15s %2d %10d %s" % (mt.pid, mt.comm,  mt.cpu,
+                                        tt.basems-last_ran_ms, mt.state)
 
-        for t in tt.getThreads(task):
+        for t in mt.threads:
             # This is a thread - no need to print command name again
-            t = Task(t)
             last_ran_ms = t.last_ran
             print "  %5d %15s %2d %10d %s" % (t.pid, t.comm,  t.cpu,
                                             tt.basems-last_ran_ms, t.state)
