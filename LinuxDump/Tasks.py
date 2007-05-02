@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/05/02 10:50:36 alexs>
+# Time-stamp: <07/05/02 11:31:18 alexs>
 
 # Tasks and Pids
 
@@ -77,21 +77,24 @@ class Task:
     def __get_threads_fast(self):
         saddr = Addr(self.ts) + Task.tgoffset
         threads = []
-        for a in readList(saddr):
+        for a in readList(saddr, inchead = False):
             threads.append(Task(readSU("struct task_struct", a-Task.tgoffset)))
         return threads
     
     def __get_threads(self):
-        if (struct_exists("struct pid_link")):
+        tgoffset = member_offset("struct task_struct", "thread_group")
+        if (tgoffset != -1):
+            # New 2.6
+            Task.tgoffset = tgoffset
+        elif (struct_exists("struct pid_link")):
+            # 2.4 - threads are processes
             return [self]
-            Task.tgoffset = member_offset("struct task_struct", "pids") + \
-                            struct_size("struct pid_link") + \
-                            member_offset("struct pid_link", "pid_chain")
         else:
+            # Older 2.6
             Task.tgoffset = member_offset("struct task_struct", "pids") + \
                             struct_size("struct pid") + \
                             member_offset("struct pid", "pid_list")
-            Task.threads = property(Task.__get_threads_fast)
+        Task.threads = property(Task.__get_threads_fast)
         return self.threads
         
     threads = property(__get_threads)
