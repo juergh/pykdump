@@ -19,6 +19,8 @@ from 'bt' command. At this moment we are just parsing results (text) obtained
 by running 'bt', later we might switch to something better.
 '''
 
+from pykdump.API import *
+
 import string
 
 from pyparsing import *
@@ -90,7 +92,7 @@ class BTFrame:
     def __init__(self):
         pass
     def __repr__(self):
-        return "  #%-2d  %35s  0x%08x" % (self.level, self.func, self.addr)
+        return "  #%-2d  %s+0x%x" % (self.level, self.func, self.offset)
 
 
 import pprint
@@ -101,7 +103,6 @@ def exec_bt(cmd = None, text = None):
     # Debugging
     if (cmd != None):
         # Execute a crash command...
-        from pykdump.API import *
         text = exec_crash_command(cmd)
         #print text
     for pid, task, cpu, cmd, finfo in PIDs.parseString(text).asList():
@@ -116,6 +117,7 @@ def exec_bt(cmd = None, text = None):
             f.level = level
             f.func = func
             f.addr = addr
+            f.offset = addr - sym2addr(func)
             bts.frames.append(f)
         pp.pprint(bts)
     
