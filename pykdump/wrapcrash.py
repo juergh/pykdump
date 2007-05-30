@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/04/19 16:09:05 alexs>
+# Time-stamp: <07/05/30 16:42:29 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -677,6 +677,23 @@ def readSUArray(suname, startaddr, dim=0):
     return out
 
 
+#          ======== read a chunk of physical memory ===
+
+def readProcessMem(taskaddr, uvaddr, size):
+    # We cannot read through the page boundary
+    out = []
+    while (size > 0):
+        paddr = uvtop(taskaddr, uvaddr)
+
+        cnt = crash.PAGESIZE - crash.PAGEOFFSET(uvaddr)
+        if (cnt > size):
+            cnt = size
+
+        out.append(readmem(paddr, cnt, crash.PHYSADDR))
+        uvaddr += cnt
+        size -= cnt
+    return string.join(out)
+    
 #          ======== read lists  =========
 
 
@@ -1322,6 +1339,7 @@ try:
     exec_gdb_command = crash.get_GDB_output
     getFullBuckets = crash.getFullBuckets
     readPtr = crash.readPtr
+    uvtop = crash.uvtop
     getListSize = crash.getListSize
     # For some reason the next line runs slower than GDB version
     #GDB_sizeof = crash.struct_size
@@ -1336,7 +1354,7 @@ except:
     exec_crash_command = getOutput
     noncached_symbol_exists = crashspec.symbol_exists
     nc_member_offset = GDBmember_offset
-
+    uvtop = None
 
 def print_stats():
     print "count_cached_attr=%d (%d)" % (count_cached_attr, count_total_attr)

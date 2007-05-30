@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <07/04/19 16:24:32 alexs>
+  Time-stamp: <07/05/30 16:27:29 alexs>
 
   Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -387,6 +387,7 @@ nu_badsize(const char *p) {
 
 
 
+
 static PyObject *
 py_mem2long(PyObject *self, PyObject *args, PyObject *kwds) {
   char *str;
@@ -517,7 +518,7 @@ py_readmem(PyObject *self, PyObject *args) {
   if (readmem(addr, mtype, buffer, size, "Python",
 	      RETURN_ON_ERROR) == FALSE) {
     char pb[256];
-    sprintf(pb, "readmem error at addr 0x%llx", addr);	\
+    sprintf(pb, "readmem error at addr 0x%llx", addr);
     PyErr_SetString(crashError, pb);
     return NULL;
     
@@ -527,6 +528,52 @@ py_readmem(PyObject *self, PyObject *args) {
   return out;
   
 }
+
+/*
+  physaddr = uvtop(tskaddr, vaddr)
+*/
+
+static PyObject *
+py_uvtop(PyObject *self, PyObject *args) {
+  ulonglong physaddr;
+  ulong tskaddr, vaddr;
+  int verbose = 0;
+
+  PyObject *arg0 = PyTuple_GetItem(args, 0);
+  PyObject *arg1 = PyTuple_GetItem(args, 1);
+
+  tskaddr = PyLong_AsUnsignedLong(arg0);
+  vaddr = PyLong_AsUnsignedLong(arg1);
+
+  // uvtop(struct task_context *tc,ulong vaddr,physaddr_t *paddr,int verbose)
+
+  if (!uvtop(task_to_context(tskaddr), vaddr, &physaddr, verbose)) {
+    // We cannot convert
+    char pb[256];
+    sprintf(pb, "uvtop error at vaddr 0x%llx", vaddr);
+    PyErr_SetString(crashError, pb);
+    return NULL;
+  }
+
+  return PyLong_FromUnsignedLongLong(physaddr);
+}
+  
+
+static PyObject *
+py_pageoffset(PyObject *self, PyObject *args) {
+  ulong vaddr;
+
+  if (!PyArg_ParseTuple(args, "k", &vaddr)) {
+    PyErr_SetString(crashError, "invalid parameter type"); \
+    return NULL;
+  }
+
+  return PyLong_FromUnsignedLong(PAGEOFFSET(vaddr));
+}
+				 
+  
+  
+
 
 static PyObject *
 py_getFullBuckets(PyObject *self, PyObject *args) {
@@ -595,16 +642,16 @@ py_getlistsize(PyObject *self, PyObject *args) {
   PyObject *arg1 = PyTuple_GetItem(args, 1);
   PyObject *arg2 = PyTuple_GetItem(args, 2);
 
-  ptr = addr = (char *) PyLong_AsUnsignedLongLong(arg0);
+  ptr = addr = (char *) PyLong_AsUnsignedLong(arg0);
   offset = PyLong_AsLong(arg1);
   maxel = PyLong_AsLong(arg2);
 
-
+  // readmem(ulonglong addr, int memtype, void *buffer, long size,
+  //         char *type, ulong error_handle)
   while (ptr && count < maxel) {
     /* next = readPtr(ptr+offset) */
-    if (readmem((ulonglong)ptr + offset, KVADDR, &next,
-		sizeof(void *), "Python",
-		RETURN_ON_ERROR) == FALSE) {
+    if (readmem((ulonglong)(ulong)(ptr + offset), KVADDR, &next,
+		sizeof(void *), "Python", RETURN_ON_ERROR) == FALSE) {
           sprintf(pb, "readmem error at addr 0x%llx", addr);	\
 	  PyErr_SetString(crashError, pb);
 	  return NULL;
@@ -650,6 +697,8 @@ static PyMethodDef crashMethods[] = {
   {"sym2addr",  py_sym2addr, METH_VARARGS},
   {"addr2sym",  py_addr2sym, METH_VARARGS},
   {"mem2long",  (PyCFunction)py_mem2long, METH_VARARGS | METH_KEYWORDS},
+  {"uvtop",  py_uvtop, METH_VARARGS},
+  {"PAGEOFFSET",  py_pageoffset, METH_VARARGS},
   {"readmem", py_readmem, METH_VARARGS},
   {"readPtr", py_readPtr, METH_VARARGS},
   {"getListSize", py_getlistsize, METH_VARARGS},
@@ -673,7 +722,11 @@ initcrash(const char *crash_version) {
   PyModule_AddObject(m, "KVADDR", PyInt_FromLong(KVADDR));
   PyModule_AddObject(m, "UVADDR", PyInt_FromLong(UVADDR));
   PyModule_AddObject(m, "PHYSADDR", PyInt_FromLong(PHYSADDR));
+  PyModule_AddObject(m, "XENMACHADDR", PyInt_FromLong(XENMACHADDR));
+  PyModule_AddObject(m, "FILEADDR", PyInt_FromLong(FILEADDR));
   PyModule_AddObject(m, "AMBIGUOUS", PyInt_FromLong(AMBIGUOUS));
+
+  PyModule_AddObject(m, "PAGESIZE", PyInt_FromLong(PAGESIZE()));
 
   // Now create some aliases
 
