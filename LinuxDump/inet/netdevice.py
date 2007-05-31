@@ -1,6 +1,6 @@
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <07/03/22 11:30:33 alexs>
+# Time-stamp: <07/05/31 16:32:26 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -548,10 +548,10 @@ def print_If(dev, details):
           (addr2sym(dev.open), addr2sym(dev.get_stats),
            dev.mtu, dev.promiscuity)
     if (dev.ip_ptr):
-        print "    \tlast_rx %7.2f s ago" % (unsigned32(jiffies - last_rx)/HZ)
+        print "    \tlast_rx %7.2f s ago" % ((jiffies - last_rx)/HZ)
         if (trans_start):
             print "    \ttrans_start %7.2f s ago" % \
-                  (unsigned32(jiffies - trans_start)/HZ)
+                  ((jiffies - trans_start)/HZ)
     getStats(dev)
     printQdisc(dev.Deref.qdisc)
    

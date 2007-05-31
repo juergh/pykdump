@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/05/23 17:02:50 alexs>
+# Time-stamp: <07/05/31 16:32:53 alexs>
 
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -54,7 +54,4 @@ all = open("bta.out", "r").read()
 from pykdump.BTstack import exec_bt
 rc = exec_bt('foreach bt')
 #exec_bt(text = all)
-
-
-
 
