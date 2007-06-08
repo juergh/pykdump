@@ -93,17 +93,24 @@ class BTStack:
         return string.join(out, "\n")
     # Do we have this function on stack?
     # 'func' is either a string (exact match), or compiled regexp
-    def hasfunc(self,  func):
-        if (type(func) == type("")):
-            for f in self.frames:
-                if (func == f.func or func == f.via):
-                    return True
-        else:
-            # We assume this is a compiled regexp
-            for f in self.frames:
-                if (func.search(f.func) or func.search(f.via)):
-                    return True
-        return False
+    # We can supply multiple func arguments, in this case the stack should
+    # have all of them (logical AND)
+    def hasfunc(self,  *funcs):
+	res = {}
+        for f in self.frames:
+	    for t in funcs:
+		if (type(t) == type("")):
+		    # An exact match
+		    if (t == f.func or t == f.via):
+			res[t] = 1
+		else:
+		    # A regexp
+                    if (t.search(f.func) or t.search(f.via)):
+			res[t] = 1
+        if (len(res) == len(funcs)):
+	    return True
+	else:
+            return False
         
         
 class BTFrame:
@@ -127,7 +134,7 @@ import pprint
 pp = pprint.PrettyPrinter(indent=4)
 
 
-def exec_bt(cmd = None, text = None):
+def exec_bt_pyparsing(cmd = None, text = None):
     # Debugging
     if (cmd != None):
         # Execute a crash command...
@@ -172,12 +179,12 @@ re_pid = re.compile(r'^PID:\s+(\d+)\s+TASK:\s+([\da-f]+)\s+' +
 re_f1 = re.compile(r'\s*#(\d+)\s+\[([\da-f]+)\]\s+(.+)\sat\s([\da-f]+)$')
 re_via = re.compile(r'(\S+)\s+\(via\s+([^)]+)\)$')
 
-def exec_bt_new(cmd = None, text = None):
+def exec_bt(cmd = None, text = None):
     # Debugging
     if (cmd != None):
         # Execute a crash command...
         text = exec_crash_command(cmd)
-        #print text
+        print "Got results from crash"
 
 
     # Split text into one-thread chunks
@@ -228,4 +235,3 @@ def exec_bt_new(cmd = None, text = None):
     return btslist
 
 
-exec_bt = exec_bt_new        
