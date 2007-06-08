@@ -19,7 +19,7 @@ from 'bt' command. At this moment we are just parsing results (text) obtained
 by running 'bt', later we might switch to something better.
 '''
 
-#from pykdump.API import *
+from pykdump.API import *
 
 import string
 import time, os
@@ -91,6 +91,19 @@ class BTStack:
         for f in self.frames:
             out.append(str(f))
         return string.join(out, "\n")
+    # Do we have this function on stack?
+    # 'func' is either a string (exact match), or compiled regexp
+    def hasfunc(self,  func):
+        if (type(func) == type("")):
+            for f in self.frames:
+                if (func == f.func or func == f.via):
+                    return True
+        else:
+            # We assume this is a compiled regexp
+            for f in self.frames:
+                if (func.search(f.func) or func.search(f.via)):
+                    return True
+        return False
         
         
 class BTFrame:
@@ -102,8 +115,12 @@ class BTFrame:
             data = ', %d bytes of data' % datalen
         else:
             data = ''
-        return "  #%-2d  %s+0x%x%s" % \
-               (self.level, self.func, self.offset, data)
+        if (self.via):
+            via = " , (via %s)" % self.via
+        else:
+            via = ''
+        return "  #%-2d  %s+0x%x%s%s" % \
+               (self.level, self.func, self.offset, data, via)
 
 
 import pprint
@@ -162,16 +179,16 @@ def exec_bt_new(cmd = None, text = None):
         text = exec_crash_command(cmd)
         #print text
 
-    t0 = os.times()[0]
 
     # Split text into one-thread chunks
+    btslist = []
     for s in text.split("\n\n"):
-        print '-' * 50
+        #print '-' * 50
         #print s
         # The first line is PID-line, after that we have frames-list
         lines = s.splitlines()
         pidline = lines[0]
-        print pidline
+        #print pidline
         m = re_pid.match(pidline)
         pid = int(m.group(1))
         addr = int(m.group(2), 16)
@@ -183,7 +200,7 @@ def exec_bt_new(cmd = None, text = None):
         bts.cmd = cmd
         bts.frames = []
 
-        print "%d 0x%x %d <%s>" % (pid, addr, cpu, cmd)
+        #print "%d 0x%x %d <%s>" % (pid, addr, cpu, cmd)
         f = None
         for fl in lines[1:]:
             m = re_f1.match(fl)
@@ -194,7 +211,10 @@ def exec_bt_new(cmd = None, text = None):
                 f.func = m.group(3)
                 viam = re_via.match(f.func)
                 if (viam):
-                    f.func = viam.group(2)
+                    f.via = viam.group(2)
+                    f.func = viam.group(1)
+                else:
+                    f.via = ''
                 # If we have a pattern like 'error_code (via page_fault)'
                 # it makes more sense to use 'via' func as a name
                 f.addr = int(m.group(4), 16)
@@ -204,10 +224,8 @@ def exec_bt_new(cmd = None, text = None):
             elif (f != None):
                 f.data.append(fl)
 
-        t1 = os.times()[0]
-        pp.pprint(bts) 
-                
-    print "%7.2f s to parse" % (t1 - t0)
+        btslist.append(bts)
+    return btslist
 
 
 exec_bt = exec_bt_new        
