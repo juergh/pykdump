@@ -312,17 +312,17 @@ class StructResult(object):
         # if sz == -1, this means that we cannot find the size of this
         # field. It usually happens when we try to obtain the size
         # of artificial SU before creating them. In this case, pass the
-        # whole chunk of data
-            
+        # whole chunk of data (starting from off:)
+
         if (sz == -1):
-            s = self.PYT_data
+            s = self.PYT_data[off:]
         else:
             s = self.PYT_data[off:off+sz]
         #s = None
         if (sz >0 and len(s) != sz):
             print ni.ctype, name, off, sz, len(s), len(self.PYT_data)
             raise TypeError
-        
+
         if (reprtype == "SU"):
             val = _getSU(fieldaddr, ni, s)
         elif (reprtype == "CharArray"):
