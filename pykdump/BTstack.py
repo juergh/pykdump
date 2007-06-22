@@ -176,7 +176,11 @@ re_pid = re.compile(r'^PID:\s+(\d+)\s+TASK:\s+([\da-f]+)\s+' +
 # #7 [f2035f20] error_code (via page_fault) at c02d1ba9
 # (active)
 
-re_f1 = re.compile(r'\s*#(\d+)\s+\[([\da-f]+)\]\s+(.+)\sat\s([\da-f]+)$')
+# In IA64:
+#  #0 [BSP:e00000038dbb1458] netconsole_netdump at a000000000de7d40
+
+
+re_f1 = re.compile(r'\s*#(\d+)\s+\[(?:BSP:)?([\da-f]+)\]\s+(.+)\sat\s([\da-f]+)$')
 re_via = re.compile(r'(\S+)\s+\(via\s+([^)]+)\)$')
 
 def exec_bt(cmd = None, text = None):
