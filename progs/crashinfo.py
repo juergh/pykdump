@@ -88,6 +88,16 @@ def check_auditf(btsl, verbose = False):
 	for bts in res:
 	    print bts
 
+def check_sysctl():
+    from LinuxDump import sysctl
+    ctbl = sysctl.getCtlTables()
+    names = ctbl.keys()
+    names.sort()
+
+    for n in names:
+        dall = sysctl.getCtlData(ctbl[n])
+        print n.ljust(45), dall
+
 def check_runqueues(verbose = 0):
     from LinuxDump import percpu
     from LinuxDump.Tasks import TaskTable, Task
