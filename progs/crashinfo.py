@@ -1,5 +1,7 @@
 #!/usr/bin/env python
-
+#
+# First-pass dumpanalysis
+#
 # Time-stamp: <07/06/08 13:37:19 alexs>
 
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
@@ -10,11 +12,19 @@
 from pykdump.API import *
 from pykdump.BTstack import exec_bt
 
+import sys
+from optparse import OptionParser
+
 WARNING = "+++WARNING+++"
-#all = open("bt.out", "r").read()
-#print all
 
 
+# The type of the dump. We should check different things for real panic and
+# dump created by sysrq_handle
+
+Panic = True
+
+# Parsed output of 'foreach bt' (this is rather time-consuming)
+btsl = None
 
 #print "%7.2f s to parse, %d entries" % (t1 - t0, len(btsl))
 
@@ -33,6 +43,7 @@ def check_mem():
     
 # Check how the dump has been triggered
 def dump_reason(btsl, dmesg, verbose = False):
+    global Panic
     def test(l, t):
 	if (len([bts for bts in l if bts.hasfunc(t)])):
 	    return True
@@ -77,7 +88,9 @@ def dump_reason(btsl, dmesg, verbose = False):
 		print bts
 	
       
-def check_auditf(btsl, verbose = False):
+def check_auditf(verbose = False):
+    global btsl
+    btsl = exec_bt('foreach bt')
     func1 = re.compile('auditf')
     func2 = re.compile('rwsem_down')
     res = [bts for bts in btsl if bts.hasfunc(func1, func2)]
@@ -142,12 +155,36 @@ else:
 
 dmesg = exec_crash_command("log")
 
-#btsl = exec_bt('foreach bt')
-#btsl = exec_bt(text = all)
+
+op =  OptionParser()
+
+op.add_option("-v", dest="Verbose", default = 0,
+		action="store_true",
+		help="verbose output")
+
+op.add_option("--sysctl", dest="sysctl", default = 0,
+		action="store_true",
+		help="Print sysctl info.")
+
+(o, args) = op.parse_args()
+
+if (o.Verbose):
+    details = 1
+else:
+    details =0
+
+
+
 t1 = os.times()[0]
 
-#print_basics()
-#dump_reason(bta, dmesg, True)
-#check_mem()
+# Non-standard options (those that stop normal tests)
+if (o.sysctl):
+    check_sysctl()
+    sys.exit(0)
+    
+
+print_basics()
+dump_reason(bta, dmesg, True)
+check_mem()
 #check_auditf(btsl)
-check_runqueues()
+check_runqueues(details)
