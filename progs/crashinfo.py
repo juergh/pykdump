@@ -2,7 +2,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <07/06/08 13:37:19 alexs>
+# Time-stamp: <07/06/26 16:21:03 alexs>
 
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -10,7 +10,8 @@
 # 1st-pass dumpanalysis
 
 from pykdump.API import *
-from pykdump.BTstack import exec_bt
+from LinuxDump.BTstack import exec_bt
+from LinuxDump.kmem import parse_kmemf
 
 import sys
 from optparse import OptionParser
@@ -40,6 +41,26 @@ def check_mem():
     kmemi = exec_crash_command("kmem -i")
     print kmemi
     print ""
+
+    # Checking for fragmentation (mostly useful on 32-bit systems)
+    kmemf = exec_crash_command("kmem -f")
+    node = parse_kmemf(kmemf)
+    Normal = node[1]
+    warn_8k = True
+    warn_32k = True
+
+    for area, size, f, blocks, pages in Normal[2:]:
+        sizekb = int(size[:-1])
+        if (sizekb >= 8 and blocks > 1):
+            warn_8k = False
+        if (sizekb >= 32 and blocks > 1):
+            warn_32k = False
+        #print "%2d  %6d %6d" % (area, sizekb, blocks)
+    if (warn_8k):
+        print WARNING, "fragmentation: 8Kb"
+    if (warn_32k):
+        print WARNING, "fragmentation: 32Kb"
+    #pp.pprint(node)
     
 # Check how the dump has been triggered
 def dump_reason(btsl, dmesg, verbose = False):
@@ -187,4 +208,4 @@ print_basics()
 dump_reason(bta, dmesg, True)
 check_mem()
 #check_auditf(btsl)
-check_runqueues(details)
+#check_runqueues(details)
