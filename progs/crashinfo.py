@@ -2,7 +2,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <07/06/26 16:21:03 alexs>
+# Time-stamp: <07/06/26 16:24:51 alexs>
 
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -60,6 +60,8 @@ def check_mem():
         print WARNING, "fragmentation: 8Kb"
     if (warn_32k):
         print WARNING, "fragmentation: 32Kb"
+    if (warn_8k or warn_32k):
+        print kmemf
     #pp.pprint(node)
     
 # Check how the dump has been triggered

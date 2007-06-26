@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Time-stamp: <07/06/26 16:15:13 alexs>
+# Time-stamp: <07/06/26 16:23:38 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -32,7 +32,6 @@ import pprint
 pp = pprint.PrettyPrinter(indent=4)
 
 
-kmemf = open("kmem-f.out", "r").read()
 
 # NODE N
 # ZONE SkipTo(int) SkipTo(AREA) SkipTo("\n") Group(int + intl + Suppress(hex) + blocks + pages)
