@@ -2,7 +2,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <07/06/26 16:24:51 alexs>
+# Time-stamp: <07/06/27 10:54:42 alexs>
 
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -32,15 +32,19 @@ btsl = None
 def print_basics():
     print "         *** Crashinfo v0.1 ***"
     print ""
+    if (quiet):
+        return
+    
     print exec_crash_command("sys")
     print ""
 
 def check_mem():
-    print ""
-    print "         --- Memory Usage (kmem -i) ---"
-    kmemi = exec_crash_command("kmem -i")
-    print kmemi
-    print ""
+    if (not quiet):
+        print ""
+        print "         --- Memory Usage (kmem -i) ---"
+        kmemi = exec_crash_command("kmem -i")
+        print kmemi
+        print ""
 
     # Checking for fragmentation (mostly useful on 32-bit systems)
     kmemf = exec_crash_command("kmem -f")
@@ -78,6 +82,9 @@ def dump_reason(btsl, dmesg, verbose = False):
 	    return True
 	else:
 	    return False
+
+    if (quiet):
+        return
 	
     print ""
     print "         --- How This Dump Has Been Created ---"
@@ -138,7 +145,8 @@ def check_runqueues(verbose = 0):
     from LinuxDump import percpu
     from LinuxDump.Tasks import TaskTable, Task
 
-    print "         --- Scheduler Runuqueues (per CPU) ---"
+    if (not quiet):
+        print "         --- Scheduler Runuqueues (per CPU) ---"
     rloffset = member_offset("struct task_struct", "run_list")
     # Whether all 
     RT_hang = True
@@ -185,17 +193,32 @@ op.add_option("-v", dest="Verbose", default = 0,
 		action="store_true",
 		help="verbose output")
 
+op.add_option("-q", dest="Quiet", default = 0,
+		action="store_true",
+		help="quiet mode - print warnings only")
+
+op.add_option("-o", "--ofile", dest="filename",
+                  help="write report to FILE", metavar="FILE")
+
+
 op.add_option("--sysctl", dest="sysctl", default = 0,
 		action="store_true",
 		help="Print sysctl info.")
 
 (o, args) = op.parse_args()
 
+if (o.filename):
+    sys.stdout = open(o.filename, "w")
+
 if (o.Verbose):
     details = 1
 else:
     details =0
 
+if (o.Quiet):
+    quiet = 1
+else:
+    quiet =0
 
 
 t1 = os.times()[0]
@@ -209,5 +232,5 @@ if (o.sysctl):
 print_basics()
 dump_reason(bta, dmesg, True)
 check_mem()
-#check_auditf(btsl)
+check_auditf(btsl)
 #check_runqueues(details)
