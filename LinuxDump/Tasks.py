@@ -315,9 +315,7 @@ def get_uptime():
 def tsc_clock_base():
     #vx = readSymbol("__vxtime")
     #return cycles_2_ns(vx.last_tsc)/1000000
-    # Older 2.6 use 'struct runqueue', newer ones 'struct rq'
-    rtype = percpu.get_cpu_var_type('runqueues')
-    rq_cpu0 = readSU(rtype, sys_info.runqueues_addrs[0])
+    rq_cpu0 = readSU(rqtype, sys_info.runqueues_addrs[0])
     try:
         recent = rq_cpu0.timestamp_last_tick
     except KeyError:
@@ -335,8 +333,11 @@ def jiffie_clock_base():
     return jiffies2ms(jiffies)
 
 
+# Read runqueues
+def getRunQueues():
+    rqs = [readSU(rqtype, rqa) for rqa in runqueues_addrs]
+    return rqs
 
-  
 
 # -------- Initializations done after dump is accessible ------
 
@@ -367,8 +368,11 @@ else:
     else:
 	sched_clock2ms = sched_clock2ms_24
 
-runqueues_addrs = percpu.get_cpu_var("runqueues")        
+runqueues_addrs = percpu.get_cpu_var("runqueues") 
 sys_info.runqueues_addrs = runqueues_addrs
+
+# Older 2.6 use 'struct runqueue', newer ones 'struct rq'
+rqtype = percpu.get_cpu_var_type('runqueues')
 
 
 if ( __name__ == '__main__'):

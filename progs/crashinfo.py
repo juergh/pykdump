@@ -29,6 +29,14 @@ btsl = None
 
 #print "%7.2f s to parse, %d entries" % (t1 - t0, len(btsl))
 
+def printHeader(format, *args):
+    if (len(args) > 0):
+	text = format % args
+    else:
+	text = format
+    lpad = (77-len(text))/2
+    print "\n", '-' * lpad, text, '-' * lpad
+
 def print_basics():
     print "         *** Crashinfo v0.1 ***"
     print ""
@@ -40,8 +48,7 @@ def print_basics():
 
 def check_mem():
     if (not quiet):
-        print ""
-        print "         --- Memory Usage (kmem -i) ---"
+	printHeader("Memory Usage (kmem -i)")
         kmemi = exec_crash_command("kmem -i")
         print kmemi
         print ""
@@ -60,6 +67,8 @@ def check_mem():
         if (sizekb >= 32 and blocks > 1):
             warn_32k = False
         #print "%2d  %6d %6d" % (area, sizekb, blocks)
+    if (warn_8k or warn_32k):
+        printHeader("Memory Fragmentation (kmem -f)")
     if (warn_8k):
         print WARNING, "fragmentation: 8Kb"
     if (warn_32k):
@@ -69,7 +78,7 @@ def check_mem():
     #pp.pprint(node)
     
 # Check how the dump has been triggered
-def dump_reason(btsl, dmesg, verbose = False):
+def dump_reason(btsl, dmesg):
     global Panic
     def test(l, t):
 	if (len([bts for bts in l if bts.hasfunc(t)])):
@@ -86,8 +95,7 @@ def dump_reason(btsl, dmesg, verbose = False):
     if (quiet):
         return
 	
-    print ""
-    print "         --- How This Dump Has Been Created ---"
+    printHeader("How This Dump Has Been Created")
     if (sys_info.livedump):
 	print "Running on a live kernel"
         return
@@ -118,7 +126,7 @@ def dump_reason(btsl, dmesg, verbose = False):
 		print bts
 	
       
-def check_auditf(verbose = False):
+def check_auditf():
     global btsl
     btsl = exec_bt('foreach bt')
     func1 = re.compile('auditf')
@@ -141,17 +149,16 @@ def check_sysctl():
         dall = sysctl.getCtlData(ctbl[n])
         print n.ljust(45), dall
 
-def check_runqueues(verbose = 0):
+def check_runqueues():
     from LinuxDump import percpu
-    from LinuxDump.Tasks import TaskTable, Task
+    from LinuxDump.Tasks import TaskTable, Task, getRunQueues
 
     if (not quiet):
-        print "         --- Scheduler Runuqueues (per CPU) ---"
+        printHeader("Scheduler Runqueues (per CPU)")
     rloffset = member_offset("struct task_struct", "run_list")
     # Whether all 
     RT_hang = True
-    for cpu, rqa in enumerate(sys_info.runqueues_addrs):
-	rq = readSU("struct runqueue", rqa)
+    for cpu, rq in enumerate(getRunQueues()):
 	RT_count = 0
 	# Print Active
 	active = rq.Deref.active
@@ -211,9 +218,9 @@ if (o.filename):
     sys.stdout = open(o.filename, "w")
 
 if (o.Verbose):
-    details = 1
+    verbose = 1
 else:
-    details =0
+    verbose =0
 
 if (o.Quiet):
     quiet = 1
@@ -230,7 +237,7 @@ if (o.sysctl):
     
 
 print_basics()
-dump_reason(bta, dmesg, True)
+dump_reason(bta, dmesg)
 check_mem()
-check_auditf(btsl)
-#check_runqueues(details)
+check_auditf()
+check_runqueues()
