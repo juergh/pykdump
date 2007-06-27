@@ -19,13 +19,16 @@ from 'bt' command. At this moment we are just parsing results (text) obtained
 by running 'bt', later we might switch to something better.
 '''
 
+
 from pykdump.API import *
 
 import string
 import time, os
 
-from pyparsing import *
-import pyparsing as pyp
+try:
+    from pyparsing import *
+except ImportError:
+    from pykdump.pyparsing import *
 
 # Parsing results of 'bt' command
 # For each process it has the folliwng structure:
@@ -50,9 +53,9 @@ Cid = Word(alphas+"_", alphanums+"_")
 
 dquote = Literal('"')
 
-noprefix_hexval =  Word(pyp.hexnums).setParseAction(actionToHex)
-hexval = Combine("0x" + Word(pyp.hexnums))
-decval = Word(pyp.nums+'-', pyp.nums).setParseAction(actionToInt)
+noprefix_hexval =  Word(hexnums).setParseAction(actionToHex)
+hexval = Combine("0x" + Word(hexnums))
+decval = Word(nums+'-', nums).setParseAction(actionToInt)
 intval = hexval | decval
 
 dqstring = dblQuotedString.setParseAction(stripQuotes)

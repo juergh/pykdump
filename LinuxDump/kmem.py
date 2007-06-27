@@ -26,10 +26,10 @@ This is the parser for 'kmem' crash command output.
 '''
 
 import re
-from pyparsing import *
-
-import pprint
-pp = pprint.PrettyPrinter(indent=4)
+try:
+    from pyparsing import *
+except ImportError:
+    from pykdump.pyparsing import *
 
 
 
