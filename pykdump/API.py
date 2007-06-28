@@ -79,6 +79,8 @@ import time
 import stat
 import atexit
 
+import os, os.path
+
 import wrapcrash
 import Generic as gen
 from Generic import Bunch
@@ -96,14 +98,31 @@ shelf = None
 PersistentCache = True
 
 
-# A function called when 'epython loads an interpreter
+# A function called when we use start the real script processing
+# This is done by 'epython' command. When I just started to work on this
+# project, I implemented some functions to work with PTY-driver without
+# any extension at all. Now they are not supported anymore (but still
+# mostly work).
+# This function is a good place to print information messages 
+# and initialize statistics
 
 def enter_epython():
     global t_start, t_starta
     t_start = os.times()[0]
     t_starta = time.time()
     #print "Entering Epython"
-    openDump()
+    __epythonOptions()
+ 
+    # The dump has been opened, let us print some vitals
+    
+    # The dumpfile name can optionally have extra info appended, e.g.
+    # /Dumps/Linux/test/vmcore-netdump-2.6.9-22.ELsmp  [PARTIAL DUMP]
+    dumpfile = sys_info.DUMPFILE.split()[0]
+    #cwd = os.getcwd()
+    dumpfile = os.path.abspath(dumpfile)
+    text = "%s  (%s)" % (dumpfile, sys_info.RELEASE)
+    lpad = (77-len(text))/2
+    print "\n", '~' * lpad, text, '~' * lpad
 
 
 # We call this when exiting epython
@@ -119,8 +138,12 @@ def cleanup():
         shelf[getDumpstring()] = gen.PYT__sinfo_cache
         shelf.close()
 
-    print "\n ** Execution took %6.2fs (real) %6.2fs (CPU)" % (time.time() - t_starta,
-                                                         os.times()[0] - t_start)
+    try:
+        print "\n ** Execution took %6.2fs (real) %6.2fs (CPU)" % \
+                                        (time.time() - t_starta,
+					 os.times()[0] - t_start)
+    except IOError:
+	pass
 
 
 # Module globals
@@ -171,7 +194,10 @@ def addLazyMethods():
     
 
 
-# Run this after dump is open
+# Run this after dump is open. During 'crash' session information about
+# kernel does not change, so we need to call this only once - no need
+# to do this every time we use 'epython'
+
 def initAfterDumpIsOpen():
     """Do needed initializations after dump is successfully opened"""
     global __dump_is_accessible
@@ -417,7 +443,7 @@ def __preprocess(iargv,op):
         # All elements starting from '.' and '/' go to aargv
         if (el[0] in ('/', '.')):
             aargv.append(el)
-        elif (el[:2] == '--'):
+        elif (el[:2] == '--' or el[0] == '-'):
             # Check whether this option is present in optparser's op
             optstr = el.split('=')[0]
             opt =  op.get_option(optstr)
@@ -454,20 +480,42 @@ class SOption(Option):
         return 1
 
 
+# Process common (i.e. common for all pykdump scripts) options. There are two
+# sets of common options: those passed to control crash when executed
+# implicitly from command-line script invocation, and those passed
+# to 'epython' command
 
-# This routine is called automatically when you import API. It analyzes
-# sys.argv to obtain info about dump location when the script is running
-# externally. When running from embedded, it ignores dump location but
-# is still doing options parsing. This can be used to enable debugging
-# or experimental features
-# It is not needed to call this. But if you do, it will process options passed
-# from sys.argv (if any) which can be used for debugging
-#
-# To simplify the processing we use the following approach: all debugging
-# options should be 'long', all app options (if any) should be 'short'
+# This function is called on every 'epython' invocation
+def __epythonOptions():
+    """Process epython common options and filter them out"""
 
-def openDump():
-    """Open dump by executing 'crash' if needed."""
+    op = OptionParser(add_help_option=False, option_class=Option)
+    op.add_option("--experimental", dest="experimental", default=0,
+              action="store_true",
+              help="enable experimental features (for developers only)")
+
+    op.add_option("--debug", dest="debug", default=0,
+              action="store", type="int",
+              help="enable debugging output")
+ 
+    if (len(sys.argv) > 1):
+        (aargs, uargs) = __preprocess(sys.argv[1:], op)
+    else:
+        aargs = uargs = []
+ 
+    (o, args) = op.parse_args(aargs)
+    wrapcrash.experimental = API_options.experimental = o.experimental
+    debug = API_options.debug = o.debug
+    
+    sys.argv[1:] = uargs
+    #print "EPYTHON sys.argv=", sys.argv
+
+    
+# This function is called only from driving external scripts, never
+# from 'epython' environment
+def __cmdlineOptions():
+    """Process command-line options, execute 'crash',
+    and  execute our script inside it using 'epython' command"""
 
     op = OptionParser(add_help_option=False, option_class=Option)
     op.add_option("--ext", dest="UseExt",
@@ -482,6 +530,8 @@ def openDump():
               action="store_true",
               help="disable Psyco even if it available")
 
+    # This option is special - it can be used both by
+    # PTY-driver and by epython command
     op.add_option("--debug", dest="debug", default=0,
               action="store", type="int",
               help="enable debugging output")
@@ -489,12 +539,8 @@ def openDump():
     op.add_option("-h", "--help", dest="help",
               action="store_true",
               help="print help")
- 
-    op.add_option("--experimental", dest="experimental", default=0,
-              action="store_true",
-              help="enable experimental features (for developers only)")
 
-    # Before real parsing, separate API-options from
+    # Before real parsing, separate PTY-driver options from
     # userscript-options
 
     script = sys.argv[0]
@@ -502,15 +548,22 @@ def openDump():
         (aargs, uargs) = __preprocess(sys.argv[1:], op)
     else:
         aargs = uargs = []
+    
+    #print 'aargs=', aargs, 'uargs=', uargs
+    # We add this option after preprocessing as it should not
+    # be filtered out
+ 
 
     (o, args) = op.parse_args(aargs)
+    #print "aargs=", aargs, "uargs=", uargs
+    #print 'o=', o
+    
 
     
     crashex = o.crashex                 # Use crash32/crash64 as needed
     useext = o.UseExt                   # Use extension if possible
 
     debug = API_options.debug = o.debug
-    wrapcrash.experimental = API_options.experimental = o.experimental
     
 
     filtered_argv = [script]
@@ -520,19 +573,8 @@ def openDump():
         print "Generic ",
         op.print_help()
         filtered_argv.append("--help")
-    
-    # Check whether we can import 'crash' - if yes, we are inside extension and
-    # should not try to open the dump again
-    try:
-        # If we can do this, we are called from crash
-        import crash as crashmod
-        #ll.GDBgetOutput = crashmod.get_GDB_output
-        sys.argv = filtered_argv
-        if (debug):
-            print "-------crash module %s--------" % crashmod.version
-        return
-    except ImportError:
-        pass
+    if (o.debug):
+	filtered_argv.append("--debug=" + str(o.debug))
 
     # --------------------------------------------------------------------
     # If we are here, we are running externally, maybe without extension
@@ -609,14 +651,14 @@ def openDump():
         if (debug):
             print "Extension available"
         # Invoke the same script again, with the same parameters
-        cmd = "epython " + string.join(sys.argv)
-        #print ll.getOutput(cmd)
+        cmd = "epython " + string.join(filtered_argv)
+        #print cmd
         #sys.exit(0)
-        ll.sendLine("epython " + string.join(sys.argv))
+        ll.sendLine(cmd)
         ll.sendLine("quit")
         try:
-            pass
             ll.interact()
+	    #ll.child.close(True)
         except:
             pass
         sys.exit(0)
@@ -636,19 +678,57 @@ def openDump():
         except:
             pass
 
+
+# This routine is called automatically when you import API. It analyzes
+# sys.argv to obtain info about dump location when the script is running
+# externally. When running from embedded, it ignores dump location but
+# is still doing options parsing. This can be used to enable debugging
+# or experimental features
+# It is not needed to call this. But if you do, it will process options passed
+# from sys.argv (if any) which can be used for debugging
+#
+# To simplify the processing we use the following approach: all debugging
+# options should be 'long', all app options (if any) should be 'short'
+
+def openDump():
+    """Open dump by executing 'crash' if needed."""
+    
+    # Check whether we can import 'crash' - if yes, we are inside extension
+    # and should not try to open the dump again
+    try:
+        # If we can do this, we are called from crash
+        import crash as crashmod
+        #ll.GDBgetOutput = crashmod.get_GDB_output
+        #sys.argv = filtered_argv
+        #if (API_options.debug):
+        #    print "-------crash module %s--------" % crashmod.version
+        return
+    except ImportError:
+        pass
+
+    __cmdlineOptions()
     return
 
 
 # ----------- do some initializations ----------------
 
+# What happens if we use 'epython' command several times without 
+# leaving 'crash'? The first time import statements really do imports running
+# some code, next time the import statement just sees that the code is already
+# imported and it does not execute statements inside modules. So the code
+# here is executed only the first time we import API (this might change if we
+# purge modules, e.g. for debugging).
+# 
+# But the function enter_python() is called every time - the first time when
+# we do import, next times as it is registered as a hook
 
-# The first time when we use epython enter_epython is not called as
-# API is not imported yet.
+openDump()
+initAfterDumpIsOpen()
 
 enter_epython()
-
 debug = API_options.debug
-initAfterDumpIsOpen()
+
+# Hooks used by C-extension
 sys.enterepython = enter_epython
 sys.exitepython = exit_epython
 

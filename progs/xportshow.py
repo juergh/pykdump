@@ -653,7 +653,3 @@ if ( __name__ == '__main__'):
             print_RAW()
             print_UNIX()
 
-
-
-from pykdump.wrapcrash import print_stats
-print_stats()

@@ -191,7 +191,7 @@ def exec_bt(cmd = None, text = None):
     if (cmd != None):
         # Execute a crash command...
         text = exec_crash_command(cmd)
-        print "Got results from crash"
+        #print "Got results from crash"
 
 
     # Split text into one-thread chunks

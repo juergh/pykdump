@@ -117,6 +117,15 @@ nr_free_pages: 2267642  (verified)
 def parse_kmemf(text):
     return NODE.parseString(text).asList()
 
+# Format and print info from parsed output
+
+def print_Zone(zone):
+    print "\n   == Zone:%s ==" % zone[1]
+    print ""
+    print "AREA    SIZE  FREE_AREA_STRUCT     BLOCKS  PAGES"
+    print "----    ----  ------------------   ------  -----"
+    for area, size, f, blocks, pages in zone[2:]:
+	print "%3d %8s  0x%016x    %5d  %5d" % (area, size, f, blocks, pages)
 
 def check_kmemf(nodekmem):
     Normal = nodekmem[1]
@@ -136,3 +145,4 @@ def check_kmemf(nodekmem):
 if ( __name__ == '__main__'):
     nodekmem = parse_kmemf(text)
     check_kmemf(nodekmem)
+    print_Zone(nodekmem[1])

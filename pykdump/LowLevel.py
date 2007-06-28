@@ -5,10 +5,11 @@
 # Time-stamp: <07/01/23 14:04:23 alexs>
 #
 
-import sys, os, stat, errno
+import sys, os, stat, errno, time
 import re
 import atexit
-import pexpect, time
+#import pykdump.pexpect as pexpect
+import pexpect
 import tempfile
         
 import popen2
@@ -125,6 +126,9 @@ def PTYgetOutput(command):
 
 def PTYsendLine(command):
     child.sendline(command)
+    
+def PTYwait():
+    child.wait()
 
 crasheof_re = re.compile(r'^crash.*> quit\s*$')
 def PTYinteract():
@@ -248,6 +252,7 @@ except ImportError:
         openDump = openPTY
         sendLine = PTYsendLine
         interact = PTYinteract
+	wait = PTYwait
     elif (mode == "P2"):
         print "+++Using Pipe2 version+++"
         getOutput = p2getOutput

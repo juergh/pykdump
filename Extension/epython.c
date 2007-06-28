@@ -158,6 +158,7 @@ cmd_epython()
   static long TICKSPS;
   struct tms t1, t2;
   const char *pypath;
+  const char *oneshot;
   char buffer[BUFLEN];
   
   scriptfp = fopen(args[1], "r");
@@ -169,6 +170,7 @@ cmd_epython()
   if (!Py_IsInitialized()) {
     // A hack - add a correct PATH if needed
     pypath = getenv("PYTHONPATH");
+    oneshot = getenv("PYKDUMP_ONESHOT");
 #if defined(STATICBUILD)
     Py_NoSiteFlag = 1;
     if (pypath) {
@@ -238,10 +240,15 @@ cmd_epython()
 
   */
     
-  // Destroy - unfortunately this sometimes leads to segfaults, better not to
-  // not it here
-  //Py_DECREF(crashfp);
-  //Py_Finalize();
+  fflush(fp);
+
+  if (oneshot) {
+    // Destroy - unfortunately this sometimes leads to segfaults, better not to
+    // not it here
+    Py_DECREF(crashfp);
+    Py_Finalize();
+    exit(0);
+  }
 }
 
  

@@ -11,9 +11,10 @@
 
 from pykdump.API import *
 from LinuxDump.BTstack import exec_bt
-from LinuxDump.kmem import parse_kmemf
+from LinuxDump.kmem import parse_kmemf, print_Zone
 
 import sys
+from StringIO import StringIO
 from optparse import OptionParser
 
 WARNING = "+++WARNING+++"
@@ -64,9 +65,14 @@ def check_mem():
         sizekb = int(size[:-1])
         if (sizekb >= 8 and blocks > 1):
             warn_8k = False
-        if (sizekb >= 32 and blocks > 1):
+	    
+	# 32Kb chunks are needs for loopback as it has high MTU
+        if (sizekb == 32 and blocks > 1):
             warn_32k = False
-        #print "%2d  %6d %6d" % (area, sizekb, blocks)
+        if (sizekb > 32 and blocks > 0):
+            warn_32k = False
+
+	#print "%2d  %6d %6d" % (area, sizekb, blocks)
     if (warn_8k or warn_32k):
         printHeader("Memory Fragmentation (kmem -f)")
     if (warn_8k):
@@ -74,7 +80,7 @@ def check_mem():
     if (warn_32k):
         print WARNING, "fragmentation: 32Kb"
     if (warn_8k or warn_32k):
-        print kmemf
+        print_Zone(Normal)
     #pp.pprint(node)
     
 # Check how the dump has been triggered
@@ -162,14 +168,15 @@ def check_runqueues():
 	RT_count = 0
 	# Print Active
 	active = rq.Deref.active
-	print ' ---- CPU#%d ---  %s' % (cpu, str(rq))
+	if (not quiet):
+	   print ' ---- CPU#%d ---  %s' % (cpu, str(rq))
 	#print active
 	#print active.queue
 	for i, pq in enumerate(active.queue):
 	    #print hexl(Addr(pq))
 	    talist = readList(Addr(pq), inchead = False)
 	    l = len(talist)
-	    if (l):
+	    if (l and not quiet):
 	       print "    prio=%-3d len=%d" % (i, l)
 	    for ra in talist:
 		ta = ra - rloffset
