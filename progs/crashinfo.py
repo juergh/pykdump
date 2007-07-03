@@ -2,7 +2,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <07/07/03 14:54:30 alexs>
+# Time-stamp: <07/07/03 15:09:53 alexs>
 
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -61,9 +61,15 @@ def check_mem():
     warn_8k = True
     warn_32k = True
 
+    # We issue a warning if there is less than 2 blocks available.
+    # We are interested in blocks up to 32Kb mainly
     for area, size, f, blocks, pages in Normal[2:]:
         sizekb = int(size[:-1])
-        if (sizekb >= 8 and blocks > 1):
+
+        # 8-Kb chunks are needed for task_struct
+        if (sizekb == 8 and blocks > 1):
+            warn_8k = False
+        if (sizekb > 8 and blocks > 0):
             warn_8k = False
 	    
 	# 32Kb chunks are needs for loopback as it has high MTU
@@ -75,10 +81,12 @@ def check_mem():
 	#print "%2d  %6d %6d" % (area, sizekb, blocks)
     if (warn_8k or warn_32k):
         printHeader("Memory Fragmentation (kmem -f)")
-    if (warn_8k):
-        print WARNING, "fragmentation: 8Kb"
+
     if (warn_32k):
         print WARNING, "fragmentation: 32Kb"
+    elif (warn_8k):
+        print WARNING, "fragmentation: 8Kb"
+
     if (warn_8k or warn_32k):
         print_Zone(Normal)
     #pp.pprint(node)
@@ -116,7 +124,7 @@ def dump_reason(btsl, dmesg):
 	if (test(res, trigger)):
 	    print "\t- programmatically (via sysrq-trigger)"
 	elif (test(res, kbd)):
-	    print "\t-via keyboard"
+	    print "\t- via keyboard"
 	elif (test(res, netconsole)):
 	    print "\t- via netconsole"
 	else:
