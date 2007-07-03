@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/05/30 16:42:17 alexs>
+# Time-stamp: <07/07/03 10:37:30 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -561,7 +561,6 @@ def __cmdlineOptions():
 
     
     crashex = o.crashex                 # Use crash32/crash64 as needed
-    useext = o.UseExt                   # Use extension if possible
 
     debug = API_options.debug = o.debug
     
@@ -579,7 +578,6 @@ def __cmdlineOptions():
     # --------------------------------------------------------------------
     # If we are here, we are running externally, maybe without extension
     # --------------------------------------------------------------------
-    import LowLevel as ll
     
     #print args
     if (len(args) ==  1):
@@ -605,30 +603,7 @@ def __cmdlineOptions():
     if (sys.stdout.isatty()):
         print crashex + " " + cmd
 
-    if (sys.stdout.isatty()):
-        print "Starting crash...",
-        sys.stdout.flush()
-    info = ll.openDump(cmd, crashex)
-    if (not info):
-        print "Cannot open the dump"
-        sys.exit(1)
-    if (sys.stdout.isatty()):
-        print "done!\n",
-        sys.stdout.flush()
-
-    # At this point the dump is open and we have access to it
-
-    # Convert info into a dictionary
-    outdict = {}
-    for il in info:
-        spl = il.split(':', 1)
-        if (len(spl) == 2):
-            outdict[spl[0].strip()] = spl[1].strip()
-    #print outdict
-    # Obtain the dumphost (MACHINE)
-    machine = outdict["MACHINE"].split()[0]
-
-    # Now we try to load the extension. We rely on .crash*rc do define its
+    # Find the extension name. We rely on .crash*rc do define its
     # location
 
     crashrc = '.' + os.path.basename(crashex) + 'rc'
@@ -643,7 +618,52 @@ def __cmdlineOptions():
                 if (m):
                     pythonso = m.group(1)
 
+    # epython cmd
+    ecmd = "epython " + string.join(filtered_argv)
+
+    if (sys.stdout.isatty()):
+        print "Starting crash...",
+        sys.stdout.flush()
+
+    executeCrashScriptI(cmd, crashex, ecmd, pythonso)
+    #executeCrashScriptPTY(cmd, crashex, ecmd, pythonso, o.UseExt, o.nopsyco)
+
+# Execute a crash script via -i
+def executeCrashScriptI(cmd, crashex, ecmd, pythonso):
+    if (False):
+        print ""
+        print cmd
+        print crashex
+        print ecmd
+        print pythonso
+
+    fname = "/tmp/script"
+    fd = open(fname, "w")
+    print >>fd, "extend " + pythonso +" >/dev/null"
+    print >>fd , ecmd
+    print >>fd, "quit"
+    fd.close()
+    fcmd = crashex + ' ' + cmd + ' ' + '-s --no_crashrc -i' + fname
+    os.system(fcmd)
+    sys.exit(0)
+
+# Execute a crash script via PTY
+def executeCrashScriptPTY(cmd, crashex, ecmd, pythonso):
+    debug = API_options.debug 
+    import LowLevel as ll
+    info = ll.openDump(cmd, crashex)
+    if (not info):
+        print "Cannot open the dump"
+        sys.exit(1)
+    if (sys.stdout.isatty()):
+        print "done!\n",
+        sys.stdout.flush()
+
+    # At this point the dump is open and we have access to it
+
+
     if (useext):
+        print "extend %s" % pythonso
         rc = ll.getOutput("extend %s" % pythonso)
     else:
         rc = ''
@@ -651,13 +671,12 @@ def __cmdlineOptions():
         if (debug):
             print "Extension available"
         # Invoke the same script again, with the same parameters
-        cmd = "epython " + string.join(filtered_argv)
-        #print cmd
+        #print ecmd
         #sys.exit(0)
-        ll.sendLine(cmd)
+        ll.sendLine(ecmd)
         ll.sendLine("quit")
         try:
-            ll.interact()
+            ll.child.interact()
 	    #ll.child.close(True)
         except:
             pass
@@ -666,11 +685,11 @@ def __cmdlineOptions():
         if (debug):
             print "*** no embedded Python"
         wrapcrash.fifoname = ll.fifoname
-    sys.argv = filtered_argv
+    #sys.argv = filtered_argv
 
     # If we reach this point, we are running with PTY-interface
     # Use Psyco if is available and not suppressed by option
-    if (not o.nopsyco):
+    if (not nopsyco):
         try:
             import psyco
             psyco.full()
