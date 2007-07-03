@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/07/03 10:37:30 alexs>
+# Time-stamp: <07/07/03 14:55:08 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -83,7 +83,7 @@ import os, os.path
 
 import wrapcrash
 import Generic as gen
-from Generic import Bunch
+from Generic import Bunch, PYT_tmpfiles
 
 
 
@@ -440,8 +440,13 @@ def __preprocess(iargv,op):
 
     while(iargv):
         el = iargv.pop(0)
-        # All elements starting from '.' and '/' go to aargv
-        if (el[0] in ('/', '.')):
+        # All elements starting from '.' and '/' go to aargv - but only
+        # they match the existing directories. We can specify directories
+        # from command-line to make pykdump to search for vmcore/vmlinux
+        # files in them. But some options (e.g. output to a file) may
+        # use arguments like /tmp/t.out
+        
+        if (el[0] in ('/', '.') and os.path.isdir(el)):
             aargv.append(el)
         elif (el[:2] == '--' or el[0] == '-'):
             # Check whether this option is present in optparser's op
@@ -497,7 +502,11 @@ def __epythonOptions():
     op.add_option("--debug", dest="debug", default=0,
               action="store", type="int",
               help="enable debugging output")
- 
+
+    op.add_option("--ofile", dest="filename",
+                  help="write report to FILE", metavar="FILE")
+
+
     if (len(sys.argv) > 1):
         (aargs, uargs) = __preprocess(sys.argv[1:], op)
     else:
@@ -506,6 +515,9 @@ def __epythonOptions():
     (o, args) = op.parse_args(aargs)
     wrapcrash.experimental = API_options.experimental = o.experimental
     debug = API_options.debug = o.debug
+
+    if (o.filename):
+        sys.stdout = open(o.filename, "w")
     
     sys.argv[1:] = uargs
     #print "EPYTHON sys.argv=", sys.argv
@@ -529,6 +541,10 @@ def __cmdlineOptions():
     op.add_option("--nopsyco", dest="nopsyco", default=0,
               action="store_true",
               help="disable Psyco even if it available")
+
+    op.add_option("--pty", dest="pty", default=0,
+              action="store_true",
+              help="use PTY-driver")
 
     # This option is special - it can be used both by
     # PTY-driver and by epython command
@@ -625,8 +641,11 @@ def __cmdlineOptions():
         print "Starting crash...",
         sys.stdout.flush()
 
-    executeCrashScriptI(cmd, crashex, ecmd, pythonso)
-    #executeCrashScriptPTY(cmd, crashex, ecmd, pythonso, o.UseExt, o.nopsyco)
+    if (o.pty):
+        executeCrashScriptPTY(cmd, crashex, ecmd, pythonso,
+                              o.UseExt, o.nopsyco)
+    else:
+        executeCrashScriptI(cmd, crashex, ecmd, pythonso)
 
 # Execute a crash script via -i
 def executeCrashScriptI(cmd, crashex, ecmd, pythonso):
@@ -637,18 +656,19 @@ def executeCrashScriptI(cmd, crashex, ecmd, pythonso):
         print ecmd
         print pythonso
 
-    fname = "/tmp/script"
-    fd = open(fname, "w")
+    tmpgen = PYT_tmpfiles()
+    fd,fname = tmpgen.mkfile()
     print >>fd, "extend " + pythonso +" >/dev/null"
     print >>fd , ecmd
     print >>fd, "quit"
     fd.close()
     fcmd = crashex + ' ' + cmd + ' ' + '-s --no_crashrc -i' + fname
     os.system(fcmd)
+    tmpgen.cleanup()
     sys.exit(0)
 
 # Execute a crash script via PTY
-def executeCrashScriptPTY(cmd, crashex, ecmd, pythonso):
+def executeCrashScriptPTY(cmd, crashex, ecmd, pythonso, useext, nopsyco):
     debug = API_options.debug 
     import LowLevel as ll
     info = ll.openDump(cmd, crashex)
@@ -697,7 +717,7 @@ def executeCrashScriptPTY(cmd, crashex, ecmd, pythonso):
         except:
             pass
 
-
+    
 # This routine is called automatically when you import API. It analyzes
 # sys.argv to obtain info about dump location when the script is running
 # externally. When running from embedded, it ignores dump location but

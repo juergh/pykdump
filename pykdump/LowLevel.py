@@ -2,7 +2,7 @@
 # Code that decides whether we are embedded or driving crash externally
 # All other modules should use this one and never PTY/crashmodule directly
 #
-# Time-stamp: <07/01/23 14:04:23 alexs>
+# Time-stamp: <07/07/03 12:27:48 alexs>
 #
 
 import sys, os, stat, errno, time

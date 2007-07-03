@@ -2,7 +2,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <07/06/27 10:54:42 alexs>
+# Time-stamp: <07/07/03 14:54:30 alexs>
 
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -211,9 +211,6 @@ op.add_option("-q", dest="Quiet", default = 0,
 		action="store_true",
 		help="quiet mode - print warnings only")
 
-op.add_option("-o", "--ofile", dest="filename",
-                  help="write report to FILE", metavar="FILE")
-
 
 op.add_option("--sysctl", dest="sysctl", default = 0,
 		action="store_true",
@@ -221,8 +218,6 @@ op.add_option("--sysctl", dest="sysctl", default = 0,
 
 (o, args) = op.parse_args()
 
-if (o.filename):
-    sys.stdout = open(o.filename, "w")
 
 if (o.Verbose):
     verbose = 1
