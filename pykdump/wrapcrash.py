@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/05/30 16:42:29 alexs>
+# Time-stamp: <07/07/03 17:11:47 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -1346,15 +1346,17 @@ try:
     readmem = crash.readmem
     nc_member_offset = crash.member_offset
 except:
-    import crashspec
-    from crashspec import sym2addr, addr2sym
-
-    import LowLevel as ll
-    from LowLevel import getOutput, exec_gdb_command
-    exec_crash_command = getOutput
-    noncached_symbol_exists = crashspec.symbol_exists
-    nc_member_offset = GDBmember_offset
+    # If we are not inside extension, these should be set by a module
+    # that implements a similar functionality (e.g. PTY-wrapper)
+    sym2addr =  addr2sym = None
+    getOutput = None
+    exec_gdb_command = None
+    exec_crash_command = None
+    noncached_symbol_exists = None
+    nc_member_offset = None
     uvtop = None
+
+
 
 def print_stats():
     print "count_cached_attr=%d (%d)" % (count_cached_attr, count_total_attr)

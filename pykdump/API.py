@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/07/03 14:55:08 alexs>
+# Time-stamp: <07/07/03 17:17:42 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -647,6 +647,9 @@ def __cmdlineOptions():
     else:
         executeCrashScriptI(cmd, crashex, ecmd, pythonso)
 
+    # We do not reach this point - executes above call
+    # sys.exit()
+
 # Execute a crash script via -i
 def executeCrashScriptI(cmd, crashex, ecmd, pythonso):
     if (False):
@@ -708,6 +711,20 @@ def executeCrashScriptPTY(cmd, crashex, ecmd, pythonso, useext, nopsyco):
     #sys.argv = filtered_argv
 
     # If we reach this point, we are running with PTY-interface
+
+    # This code is needed only when we work without extension.
+    # It should be probably removed completely as we don't need it anymore
+    
+    import crashspec
+
+    global getOutput, sym2addr, addr2sym
+    global  exec_crash_command, exec_gdb_command
+
+    wrapcrash.exec_crash_command = exec_crash_command = crashspec.getOutput
+    wrapcrash.exec_gdb_command = exec_gdb_command = crashspec.getOutput
+    wrapcrash.noncached_symbol_exists = crashspec.symbol_exists
+    wrapcrash.nc_member_offset = wrapcrash.GDBmember_offset
+    
     # Use Psyco if is available and not suppressed by option
     if (not nopsyco):
         try:
