@@ -232,7 +232,7 @@ def exec_bt(cmd = None, text = None):
                 # If we have a pattern like 'error_code (via page_fault)'
                 # it makes more sense to use 'via' func as a name
                 f.addr = int(m.group(4), 16)
-                f.offset = f.addr
+                f.offset = f.addr - sym2addr(f.func)
                 f.data = []
                 bts.frames.append(f)
             elif (f != None):

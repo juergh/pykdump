@@ -46,7 +46,10 @@ def print_basics():
     
     print exec_crash_command("sys")
     print ""
-
+    for cpu, stack in enumerate(bta):
+        print "      -- CPU#%d --" % cpu, stack
+        print ""
+    
 def check_mem():
     if (not quiet):
 	printHeader("Memory Usage (kmem -i)")
@@ -82,10 +85,10 @@ def check_mem():
     if (warn_8k or warn_32k):
         printHeader("Memory Fragmentation (kmem -f)")
 
-    if (warn_32k):
-        print WARNING, "fragmentation: 32Kb"
-    elif (warn_8k):
+    if (warn_8k):
         print WARNING, "fragmentation: 8Kb"
+    elif (warn_32k):
+        print WARNING, "fragmentation: 32Kb"
 
     if (warn_8k or warn_32k):
         print_Zone(Normal)
@@ -139,7 +142,16 @@ def dump_reason(btsl, dmesg):
 	    for bts in res:
 		print bts
 	
-      
+# Check Load Averages
+def check_loadavg():
+    avgf = []
+    avgstr = sys_info["LOAD AVERAGE"]
+    for avgs in avgstr.split(','):
+	avgf.append(float(avgs))
+    avg1, avg5, avg15 = avgf
+    if (avg1 > 29 or avg5 > 29):
+	print WARNING, "High Load Averages:", avgstr
+    
 def check_auditf():
     global btsl
     btsl = exec_bt('foreach bt')
@@ -162,6 +174,22 @@ def check_sysctl():
     for n in names:
         dall = sysctl.getCtlData(ctbl[n])
         print n.ljust(45), dall
+
+def check_network():
+    import LinuxDump.inet.netdevice as netdevice
+    offset = member_offset("struct net_device", "next")
+    dev_base = readSymbol("dev_base")
+    jiffies = readSymbol("jiffies")
+    for a in readList(dev_base, offset):
+        dev = readSU("struct net_device", a)
+	if_up = dev.flags & netdevice.IFF_FLAGS.IFF_UP
+	if (not if_up):  continue
+	# Last RX and TX times in jiffies. Check this only for devices
+	# that are UP
+	last_rx = (jiffies - dev.last_rx)/HZ
+        trans_start = (jiffies - dev.trans_start)/HZ
+	print dev.name, last_rx, trans_start
+ 
 
 def check_runqueues():
     from LinuxDump import percpu
@@ -204,7 +232,7 @@ def check_runqueues():
 if (not sys_info.livedump):
     bta = exec_bt('bt -a')
 else:
-    bta = None
+    bta = []
 
 dmesg = exec_crash_command("log")
 
@@ -245,9 +273,12 @@ if (o.sysctl):
     check_sysctl()
     sys.exit(0)
     
+HZ = sys_info.HZ
 
 print_basics()
 dump_reason(bta, dmesg)
-check_mem()
-check_auditf()
-check_runqueues()
+check_loadavg()
+#check_mem()
+#check_auditf()
+#check_runqueues()
+check_network()

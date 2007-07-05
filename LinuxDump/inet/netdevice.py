@@ -306,8 +306,8 @@ def get_stat64(val):
     return  (high << 32 | low)
 
 tg3_warning = '''
-    !!!WARNING: to print tg3 stats you need to install debuginfo version
-    of tg3 module
+    !!!INFO: to print tg3 stats you need to install debuginfo version
+             of tg3 module
 '''
 
 def tg3_get_stats(priv):
@@ -320,7 +320,6 @@ def tg3_get_stats(priv):
         except TypeError:
             print tg3_warning
             return None
-        delModule("tg3")
             
     stats = tg3.net_stats
     old_stats = tg3.net_stats_prev
@@ -329,6 +328,7 @@ def tg3_get_stats(priv):
     try:
         hw_stats = tg3.Deref.hw_stats
     except:
+	delModule("tg3")
         return old_stats
 
     stats.rx_packets = old_stats.rx_packets + \
@@ -383,6 +383,7 @@ def tg3_get_stats(priv):
     
     stats.rx_missed_errors = old_stats.rx_missed_errors + \
                              get_stat64(hw_stats.rx_discards)
+    delModule("tg3")
     return stats
 
 
@@ -548,6 +549,7 @@ def print_If(dev, details):
         pass
     if (not details):
         return
+
     print "    LINK_STATE %3d %s" %(dev.state, decodeDevState(dev.state))
     print "    open=<%s>, stats=<%s> mtu=%d promisc=%d" % \
           (addr2sym(dev.open), addr2sym(dev.get_stats),

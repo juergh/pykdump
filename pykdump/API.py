@@ -27,15 +27,13 @@ not call low-level functions directly but use this module instead.
 '''
 
 import pykdump                          # For version check
-import pprint
+
 
 
 # sys is a builtin and does not depend on sys.path. But we cannot load 'os' yet
 # if we are running a binary distribution with Python libraries at
 # non-standard location
 import sys, os, os.path
-import zlib
-
 
 # On Ubuntu the debug kernel has name /boot/vmlinux-dbg-<uname>
 # On CG it is /usr/lib/kernel-image-<uname>-dbg/vmlinux
@@ -43,7 +41,6 @@ kerntemplates = ("/boot/vmlinux-%s", "/boot/vmlinux-dbg-%s",
                  "/usr/lib/kernel-image-%s-dbg/vmlinux")
 
 
-pp = pprint.PrettyPrinter(indent=4)
 
 from optparse import OptionParser, Option
 
@@ -54,25 +51,12 @@ else:
     python_64 = True
 
 
-
-# We should be careful about the path to 'lib-dynload' as shared libraries are
-# different for 32-bit and 64-bit versions. Format of .pyc/.pyo files is
-# compatible but the contents of some of them can be specific to installation
-
-pyroot = None
-if (python_64 and os.environ.has_key("PYTHON64LIB")):
-    pyroot = os.environ["PYTHON64LIB"]
-elif (not python_64 and os.environ.has_key("PYTHON32LIB")):
-    pyroot = os.environ["PYTHON32LIB"]
-
-if (pyroot):
-    # Insert it only if needed
-    if (not pyroot in sys.path):
-        sys.path.insert(1, pyroot)
-
+#print sys.path
 # At this point we should be able to load external modules dynamically
 # and import modules from non-standard (e.g. PYTHON32LIB) places
 
+import pprint
+pp = pprint.PrettyPrinter(indent=4)
 
 import string, re
 import time
@@ -420,9 +404,12 @@ def loadModule(modname, ofile = None):
 # Unload module
 
 def delModule(modname):
+    #print __loaded_Mods
     try:
         del __loaded_Mods[modname]
         exec_crash_command("mod -d %s" % modname)
+	if (debug):
+	    print "Unloading", modname
     except KeyError:
         pass
    
