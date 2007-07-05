@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <07/03/27 11:56:33 alexs>
+  Time-stamp: <07/07/05 10:24:12 alexs>
 
   Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -169,8 +169,12 @@ cmd_epython()
   }
   if (!Py_IsInitialized()) {
     // A hack - add a correct PATH if needed
-    pypath = getenv("PYTHONPATH");
-    oneshot = getenv("PYKDUMP_ONESHOT");
+    // Are we running 32-bit or 64-bit?
+    if (sizeof(long) == 4)
+      pypath = getenv("PYTHON32LIB");
+    else
+      pypath = getenv("PYTHON64LIB");
+	
 #if defined(STATICBUILD)
     Py_NoSiteFlag = 1;
     if (pypath) {
@@ -186,6 +190,12 @@ cmd_epython()
       putenv(buffer);
       free(prog);
     }
+#else
+    if (pypath) {
+      snprintf(buffer, BUFLEN, "PYTHONHOME=%s", pypath);
+      putenv(buffer);      
+    }
+
 #endif
     if (debug)
       fprintf(fp, "     *** Initializing Embedded Python %s ***\n", crash_version);
@@ -242,7 +252,7 @@ cmd_epython()
     
   fflush(fp);
 
-  if (oneshot) {
+  if (0) {
     // Destroy - unfortunately this sometimes leads to segfaults, better not to
     // not it here
     Py_DECREF(crashfp);

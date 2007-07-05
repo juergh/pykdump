@@ -88,6 +88,6 @@ excludes = ['Linuxlib', 'email', 'encodings',
             'xml.parsers', 'xml.sax.expatreader']
 mf = customMF(excludes = excludes)
 mf.run_script(mod)
-#mf.makecopy(outdir)
+mf.makecopy(outdir)
 mf.report()
 
