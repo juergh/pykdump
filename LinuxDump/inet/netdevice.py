@@ -1,6 +1,6 @@
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <07/05/31 16:32:26 alexs>
+# Time-stamp: <07/07/05 15:47:44 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -311,12 +311,17 @@ tg3_warning = '''
 '''
 
 def tg3_get_stats(priv):
-    loadModule("tg3")
     try:
         tg3 = readSU("struct tg3", priv)
     except TypeError:
-        print tg3_warning
-        return None
+        loadModule("tg3")
+        try:
+            tg3 = readSU("struct tg3", priv)
+        except TypeError:
+            print tg3_warning
+            return None
+        delModule("tg3")
+            
     stats = tg3.net_stats
     old_stats = tg3.net_stats_prev
     if (debug):

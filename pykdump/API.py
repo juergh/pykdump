@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/07/03 17:17:42 alexs>
+# Time-stamp: <07/07/05 15:47:26 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -254,6 +254,9 @@ def initAfterDumpIsOpen():
     if (not  sys_info.livedump):
         # Append the directory of where the dump is located
         debuginfo.append(getDebugDir())
+    else:
+        # Append the current directory (useful for development)
+        debuginfo.insert(0, '.')
     # Finally, there's always a chance that this kernel is compiled
     # with debuginfo
     debuginfo.append("/lib/modules/" + kname)
@@ -413,7 +416,16 @@ def loadModule(modname, ofile = None):
     success = (rc.find("MODULE") != -1)
     __loaded_Mods[modname] = success
     return success
-    
+
+# Unload module
+
+def delModule(modname):
+    try:
+        del __loaded_Mods[modname]
+        exec_crash_command("mod -d %s" % modname)
+    except KeyError:
+        pass
+   
 # Execute 'sys' command and put its split output into a dictionary
 # Some names contain space and should be accessed using a dict method, e.g.
 # sys_info["LOAD AVERAGE"]
