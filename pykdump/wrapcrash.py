@@ -570,7 +570,7 @@ def Deref(obj):
             return tPtr(readPtr(addr), dpt)
         else:
             raise TypeError, str(obj.ptype)
-        
+
 
 # When we do readSymbol and have pointers to struct, we need a way
 # to record this info instead of just returnin integer address
@@ -741,6 +741,20 @@ def SUArray(sname, addr, maxel = _MAXEL):
         yield readSU(sname, addr)
     return
 
+#    ======= Arrays Without Dimension =============
+#
+#  In some cases we have declarations like 
+#  struct AAA *ptr[];
+
+class tPtrDimensionlessArray(object):
+    def __init__(self, ptype, addr):
+	self.ptype = ptype
+	self.addr = addr
+	self.size = pointersize
+    def __getitem__(self, key):
+	addr = readPtr(self.addr + pointersize * key)
+	return tPtr(addr, self.ptype)
+
 # Walk list_Head and return the full list (or till maxel)
 #
 # Note: By default we do not include the 'start' address.
@@ -819,9 +833,17 @@ def readSymbol(symbol, art = None):
     # In this case we return a generator to this array and expect that
     # there is an end marker that lets programmer detect EOF. For safety
     # reasons, we limit the number of returned entries to _MAXEL
-    if (dim == 0 and size == 0 and swtype == "SU"):
-        sz1 = getSizeOf(stype)
-        return SUArray(stype, addr)
+    if (dim == 0 and size == 0):
+	if (swtype == "SU"):
+	    sz1 = getSizeOf(stype)
+            return SUArray(stype, addr)
+	elif (swtype == "SUptr" or swtype ==  "Ptr"):
+	    # We don't want to preserve dim=0 information
+	    nf = symi.mincopy()
+	    nf.star = symi.star
+	    #print "SYMI:", symi
+	    #print "NF:", nf
+ 	    return tPtrDimensionlessArray(nf, addr)
 
     sz1 = size/dim
 

@@ -554,7 +554,9 @@ def print_If(dev, details):
     print "    open=<%s>, stats=<%s> mtu=%d promisc=%d" % \
           (addr2sym(dev.open), addr2sym(dev.get_stats),
            dev.mtu, dev.promiscuity)
-    if (dev.ip_ptr):
+    if (dev.ip_ptr and last_rx <2*jiffies):
+	# If device is up but never was used, both last_rx and 
+	# trans_start are bogus (usually very big)
         print "    \tlast_rx %7.2f s ago" % ((jiffies - last_rx)/HZ)
         if (trans_start):
             print "    \ttrans_start %7.2f s ago" % \
