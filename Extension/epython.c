@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <07/07/05 10:24:12 alexs>
+  Time-stamp: <07/07/06 15:29:36 alexs>
 
   Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -43,8 +43,9 @@ void initcrash(const char *) ;
    architectures
 */
 
-#if !defined(STATICBUILD)
 PyAPI_DATA(int) Py_NoSiteFlag;
+
+#if !defined(STATICBUILD)
 
 void
 Py_Exit(int sts) {
@@ -192,6 +193,7 @@ cmd_epython()
     }
 #else
     if (pypath) {
+      Py_NoSiteFlag = 1;
       snprintf(buffer, BUFLEN, "PYTHONHOME=%s", pypath);
       putenv(buffer);      
     }
