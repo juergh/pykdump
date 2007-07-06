@@ -2,7 +2,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <07/07/03 15:09:53 alexs>
+# Time-stamp: <07/07/06 16:20:27 alexs>
 
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -95,7 +95,7 @@ def check_mem():
     #pp.pprint(node)
     
 # Check how the dump has been triggered
-def dump_reason(btsl, dmesg):
+def dump_reason(dmesg):
     global Panic
     def test(l, t):
 	if (len([bts for bts in l if bts.hasfunc(t)])):
@@ -120,7 +120,7 @@ def dump_reason(btsl, dmesg):
     trigger = re.compile('vfs_write|sys_write')
     kbd  = re.compile('keyboard_interrupt')
     netconsole = re.compile('netconsole')
-    res = [bts for bts in btsl if bts.hasfunc(func1)]
+    res = [bts for bts in btat if bts.hasfunc(func1)]
     if (res):
 	# Now check whether we used keyboard or sysrq-trigger
 	print "Dump has been initiated: with sysrq"
@@ -132,7 +132,7 @@ def dump_reason(btsl, dmesg):
 	    print "\t- via netconsole"
 	else:
 	    print "\t- ???"
-	if (test(res, "disk_dump")):
+	if (test(btat, "disk_dump")):
 	    print "\t- using diskdump"
 	elif (ifnetdump(dmesg)):
 	    print "\t- using netdump"
@@ -231,8 +231,10 @@ def check_runqueues():
 	
 if (not sys_info.livedump):
     bta = exec_bt('bt -a')
+    btat = exec_bt('bt -at')
 else:
     bta = []
+    btat = []
 
 dmesg = exec_crash_command("log")
 
@@ -276,7 +278,7 @@ if (o.sysctl):
 HZ = sys_info.HZ
 
 print_basics()
-dump_reason(bta, dmesg)
+dump_reason(dmesg)
 check_loadavg()
 #check_mem()
 #check_auditf()

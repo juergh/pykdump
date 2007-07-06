@@ -183,7 +183,11 @@ re_pid = re.compile(r'^PID:\s+(\d+)\s+TASK:\s+([\da-f]+)\s+' +
 #  #0 [BSP:e00000038dbb1458] netconsole_netdump at a000000000de7d40
 
 
-re_f1 = re.compile(r'\s*#(\d+)\s+\[(?:BSP:)?([\da-f]+)\]\s+(.+)\sat\s([\da-f]+)$')
+re_f1 = re.compile(r'\s*(?:#\d+)?\s+\[(?:BSP:)?([\da-f]+)\]\s+(.+)\sat\s([\da-f]+)$')
+# The 1st line of 'bt -t' stacks
+#       START: disk_dump at f8aa6d6e
+re_f1_t = re.compile(r'\s*(START:)\s+([\w.]+)\sat\s([\da-f]+)$')
+
 re_via = re.compile(r'(\S+)\s+\(via\s+([^)]+)\)$')
 
 def exec_bt(cmd = None, text = None):
@@ -216,13 +220,17 @@ def exec_bt(cmd = None, text = None):
 
         #print "%d 0x%x %d <%s>" % (pid, addr, cpu, cmd)
         f = None
+        level = 0
         for fl in lines[1:]:
             m = re_f1.match(fl)
             #print '--', fl
+            if (not m):
+                m = re_f1_t.match(fl)
             if (m):
                 f = BTFrame()
-                f.level = int(m.group(1))
-                f.func = m.group(3)
+                f.level = level
+                level += 1
+                f.func = m.group(2)
                 viam = re_via.match(f.func)
                 if (viam):
                     f.via = viam.group(2)
@@ -231,7 +239,7 @@ def exec_bt(cmd = None, text = None):
                     f.via = ''
                 # If we have a pattern like 'error_code (via page_fault)'
                 # it makes more sense to use 'via' func as a name
-                f.addr = int(m.group(4), 16)
+                f.addr = int(m.group(3), 16)
                 f.offset = f.addr - sym2addr(f.func)
                 f.data = []
                 bts.frames.append(f)
