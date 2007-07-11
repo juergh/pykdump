@@ -13,7 +13,7 @@ from pykdump.API import *
 from LinuxDump.inet import *
 from LinuxDump.inet import proto, netdevice
 from LinuxDump.inet.proto import tcpState, sockTypes, \
-    IPv4_conn, IPv6_conn, IP_sock,  P_FAMILIES
+    IPv4_conn, IPv6_conn, IP_sock,  P_FAMILIES, decodeSock
 from LinuxDump.inet.routing import print_fib
 
 from LinuxDump.Tasks import TaskTable, taskFds
@@ -391,32 +391,11 @@ def printTaskSockets(t):
         # Find family/type of this socket
         socket = readSU("struct socket", socketaddr)
         sock = socket.Deref.sk
-        if (sock_V1):
-            family = sock.family
-            protoname = sock.Deref.prot.name
-            sktype = sock.type
-        else:
-            skcomm = sock.__sk_common
-            family = skcomm.skc_family
-	    try:
-                protoname =  skcomm.Deref.skc_prot.name
-	    except KeyError:
-		try:
-		  protoname = sock.Deref.sk_prot.name
-		except IndexError:
-		    protoname= '???'
-            sktype = sock.sk_type
-        print " %-8s %-12s %-5s" % (P_FAMILIES.value2key(family),
-                                 sockTypes[sktype], protoname)
-        if (family == P_FAMILIES.PF_INET or family == P_FAMILIES.PF_INET6):
-            if (not sock_V1):
-                sock = sock.castTo("struct inet_sock")
-		try:
-	           sockopt= sock.inet
-	        except KeyError:
-	           sockopt = sock
-	    else:
-		sockopt = sock
+	family, sktype, protoname, sockopt = decodeSock(sock)
+	print " %-8s %-12s %-5s" % (P_FAMILIES.value2key(family),
+				    sockTypes[sktype], protoname)
+
+        if (sockopt):
             print IPv4_conn(left='\t', sock=sockopt)
     print ""
 

@@ -397,6 +397,40 @@ def inode2socketaddr(inode):
 
     
 
+# Decode info for 'struct sock'
+def decodeSock(sock):
+    if (sock_V1):
+	family = sock.family
+	# For old kernels prot is NULL for AF_UNIX
+	try:
+	    protoname = sock.Deref.prot.name
+	except IndexError:
+	    protoname = "UNIX"
+	sktype = sock.type
+    else:
+	skcomm = sock.__sk_common
+	family = skcomm.skc_family
+	try:
+	    protoname =  skcomm.Deref.skc_prot.name
+	except KeyError:
+	    try:
+		protoname = sock.Deref.sk_prot.name
+	    except IndexError:
+		protoname= '???'
+	sktype = sock.sk_type
+    if (family == P_FAMILIES.PF_INET or family == P_FAMILIES.PF_INET6):
+	if (not sock_V1):
+	    sock = sock.castTo("struct inet_sock")
+	    try:
+		sockopt= sock.inet
+	    except KeyError:
+		sockopt = sock
+	else:
+	    sockopt = sock
+    else:
+	sockopt = None
+    return family, sktype, protoname, sockopt
+
 # ...........................................................................
 
 # On 2.4 we use just 'struct sock' for everything. On 2.6 we use inet_sock,
