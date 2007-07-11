@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/05/01 15:31:23 alexs>
+# Time-stamp: <07/07/11 15:10:18 alexs>
 
 # Per-cpu functions
 
@@ -49,9 +49,12 @@ if (symbol_exists("per_cpu__runqueues")):
             offset = cpu_pda.data_offset
             per_cpu_offsets.append(offset)
  
-    elif(symbol_exists("_cpu_pda")):
-	#AMD64, newer kernels
+    elif(symbol_exists("_cpu_pda") and not symbol_exists("__per_cpu_offset")):
+	# This symbol exists both on AMD64 (newer kernels) and I386,
+        # but on I386 it does not contain offsets...
 	# extern struct x8664_pda *_cpu_pda[];
+        # struct i386_pda *_cpu_pda[8];
+
 	pda_ptr_arr = readSymbol("_cpu_pda")
 
         per_cpu_offsets = []
