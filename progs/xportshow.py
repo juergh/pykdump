@@ -599,7 +599,11 @@ if ( __name__ == '__main__'):
 
     if (o.Program):
         tt = TaskTable()
-        for task in  tt.getByComm(o.Program):
+	if (o.Program == '*'):
+	    tasks = tt.tt
+	else:
+	    tasks = tt.getByComm(o.Program)
+        for task in  tasks:
             printTaskSockets(task)
         sys.exit(0)
 
