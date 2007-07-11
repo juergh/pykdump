@@ -62,7 +62,7 @@ def print_neighbour_table(tbl):
     print "----------        -------    ----------           ------  -----"
     for i in range(hashsize):
         b = hash_buckets[i]
-        #print "++", type(b)
+        #print "++", type(hash_buckets)
         if (b != 0):
             #print i, repr(b)
             for s in readStructNext(b, "next"):

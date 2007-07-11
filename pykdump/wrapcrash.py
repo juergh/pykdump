@@ -384,8 +384,12 @@ def _getInt(fieldaddr, ni, s = None):
         else:
             val = []
             sz1 = sz/dim
+            # We should strip dim/array information for 1-dim arrays
+	    # But what if we have a multidimensional array?
+            nf = ni.mincopy()
+            nf.star = ni.star
             for i in range(dim):
-                val.append(tPtr(mem2long(s[i*sz1:(i+1)*sz1]), ni))
+                val.append(tPtr(mem2long(s[i*sz1:(i+1)*sz1]), nf))
     else:
         raise TypeError, str(smarttype) + ' ' + str(dim)
 
