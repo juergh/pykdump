@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/05/02 11:31:18 alexs>
+# Time-stamp: <07/07/12 17:14:44 alexs>
 
 # Tasks and Pids
 
@@ -170,18 +170,28 @@ def taskFds(task, short = False):
     if (task.files):
         files = task.Deref.files
         try:
+	    # 2.6
             fdt = files.Deref.fdt
             fd = fdt.fd
             max_fds = fdt.max_fds
+            open_fds = fdt.open_fds
         except KeyError:
+	    # 2.4
             fd = files.fd
             max_fds = files.max_fds
+            open_fds = files.open_fds
+	    # print open_fds
+	if (max_fds):
+	   fileparray = readmem(open_fds, struct_size("fd_set"))
         for i in range(max_fds):
-            filep = readPtr(fd + pointersize * i)
+            if (FD_ISSET(i, fileparray)):
+                filep = readPtr(fd + pointersize * i)
+            else:
+                filep = None
             if (filep):
+                #print FD_ISSET(i, fileparray)
                 if (short):
                     out.append(filep)
-                    continue
                 sfile = readSU("struct file", filep)
                 # On 2.6.20 f_dentry is really f_path.dentry
                 try:

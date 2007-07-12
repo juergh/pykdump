@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/07/05 15:47:26 alexs>
+# Time-stamp: <07/07/12 16:47:28 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -65,7 +65,6 @@ import atexit
 
 import os, os.path
 
-import wrapcrash
 import Generic as gen
 from Generic import Bunch, PYT_tmpfiles
 
@@ -136,18 +135,33 @@ API_options = Bunch()
 
 dumpstring = None
 
-from wrapcrash import readPtr, readU16, readU32, readSymbol, readSU, \
-     readList, getListSize, readListByHead,  list_for_each_entry, \
-     readSUArray, readSUListFromHead, readStructNext, \
-     getStructInfo, getFullBuckets,\
-     struct_exists, struct_size, symbol_exists,\
-     ArtStructInfo, ArtUnionInfo, getTypedefInfo,\
-     Addr, Deref, SmartString,\
-     sym2addr, addr2sym, readmem, uvtop, readProcessMem,  \
-     struct_size, union_size, member_offset, member_size, \
-     getSizeOf, whatis, printObject,\
-     exec_gdb_command, exec_crash_command, \
-     flushCache
+# Most functions implemented in 'wrapcrash' are available only if
+# 'crash' is already imported
+
+crashloaded = False
+try:
+    import crash
+    crashloaded = True
+except ImportError:
+    pass
+
+if (crashloaded):
+    import wrapcrash
+
+    from wrapcrash import readPtr, readU16, readU32, readSymbol, readSU, \
+         readList, getListSize, readListByHead,  list_for_each_entry, \
+         readSUArray, readSUListFromHead, readStructNext, \
+         getStructInfo, getFullBuckets, FD_ISSET, \
+         struct_exists, struct_size, symbol_exists,\
+         ArtStructInfo, ArtUnionInfo, getTypedefInfo,\
+         Addr, Deref, SmartString,\
+         sym2addr, addr2sym, readmem, uvtop, readProcessMem,  \
+         struct_size, union_size, member_offset, member_size, \
+         getSizeOf, whatis, printObject,\
+         exec_gdb_command, exec_crash_command, \
+         flushCache
+
+    print "Imported wrapcrash"
 
 from tparser import CEnum, CDefine
     
@@ -186,7 +200,7 @@ def initAfterDumpIsOpen():
     """Do needed initializations after dump is successfully opened"""
     global __dump_is_accessible
     __dump_is_accessible = True
-    wrapcrash.pointersize = sys_info.pointersize = getSizeOf("void *")
+    sys_info.pointersize = 4
     
     _doSys()
 
@@ -640,11 +654,7 @@ def __cmdlineOptions():
         print "Starting crash...",
         sys.stdout.flush()
 
-    if (o.pty):
-        executeCrashScriptPTY(cmd, crashex, ecmd, pythonso,
-                              o.UseExt, o.nopsyco)
-    else:
-        executeCrashScriptI(cmd, crashex, ecmd, pythonso)
+    executeCrashScriptI(cmd, crashex, ecmd, pythonso)
 
     # We do not reach this point - executes above call
     # sys.exit()
@@ -714,24 +724,6 @@ def executeCrashScriptPTY(cmd, crashex, ecmd, pythonso, useext, nopsyco):
     # This code is needed only when we work without extension.
     # It should be probably removed completely as we don't need it anymore
     
-    import crashspec
-
-    global getOutput, sym2addr, addr2sym
-    global  exec_crash_command, exec_gdb_command
-
-    wrapcrash.exec_crash_command = exec_crash_command = crashspec.getOutput
-    wrapcrash.exec_gdb_command = exec_gdb_command = crashspec.getOutput
-    wrapcrash.noncached_symbol_exists = crashspec.symbol_exists
-    wrapcrash.nc_member_offset = wrapcrash.GDBmember_offset
-    
-    # Use Psyco if is available and not suppressed by option
-    if (not nopsyco):
-        try:
-            import psyco
-            psyco.full()
-            print " *** Using Psyco ***"
-        except:
-            pass
 
     
 # This routine is called automatically when you import API. It analyzes

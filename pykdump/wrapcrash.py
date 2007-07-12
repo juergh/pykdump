@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/07/03 17:11:47 alexs>
+# Time-stamp: <07/07/12 16:40:18 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -633,10 +633,6 @@ def printObject(obj):
 #
 # =============================================================
 
-# Read a pointer-size value from addr
-def readPtr(addr):
-    s = readmem(addr, pointersize)
-    return mem2long(s)
 
 def readU16(addr):
     s = readmem(addr, 2)
@@ -652,21 +648,6 @@ def readSU(symbol, addr):
 
 #          ======== read arrays =========
 
-# Read an array of pointers from a given symbol
-def readPointerArray(symbol):
-    si = whatis(symbol)
-    if (si.has_key("array")):
-        dim = si.array
-    else:
-        dim = 1
-    stype = string.join(si.type)
-    addr = sym2addr(symbol)
-    s = readmem(addr, pointersize*dim)
-    out = []
-    for i in range(0, dim):
-        val = mem2long(s[i*pointersize:(i+1)*pointersize])
-        out.append(val)
-    return out
 
 # Read an array of structs/unions given the structname, start and dimension
 def readSUArray(suname, startaddr, dim=0):
@@ -991,7 +972,7 @@ def flushCache():
 ustructcodes32 = [0, 'B', 'H', 3, 'I', 5, 6, 7, 'Q']
 structcodes32 = [0, 'b', 'h', 3, 'i', 5, 6, 7, 'q']
 
-def mem2long(s, signed=False, array=False):
+def old_mem2long(s, signed=False, array=False):
     if (not array):
         sz = len(s)
         if(signed):
@@ -1352,35 +1333,26 @@ def symbol_exists(sym):
 # Aliases
 union_size = struct_size
 
-# Some functions can be replaced with more efficient low-level ones...
-try:
-    import crash
-    from crash import sym2addr, addr2sym
-    from crash import  mem2long
-    def exec_gdb_command(cmd):
-        return crash.get_GDB_output(cmd).replace('\r', '')
 
-    noncached_symbol_exists = crash.symbol_exists
-    exec_crash_command = crash.exec_crash_command
-    exec_gdb_command = crash.get_GDB_output
-    getFullBuckets = crash.getFullBuckets
-    readPtr = crash.readPtr
-    uvtop = crash.uvtop
-    getListSize = crash.getListSize
-    # For some reason the next line runs slower than GDB version
-    #GDB_sizeof = crash.struct_size
-    readmem = crash.readmem
-    nc_member_offset = crash.member_offset
-except:
-    # If we are not inside extension, these should be set by a module
-    # that implements a similar functionality (e.g. PTY-wrapper)
-    sym2addr =  addr2sym = None
-    getOutput = None
-    exec_gdb_command = None
-    exec_crash_command = None
-    noncached_symbol_exists = None
-    nc_member_offset = None
-    uvtop = None
+import crash
+from crash import sym2addr, addr2sym
+from crash import  mem2long, FD_ISSET
+def exec_gdb_command(cmd):
+    return crash.get_GDB_output(cmd).replace('\r', '')
+
+noncached_symbol_exists = crash.symbol_exists
+exec_crash_command = crash.exec_crash_command
+exec_gdb_command = crash.get_GDB_output
+getFullBuckets = crash.getFullBuckets
+readPtr = crash.readPtr
+uvtop = crash.uvtop
+getListSize = crash.getListSize
+# For some reason the next line runs slower than GDB version
+#GDB_sizeof = crash.struct_size
+readmem = crash.readmem
+nc_member_offset = crash.member_offset
+pointersize = getSizeOf("void *")
+
 
 
 

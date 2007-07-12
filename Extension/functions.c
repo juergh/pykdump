@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <07/05/30 16:27:29 alexs>
+  Time-stamp: <07/07/12 17:08:45 alexs>
 
   Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -20,6 +20,10 @@
 #include <stdlib.h>
 
 #include "defs.h"    /* From the crash source top-level directory */
+
+// for FD_ISSET
+#include <sys/select.h>
+
 
 /* crash exception */
 static PyObject *crashError;
@@ -666,6 +670,19 @@ py_getlistsize(PyObject *self, PyObject *args) {
   return PyInt_FromLong(count);
 }
 
+static PyObject *
+py_FD_ISSET(PyObject *self, PyObject *args, PyObject *kwds) {
+  char *str;
+  int fd, lstr;
+
+  if (!PyArg_ParseTuple(args, "is#", &fd, &str, &lstr)) {
+    PyErr_SetString(crashError, "invalid parameter type");
+    return NULL;
+  }
+
+  return Py_BuildValue("i", FD_ISSET(fd, (fd_set *)str));
+}
+
   
 #if 0
 #include "gdb-6.1/gdb/objfiles.h"
@@ -703,6 +720,7 @@ static PyMethodDef crashMethods[] = {
   {"readPtr", py_readPtr, METH_VARARGS},
   {"getListSize", py_getlistsize, METH_VARARGS},
   {"getFullBuckets", py_getFullBuckets, METH_VARARGS},
+  {"FD_ISSET", py_FD_ISSET, METH_VARARGS},
   {NULL,      NULL}        /* Sentinel */
 };
 
