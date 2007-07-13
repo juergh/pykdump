@@ -671,7 +671,7 @@ py_getlistsize(PyObject *self, PyObject *args) {
 }
 
 static PyObject *
-py_FD_ISSET(PyObject *self, PyObject *args, PyObject *kwds) {
+py_FD_ISSET(PyObject *self, PyObject *args) {
   char *str;
   int fd, lstr;
 
