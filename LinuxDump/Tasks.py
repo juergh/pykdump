@@ -79,7 +79,7 @@ class Task:
         threads = []
         for a in readList(saddr, inchead = False):
             threads.append(Task(readSU("struct task_struct", a-Task.tgoffset)))
-        return threads
+        return threadsq
     
     def __get_threads(self):
         tgoffset = member_offset("struct task_struct", "thread_group")
@@ -104,6 +104,7 @@ class Task:
         return self.ts.__getattr__(attr)
 
 
+
 class TaskTable:
     def __init__(self):
         self.tt =  readSUListFromHead(init_task_saddr, 'tasks',
@@ -115,6 +116,9 @@ class TaskTable:
         self.filepids = {}
         self.toffset = member_offset("struct task_struct", "thread_group")
         self.basems = get_schedclockbase()
+	
+	# File objects cache
+	self.__files_cache = {}
 
     # Get threads for task
     def getThreads(self, ts):
@@ -161,46 +165,52 @@ class TaskTable:
             return self.filepids[filep]
         except KeyError:
             return []
-        
-            
-            
-# Get fds from 'task_struct'
-def taskFds(task, short = False):
-    out = []
-    if (task.files):
-        files = task.Deref.files
-        try:
-	    # 2.6
-            fdt = files.Deref.fdt
-            fd = fdt.fd
-            max_fds = fdt.max_fds
-            open_fds = fdt.open_fds
-        except KeyError:
-	    # 2.4
-            fd = files.fd
-            max_fds = files.max_fds
-            open_fds = files.open_fds
-	    # print open_fds
-	if (max_fds):
-	   fileparray = readmem(open_fds, struct_size("fd_set"))
-        for i in range(max_fds):
-            if (FD_ISSET(i, fileparray)):
-                filep = readPtr(fd + pointersize * i)
-            else:
-                filep = None
-            if (filep):
-                #print FD_ISSET(i, fileparray)
-                if (short):
-                    out.append(filep)
-                sfile = readSU("struct file", filep)
-                # On 2.6.20 f_dentry is really f_path.dentry
-                try:
-                    dentry = sfile.Deref.f_dentry
-                except KeyError:
-                    dentry = sfile.f_path.Deref.dentry
-                inode = dentry.Deref.d_inode
-                out.append((i, filep, dentry, inode))
-    return out
+    # Get fds from 'task_struct'
+    def taskFds(self, task, short = False):
+	out = []
+	if (task.files):
+	    files = task.Deref.files
+	    try:
+		# 2.6
+		fdt = files.Deref.fdt
+		fd = fdt.fd
+		max_fds = fdt.max_fds
+		open_fds = fdt.open_fds
+	    except KeyError:
+		# 2.4
+		fd = files.fd
+		max_fds = files.max_fds
+		open_fds = files.open_fds
+		# print open_fds
+	    if (max_fds):
+	       fileparray = readmem(open_fds, struct_size("fd_set"))
+	    for i in range(max_fds):
+		if (FD_ISSET(i, fileparray)):
+		    filep = readPtr(fd + pointersize * i)
+		else:
+		    filep = None
+		if (filep):
+		    #print FD_ISSET(i, fileparray)
+		    if (short):
+			out.append(filep)
+		    try:
+			sfile, dentry, inode = self.__files_cache[filep]
+			#print "cache hit:", hexl(filep)
+		    except:
+			sfile = readSU("struct file", filep)
+			# On 2.6.20 f_dentry is really f_path.dentry
+			try:
+			    dentry = sfile.Deref.f_dentry
+			except KeyError:
+			    dentry = sfile.f_path.Deref.dentry
+			inode = dentry.Deref.d_inode
+			#inode = wrapcrash.Dereference(dentry, ).d_inode
+			self.__files_cache[filep] = sfile, dentry, inode
+		    out.append((i, filep, dentry, inode))
+	return out
+ 
+
+
 
 
 # On AMD64 we use RDTSC to measure times for scheduler

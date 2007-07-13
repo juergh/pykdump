@@ -16,7 +16,7 @@ from LinuxDump.inet.proto import tcpState, sockTypes, \
     IPv4_conn, IPv6_conn, IP_sock,  P_FAMILIES, decodeSock
 from LinuxDump.inet.routing import print_fib
 
-from LinuxDump.Tasks import TaskTable, taskFds
+from LinuxDump.Tasks import TaskTable
 
 import string
 
@@ -371,20 +371,28 @@ def print_dev_pack():
             for pa in readList(a, offset):
                 pt = readSU("struct packet_type", pa)
                 print pt, " (bucket=%d)" % bucket
-            
+
                 ptype = ntohs(pt.type)
                 pdev = pt.dev
                 pfunc = addr2sym(pt.func)
                 print "\ttype=0x%04x dev=0x%x func=%s" % (ptype, pdev, pfunc)
         bucket += 1
 
-            
-        
+
+def testFiles(tasks):
+    for t in tasks:
+	fds = tt.taskFds(t)
+	continue
+	for fd, filep, dentry, inode in tt.taskFds(t):
+	    pass
+    
+
 def printTaskSockets(t):
     print "-----PID=%d  COMM=%s" % (t.pid, t.comm)
     print " fd     file              socket"
     print " --     ----              ------"
-    for fd, filep, dentry, inode in taskFds(t):
+
+    for fd, filep, dentry, inode in tt.taskFds(t):
         socketaddr = proto.inode2socketaddr(inode)
         if (not socketaddr): continue
         print ("%3d  0x%-16x  0x%-16x" % (fd, filep, socketaddr)),
@@ -601,6 +609,8 @@ if ( __name__ == '__main__'):
         tt = TaskTable()
 	if (o.Program == '*'):
 	    tasks = tt.tt
+	    #testFiles(tasks)
+	    #sys.exit(0)
 	else:
 	    tasks = tt.getByComm(o.Program)
         for task in  tasks:

@@ -214,12 +214,14 @@ class Dereference:
     def __init__(self, sr):
         self.sr = sr
     def __getattr__(self, f):
-        # Get address from the struct
-        addr = self.sr.__getattr__(f)
+        # Get address from the struct.
+        #addr = self.sr.__getattr__(f)
+	addr = readPtr(Addr(self.sr, f))
 	if (addr == 0):
 	    msg = "\nNULL pointer %s->%s" % (
 	                                       str(self.sr), f)
 	    raise IndexError, msg
+
         stype = self.sr.PYT_sinfo[f].basetype
         return readSU(stype, addr) 
 

@@ -161,7 +161,7 @@ if (crashloaded):
          exec_gdb_command, exec_crash_command, \
          flushCache
 
-    print "Imported wrapcrash"
+    #print "Imported wrapcrash"
 
 from tparser import CEnum, CDefine
     
@@ -200,7 +200,7 @@ def initAfterDumpIsOpen():
     """Do needed initializations after dump is successfully opened"""
     global __dump_is_accessible
     __dump_is_accessible = True
-    sys_info.pointersize = 4
+    sys_info.pointersize = wrapcrash.pointersize
     
     _doSys()
 
