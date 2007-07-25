@@ -140,7 +140,8 @@ class IP_sock(object):
     def __init__(self, o, details=False):
         self.left = self.right = ''
         self.family = -1
-        if (o.isNamed("struct sock")):
+        #if (o.isNamed("struct sock")):
+	if (sock_V1):
             # -----------------2.4-------------------
             s = o
             self.family = family = s.family
@@ -261,7 +262,7 @@ class IP_sock(object):
 
         if (self.right == ''):
             if (self.protocol == 6):    # TCP
-                self.right = tcpState[self.state][4:]
+                self.right = ' ' + tcpState[self.state][4:]
             elif (self.protocol == 17 or pname == "raw"): # UDP, RAW
                 # For UDP and RAW we use two states at this moment:
                 # TCP_ESTABLISHED=1 when we have data in flight
@@ -398,7 +399,7 @@ def inode2socketaddr(inode):
     
 
 # Decode info for 'struct sock'
-def decodeSock(sock):
+def olddecodeSock(sock):
     if (sock_V1):
 	family = sock.family
 	# For old kernels prot is NULL for AF_UNIX
@@ -430,6 +431,32 @@ def decodeSock(sock):
     else:
 	sockopt = None
     return family, sktype, protoname, sock, sockopt
+
+def decodeSock(sock):
+    if (sock_V1):
+	family = sock.family
+	# For old kernels prot is NULL for AF_UNIX
+	try:
+	    protoname = sock.Deref.prot.name
+	except IndexError:
+	    protoname = "UNIX"
+	sktype = sock.type
+    else:
+	skcomm = sock.__sk_common
+	family = skcomm.skc_family
+	try:
+	    protoname =  skcomm.Deref.skc_prot.name
+	except KeyError:
+	    try:
+		protoname = sock.Deref.sk_prot.name
+	    except IndexError:
+		protoname= '???'
+	sktype = sock.sk_type
+    if (family == P_FAMILIES.PF_INET or family == P_FAMILIES.PF_INET6):
+	inet = True
+    else:
+	inet = False
+    return family, sktype, protoname, inet
 
 # ...........................................................................
 

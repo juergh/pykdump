@@ -34,6 +34,9 @@ print_nolisten = True
 
 def print_TCP_sock(o):
     pstr = IP_sock(o, details)
+    if (port_filter):
+	if (pstr.sport != port_filter and pstr.dport != port_filter):
+	    return
     print pstr
     tcp_state = pstr.state
     # Here we print things that are not kernel-dependent
@@ -403,18 +406,31 @@ def printTaskSockets(t):
     for fd, filep, dentry, inode in t.taskFds():
         socketaddr = proto.inode2socketaddr(inode)
         if (not socketaddr): continue
-	strue = True
+
+	socket = readSU("struct socket", socketaddr)
+        sock = socket.Deref.sk
+	family, sktype, protoname, inet = decodeSock(sock)
+
+
+	if (inet):
+	    ips = IP_sock(sock)
+
+        # If we are not using port-filters, we print all families
+	if (not port_filter):
+	    strue = True
+	
         print >>prn, ("%3d  0x%-16x  0x%-16x" % (fd, filep, socketaddr)),
         # Find family/type of this socket
-        socket = readSU("struct socket", socketaddr)
-        sock = socket.Deref.sk
-	family, sktype, protoname, sock, sockopt = decodeSock(sock)
 	print >>prn, " %-8s %-12s %-5s" % (P_FAMILIES.value2key(family),
 				    sockTypes[sktype], protoname)
 
-        if (sockopt):
-            #print >>prn, IPv4_conn(left='\t', sock=sockopt)
-	    print >>prn, "\t", IP_sock(sock)
+        if (inet):
+	    if (port_filter):
+		if (ips.sport != port_filter and ips.dport != port_filter):
+		    continue
+	    print >>prn, "     ", ips
+	    strue = True
+	    
     print >>prn, ""
     if (strue):
 	print prn.getvalue()
@@ -546,6 +562,18 @@ if ( __name__ == '__main__'):
                   action="store",
                   help="Limit output to the specified interface only")
 
+    op.add_option("--sport", dest="sport", default = -1,
+                  action="store", type="int",
+                  help="Limit output to the specified sport")
+
+    op.add_option("--dport", dest="dport", default = -1,
+                  action="store", type="int",
+                  help="Limit output to the specified dport")
+    
+    op.add_option("--port", dest="port", default = -1,
+                  action="store", type="int",
+                  help="Limit output to the specified port (src or dst)")
+
     op.add_option("-l", "--listening", dest="Listen", default = 0,
                   action="store_true",
                   help="Print LISTEN sockets only")
@@ -583,8 +611,19 @@ if ( __name__ == '__main__'):
     if (o.Verbose):
         details = True
 
+    sport_filter = False
+    dport_filter = False
+    port_filter = False
+
     if (o.New):
         pass
+
+    if (o.sport != -1):
+	sport_filter = o.sport
+    if (o.dport != -1):
+	dport_filter = o.dport
+    if (o.port != -1):
+	port_filter = o.port
 
     if (o.Netfilter):
         from LinuxDump.inet.netfilter import nf
@@ -633,6 +672,7 @@ if ( __name__ == '__main__'):
     if (o.Pid != -1):
         tt = TaskTable()
         task = tt.getByPid(o.Pid)
+
         if (task):
             printTaskSockets(task)
         sys.exit(0)

@@ -108,6 +108,11 @@ class Task:
 	return "PID=%d <struct task_struct 0x%x>" % (self.ts.pid,
                                                      Addr(self.ts))
 
+    __str__ = __repr__
+    
+    def __nonzero__(self):
+	return True
+    
     # Get fds from 'task_struct'
     def taskFds(self, short = False):
 	out = []
@@ -163,6 +168,8 @@ class TaskTable:
         pids_d = {}
 
         self.tt = []
+	self.comms = {}
+	
         for t in tt:
             pid = t.pid
             tgid = t.tgid
@@ -174,10 +181,12 @@ class TaskTable:
                 pids_d[pid].insert(0, task)
             else:
                 pids_d[tgid].append(task)
+		
+	    self.comms.setdefault(t.comm, []).append(task)
 
         self.pids = pids_d
 	
-        self.comms = {}
+ 
         self.filepids = {}
         self.toffset = member_offset("struct task_struct", "thread_group")
         self.basems = get_schedclockbase()
@@ -189,22 +198,15 @@ class TaskTable:
     def allTasks(self):
 	return self.tt
 
-    
-    # Initialize dicts
-    def __init_dicts(self):
-        for t in self.tt:
-            self.comms.setdefault(t.comm, []).append(t)
     # get task by pid
     def getByPid(self, pid):
         try:
-            return self.pids[pid]
+            return self.pids[pid][0]
         except KeyError:
             return None
                 
     # get task by comm
     def getByComm(self, comm):
-        if (len(self.pids) == 0):
-            self.__init_dicts()
         try:
             return self.comms[comm]
         except KeyError:
@@ -284,7 +286,7 @@ def jiffies2ms(jiffies):
         #print "++", jiffies,
         # We have really passed jiffies_64
         if (sys_info.kernel >= "2.6.0"):
-            wrapped = jiffies & 0xffffffff00000000
+            wrapped = jiffies & 0xffffffff00000000L
             #print "wrapped=", hex(wrapped), "HZ=", HZ
             if (wrapped):
                 wrapped -= 0x100000000
