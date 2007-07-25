@@ -429,7 +429,7 @@ def decodeSock(sock):
 	    sockopt = sock
     else:
 	sockopt = None
-    return family, sktype, protoname, sockopt
+    return family, sktype, protoname, sock, sockopt
 
 # ...........................................................................
 

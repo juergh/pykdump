@@ -19,6 +19,7 @@ from LinuxDump.inet.routing import print_fib
 from LinuxDump.Tasks import TaskTable
 
 import string
+from StringIO import StringIO
 
 debug = API_options.debug
 
@@ -388,24 +389,36 @@ def testFiles(tasks):
     
 
 def printTaskSockets(t):
-    print "-----PID=%d  COMM=%s" % (t.pid, t.comm)
-    print " fd     file              socket"
-    print " --     ----              ------"
+    prn = StringIO()
+    threads = t.threads
+    if (threads):
+	nthreads = "  (%d threads)" % (len(threads) + 1)
+    else:
+	nthreads = ""
+    print >>prn, "-----PID=%d  COMM=%s %s" % (t.pid, t.comm, nthreads)
+    print >>prn, " fd     file              socket"
+    print >>prn, " --     ----              ------"
 
+    strue = False
     for fd, filep, dentry, inode in t.taskFds():
         socketaddr = proto.inode2socketaddr(inode)
         if (not socketaddr): continue
-        print ("%3d  0x%-16x  0x%-16x" % (fd, filep, socketaddr)),
+	strue = True
+        print >>prn, ("%3d  0x%-16x  0x%-16x" % (fd, filep, socketaddr)),
         # Find family/type of this socket
         socket = readSU("struct socket", socketaddr)
         sock = socket.Deref.sk
-	family, sktype, protoname, sockopt = decodeSock(sock)
-	print " %-8s %-12s %-5s" % (P_FAMILIES.value2key(family),
+	family, sktype, protoname, sock, sockopt = decodeSock(sock)
+	print >>prn, " %-8s %-12s %-5s" % (P_FAMILIES.value2key(family),
 				    sockTypes[sktype], protoname)
 
         if (sockopt):
-            print IPv4_conn(left='\t', sock=sockopt)
-    print ""
+            #print >>prn, IPv4_conn(left='\t', sock=sockopt)
+	    print >>prn, "\t", IP_sock(sock)
+    print >>prn, ""
+    if (strue):
+	print prn.getvalue()
+    prn.close()
 
 def print_iface(if1="", details=False):
 

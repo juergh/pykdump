@@ -89,7 +89,7 @@ class Task:
             Task.tgoffset = tgoffset
         elif (struct_exists("struct pid_link")):
             # 2.4 - threads are processes
-            return [self]
+            return self.ttable.pids[self.pid][1:]
         else:
             # Older 2.6
             Task.tgoffset = member_offset("struct task_struct", "pids") + \
@@ -103,6 +103,10 @@ class Task:
     # Delegate all unknown attributes access to self.ts
     def __getattr__(self, attr):
         return self.ts.__getattr__(attr)
+    
+    def __repr__(self):
+	return "PID=%d <struct task_struct 0x%x>" % (self.ts.pid,
+                                                     Addr(self.ts))
 
     # Get fds from 'task_struct'
     def taskFds(self, short = False):
@@ -133,20 +137,14 @@ class Task:
 		    #print FD_ISSET(i, fileparray)
 		    if (short):
 			out.append(filep)
+
+		    sfile = readSU("struct file", filep)
+		    # On 2.6.20 f_dentry is really f_path.dentry
 		    try:
-			sfile, dentry, inode = self.ttable.files_cache[filep]
-			#print "cache hit:", hexl(filep)
-		    except:
-			sfile = readSU("struct file", filep)
-			# On 2.6.20 f_dentry is really f_path.dentry
-			try:
-			    dentry = sfile.Deref.f_dentry
-			except KeyError:
-			    dentry = sfile.f_path.Deref.dentry
-			inode = dentry.Deref.d_inode
-			#inode = wrapcrash.Dereference(dentry, ).d_inode
-			self.ttable.files_cache[filep] = (sfile, dentry,
-			                                     inode)
+			dentry = sfile.Deref.f_dentry
+		    except KeyError:
+			dentry = sfile.f_path.Deref.dentry
+		    inode = dentry.Deref.d_inode
 		    out.append((i, filep, dentry, inode))
 	return out
 
@@ -172,12 +170,13 @@ class TaskTable:
             if (not pids_d.has_key(pid)):
                 pids_d[pid] = []
             if (pid == tgid):
-                self.tt.append( task)
+                self.tt.append(task)
                 pids_d[pid].insert(0, task)
             else:
-                pids_d[pid].append(task)
-	    
+                pids_d[tgid].append(task)
+
         self.pids = pids_d
+	
         self.comms = {}
         self.filepids = {}
         self.toffset = member_offset("struct task_struct", "thread_group")
@@ -197,8 +196,6 @@ class TaskTable:
             self.comms.setdefault(t.comm, []).append(t)
     # get task by pid
     def getByPid(self, pid):
-        if (len(self.pids) == 0):
-            self.__init_dicts()
         try:
             return self.pids[pid]
         except KeyError:
