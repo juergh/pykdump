@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/07/12 17:14:44 alexs>
+# Time-stamp: <07/07/25 13:41:18 alexs>
 
 # Tasks and Pids
 
@@ -150,26 +150,34 @@ class Task:
 		    out.append((i, filep, dentry, inode))
 	return out
 
-    # Get threads for task
-    def getThreads(self):
-        if (self.ttable.toffset == -1):
-            return []
-        saddr = Addr(self) + self.ttable.toffset
-        
-        threads = readSUListFromHead(saddr, "thread_group",
-                                     "struct task_struct")
-        return threads
 
 
 class TaskTable:
     def __init__(self):
-	self.tt = [Task(t, self) for t in readSUListFromHead(init_task_saddr,
-	                         'tasks',
-                                 'struct task_struct',
-                                 inchead = True, maxel=100000)]
-	    
+        tt = readSUListFromHead(init_task_saddr,
+                                'tasks',
+                                'struct task_struct',
+                                inchead = True, maxel=100000)
 
-        self.pids = {}
+        # On 2.4, we have in this list both thread group leaders
+        # and threads. Leave only tg leaders, attach threads to
+        # self.pids dictionary
+        pids_d = {}
+
+        self.tt = []
+        for t in tt:
+            pid = t.pid
+            tgid = t.tgid
+            task = Task(t, self)
+            if (not pids_d.has_key(pid)):
+                pids_d[pid] = []
+            if (pid == tgid):
+                self.tt.append( task)
+                pids_d[pid].insert(0, task)
+            else:
+                pids_d[pid].append(task)
+	    
+        self.pids = pids_d
         self.comms = {}
         self.filepids = {}
         self.toffset = member_offset("struct task_struct", "thread_group")
@@ -186,7 +194,6 @@ class TaskTable:
     # Initialize dicts
     def __init_dicts(self):
         for t in self.tt:
-            self.pids[t.pid] = t
             self.comms.setdefault(t.comm, []).append(t)
     # get task by pid
     def getByPid(self, pid):
