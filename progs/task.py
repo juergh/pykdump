@@ -15,9 +15,7 @@ def printTasks():
     tt = TaskTable()
     if (debug):
         print "Basems", tt.basems, "Uptime:",  ms2uptime(tt.basems)
-    for task in tt.tt:
-        # This is a process
-        mt = Task(task)
+    for mt in tt.allTasks():
         last_ran_ms = mt.last_ran
         print "%5d   %15s %2d %10d %s" % (mt.pid, mt.comm,  mt.cpu,
                                         tt.basems-last_ran_ms, mt.state)
@@ -29,6 +27,7 @@ def printTasks():
                                             tt.basems-last_ran_ms, t.state)
             if (debug):
                 print "\tlast_ran_ms", last_ran_ms 
+	#print mt.tgid
         
 
 

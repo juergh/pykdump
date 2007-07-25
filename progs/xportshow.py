@@ -381,9 +381,9 @@ def print_dev_pack():
 
 def testFiles(tasks):
     for t in tasks:
-	fds = tt.taskFds(t)
+	fds = t.taskFds()
 	continue
-	for fd, filep, dentry, inode in tt.taskFds(t):
+	for fd, filep, dentry, inode in t.taskFds():
 	    pass
     
 
@@ -392,7 +392,7 @@ def printTaskSockets(t):
     print " fd     file              socket"
     print " --     ----              ------"
 
-    for fd, filep, dentry, inode in tt.taskFds(t):
+    for fd, filep, dentry, inode in t.taskFds():
         socketaddr = proto.inode2socketaddr(inode)
         if (not socketaddr): continue
         print ("%3d  0x%-16x  0x%-16x" % (fd, filep, socketaddr)),
@@ -608,7 +608,7 @@ if ( __name__ == '__main__'):
     if (o.Program):
         tt = TaskTable()
 	if (o.Program == '*'):
-	    tasks = tt.tt
+	    tasks = tt.allTasks()
 	    #testFiles(tasks)
 	    #sys.exit(0)
 	else:
