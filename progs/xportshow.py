@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/03/22 12:17:12 alexs>
+# Time-stamp: <07/07/30 10:15:36 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -37,6 +37,9 @@ def print_TCP_sock(o):
     if (port_filter):
 	if (pstr.sport != port_filter and pstr.dport != port_filter):
 	    return
+    if (details):
+        print '-' * 78
+        print o, '\t\tTCP'
     print pstr
     tcp_state = pstr.state
     # Here we print things that are not kernel-dependent
@@ -60,6 +63,10 @@ def print_TCP_sock(o):
             print "\t family=%s" % sfamily
 	    print "\t backlog=%d(%d)" % (pstr.sk_ack_backlog,
                                          pstr.sk_max_ack_backlog)
+            l_opt = pstr.l_opt
+	    print "\t max_qlen_log=%d qlen=%d qlen_young=%d" %\
+		    (l_opt.max_qlen_log, l_opt.qlen, l_opt.qlen_young)
+	    #printObject(l_opt)
 
 
 # Print TCP info from TIMEWAIT buckets
@@ -99,9 +106,6 @@ def print_TCP():
     # print LISTEN
     if (print_listen):
         for o in proto.get_TCP_LISTEN():
-            if (details):
-                print '-' * 78
-                print o, '\t\tTCP'
             print_TCP_sock(o)
 
     if (not print_nolisten):
@@ -109,10 +113,6 @@ def print_TCP():
     # Print ESTABLISHED TCP
     
     for o in proto.get_TCP_ESTABLISHED():
-        if (details):
-            print '-' * 78
-            print o, '\t\tTCP'
-
         print_TCP_sock(o)
 	
    

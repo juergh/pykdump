@@ -172,6 +172,7 @@ class IP_sock(object):
                 elif (self.state == tcpState.TCP_LISTEN):
                     self.sk_max_ack_backlog = s.max_ack_backlog
                     self.sk_ack_backlog = s.ack_backlog
+		    self.l_opt= s.tp_pinfo.af_tcp.Deref.listen_opt
             elif (self.protocol == 17): # UDP
                 self.uopt = s.tp_pinfo.af_udp
             elif (self.sktype == sockTypes.SOCK_RAW): # RAW (mostly ICMP)
@@ -233,8 +234,16 @@ class IP_sock(object):
                         # Newer 2.6, e.g. 2.6.15
                         self.rx_opt = o.rx_opt
                 elif (self.state == tcpState.TCP_LISTEN):
+		    if (struct_exists("inet_connection_sock")):
+			csk = o.castTo("inet_connection_sock")
+			accept_queue = csk.icsk_accept_queue
+			l_opt = accept_queue.Deref.listen_opt
+		    else:
+		        tcpsk = o.tcp
+		        l_opt = tcpsk.Deref.listen_opt
                     self.sk_max_ack_backlog = sk.sk_max_ack_backlog
                     self.sk_ack_backlog = sk.sk_ack_backlog
+		    self.l_opt = l_opt
             elif (self.protocol == 17): # UDP
                 if (o.hasField("udp")):
 		    # Older 2.6, e.g. 2.6.9
