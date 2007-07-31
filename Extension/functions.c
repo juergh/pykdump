@@ -467,7 +467,7 @@ py_readPtr(PyObject *self, PyObject *args) {
   }
   return nu_void_p(&p);
 }
-  
+
 
 static PyObject *
 py_addr2sym(PyObject *self, PyObject *args) {
@@ -539,7 +539,7 @@ py_readmem(PyObject *self, PyObject *args) {
 
 static PyObject *
 py_uvtop(PyObject *self, PyObject *args) {
-  ulonglong physaddr;
+  physaddr_t physaddr;
   ulong tskaddr, vaddr;
   int verbose = 0;
 
@@ -559,7 +559,7 @@ py_uvtop(PyObject *self, PyObject *args) {
     return NULL;
   }
 
-  return PyLong_FromUnsignedLongLong(physaddr);
+  return PyLong_FromUnsignedLongLong((ulonglong)physaddr);
 }
   
 
@@ -682,6 +682,15 @@ py_FD_ISSET(PyObject *self, PyObject *args) {
 
   return Py_BuildValue("i", FD_ISSET(fd, (fd_set *)str));
 }
+static PyObject *
+py_sLong(PyObject *self, PyObject *args) {
+  void *p;
+  ulong val;
+
+  PyObject *arg0 = PyTuple_GetItem(args, 0);
+  val = PyLong_AsUnsignedLong(arg0);
+  return nu_long((const char *) &val);
+}
 
   
 #if 0
@@ -718,6 +727,7 @@ static PyMethodDef crashMethods[] = {
   {"PAGEOFFSET",  py_pageoffset, METH_VARARGS},
   {"readmem", py_readmem, METH_VARARGS},
   {"readPtr", py_readPtr, METH_VARARGS},
+  {"sLong", py_sLong, METH_VARARGS},
   {"getListSize", py_getlistsize, METH_VARARGS},
   {"getFullBuckets", py_getFullBuckets, METH_VARARGS},
   {"FD_ISSET", py_FD_ISSET, METH_VARARGS},

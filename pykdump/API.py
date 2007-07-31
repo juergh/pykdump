@@ -149,12 +149,13 @@ if (crashloaded):
     import wrapcrash
 
     from wrapcrash import readPtr, readU16, readU32, readSymbol, readSU, \
+         sLong, \
          readList, getListSize, readListByHead,  list_for_each_entry, \
          readSUArray, readSUListFromHead, readStructNext, \
          getStructInfo, getFullBuckets, FD_ISSET, \
          struct_exists, struct_size, symbol_exists,\
          ArtStructInfo, ArtUnionInfo, getTypedefInfo,\
-         Addr, Deref, SmartString,\
+         Addr, Deref, SmartString, tPtr, \
          sym2addr, addr2sym, readmem, uvtop, readProcessMem,  \
          struct_size, union_size, member_offset, member_size, \
          getSizeOf, whatis, printObject,\
@@ -200,8 +201,8 @@ def initAfterDumpIsOpen():
     """Do needed initializations after dump is successfully opened"""
     global __dump_is_accessible
     __dump_is_accessible = True
-    sys_info.pointersize = wrapcrash.pointersize
-    
+    pointersize = sys_info.pointersize = wrapcrash.pointersize
+    sys_info.pointermask = 2**(pointersize*8)-1
     _doSys()
 
     # Check whether this is a live dump

@@ -34,7 +34,26 @@ def get_cpu_var_type(varname):
         varname = "per_cpu__" + varname
     return whatis(varname).ctype
 
+#define __percpu_disguise(pdata) (struct percpu_data *)~(unsigned long)(pdata)
+def __percpu_disguise(pdata):
+    return ((~pdata) & pointermask)
+    
+#({                                                        \
+#        struct percpu_data *__p = __percpu_disguise(ptr); \
+#        (__typeof__(ptr))__p->ptrs[(cpu)];	          \
+#})
+
+def get_percpu_ptr_26(ptr, cpu):
+    p =  __percpu_disguise(ptr)
+    #print " disguised = 0x%x" % p
+    dp = readSU("struct percpu_data", p)
+    optr = tPtr(dp.ptrs[cpu], ptr.ptype)
+    return optr
+
+    
 CPUS = sys_info.CPUS
+pointermask = sys_info.pointermask
+
 if (symbol_exists("per_cpu__runqueues")):
     pda_addr = None
     if (symbol_exists("cpu_pda")):
@@ -66,5 +85,6 @@ if (symbol_exists("per_cpu__runqueues")):
     else:
         per_cpu_offsets = [0]
     get_cpu_var = get_cpu_var_26
+    percpu_ptr = get_percpu_ptr_26
 else:
     get_cpu_var = get_cpu_var_24

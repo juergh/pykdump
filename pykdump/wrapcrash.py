@@ -1347,6 +1347,7 @@ exec_crash_command = crash.exec_crash_command
 exec_gdb_command = crash.get_GDB_output
 getFullBuckets = crash.getFullBuckets
 readPtr = crash.readPtr
+sLong = crash.sLong
 uvtop = crash.uvtop
 getListSize = crash.getListSize
 # For some reason the next line runs slower than GDB version

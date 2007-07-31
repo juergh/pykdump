@@ -511,10 +511,12 @@ def print_sysctl_nodef():
         if (nondef):
             print "[%s]  %s != default %s" %(n, repr(cval), repr(dval))
             nondef = False
-    
-            
 
-    
+def print_Stats():
+    from LinuxDump.inet.snmpstats import print_snmp_stats
+    print "Statistics"
+    print_snmp_stats()
+
 
 if ( __name__ == '__main__'):
     import sys
@@ -553,6 +555,10 @@ if ( __name__ == '__main__'):
     op.add_option("--summary", dest="Summary", default = 0,
                   action="store_true",
                   help="Print A Summary")
+    
+    op.add_option("--stats", dest="Stats", default = 0,
+                  action="store_true",
+                  help="Print Statistics")
 
     op.add_option("-i", dest="Ifaces", default = 0,
                   action="store_true",
@@ -655,6 +661,10 @@ if ( __name__ == '__main__'):
 
     if (o.Summary):
         Summarize()
+        sys.exit(0)
+
+    if (o.Stats):
+        print_Stats()
         sys.exit(0)
 
     if (o.Program):
