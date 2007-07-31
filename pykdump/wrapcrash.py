@@ -244,6 +244,7 @@ count_cached_attr = 0
 count_total_attr = 0
 class StructResult(object):
     _cache_access = {}
+    PYT_deref = "Deref"
     def __init__(self, sname, addr, data = None):
         # If addr is symbolic, convert it to real addr
         if (type(addr) == types.StringType):
@@ -252,7 +253,6 @@ class StructResult(object):
 	self.PYT_addr = addr
         self.PYT_sinfo = getStructInfo(sname)
         self.PYT_size = self.PYT_sinfo.size;
-        self.PYT_deref = "Deref"
         if (data):
             self.PYT_data = data
         else:
@@ -299,16 +299,13 @@ class StructResult(object):
         if (ind > 0):
             name = name[ind:]
         # A special case - dereference
-        if (name == self.PYT_deref):
+        if (name == StructResult.PYT_deref):
             return Dereference(self)
 
         ni = self.PYT_sinfo[name]
         off = ni.offset
         sz = ni.size
 
-        # This can be an array...
-        fieldaddr = self.PYT_addr + off
-        reprtype = ni.smarttype
 
 
         # if sz == -1, this means that we cannot find the size of this
@@ -320,7 +317,22 @@ class StructResult(object):
             s = self.PYT_data[off:]
         else:
             s = self.PYT_data[off:off+sz]
-        #s = None
+
+        # This can be an array...
+        fieldaddr = self.PYT_addr + off
+	try:
+	    one, two = _ni_cache[id(ni)]
+	    if (type(one) == type(True)):
+	       return mem2long(s, signed = one, array=two)
+	    if (one == 'tPtr'):
+	        return tPtr(mem2long(s), ni)
+	    elif (one== 'SU'):
+		return StructResult(two, fieldaddr, s)
+	except KeyError:
+	    pass
+	
+        reprtype = ni.smarttype
+	
         if (sz >0 and len(s) != sz):
             print ni.ctype, name, off, sz, len(s), len(self.PYT_data)
             raise TypeError
@@ -352,7 +364,7 @@ class StructResult(object):
         return f
 
 
-__int_cache = {}
+_ni_cache = {}
 
 
 def _getInt(fieldaddr, ni, s = None):
@@ -366,6 +378,9 @@ def _getInt(fieldaddr, ni, s = None):
         s = readmem(fieldaddr, sz)
 
     smarttype = ni.smarttype
+    
+    if (ni.has_key("bitfield") and smarttype != "UInt"):
+	raise "TypeError", ni
 
     if (smarttype == 'FPtr'):
         val = mem2long(s)
@@ -376,13 +391,23 @@ def _getInt(fieldaddr, ni, s = None):
             raise "TypeError", "Cannot process fptr arrays"
     elif (smarttype == 'SInt'):
         val = mem2long(s, signed = True, array=dim)
+	_ni_cache[id(ni)] = (True, dim)
     
     elif (smarttype == 'UInt'):
         val = mem2long(s, array=dim)
+	# Are we a bitfield??
+	if (ni.has_key("bitfield")):
+	    if (dim != 1):
+		raise "TypeError", ni
+            else:	
+                val = (val&(~(~0<<ni.bitoffset+ ni.bitfield)))>>ni.bitoffset
+	else:
+	   _ni_cache[id(ni)] = (False, dim)
         
     elif (smarttype in ('SUptr', 'Ptr')):
         if (dim == 1):
             val = tPtr(mem2long(s), ni)
+	    _ni_cache[id(ni)] = "tPtr", None
         else:
             val = []
             sz1 = sz/dim
@@ -470,6 +495,7 @@ def _getSU(fieldaddr, ni, s = None):
     else:
         # We return this in case of SU with an 'external' type
         val = StructResult(ftype, fieldaddr, s)
+	_ni_cache[id(ni)] = "SU", ftype
     return val
 # Convert a flat (1-dim) list to multidimensional
 
@@ -500,54 +526,7 @@ def _flat2Multi(symi, out):
         return out
     
 
-def newsmartType(ni):
-     # Are we signed or unsigned? All pointers are unsigned.
-    # Integer types are signed by default - we need an explicit 'unsigned'
-    # specifier to be able to tell
 
-    # Reduce typedefs if any
-    ptype = getTypedefInfo(ni.basetype)
-    # It is possible that our ptype is a pointer
-    try:
-        ctype = ptype + ni.star
-    except:
-        ctype = ptype
-    #print " _getInt %s|%s|%s|%s" % (ni.ctype, ni.smarttype, ctype, ni.fname)
-    spl = ctype.split()
-    # The new type can be a function declaration.
-    # At this moment we detect this by a presense of '(*)' string
-
-    if (ctype.find('(*)') != -1):
-        # This is a function pointer
-        # (IA64)
-        #print "\t->FPtr"
-        val = getFPtr(s)
-        __int_cache[ni.ctype] = getFPtr
-    elif (ctype.find('*') != -1):
-        # A pointer
-        val = mem2long(s)
-        if ('struct' in spl or 'union' in spl):
-            #print "\t->SUPtr"
-            val = tPtr(val, ni)
-        else:
-            #print "\t->tPtr"
-            val =  tPtr(val, ni)
-        #val =  tPtr(mem2long(s), ni)
-    elif ('unsigned' in spl):
-        #print "\t->UInt"
-        # This is an unsigned integer
-        val =  getUnsigned(s)
-        __int_cache[ni.ctype] = getUnsigned
-    elif ('struct' in spl or 'union' in spl):
-        # SU
-        #print "\t->SU"
-        val = StructResult(ctype, fieldaddr)
-    else:
-        # A signed integer
-        #print "\t->Sint"
-        val =  getSigned(s)
-        __int_cache[ni.ctype] = getSigned
-    return val
 
 # Wrapper functions to return attributes of StructResult
 

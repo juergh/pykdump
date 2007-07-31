@@ -408,7 +408,8 @@ def printTaskSockets(t):
         if (not socketaddr): continue
 
 	socket = readSU("struct socket", socketaddr)
-        sock = socket.Deref.sk
+        #sock = socket.Deref.sk
+	sock = Deref(socket.sk)
 	family, sktype, protoname, inet = decodeSock(sock)
 
 

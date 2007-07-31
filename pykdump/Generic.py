@@ -103,6 +103,7 @@ class Bunch(dict):
 # it should be easier to use attributes
 
 class FieldInfo(dict):
+    deref_cache = {}
     def __init__(self, d = {}):
         self.parentstype = None
         dict.__init__(self, d)
@@ -129,6 +130,10 @@ class FieldInfo(dict):
     # If self desribes a pointer, Deref returns
     # a new FieldInfo which describes a dereferenced pointer
     def Deref(self):
+	try:
+	    return FieldInfo.deref_cache[id(self)]
+	except KeyError:
+	    pass
         try:
             star = self.star
         except AttributeError:
@@ -139,6 +144,7 @@ class FieldInfo(dict):
         newstar = star[1:]
         if (newstar):
             nf.star = newstar
+	FieldInfo.deref_cache[id(self)] = nf
         return nf
 
     # Dimension. For multidim arrays a total size, i.e. i1*i2*...*in
