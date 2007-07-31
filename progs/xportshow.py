@@ -513,10 +513,10 @@ def print_sysctl_nodef():
             nondef = False
 
 def print_Stats():
-    from LinuxDump.inet.snmpstats import print_snmp_stats
-    print "Statistics"
-    print_snmp_stats()
-
+    from LinuxDump.inet.snmpstats import SnmpTable, snmp4_tables
+    for t in snmp4_tables:
+	t = SnmpTable(t)
+	print t
 
 if ( __name__ == '__main__'):
     import sys
@@ -556,7 +556,7 @@ if ( __name__ == '__main__'):
                   action="store_true",
                   help="Print A Summary")
     
-    op.add_option("--stats", dest="Stats", default = 0,
+    op.add_option("-s", "--statistics", dest="Stats", default = 0,
                   action="store_true",
                   help="Print Statistics")
 

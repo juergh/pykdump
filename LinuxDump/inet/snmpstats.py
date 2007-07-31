@@ -23,28 +23,27 @@ This is a package providing generic access to SNMP NET statistics.
 import string, struct
 import sys
 import types
+from StringIO import StringIO
 
 from pykdump.API import *
 from LinuxDump import  percpu
+
 
 __cpus = sys_info.CPUS
 
 # On 2.6 kernels we have definitions like
 # static const struct snmp_mib snmp4_ipstats_list[] = {
 
-__snmp4_names = ["snmp4_ipstats_list", "snmp4_icmp_list", "snmp4_tcp_list",
-                "snmp4_udp_list", "snmp4_net_list"]
-
-__snmp4_tables = ["ip_statistics", "icmp_statistics", "tcp_statistics",
+snmp4_tables = ["ip_statistics", "icmp_statistics", "tcp_statistics",
                   "udp_statistics", "net_statistics"]
 
-tabnames =[
-            ("ip_statistics",   "snmp4_ipstats_list"),
-	    ("icmp_statistics", "snmp4_icmp_list"),
-	    ("tcp_statistics",  "snmp4_tcp_list"),
-	    ("udp_statistics",  "snmp4_udp_list"),
-	    ("net_statistics",  "snmp4_net_list")
-	  ] 
+tabnames = {
+            "ip_statistics"   : "snmp4_ipstats_list",
+	    "icmp_statistics" : "snmp4_icmp_list",
+	    "tcp_statistics"  : "snmp4_tcp_list",
+	    "udp_statistics"  : "snmp4_udp_list",
+	    "net_statistics"  : "snmp4_net_list"
+	   } 
 
 # We have similar names for IPv6 but they are defined in DLKM
 
@@ -65,19 +64,37 @@ tabnames =[
 #	(per_cpu_ptr(mib[!in_softirq()], 
 #         raw_smp_processor_id())->mibs[field]++)
 	
-def print_snmp_stats():
-    for t in __snmp4_names:
-	print_snmp_table(t)
+
+class SnmpTable(dict):
+    def __init__(self, tname):
+        self.name = tname
+        self.body = getSnmpTable(tname)
+    def __str__(self):
+	prn = StringIO()
+        print >>prn, "\n", '-'*20, self.name, '-'*20, "\n"
+	for f, sum in self.body:
+	   print >>prn, "   %25s %20d" % (f, sum)
+	out = prn.getvalue()
+	prn.close()
+	return out
+
+def __getSnmpTable_26(tname):
+    table = readSymbol(tname)
+    snmpname = tabnames[tname]
+
+    out = []
+    for sn in readSymbol(snmpname):
+	entry = sn.entry
+	f = sn.name
+        if (entry == 0): break
 	
-def print_snmp_table(tn):
-    print '-'*20, tn, '-'*20
-    for mib in readSymbol(tn):
-	if (mib.entry == 0): break
-	print mib.name, mib.entry
+	sum = __getSnmpEntry(table, entry)
+	out.append((f, sum))
+    return out
 
 
-
-def getSnmpEntry(mib2, entry):
+	
+def __getSnmpEntry(mib2, entry):
     sum = 0
     for cpu in range(__cpus):
 	mib0 = Deref(percpu.percpu_ptr(mib2[0], cpu))
@@ -97,3 +114,33 @@ def getSnmpEntry(mib2, entry):
 #    long unsigned int TcpRtoMin;
 #    long unsigned int TcpRtoMax;
 
+def __getSnmpTable_24(tname):
+    table = readSymbol(tname)
+    sinfo = table[0].PYT_sinfo
+    stype = sinfo.stype
+    fnames = [e['fname'] for e in sinfo.body][:-1]
+    pref = tname.split('_')[0]
+    # For all proto-specific tables (e.g. IP or TCP) the field names
+    # in v2.4 have extra pref in the beginning of field names, compared
+    # to those from v2.6
+    if (pref != 'net'):
+	preflen = len(pref)
+    else:
+	preflen = 0
+    stats ={}
+    out =[]
+    for f in fnames:
+	sum = 0
+	for cpu in range(__cpus):
+	    i0 = cpu*2
+	    i1 = i0 + 1
+	    v0 = sLong(getattr(table[i0], f))
+	    v1 = sLong(getattr(table[i1], f))
+	    sum += (v0 + v1)
+	out.append((f[preflen:], sum))
+    return out
+
+if (symbol_exists("snmp4_tcp_list")):
+    getSnmpTable = __getSnmpTable_26
+else:
+    getSnmpTable = __getSnmpTable_24
