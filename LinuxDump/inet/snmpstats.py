@@ -87,7 +87,6 @@ def __getSnmpTable_26(tname):
 	entry = sn.entry
 	f = sn.name
         if (entry == 0): break
-	
 	sum = __getSnmpEntry(table, entry)
 	out.append((f, sum))
     return out
@@ -99,6 +98,7 @@ def __getSnmpEntry(mib2, entry):
     for cpu in range(__cpus):
 	mib0 = Deref(percpu.percpu_ptr(mib2[0], cpu))
 	mib1 = Deref(percpu.percpu_ptr(mib2[1], cpu))
+	#print mib0
 	v0 = mib0.mibs[entry]
 	v1 = mib1.mibs[entry]
 	sum += (sLong(v0) + sLong(v1))

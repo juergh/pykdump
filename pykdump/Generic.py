@@ -144,7 +144,7 @@ class FieldInfo(dict):
         newstar = star[1:]
         if (newstar):
             nf.star = newstar
-	FieldInfo.deref_cache[id(self)] = nf
+	#FieldInfo.deref_cache[id(self)] = nf
         return nf
 
     # Dimension. For multidim arrays a total size, i.e. i1*i2*...*in
