@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/07/30 10:15:36 alexs>
+# Time-stamp: <07/08/01 12:20:09 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -14,7 +14,6 @@ from LinuxDump.inet import *
 from LinuxDump.inet import proto, netdevice
 from LinuxDump.inet.proto import tcpState, sockTypes, \
     IPv4_conn, IPv6_conn, IP_sock,  P_FAMILIES, decodeSock
-from LinuxDump.inet.routing import print_fib
 
 from LinuxDump.Tasks import TaskTable
 
@@ -613,6 +612,10 @@ if ( __name__ == '__main__'):
                   action="store_true",
                   help="Print ARP & Neighbouring info")
 
+    op.add_option("--rtcache", dest="rtcache", default = 0,
+                  action="store_true",
+                  help="Print the routing cache")
+
     (o, args) = op.parse_args()
 
     if (o.Verbose):
@@ -653,7 +656,16 @@ if ( __name__ == '__main__'):
         sys.exit(0)
 
     if (o.Route):
+        from LinuxDump.inet.routing import print_fib
         print_fib()
+        sys.exit(0)
+
+    if (o.rtcache):
+        from LinuxDump.inet.routing import print_rt_hash
+        print_rt_hash()
+        sys.exit(0)
+
+    if (o.arp):
         sys.exit(0)
 
     if (o.Ifaces):

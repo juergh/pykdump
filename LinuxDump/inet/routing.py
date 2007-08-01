@@ -1,9 +1,9 @@
 # module LinuxDump.inet.routing
 #
-# Time-stamp: <07/03/13 11:46:17 alexs>
+# Time-stamp: <07/08/01 14:31:05 alexs>
 #
-# Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -23,33 +23,37 @@ from pykdump.API import *
 
 from LinuxDump.inet import *
 
+# static struct rt_hash_bucket 	*rt_hash_table;
 def print_rt_hash():
     rt_hash_mask = readSymbol("rt_hash_mask")
     rt_hash_table_addr = readSymbol("rt_hash_table")
     rthb = getStructInfo("struct rt_hash_bucket")
     rthb_sz = rthb.size
-    print "chain sz, off", rthb["chain"].size, rthb["chain"].offset
+
     rtable_i = getStructInfo("struct rtable")
     rt_next_off = rtable_i["u"].offset
-    print rthb.size, rthb["chain"].offset, rt_hash_mask, hexl(rt_hash_table_addr)
-    for i in range(rt_hash_mask, -1, -1):
-    #for i in range(0, rt_hash_mask+1):
-        b = readSU("struct rt_hash_bucket", rt_hash_table_addr + rthb_sz * i)
-        if (b.chain):
-            print i, hexl(b.chain)
-    print "---"
 
-    for head in getFullBuckets(rt_hash_table_addr,
-                               rthb_sz, rt_hash_mask+1,
-                               rthb["chain"].size, rthb["chain"].offset):
+    
+    buckets = getFullBuckets(rt_hash_table_addr, rthb_sz,
+                             rt_hash_mask+1, rthb["chain"].offset)
+    buckets.reverse()
+
+    count = 0
+    jiffies = readSymbol("jiffies")
+    for head in buckets:
         # rtable entries are linked by 'u.rt_next' pointer
-        print hexl(head)
+        #print hexl(head)
         for rtaddr in readList(head, rt_next_off):
-            print "\t", hexl(rtaddr)
+            #print "\t", hexl(rtaddr)
+            count += 1
             r = readSU("struct rtable", rtaddr)
-            print r.u.dst.Deref.dev.name, hexl(r.rt_dst), hexl(r.rt_gateway)
+            dst = r.u.dst
+            print dst.Deref.dev.name.ljust(6), \
+                  ntodots(r.rt_dst).ljust(16), \
+                  ntodots(r.rt_gateway).ljust(16),\
+                  jiffies - dst.lastuse
 
-
+    print "\n", count, "entries"
 
 def print_fib():
     if (struct_exists("struct hlist_head")):
