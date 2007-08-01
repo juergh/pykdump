@@ -1,6 +1,6 @@
 # module LinuxDump.inet.routing
 #
-# Time-stamp: <07/08/01 14:31:05 alexs>
+# Time-stamp: <07/08/01 15:27:36 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -23,6 +23,42 @@ from pykdump.API import *
 
 from LinuxDump.inet import *
 
+# On 2.4
+# struct flowi {
+# 	int	oif;
+# 	int	iif;
+
+# 	union {
+# 		struct {
+# 			__u32			daddr;
+# 			__u32			saddr;
+# 			__u32			fwmark;
+# 			__u8			tos;
+# 			__u8			scope;
+# 		} ip4_u;
+		
+# 		struct {
+# 			struct in6_addr		daddr;
+# 			struct in6_addr		saddr;
+# 			__u32			flowlabel;
+# 		} ip6_u;
+# 	} nl_u;
+
+# on 2.6
+# struct flowi {
+# 	int	oif;
+# 	int	iif;
+# 	__u32	mark;
+
+# 	union {
+# 		struct {
+# 			__be32			daddr;
+# 			__be32			saddr;
+# 			__u8			tos;
+# 			__u8			scope;
+# 		} ip4_u;
+
+
 # static struct rt_hash_bucket 	*rt_hash_table;
 def print_rt_hash():
     rt_hash_mask = readSymbol("rt_hash_mask")
@@ -40,6 +76,11 @@ def print_rt_hash():
 
     count = 0
     jiffies = readSymbol("jiffies")
+    nl_u_off = member_offset("struct flowi", "nl_u")
+    print "dev      rt_src            rt_dst          fl4_src         fl4_dst   jif-lastu"
+    print "---   -------------    -------------    -------------    -----------  --------"
+
+
     for head in buckets:
         # rtable entries are linked by 'u.rt_next' pointer
         #print hexl(head)
@@ -48,9 +89,17 @@ def print_rt_hash():
             count += 1
             r = readSU("struct rtable", rtaddr)
             dst = r.u.dst
-            print dst.Deref.dev.name.ljust(6), \
-                  ntodots(r.rt_dst).ljust(16), \
-                  ntodots(r.rt_gateway).ljust(16),\
+            fl = r.fl
+            addrfl = Addr(fl)
+
+            fl4_src = readU32(addrfl + nl_u_off)
+            fl4_dst = readU32(addrfl + nl_u_off + 4)
+
+            print dst.Deref.dev.name.ljust(5), \
+                  ntodots(r.rt_src).ljust(16), \
+                  ntodots(r.rt_dst).ljust(16),\
+                  ntodots(fl4_src).ljust(16), \
+                  ntodots(fl4_dst).ljust(16),\
                   jiffies - dst.lastuse
 
     print "\n", count, "entries"
