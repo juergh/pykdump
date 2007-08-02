@@ -1,6 +1,6 @@
 # module LinuxDump.inet.routing
 #
-# Time-stamp: <07/08/01 15:27:36 alexs>
+# Time-stamp: <07/08/02 10:50:09 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -77,7 +77,7 @@ def print_rt_hash():
     count = 0
     jiffies = readSymbol("jiffies")
     nl_u_off = member_offset("struct flowi", "nl_u")
-    print "dev      rt_src            rt_dst          fl4_src         fl4_dst   jif-lastu"
+    print "dev      rt_src            rt_dst          fl4_src         fl4_dst   sec ago"
     print "---   -------------    -------------    -------------    -----------  --------"
 
 
@@ -92,15 +92,15 @@ def print_rt_hash():
             fl = r.fl
             addrfl = Addr(fl)
 
-            fl4_src = readU32(addrfl + nl_u_off)
-            fl4_dst = readU32(addrfl + nl_u_off + 4)
+            fl4_dst = readU32(addrfl + nl_u_off)
+            fl4_src = readU32(addrfl + nl_u_off + 4)
 
             print dst.Deref.dev.name.ljust(5), \
                   ntodots(r.rt_src).ljust(16), \
                   ntodots(r.rt_dst).ljust(16),\
                   ntodots(fl4_src).ljust(16), \
                   ntodots(fl4_dst).ljust(16),\
-                  jiffies - dst.lastuse
+                  (jiffies - dst.lastuse)/sys_info.HZ
 
     print "\n", count, "entries"
 
