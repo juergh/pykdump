@@ -232,7 +232,7 @@ def exec_bt(crashcmd = None, text = None):
     # Debugging
     if (crashcmd != None):
         # Execute a crash command...
-        text = exec_crash_command(cmd)
+        text = exec_crash_command(crashcmd)
         #print "Got results from crash"
 
 
