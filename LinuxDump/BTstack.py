@@ -19,11 +19,16 @@ from 'bt' command. At this moment we are just parsing results (text) obtained
 by running 'bt', later we might switch to something better.
 '''
 
+try:
+    import crash
+    from pykdump.API import *
+except ImportError:
+    pass
 
-from pykdump.API import *
+
 
 import string
-import time, os
+import time, os, sys
 
 try:
     from pyparsing import *
@@ -94,6 +99,14 @@ class BTStack:
         for f in self.frames:
             out.append(str(f))
         return string.join(out, "\n")
+
+    # A simplified repr - just functions on the stack
+    def simplerepr(self):
+        out =[]
+        for f in self.frames:
+            out.append(str(f.simplerepr()))
+        return string.join(out, "\n")
+
     # Do we have this function on stack?
     # 'func' is either a string (exact match), or compiled regexp
     # We can supply multiple func arguments, in this case the stack should
@@ -114,6 +127,22 @@ class BTStack:
 	    return True
 	else:
             return False
+    # A simple signature - to identify stacks that have the same
+    # functions chain (not taking offsets into account)
+    def getSimpleSignature(self):
+        out = []
+        for f in self.frames:
+            out.append(f.func)
+        return string.join(out,"/")
+
+    # A full signature - to identify stacks that have the same
+    # functions chain and offsets (this usually is seen when many
+    # threads are hanging waiting for the same condition/resource)
+    def getFullSignature(self):
+        out = []
+        for f in self.frames:
+            out.append(repr(f))
+        return string.join(out,"\n")
         
         
 class BTFrame:
@@ -129,8 +158,15 @@ class BTFrame:
             via = " , (via %s)" % self.via
         else:
             via = ''
-        return "  #%-2d  %s+0x%x%s%s" % \
-               (self.level, self.func, self.offset, data, via)
+        if (self.offset !=-1):
+            return "  #%-2d  %s+0x%x%s%s" % \
+                   (self.level, self.func, self.offset, data, via)
+        else:
+            # From text file - no real offset
+            return "  #%-2d  %s 0x%x%s%s" % \
+                   (self.level, self.func, self.addr, data, via)
+    def simplerepr(self):
+        return  "  #%-2d  %s" %  (self.level, self.func)
 
 
 import pprint
@@ -178,21 +214,23 @@ re_pid = re.compile(r'^PID:\s+(\d+)\s+TASK:\s+([\da-f]+)\s+' +
 #  #0 [c038ffa4] smp_call_function_interrupt at c0116c4a
 # #7 [f2035f20] error_code (via page_fault) at c02d1ba9
 # (active)
+#
+# and there can be space in [] like  #0 [ c7bfe28] schedule at 21249c3
 
 # In IA64:
 #  #0 [BSP:e00000038dbb1458] netconsole_netdump at a000000000de7d40
 
 
-re_f1 = re.compile(r'\s*(?:#\d+)?\s+\[(?:BSP:)?([\da-f]+)\]\s+(.+)\sat\s([\da-f]+)$')
+re_f1 = re.compile(r'\s*(?:#\d+)?\s+\[(?:BSP:)?([ \da-f]+)\]\s+(.+)\sat\s([\da-f]+)$')
 # The 1st line of 'bt -t' stacks
 #       START: disk_dump at f8aa6d6e
 re_f1_t = re.compile(r'\s*(START:)\s+([\w.]+)\sat\s([\da-f]+)$')
 
 re_via = re.compile(r'(\S+)\s+\(via\s+([^)]+)\)$')
 
-def exec_bt(cmd = None, text = None):
+def exec_bt(crashcmd = None, text = None):
     # Debugging
-    if (cmd != None):
+    if (crashcmd != None):
         # Execute a crash command...
         text = exec_crash_command(cmd)
         #print "Got results from crash"
@@ -240,7 +278,11 @@ def exec_bt(cmd = None, text = None):
                 # If we have a pattern like 'error_code (via page_fault)'
                 # it makes more sense to use 'via' func as a name
                 f.addr = int(m.group(3), 16)
-                f.offset = f.addr - sym2addr(f.func)
+                if (crashcmd):
+                    # Real dump environment
+                    f.offset = f.addr - sym2addr(f.func)
+                else:
+                    f.offset = -1       # Debugging
                 f.data = []
                 bts.frames.append(f)
             elif (f != None):
@@ -250,3 +292,86 @@ def exec_bt(cmd = None, text = None):
     return btslist
 
 
+
+# This module can be useful as a standalone program for parsing
+# text files created from crash
+if ( __name__ == '__main__'):
+    from optparse import OptionParser
+    op =  OptionParser()
+
+    op.add_option("-v", dest="Verbose", default = 0,
+                    action="store_true",
+                    help="verbose output")
+
+    op.add_option("-r", "--reverse", dest="Reverse", default = 0,
+                    action="store_true",
+                    help="Reverse order while sorting")
+
+    op.add_option("-p", "--precise", dest="Precise", default = 0,
+                    action="store_true",
+                    help="Precise stack matching, both func and offset")
+
+    op.add_option("-c", "--count", dest="Count", default = 1,
+                  action="store", type="int",
+                  help="Print only stacks that have >= count copies")
+
+    op.add_option("-q", dest="Quiet", default = 0,
+                    action="store_true",
+                    help="quiet mode - print warnings only")
+
+
+    (o, args) = op.parse_args()
+
+
+    if (o.Verbose):
+        verbose = 1
+    else:
+        verbose =0
+    
+    fname = args[0]
+    count = o.Count
+    reverse = o.Reverse
+    precise = o.Precise
+    
+    #text = open("/home/alexs/cu/Vxfs/bt.out", "r").read()
+    text = open(fname, "r").read()
+
+    btlist = exec_bt(text=text)
+
+    # Leave only those frames that have CMD=mss.1
+
+
+    hash = {}
+    for i, s in enumerate(btlist):
+        if (precise):
+            sig =  s.getFullSignature()
+        else:
+            sig =  s.getSimpleSignature()
+        hash.setdefault(sig, []).append(i)
+
+    sorted = []
+    for k, val in hash.items():
+        nel = len(val)
+        if (nel < count): continue
+        sorted.append([nel, val])
+
+    sorted.sort()
+    if (reverse):
+        sorted.reverse()
+
+    for nel, val in sorted:
+        # Count programs with the same name
+        cmds = {}
+        for i in val:
+            p = btlist[i]
+            cmds[p.cmd] = cmds.setdefault(p.cmd, 0) + 1
+        print "\n------- %d stacks like that: ----------" % nel
+        cmdnames = cmds.keys()
+        cmdnames.sort()
+        if (precise):
+            print p
+        else:
+            print p.simplerepr()
+        print "\n   ........................"
+        for cmd in cmdnames:
+            print "     %-30s %d times" % (cmd, cmds[cmd])
