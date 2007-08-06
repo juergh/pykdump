@@ -92,6 +92,7 @@ PIDs = OneOrMore(Group(PID))
 # in reality this is LWP
 
 class BTStack:
+    __regexps = {}
     def __init__(self):
         pass
     def __repr__(self):
@@ -108,22 +109,53 @@ class BTStack:
         return string.join(out, "\n")
 
     # Do we have this function on stack?
-    # 'func' is either a string (exact match), or compiled regexp
+    # 'func' is either a string, or compiled regexp
+    # If this is a string, we compile it and add to a table of precompiled
+    # regexps
     # We can supply multiple func arguments, in this case the stack should
     # have all of them (logical AND)
-    def hasfunc(self,  *funcs):
+    def hasfunc(self,  *funcs, **kwargs):
+        try:
+            reverse = kwargs['reverse']
+        except KeyError:
+            reverse = False
+
+        negate = False
 	res = {}
-        for f in self.frames:
+        n = len(funcs)
+        frames = self.frames[:]
+        if (reverse):
+            frames.reverse()
+        for f in frames:
 	    for t in funcs:
 		if (type(t) == type("")):
-		    # An exact match
-		    if (t == f.func or t == f.via):
-			res[t] = 1
-		else:
-		    # A regexp
-                    if (t.search(f.func) or t.search(f.via)):
-			res[t] = 1
-        if (len(res) == len(funcs)):
+                    if (t[0] == '!'):
+                        t = t[1:]
+                        negate = True
+		    # Check whether we need to compile it
+                    try:
+                        tc = BTStack.__regexps[t]
+                    except KeyError:
+                        tc = re.compile(t)
+                        BTStack.__regexps[t] = tc
+                else:
+                    tc = t
+                # A regexp
+                m1 = tc.search(f.func)
+                m2 = tc.search(f.via)
+
+                # A special case
+                if (negate and not m1):
+                    return f.func
+                if (m1 and not negate):
+                    if (n == 1):
+                        return m1.group(0)
+                    res[t] = m1.group(0)
+                elif (m2 and not negate):
+                    if (n == 1):
+                        return m2.group(0)
+                    res[t] = m2.group(0)
+        if (len(res) == n):
 	    return True
 	else:
             return False
@@ -203,6 +235,83 @@ def exec_bt_pyparsing(cmd = None, text = None):
             f.offset = addr - sym2addr(func)
             bts.frames.append(f)
         pp.pprint(bts)
+    
+
+# Prepare a summary of sleeping threads
+
+
+def stack_categorize(e, descr):
+    m =  e.hasfunc(descr[0], reverse = True)
+    if (not m):
+        return False
+    out = [m]
+    for subc in descr[1:]:
+        m = e.hasfunc(subc)
+        if (m):
+            out.append(m)
+        else:
+            out.append('?')
+    return string.join(out, '/')
+
+
+_d_socket = ['sys_socketcall', 'accept|recv', 'tcp|udp|unix']
+_d_fswrite = ['sys_write', '^[^_]*_write']
+_d_fsopen = ['sys_open', 'vfs_create', '^[^_]+_create']
+_d_pipe = ['pipe_\w+']
+_d_exit = ['do_exit', 'wait_for_completion']
+_d_selpoll = ['sys_poll|sys_select']
+_d_futex = ['sys_futex', 'futex_wait|get_futex_key|do_futex']
+_d_wait = ['sys_wait.*']
+
+_d_kthread = ['kernel_thread_helper',
+              'ksoftirqd|context_thread|migration_task|kswapd|bdflush' +
+              '|kupdate|md_thread|.+KBUILD_BASENAME']
+
+_d_kthread = ['kernel_thread_helper', '!schedule']
+_d_syscall = ['sys_.+']
+
+_d_all = [_d_socket, 
+          _d_fswrite, _d_fsopen,
+          _d_pipe, _d_futex, _d_wait,
+          _d_exit, _d_kthread, _d_syscall]
+
+
+def bt_summarize(btlist):
+    bt_sched = []
+    bt_others =[]
+
+
+    for e in btlist:
+        if e.hasfunc("schedule"):
+            bt_sched.append(e)
+        else:
+            bt_others.append(e)
+    print "%d threads sleeping in schedule(), %d others" % \
+          (len(bt_sched), len(bt_others))
+
+    out = {}
+    bt_un = []
+    for e in bt_sched:
+        # FS-stuff
+
+        
+        for d in _d_all:
+
+            m = stack_categorize(e, d)
+            if (m):
+                out[m] = out.setdefault(m, 0) + 1
+                break
+        if (not m):
+            bt_un.append(e)
+
+    keys = out.keys()
+    keys.sort()
+    for k in keys:
+        print k, out[k]
+
+    for f in bt_un:
+        print f
+
     
 
 # A parser using regular expressions only - no pyparsing
@@ -307,6 +416,10 @@ if ( __name__ == '__main__'):
                     action="store_true",
                     help="Reverse order while sorting")
 
+    op.add_option("--summary", dest="Summary", default = 0,
+                    action="store_true",
+                    help="Print a summary")
+
     op.add_option("-p", "--precise", dest="Precise", default = 0,
                     action="store_true",
                     help="Precise stack matching, both func and offset")
@@ -337,6 +450,11 @@ if ( __name__ == '__main__'):
     text = open(fname, "r").read()
 
     btlist = exec_bt(text=text)
+
+    if (o.Summary):
+        bt_summarize(btlist)
+        sys.exit(0)
+            
 
     # Leave only those frames that have CMD=mss.1
 

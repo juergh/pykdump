@@ -2,7 +2,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <07/07/06 16:20:27 alexs>
+# Time-stamp: <07/08/06 16:07:32 alexs>
 
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -10,7 +10,7 @@
 # 1st-pass dumpanalysis
 
 from pykdump.API import *
-from LinuxDump.BTstack import exec_bt
+from LinuxDump.BTstack import exec_bt, bt_summarize
 from LinuxDump.kmem import parse_kmemf, print_Zone
 
 import sys
@@ -154,7 +154,8 @@ def check_loadavg():
     
 def check_auditf():
     global btsl
-    btsl = exec_bt('foreach bt')
+    if (not btsl):
+        btsl = exec_bt('foreach bt')
     func1 = re.compile('auditf')
     func2 = re.compile('rwsem_down')
     res = [bts for bts in btsl if bts.hasfunc(func1, func2)]
@@ -254,6 +255,10 @@ op.add_option("--sysctl", dest="sysctl", default = 0,
 		action="store_true",
 		help="Print sysctl info.")
 
+op.add_option("--stacksummary", dest="stacksummary", default = 0,
+		action="store_true",
+		help="Print sysctl info.")
+
 (o, args) = op.parse_args()
 
 
@@ -273,6 +278,12 @@ t1 = os.times()[0]
 # Non-standard options (those that stop normal tests)
 if (o.sysctl):
     check_sysctl()
+    sys.exit(0)
+
+if (o.stacksummary):
+    if (not btsl):
+        btsl = exec_bt('foreach bt')
+    bt_summarize(btsl)
     sys.exit(0)
     
 HZ = sys_info.HZ
