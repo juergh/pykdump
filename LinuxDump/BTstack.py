@@ -27,66 +27,9 @@ except ImportError:
 
 
 
-import string
+import string, re
 import time, os, sys
 
-try:
-    from pyparsing import *
-except ImportError:
-    from pykdump.pyparsing import *
-
-# Parsing results of 'bt' command
-# For each process it has the folliwng structure:
-#
-# PID-line
-# Frame-sections
-#
-# Each frame-section starts from something like
-#   #2 [f2035de4] freeze_other_cpus at f8aa6b9f
-# optionally followed by registers/stack/frame contents
-
-def actionToInt(s,l,t):
-    return int(t[0], 0)
-
-def actionToHex(s,l,t):
-    return int(t[0], 16)
-
-def stripQuotes( s, l, t ):
-    return [ t[0].strip('"') ]
-
-Cid = Word(alphas+"_", alphanums+"_")
-
-dquote = Literal('"')
-
-noprefix_hexval =  Word(hexnums).setParseAction(actionToHex)
-hexval = Combine("0x" + Word(hexnums))
-decval = Word(nums+'-', nums).setParseAction(actionToInt)
-intval = hexval | decval
-
-dqstring = dblQuotedString.setParseAction(stripQuotes)
-
-
-PID_line = Suppress("PID:") + decval.setResultsName("PID") + \
-           Suppress("TASK:") + noprefix_hexval + \
-           Suppress("CPU:") + decval + \
-           Suppress("COMMAND:") + dqstring #+ lineEnd
-
-FRAME_start = Suppress("#") + intval + \
-              Suppress("[") + noprefix_hexval + Suppress("]") + Cid + \
-              Optional("(via" +  SkipTo(")", include=True)).suppress() + \
-              Suppress("at") + noprefix_hexval
-
-FRAME_start = Regex("\s*#(\d+)\s+\[([^\]]+)\] .+$", re.M)
-FRAME_empty = Suppress('(active)')
-
-REG_context = Suppress(SkipTo(Literal('#') | Literal("PID")))
-#REG_context = Regex("  \s+[^#]+$", re.M)
-FRAME = (FRAME_start | FRAME_empty) + Optional(REG_context)
-
-#FRAME = FRAME_start + ZeroOrMore(REG_context)
-
-PID = PID_line + Group(OneOrMore(Group(FRAME)))
-PIDs = OneOrMore(Group(PID))
 
 # This class is for one thread only. Crash output says 'pid' even though
 # in reality this is LWP
@@ -114,7 +57,7 @@ class BTStack:
     # regexps
     # We can supply multiple func arguments, in this case the stack should
     # have all of them (logical AND)
-    def hasfunc(self,  *funcs, **kwargs):
+    def oldhasfunc(self,  *funcs, **kwargs):
         try:
             reverse = kwargs['reverse']
         except KeyError:
@@ -159,6 +102,38 @@ class BTStack:
 	    return True
 	else:
             return False
+
+    def hasfunc(self,  func, reverse = False):
+        if (reverse):
+            try:
+                frames = self.rframes
+            except AttributeError:
+                frames = self.frames[:]
+                frames.reverse
+                self.rframes = frames
+        else:
+            frames = self.frames
+
+        # Check whether we need to compile it
+        try:
+            tc = BTStack.__regexps[func]
+        except KeyError:
+            tc = re.compile(func)
+            BTStack.__regexps[func] = tc
+
+        for f in frames:
+            # A regexp
+            m1 = tc.search(f.func)
+            if (m1):
+                return m1.group(0)
+
+            m2 = tc.search(f.via)
+            if (m2):
+                return m2.group(0)
+
+        return False
+
+
     # A simple signature - to identify stacks that have the same
     # functions chain (not taking offsets into account)
     def getSimpleSignature(self):
@@ -204,54 +179,24 @@ class BTFrame:
 import pprint
 pp = pprint.PrettyPrinter(indent=4)
 
-
-def exec_bt_pyparsing(cmd = None, text = None):
-    # Debugging
-    if (cmd != None):
-        # Execute a crash command...
-        text = exec_crash_command(cmd)
-        #print text
-
-    t0 = os.times()[0]
-    res =  PIDs.parseString(text).asList()
-    t1 = os.times()[0]
-
-    pp.pprint(res)
-    print "%7.2f s to parse" % (t1 - t0)
-    return
-
-    for pid, task, cpu, cmd, finfo in PIDs.parseString(text).asList():
-        bts = BTStack()
-        bts.pid = pid
-        bts.cmd = cmd
-        bts.frames = []
-        if (len(finfo[0]) == 0):
-            continue
-        for level, fp, func, addr in finfo:
-            f = BTFrame()
-            f.level = level
-            f.func = func
-            f.addr = addr
-            f.offset = addr - sym2addr(func)
-            bts.frames.append(f)
-        pp.pprint(bts)
     
 
 # Prepare a summary of sleeping threads
 
 
 def stack_categorize(e, descr):
+    out = [e.frames[0].func]
     m =  e.hasfunc(descr[0], reverse = True)
     if (not m):
         return False
-    out = [m]
+    out.append(m)
     for subc in descr[1:]:
         m = e.hasfunc(subc)
         if (m):
             out.append(m)
         else:
             out.append('?')
-    return string.join(out, '/')
+    return tuple(out)
 
 
 _d_socket = ['sys_socketcall', 'accept|recv', 'tcp|udp|unix']
@@ -261,19 +206,20 @@ _d_pipe = ['pipe_\w+']
 _d_exit = ['do_exit', 'wait_for_completion']
 _d_selpoll = ['sys_poll|sys_select']
 _d_futex = ['sys_futex', 'futex_wait|get_futex_key|do_futex']
-_d_wait = ['sys_wait.*']
+_d_wait = ['^sys_wait.*$']
+_d_catchall = ['^.*$']
 
 _d_kthread = ['kernel_thread_helper',
               'ksoftirqd|context_thread|migration_task|kswapd|bdflush' +
               '|kupdate|md_thread|.+KBUILD_BASENAME']
 
-_d_kthread = ['kernel_thread_helper', '!schedule']
+_d_kthread = ['kernel_thread_helper']
 _d_syscall = ['sys_.+']
 
 _d_all = [_d_socket, 
           _d_fswrite, _d_fsopen,
           _d_pipe, _d_futex, _d_wait,
-          _d_exit, _d_kthread, _d_syscall]
+          _d_exit, _d_kthread, _d_syscall, _d_catchall]
 
 
 def bt_summarize(btlist):
@@ -281,22 +227,12 @@ def bt_summarize(btlist):
     bt_others =[]
 
 
-    for e in btlist:
-        if e.hasfunc("schedule"):
-            bt_sched.append(e)
-        else:
-            bt_others.append(e)
-    print "%d threads sleeping in schedule(), %d others" % \
-          (len(bt_sched), len(bt_others))
-
     out = {}
     bt_un = []
-    for e in bt_sched:
+    for e in btlist:
         # FS-stuff
-
         
         for d in _d_all:
-
             m = stack_categorize(e, d)
             if (m):
                 out[m] = out.setdefault(m, 0) + 1

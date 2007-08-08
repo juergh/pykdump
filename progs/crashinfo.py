@@ -2,7 +2,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <07/08/06 16:07:32 alexs>
+# Time-stamp: <07/08/07 16:45:20 alexs>
 
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -116,7 +116,7 @@ def dump_reason(dmesg):
     if (sys_info.livedump):
 	print "Running on a live kernel"
         return
-    func1 = re.compile('sysrq_handle|handle_sysrq|netconsole')
+    func1 = 'sysrq_handle|handle_sysrq|netconsole'
     trigger = re.compile('vfs_write|sys_write')
     kbd  = re.compile('keyboard_interrupt')
     netconsole = re.compile('netconsole')
@@ -156,9 +156,10 @@ def check_auditf():
     global btsl
     if (not btsl):
         btsl = exec_bt('foreach bt')
-    func1 = re.compile('auditf')
-    func2 = re.compile('rwsem_down')
-    res = [bts for bts in btsl if bts.hasfunc(func1, func2)]
+    func1 = 'auditf'
+    func2 = 'rwsem_down'
+    res = [bts for bts in btsl
+           if bts.hasfunc(func1) and bts.hasfunc(func2)]
     if (not res):
 	return False
     print WARNING, "%d threads halted by auditd" % len(res)
