@@ -186,6 +186,8 @@ class TaskTable:
 
         self.pids = pids_d
 	
+	# A dict of all threads - we compute only if needed
+	self.tids = {}
  
         self.filepids = {}
         self.toffset = member_offset("struct task_struct", "thread_group")
@@ -194,9 +196,28 @@ class TaskTable:
 	# File objects cache
 	self.files_cache = {}
 
+    # Fill-in all tids
+    def __init_tids(self):
+	if (self.tids):
+	    return
+	out = {}
+	for mt in self.tt:
+	    out[mt.pid] = mt
+	    for t in mt.threads:
+		out[t.pid] = t
+
+        tids = out.keys()
+	tids.sort()    # sort by tids
+	self.tids = out
+	self.allthreads = [out[tid] for  tid in tids]
     # Get all tasks
     def allTasks(self):
 	return self.tt
+    
+    # Get all threads
+    def allThreads(self):
+	self.__init_tids()
+	return self.allthreads
 
     # get task by pid
     def getByPid(self, pid):
@@ -204,6 +225,12 @@ class TaskTable:
             return self.pids[pid][0]
         except KeyError:
             return None
+    # get thread by tid
+    def getByTid(self, tid):
+	try:
+	    return self.tids[tid]
+	except KeyError:
+	    return None
                 
     # get task by comm
     def getByComm(self, comm):

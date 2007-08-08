@@ -2,8 +2,8 @@
    
   Time-stamp: <07/07/12 17:08:45 alexs>
 
-  Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
-  Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
+  Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
+  Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
  
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -755,6 +755,8 @@ initcrash(const char *crash_version) {
   PyModule_AddObject(m, "AMBIGUOUS", PyInt_FromLong(AMBIGUOUS));
 
   PyModule_AddObject(m, "PAGESIZE", PyInt_FromLong(PAGESIZE()));
+  PyModule_AddObject(m, "HZ", PyInt_FromLong(machdep->hz));
+
 
   // Now create some aliases
 

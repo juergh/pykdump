@@ -225,13 +225,7 @@ def initAfterDumpIsOpen():
 
     # Check the kernel version and set HZ
     sys_info.kernel = re.search(r'^(\d+\.\d+\.\d+)', sys_info.RELEASE).group(1)
-    if (sys_info.kernel >= "2.6.0"):
-        sys_info.HZ = 1000
-    else:
-        sys_info.HZ = 100
-
-    if (symbol_exists("cfq_slice_async")):
-        sys_info.HZ = readSymbol("cfq_slice_async") * 25
+    sys_info.HZ = crash.HZ;
 
     # Convert CPUS to integer
     sys_info.CPUS = int(sys_info.CPUS)

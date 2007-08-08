@@ -149,6 +149,50 @@ const char *PYHOME = "Python64";
 #endif
 
 #define BUFLEN 1024
+
+/* Search for our Python program:
+	    1. Check whether we have it in the current directory
+	    2. Check in the PATH
+	    3. If filename does not have '.py' suffix, repeat (1-2)
+	       after appending it to the specified name
+*/
+
+const char *path;
+const char *find_pyprog(const char *prog) {
+    char progpy[BUFSIZE];
+    char buf2[BUFSIZE];
+    static char buf1[BUFSIZE];
+    char *tok;
+    
+    //If prognames start from '/', no need to searching
+    if (prog[0] == '/')
+        return prog;
+
+    if (path) {
+        strcpy(buf2, ".:");
+        strcat(buf2, path);
+    } else
+        strcpy(buf2, ".");
+
+    tok = strtok(buf2, ":");
+    while (tok) {
+	sprintf(buf1, "%s/%s", tok, prog);
+	if (debug)
+	   printf("searching for %s\n", buf1);
+	if (file_exists(buf1, NULL)) {
+	    return buf1;
+	}
+	sprintf(buf1, "%s/%s.py", tok, prog);
+	if (debug)
+	   printf("searching for %s\n", buf1);
+	if (file_exists(buf1, NULL)) {
+	    return buf1;
+	}
+	tok = strtok(NULL, ":");
+    }
+    return NULL;
+}
+
 void
 cmd_epython()
 {
@@ -160,12 +204,28 @@ cmd_epython()
   struct tms t1, t2;
   const char *pypath;
   const char *oneshot;
+  const char *prog;
   char buffer[BUFLEN];
+        
+  path = getenv("PATH");
+  // Search in PATH. If there is no '.py' suffix try to append it
+  if (argcnt < 1) {
+    fprintf(fp, " You need to specify a program file\n");
+    return;
+
+  }
   
-  scriptfp = fopen(args[1], "r");
+  prog = find_pyprog(args[1]);
+  if (!prog) {
+    fprintf(fp, " Cannot find the program <%s>\n", args[1]);
+    return;
+
+  }
+  
+  scriptfp = fopen(prog, "r");
   /* No need to do anything if the file does not exist */
   if (scriptfp == NULL) {
-    fprintf(fp, " Cannot open the file <%s>\n", args[1]);
+    fprintf(fp, " Cannot open the file <%s>\n", prog);
     return;
   }
   if (!Py_IsInitialized()) {
@@ -175,6 +235,7 @@ cmd_epython()
       pypath = getenv("PYTHON32LIB");
     else
       pypath = getenv("PYTHON64LIB");
+
 	
 #if defined(STATICBUILD)
     Py_NoSiteFlag = 1;
@@ -184,7 +245,7 @@ cmd_epython()
     } else if (argcnt > 1) {
       // Use the path of the 1st Python script executed
       char *prog, *pdir;
-      readlink(args[1], buffer, BUFLEN);
+      readlink(prog, buffer, BUFLEN);
       prog = strdup(buffer);
       pdir = dirname(prog);
       snprintf(buffer, BUFLEN, "PYTHONHOME=%s/%s", pdir, PYHOME);
