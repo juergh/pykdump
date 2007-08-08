@@ -366,17 +366,19 @@ def bt_mergestacks(btlist, precise = False,
     for nel, val in sorted:
         # Count programs with the same name
         cmds = {}
-	sch_young = sys.maxint*1000
-	sch_old = 0
+	sch_young = None
+	sch_old = None
+
         for i in val:
             p = btlist[i]
 	    pid = p.pid
 	    if (tt):
-		ran_ms_ago = basems - tt.getByTid(pid).last_ran
-		if (ran_ms_ago > sch_old):
+		task = tt.getByTid(pid)
+		ran_ms_ago = basems - task.last_ran
+		if (sch_old == None or ran_ms_ago > sch_old):
 		    sch_old = ran_ms_ago
 		    pid_old = pid
-		elif (ran_ms_ago < sch_young):
+		if (sch_young == None or ran_ms_ago < sch_young):
 		    sch_young = ran_ms_ago
 		    pid_young = pid
             cmds[p.cmd] = cmds.setdefault(p.cmd, 0) + 1
