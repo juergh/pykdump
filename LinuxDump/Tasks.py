@@ -227,6 +227,7 @@ class TaskTable:
             return None
     # get thread by tid
     def getByTid(self, tid):
+	self.__init_tids()
 	try:
 	    return self.tids[tid]
 	except KeyError:

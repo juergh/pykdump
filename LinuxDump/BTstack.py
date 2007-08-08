@@ -337,6 +337,63 @@ def exec_bt(crashcmd = None, text = None):
     return btslist
 
 
+# Merge similar stacks and print them. If TaskTable is available,
+# add timing info
+def bt_mergestacks(btlist, precise = False, 
+        count = 1, reverse=False, tt=None):
+    # Leave only those frames that have CMD=mss.1
+
+    if (tt):
+	basems = tt.basems
+    smap = {}
+    for i, s in enumerate(btlist):
+        if (precise):
+            sig =  s.getFullSignature()
+        else:
+            sig =  s.getSimpleSignature()
+        smap.setdefault(sig, []).append(i)
+
+    sorted = []
+    for k, val in smap.items():
+        nel = len(val)
+        if (nel < count): continue
+        sorted.append([nel, val])
+
+    sorted.sort()
+    if (reverse):
+        sorted.reverse()
+
+    for nel, val in sorted:
+        # Count programs with the same name
+        cmds = {}
+	sch_young = sys.maxint*1000
+	sch_old = 0
+        for i in val:
+            p = btlist[i]
+	    pid = p.pid
+	    if (tt):
+		ran_ms_ago = basems - tt.getByTid(pid).last_ran
+		if (ran_ms_ago > sch_old):
+		    sch_old = ran_ms_ago
+		    pid_old = pid
+		elif (ran_ms_ago < sch_young):
+		    sch_young = ran_ms_ago
+		    pid_young = pid
+            cmds[p.cmd] = cmds.setdefault(p.cmd, 0) + 1
+        print "\n------- %d stacks like that: ----------" % nel
+        cmdnames = cmds.keys()
+        cmdnames.sort()
+        if (precise):
+            print p
+        else:
+            print p.simplerepr()
+	if (tt):
+	    print "    youngest=%ds(pid=%d), oldest=%ds(pid=%d)" % \
+	       (sch_young/1000, pid_young,  sch_old/1000, pid_old)
+        print "\n   ........................"
+        for cmd in cmdnames:
+            print "     %-30s %d times" % (cmd, cmds[cmd])
+    
 
 # This module can be useful as a standalone program for parsing
 # text files created from crash
@@ -392,40 +449,4 @@ if ( __name__ == '__main__'):
         sys.exit(0)
             
 
-    # Leave only those frames that have CMD=mss.1
-
-
-    hash = {}
-    for i, s in enumerate(btlist):
-        if (precise):
-            sig =  s.getFullSignature()
-        else:
-            sig =  s.getSimpleSignature()
-        hash.setdefault(sig, []).append(i)
-
-    sorted = []
-    for k, val in hash.items():
-        nel = len(val)
-        if (nel < count): continue
-        sorted.append([nel, val])
-
-    sorted.sort()
-    if (reverse):
-        sorted.reverse()
-
-    for nel, val in sorted:
-        # Count programs with the same name
-        cmds = {}
-        for i in val:
-            p = btlist[i]
-            cmds[p.cmd] = cmds.setdefault(p.cmd, 0) + 1
-        print "\n------- %d stacks like that: ----------" % nel
-        cmdnames = cmds.keys()
-        cmdnames.sort()
-        if (precise):
-            print p
-        else:
-            print p.simplerepr()
-        print "\n   ........................"
-        for cmd in cmdnames:
-            print "     %-30s %d times" % (cmd, cmds[cmd])
+    bt_mergestacks(btlist, precise=precise, count=count, reverse=reverse)

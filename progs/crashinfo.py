@@ -10,7 +10,7 @@
 # 1st-pass dumpanalysis
 
 from pykdump.API import *
-from LinuxDump.BTstack import exec_bt, bt_summarize
+from LinuxDump.BTstack import exec_bt, bt_summarize, bt_mergestacks
 from LinuxDump.kmem import parse_kmemf, print_Zone
 
 import sys
@@ -282,9 +282,12 @@ if (o.sysctl):
     sys.exit(0)
 
 if (o.stacksummary):
+    from LinuxDump.Tasks import TaskTable
     if (not btsl):
         btsl = exec_bt('foreach bt')
-    bt_summarize(btsl)
+	tt = TaskTable()
+    #bt_summarize(btsl)
+    bt_mergestacks(btsl, reverse=True, tt=tt)
     sys.exit(0)
     
 HZ = sys_info.HZ
