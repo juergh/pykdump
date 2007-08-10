@@ -60,7 +60,11 @@ def check_mem():
     # Checking for fragmentation (mostly useful on 32-bit systems)
     kmemf = exec_crash_command("kmem -f")
     node = parse_kmemf(kmemf)
-    Normal = node[1]
+    if (len(node) < 2):
+        # IA64 woth 2.6 kernels
+	Normal = node[0]
+    else:
+        Normal = node[1]
     warn_8k = True
     warn_32k = True
 
