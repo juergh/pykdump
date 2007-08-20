@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <07/08/20 10:05:00 alexs>
+  Time-stamp: <07/08/20 11:29:32 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -706,6 +706,16 @@ py_le32_to_cpu(PyObject *self, PyObject *args) {
 }
 
 static PyObject *
+py_le16_to_cpu(PyObject *self, PyObject *args) {
+  void *p;
+  ulong val;
+
+  PyObject *arg0 = PyTuple_GetItem(args, 0);
+  val = PyLong_AsUnsignedLong(arg0);
+  return PyInt_FromLong(__le16_to_cpu(val));
+}
+
+static PyObject *
 py_cpu_to_le32(PyObject *self, PyObject *args) {
   void *p;
   ulong val;
@@ -752,6 +762,7 @@ static PyMethodDef crashMethods[] = {
   {"readPtr", py_readPtr, METH_VARARGS},
   {"sLong", py_sLong, METH_VARARGS},
   {"le32_to_cpu", py_le32_to_cpu, METH_VARARGS},
+  {"le16_to_cpu", py_le16_to_cpu, METH_VARARGS},
   {"cpu_to_le32", py_le32_to_cpu, METH_VARARGS},
   {"getListSize", py_getlistsize, METH_VARARGS},
   {"getFullBuckets", py_getFullBuckets, METH_VARARGS},
