@@ -309,9 +309,9 @@ if (member_size("struct super_block", "s_fs_info") == -1):
     __createArt24()
 else:
     __v_24 = False
-    if (sys_info.kernel >= "2.6.10"):
+    # I am not sure about the following test, need to doublecheck
+    if (sys_info.kernel >= "2.6.12"):
 	__count_func = True
     else:
 	__count_func = False
-	
-	
+

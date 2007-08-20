@@ -687,7 +687,6 @@ py_FD_ISSET(PyObject *self, PyObject *args) {
 
 static PyObject *
 py_sLong(PyObject *self, PyObject *args) {
-  void *p;
   ulong val;
 
   PyObject *arg0 = PyTuple_GetItem(args, 0);
@@ -697,35 +696,44 @@ py_sLong(PyObject *self, PyObject *args) {
 
 static PyObject *
 py_le32_to_cpu(PyObject *self, PyObject *args) {
-  void *p;
   ulong val;
 
-  PyObject *arg0 = PyTuple_GetItem(args, 0);
-  val = PyLong_AsUnsignedLong(arg0);
-  return PyInt_FromLong(__le32_to_cpu(val));
+  if (!PyArg_ParseTuple(args, "k", &val)) {
+    PyErr_SetString(crashError, "invalid parameter type"); \
+    return NULL;
+  }
+  
+  return PyLong_FromUnsignedLong(__le32_to_cpu(val));
 }
 
 static PyObject *
 py_le16_to_cpu(PyObject *self, PyObject *args) {
-  void *p;
   ulong val;
+  
+  if (!PyArg_ParseTuple(args, "k", &val)) {
+    PyErr_SetString(crashError, "invalid parameter type"); \
+    return NULL;
+  }
 
-  PyObject *arg0 = PyTuple_GetItem(args, 0);
-  val = PyLong_AsUnsignedLong(arg0);
-  return PyInt_FromLong(__le16_to_cpu(val));
+  //PyObject *arg0 = PyTuple_GetItem(args, 0);
+  //val = PyLong_AsUnsignedLong(arg0);
+  return PyLong_FromUnsignedLong(__le16_to_cpu(val));
 }
 
 static PyObject *
 py_cpu_to_le32(PyObject *self, PyObject *args) {
-  void *p;
   ulong val;
+  
+  if (!PyArg_ParseTuple(args, "k", &val)) {
+    PyErr_SetString(crashError, "invalid parameter type"); \
+    return NULL;
+  }
 
-  PyObject *arg0 = PyTuple_GetItem(args, 0);
-  val = PyLong_AsUnsignedLong(arg0);
-  return PyInt_FromLong(__cpu_to_le32(val));
+
+  return PyLong_FromUnsignedLong(__cpu_to_le32(val));
 }
 
-  
+      
 #if 0
 #include "gdb-6.1/gdb/objfiles.h"
 
