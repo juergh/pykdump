@@ -51,9 +51,12 @@ def get_percpu_ptr_26(ptr, cpu):
     return optr
 
 def percpu_counter_sum(fbc):
-    counters = fbc.counters
     count = fbc.count
 
+    try:
+        counters = fbc.counters
+    except KeyError:
+	return count
     for cpu in range(sys_info.CPUS):
         #count = Deref(percpu_ptr(counters, cpu))
         count += readS32(percpu_ptr(counters, cpu))

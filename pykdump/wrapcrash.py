@@ -1332,6 +1332,7 @@ getFullBuckets = crash.getFullBuckets
 readPtr = crash.readPtr
 sLong = crash.sLong
 le32_to_cpu = crash.le32_to_cpu
+le16_to_cpu = crash.le16_to_cpu
 cpu_to_le32 = crash.cpu_to_le32
 uvtop = crash.uvtop
 getListSize = crash.getListSize

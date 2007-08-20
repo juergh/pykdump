@@ -150,7 +150,7 @@ if (crashloaded):
 
     from wrapcrash import readPtr, readU16, readU32, readS32, \
          readSymbol, readSU, \
-         sLong, le32_to_cpu, cpu_to_le32, \
+         sLong, le32_to_cpu, cpu_to_le32, le16_to_cpu, \
          readList, getListSize, readListByHead,  list_for_each_entry, \
          readSUArray, readSUListFromHead, readStructNext, \
          getStructInfo, getFullBuckets, FD_ISSET, \
