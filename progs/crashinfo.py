@@ -2,7 +2,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <07/08/07 16:45:20 alexs>
+# Time-stamp: <07/08/20 10:42:55 alexs>
 
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -260,6 +260,10 @@ op.add_option("--sysctl", dest="sysctl", default = 0,
 		action="store_true",
 		help="Print sysctl info.")
 
+op.add_option("--ext3", dest="ext3", default = 0,
+		action="store_true",
+		help="Print EXT3 info.")
+
 op.add_option("--stacksummary", dest="stacksummary", default = 0,
 		action="store_true",
 		help="Print sysctl info.")
@@ -281,8 +285,15 @@ else:
 t1 = os.times()[0]
 
 # Non-standard options (those that stop normal tests)
+
 if (o.sysctl):
     check_sysctl()
+    sys.exit(0)
+
+if (o.ext3):
+    from LinuxDump.fs.ext3 import showExt3
+
+    showExt3()
     sys.exit(0)
 
 if (o.stacksummary):

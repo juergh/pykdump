@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/07/12 16:47:28 alexs>
+# Time-stamp: <07/08/20 10:05:35 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -148,8 +148,9 @@ except ImportError:
 if (crashloaded):
     import wrapcrash
 
-    from wrapcrash import readPtr, readU16, readU32, readSymbol, readSU, \
-         sLong, \
+    from wrapcrash import readPtr, readU16, readU32, readS32, \
+         readSymbol, readSU, \
+         sLong, le32_to_cpu, cpu_to_le32, \
          readList, getListSize, readListByHead,  list_for_each_entry, \
          readSUArray, readSUListFromHead, readStructNext, \
          getStructInfo, getFullBuckets, FD_ISSET, \

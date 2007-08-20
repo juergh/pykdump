@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/07/12 16:40:18 alexs>
+# Time-stamp: <07/08/20 10:05:51 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -622,6 +622,10 @@ def readU16(addr):
 def readU32(addr):
     s = readmem(addr, 4)
     return mem2long(s)
+
+def readS32(addr):
+    s = readmem(addr, 4)
+    return mem2long(s, signed = True)
     
 # addr should be numeric here
 def readSU(symbol, addr):
@@ -1327,6 +1331,8 @@ exec_gdb_command = crash.get_GDB_output
 getFullBuckets = crash.getFullBuckets
 readPtr = crash.readPtr
 sLong = crash.sLong
+le32_to_cpu = crash.le32_to_cpu
+cpu_to_le32 = crash.cpu_to_le32
 uvtop = crash.uvtop
 getListSize = crash.getListSize
 # For some reason the next line runs slower than GDB version

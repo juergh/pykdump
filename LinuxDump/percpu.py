@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/07/11 15:10:18 alexs>
+# Time-stamp: <07/08/20 09:43:14 alexs>
 
 # Per-cpu functions
 
@@ -49,6 +49,17 @@ def get_percpu_ptr_26(ptr, cpu):
     dp = readSU("struct percpu_data", p)
     optr = tPtr(dp.ptrs[cpu], ptr.ptype)
     return optr
+
+def percpu_counter_sum(fbc):
+    counters = fbc.counters
+    count = fbc.count
+
+    for cpu in range(sys_info.CPUS):
+        #count = Deref(percpu_ptr(counters, cpu))
+        count += readS32(percpu_ptr(counters, cpu))
+        #print cpu, count
+    return count
+
 
     
 CPUS = sys_info.CPUS

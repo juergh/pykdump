@@ -1,3 +1,19 @@
+What's new in version 0.3?
+--------------------------
+
+
+Bugs fixed, some new features added:
+
+- a new tPtr class ('typed pointer')
+- we don't use pexpect and PTY-driver, instead we create a script for crash and
+  run it
+- new functions: uvtop and readProcessMem to read process's virtual memory,
+  FD_ISSET and sLong to manipulate bits, getListSize to get the size of the
+  linked list without returning its elements
+- we determine HZ by consulting crash's machdep structure
+- 
+
+
 What's new in version 0.2?
 --------------------------
 

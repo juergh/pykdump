@@ -185,12 +185,12 @@ pp = pprint.PrettyPrinter(indent=4)
 
 
 def stack_categorize(e, descr):
-    out = [e.frames[0].func]
+    out = [e.frames[0].func, e.frames[-1].func]
     m =  e.hasfunc(descr[0], reverse = True)
     if (not m):
         return False
     out.append(m)
-    for subc in descr[1:]:
+    for subc in descr[1:-1]:
         m = e.hasfunc(subc)
         if (m):
             out.append(m)
@@ -242,8 +242,19 @@ def bt_summarize(btlist):
 
     keys = out.keys()
     keys.sort()
+
+    # Group by top, bot
+    ctop = cbot = None
     for k in keys:
-        print k, out[k]
+        top = k[0]
+        bot = k[1]
+        if (top != ctop):
+            print "  =====", top
+            ctop = top
+        if (bot != cbot):
+            print " \t=====", bot
+            cbot = bot
+        print "\t\t", k[2:], out[k]
 
     for f in bt_un:
         print f

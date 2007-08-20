@@ -65,7 +65,7 @@ asid@hp.com
 
 \begin_layout Abstract
 This is a brief tutorial explaining how to use Pykdump.
- The current version is 0.2 
+ The current version is 0.3 
 \end_layout
 
 \begin_layout Section
@@ -180,7 +180,7 @@ comments are introduced using a hash # sign
 \end_layout
 
 \begin_layout Standard
-Uniform Python API is used both for PTY-driven and loadable extension-based
+Uniform Python API is used both for script-driven and loadable extension-based
  versions.
  A very basic example showing how to use API:
 \end_layout
@@ -574,15 +574,48 @@ Mapping C-structures To Python Objects
 \end_layout
 
 \begin_layout Subsubsection
-_SUPtr
+tPtr - A Typed Pointer
+\end_layout
+
+\begin_layout Standard
+When a variable is a pointer, we treat it as an integer.
+ But it would be nice to attach to it the type of the pointer, so that we
+ can use this information for dereferencing and other purposes.
+\end_layout
+
+\begin_layout Standard
+
+\series bold
+\emph on
+tPtr
+\series default
+\emph default
+ class inherits from 'long' so it can be used as a normal 'long' integer.
+ For example, it's OK to use it in arithmetical expressions.
+ In some rare cases the library functions check for type of passed object
+ explicitly.
+ You can always convert 
+\series bold
+\emph on
+tPtr 
+\series default
+\emph default
+to a plain long by doing conversion explictly,
+\end_layout
+
+\begin_layout Code
+t = tPtr(123, "struct task_struct")
+\end_layout
+
+\begin_layout Code
+i = long(t)
 \end_layout
 
 \begin_layout Standard
 We return this type when a global variable or struct member is defined as
  a pointer to struct.
  It contains internally both address and pointer type.
- You can access it as Python 'long' type and you can dereference it using
- Deref atribute.
+ You can dereference it using Deref atribute.
  For example:
 \end_layout
 
@@ -860,14 +893,7 @@ If 'netdev.py' is a highly untrivial program doing automated dump-analysis,
  So it would be nice to be able to automate the three steps above (well,
  loading the extension can be automated by doing it in crash initialization
  file).
- If you have 
-\series bold
-\emph on
-Pexpect 
-\series default
-\emph default
-Python module installed, the following should work, started from normal
- shell prompt:
+ The following should work, started from normal shell prompt:
 \end_layout
 
 \begin_layout Code
@@ -884,45 +910,18 @@ searches for needed files in /data/Dumps/Fermi directory (see below for
 \end_layout
 
 \begin_layout Itemize
+creates a temporary file putting there commands to run, including loading
+ the extension and executing 'epython' with needed arguments
+\end_layout
+
+\begin_layout Itemize
 starts 
 \series bold
 \emph on
 crash 
 \series default
 \emph default
-using Pexpect (i.e.
- uses 
-\series bold
-\emph on
-pty
-\series default
-\emph default
- to communicate with 
-\series bold
-\emph on
-crash
-\series default
-\emph default
- process).
- We add '--no_crashrc' option so that crash does not use its initialization
- file (we want to start from clean slate)
-\end_layout
-
-\begin_layout Itemize
-reads and parses crashrc-files in home and current directories searching
- for 'extend' command, loads the found extension
-\end_layout
-
-\begin_layout Itemize
-sets scroll off and increases window width
-\end_layout
-
-\begin_layout Itemize
-runs our program using 'epython' command
-\end_layout
-
-\begin_layout Itemize
-sends 'quit' to crash to exit
+passing to it the name of that script file
 \end_layout
 
 \begin_layout Subsubsection
@@ -1535,6 +1534,39 @@ Returns a list of integers (addresses).
 \end_layout
 
 \begin_layout Description
+getListSize - follow list pointers and return the number of elements
+\end_layout
+
+\begin_layout Code
+n = readList(start, offset, maxel)
+\end_layout
+
+\begin_layout Standard
+Works similar to the previous function, but is implemented in C (so is faster)
+ and does not have default values for 
+\series bold
+offset
+\series default
+ and 
+\series bold
+maxel
+\series default
+.
+ It makes sense to use this function if you need just a number of structures
+ in the list, not addresses of each structure.
+ It is OK to use 
+\series bold
+readList
+\series default
+ to get a list of addresses and then use len(ptrlist).
+ But if a list is huge (>1,000,000 elements), 
+\series bold
+getListSize
+\series default
+ will be 3-10 times faster.
+\end_layout
+
+\begin_layout Description
 readStructNext - traverse a list of structs connected by 'next' pointer
 \end_layout
 
@@ -1641,6 +1673,46 @@ Returns a String object (may contain any bytes including NULLs).
  If you use this without C-extension loaded, you can read only 'KVADDR'
  memory (this is what is needed in 99% of all cases).
  If C-extension is loaded, you can specify UVADDR and PHYSADR too
+\end_layout
+
+\begin_layout Description
+uvtop - convert virtual to physical
+\end_layout
+
+\begin_layout Code
+physaddr = uvtop(tskaddr, vaddr)
+\end_layout
+
+\begin_layout Standard
+where 
+\series bold
+tskaddr 
+\series default
+is an integer holding process's 'struct task_addr' address and 
+\series bold
+vaddr 
+\series default
+is a virtual memory address (such as seen by this process)
+\end_layout
+
+\begin_layout Description
+readProcessMem - read a given number of bytes from process's userspace memory
+\end_layout
+
+\begin_layout Code
+mem = readProcessMem(taskaddr, uvaddr, bytes)
+\end_layout
+
+\begin_layout Standard
+where 
+\series bold
+tskaddr
+\series default
+ is an integer holding process's 'struct task_addr' address and 
+\series bold
+uvaddr
+\series default
+ is a virtual memory address (such as seen by this process)
 \end_layout
 
 \begin_layout Subsection
@@ -2072,6 +2144,78 @@ TypeError
 crashError
 \emph default
  exception is raised.
+\end_layout
+
+\begin_layout Subsection
+Conversions And Bit Manipulation
+\end_layout
+
+\begin_layout Standard
+Python does not have a concept of unsigned integers and integer size.
+ Traditionally, there were two integer types - normal integers and long
+ integers.
+ The difference was that normal integers were fitting into platform-specific
+ native 'long int' type, and long integers were arbitrary-precision.
+ The two flavors of integer constants are differentiated by 'L' suffix:
+\end_layout
+
+\begin_layout Code
+>>> type (1L) <type 'long'> 
+\end_layout
+
+\begin_layout Code
+>>> type (1) <type 'int'> 
+\end_layout
+
+\begin_layout Standard
+In some cases kernel C-code relies on size or signed/unsigned specific behaviour.
+ This creates problems when we try to emulate C-code in Python, for example:
+\end_layout
+
+\begin_layout Code
+>>> print hex(~1)
+\end_layout
+
+\begin_layout Code
+-0x2 
+\end_layout
+
+\begin_layout Standard
+Is not quite what we expect.
+ You should be very attentive while porting to Python snippets of C-code
+ dealing with bitwise operations.
+\end_layout
+
+\begin_layout Description
+sLong - convert bits from a long number to 'signed long'
+\end_layout
+
+\begin_layout Code
+i = 0xffffffff
+\end_layout
+
+\begin_layout Code
+print i, sLong(i)
+\end_layout
+
+\begin_layout Code
+4294967295 -1 
+\end_layout
+
+\begin_layout Description
+FD_ISSET - emulate C macro
+\end_layout
+
+\begin_layout Code
+FD_ISSET(fd, set)
+\end_layout
+
+\begin_layout Standard
+emulates C-macro 
+\end_layout
+
+\begin_layout Code
+int FD_ISSET(int fd, fd_set *set);
 \end_layout
 
 \end_body

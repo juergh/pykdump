@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <07/07/12 17:08:45 alexs>
+  Time-stamp: <07/08/20 10:05:00 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -20,6 +20,7 @@
 #include <stdlib.h>
 
 #include "defs.h"    /* From the crash source top-level directory */
+#include <asm/byteorder.h>
 
 // for FD_ISSET
 #include <sys/select.h>
@@ -682,6 +683,8 @@ py_FD_ISSET(PyObject *self, PyObject *args) {
 
   return Py_BuildValue("i", FD_ISSET(fd, (fd_set *)str));
 }
+
+
 static PyObject *
 py_sLong(PyObject *self, PyObject *args) {
   void *p;
@@ -690,6 +693,26 @@ py_sLong(PyObject *self, PyObject *args) {
   PyObject *arg0 = PyTuple_GetItem(args, 0);
   val = PyLong_AsUnsignedLong(arg0);
   return nu_long((const char *) &val);
+}
+
+static PyObject *
+py_le32_to_cpu(PyObject *self, PyObject *args) {
+  void *p;
+  ulong val;
+
+  PyObject *arg0 = PyTuple_GetItem(args, 0);
+  val = PyLong_AsUnsignedLong(arg0);
+  return PyInt_FromLong(__le32_to_cpu(val));
+}
+
+static PyObject *
+py_cpu_to_le32(PyObject *self, PyObject *args) {
+  void *p;
+  ulong val;
+
+  PyObject *arg0 = PyTuple_GetItem(args, 0);
+  val = PyLong_AsUnsignedLong(arg0);
+  return PyInt_FromLong(__cpu_to_le32(val));
 }
 
   
@@ -728,6 +751,8 @@ static PyMethodDef crashMethods[] = {
   {"readmem", py_readmem, METH_VARARGS},
   {"readPtr", py_readPtr, METH_VARARGS},
   {"sLong", py_sLong, METH_VARARGS},
+  {"le32_to_cpu", py_le32_to_cpu, METH_VARARGS},
+  {"cpu_to_le32", py_le32_to_cpu, METH_VARARGS},
   {"getListSize", py_getlistsize, METH_VARARGS},
   {"getFullBuckets", py_getFullBuckets, METH_VARARGS},
   {"FD_ISSET", py_FD_ISSET, METH_VARARGS},

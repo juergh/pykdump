@@ -1,7 +1,7 @@
 #
 #  Code that does not depend on whether we use embedded API or PTY
 #
-# Time-stamp: <07/07/03 14:11:09 alexs>
+# Time-stamp: <07/08/20 09:26:50 alexs>
 #
 import string
 import pprint
@@ -9,6 +9,7 @@ import pprint
 import os
 import tempfile
 
+from StringIO import StringIO
 
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -98,6 +99,15 @@ class Bunch(dict):
         object.__setattr__(self, name, value)
     def copy(self):
         return Bunch(dict.copy(self))
+    def __str__(self):
+        prn = StringIO()
+        keys = self.keys()
+        keys.sort()
+        for k in keys:
+            print >> prn, "  ", k.ljust(12), self[k]
+        rc = prn.getvalue()
+        prn.close()
+        return rc
 
 # A class to manipulate field info easily. Initially it was a dictionary but
 # it should be easier to use attributes
