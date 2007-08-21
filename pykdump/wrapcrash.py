@@ -432,7 +432,7 @@ def _getString(fieldaddr, ni, s = None):
         return None
     else:
         s = readmem(ptr, 256)
-        return SmartString(s, fieldaddr)
+        return SmartString(s, fieldaddr, ptr)
 
 def _getCharArray(fieldaddr, ni, s = None):
     dim = ni.dim
@@ -445,7 +445,7 @@ def _getCharArray(fieldaddr, ni, s = None):
         # not NULL-terminated like String reprtype
         if (s == None):
             s = readmem(fieldaddr, sz)
-        val = SmartString(s, fieldaddr)
+        val = SmartString(s, fieldaddr, None)
 
     return val
 
@@ -584,13 +584,22 @@ class tPtr(long):
     Deref = property(getDeref)
 
 
-from UserString import UserString
-class SmartString(UserString):
-    def __init__(self, s, addr = None):
-        UserString.__init__(self, s.split('\0')[0])
-        self.addr = addr
-        self.fullstr = s
+#from UserString import UserString
+#class SmartString(UserString):
+    #def __init__(self, s, addr = None):
+        #UserString.__init__(self, s.split('\0')[0])
+        #self.addr = addr
+        #self.fullstr = s
 
+class SmartString(str):
+    def __new__(cls, s, addr, ptr):
+        return str.__new__(cls, s)
+    def __init__(self, s, addr, ptr):
+        self.addr = addr
+        self.ptr = ptr
+    def __long__(self):
+        return self.ptr
+    
 
 # Print the object delegating all work to GDB. At this moment can do this
 # for StructResult only

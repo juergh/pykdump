@@ -202,7 +202,7 @@ def statfs_Ext3(sbaddr):
     
     buf.f_files = le32_to_cpu(es.s_inodes_count)
     if (__count_func):
-	buf.f_free = ext3_count_free_inodes(sb)
+	buf.f_ffree = ext3_count_free_inodes(sb)
     else:
         buf.f_ffree = percpu_counter_sum(sbi.s_freeinodes_counter);
     return buf
@@ -260,7 +260,8 @@ def ext3_count_free_blocks(sb):
 def ext3_count_free_inodes(sb):
     if (__v_24):
         return le32_to_cpu(sb.u.ext3_sb.s_es.Deref.s_free_inodes_count)
-    desc_count = 0;
+    desc_count = 0
+    #print "s_groups_count=%d" % EXT3_SB(sb).s_groups_count
     for i in range(EXT3_SB(sb).s_groups_count):
 	gd = ext3_get_group_desc(sb, i)
 	desc_count += le16_to_cpu(gd.bg_free_inodes_count);
@@ -271,8 +272,8 @@ def ext3_get_group_desc(sb, block_group):
     if (block_group >= sbi.s_groups_count):
 	raise IndexError, "ext3_error"
 
-    group_desc = block_group / EXT3_DESC_PER_BLOCK(sb);
-    desc = block_group % EXT3_DESC_PER_BLOCK(sb);
+    group_desc = block_group / EXT3_DESC_PER_BLOCK(sb)
+    desc = block_group % EXT3_DESC_PER_BLOCK(sb)
     if (not sbi.s_group_desc[group_desc]):
 	raise IndexError, "ext3_error"
 
@@ -280,8 +281,10 @@ def ext3_get_group_desc(sb, block_group):
     ael = sbi.s_group_desc[group_desc]
     #print "group_desc=", group_desc, " ael=", repr(ael)
     #gdp = Addr(Deref(sbi.s_group_desc[group_desc]).b_data)
+    #print "group_desc=%d" % group_desc
     gdp = readSU("struct buffer_head", sbi.s_group_desc[group_desc]).b_data
-    gdp = Addr(gdp)
+    gdp = gdp.ptr
+    #print "  ", repr(sbi.s_group_desc[group_desc]), hexl(gdp)
     #print repr(gdp), 'desc=', desc
     etype = "struct ext3_group_desc"
     sz = struct_size(etype)
@@ -299,7 +302,8 @@ def showExt3():
         print s
 
 # Tests to understand what is the kernel we are running on
-if (not loadModule("ext3")):
+if (not struct_exists("struct ext3_super_block") and \
+        not loadModule("ext3")):
     print "Cannot load a debuggable ext3.ko"
 
 if (member_size("struct super_block", "s_fs_info") == -1):
