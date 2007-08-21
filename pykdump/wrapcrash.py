@@ -584,16 +584,9 @@ class tPtr(long):
     Deref = property(getDeref)
 
 
-#from UserString import UserString
-#class SmartString(UserString):
-    #def __init__(self, s, addr = None):
-        #UserString.__init__(self, s.split('\0')[0])
-        #self.addr = addr
-        #self.fullstr = s
-
 class SmartString(str):
     def __new__(cls, s, addr, ptr):
-        return str.__new__(cls, s)
+        return str.__new__(cls, s.split('\0')[0])
     def __init__(self, s, addr, ptr):
         self.addr = addr
         self.ptr = ptr
