@@ -1,6 +1,6 @@
 # module LinuxDump.fs.ext3
 #
-# Time-stamp: <07/08/20 10:37:57 alexs>
+# Time-stamp: <07/08/21 10:25:20 alexs>
 #
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -311,7 +311,14 @@ else:
     __v_24 = False
     # I am not sure about the following test, need to doublecheck
     if (sys_info.kernel >= "2.6.12"):
-	__count_func = True
-    else:
 	__count_func = False
+    else:
+	__count_func = True
+
+if (debug):
+    if (__v_24):
+        print "Using v2.4 way to compute EXT3 statfs"
+
+    if (__count_func):
+        print "Using functions to compute EXT3 statfs"
 
