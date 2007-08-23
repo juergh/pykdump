@@ -446,7 +446,7 @@ def decodeSock(sock):
 	family = sock.family
 	# For old kernels prot is NULL for AF_UNIX
 	try:
-	    protoname = sock.Deref.prot.name
+	    protoname = sock.prot.Deref.name
 	except IndexError:
 	    protoname = "UNIX"
 	sktype = sock.type

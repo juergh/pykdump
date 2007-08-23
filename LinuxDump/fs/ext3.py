@@ -162,7 +162,7 @@ def statfs_Ext3(sbaddr):
 
     # Here we use the same variable names as in C ext3_statfs
     sbi = EXT3_SB(sb)
-    es = sbi.Deref.s_es
+    es = Deref(sbi.s_es)
     
     if (debug):
 	print sbi, es
@@ -189,6 +189,8 @@ def statfs_Ext3(sbaddr):
     
     s_r_blocks_count = le32_to_cpu(es.s_r_blocks_count)
     f_blocks = le32_to_cpu(es.s_blocks_count) - overhead
+    if (debug):
+	print "blocks_count=%d overhead=%d" %(s_r_blocks_count, overhead)
 
     block_size = (sbi.s_frag_size * sbi.s_frags_per_block)/1024
     buf.f_bsize = sb.s_blocksize
@@ -238,7 +240,7 @@ def EXT3_SB(sb):
         return readSU("struct ext3_sb_info", ptr)
 
 def EXT3_HAS_RO_COMPAT_FEATURE(sb,mask):
-    return (EXT3_SB(sb).Deref.s_es.s_feature_ro_compat & cpu_to_le32(mask))
+    return (EXT3_SB(sb).s_es.Deref.s_feature_ro_compat & cpu_to_le32(mask))
 
 def ext3_bg_num_gdb(sb, group):
     if (EXT3_HAS_RO_COMPAT_FEATURE(sb,EXT3_FEATURE_RO_COMPAT_SPARSE_SUPER) \

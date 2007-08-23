@@ -547,12 +547,18 @@ def Addr(obj, extra = None):
 def Deref(obj):
     if (isinstance(obj, tPtr)):
         addr = long(obj)
-        dpt = obj.ptype.Deref()
+	if (addr == 0):
+	    msg = "\nNULL pointer %s" % repr(obj)
+            raise IndexError, msg
+	ptype = obj.ptype
+	# Optimization fpr "SUptr"
+	if (ptype.smarttype == "SUptr"):
+	    return readSU(ptype.basetype, addr)
+
+        dpt = ptype.Deref()
         # OK, now we either have another pointer or SU itself
         if (dpt.smarttype == "SU"):
             return readSU(dpt.basetype, addr)
-        elif (dpt.smarttype == "SUptr"):
-            raise "AttributeError", obj.ptype
         elif (dpt.smarttype in ("Ptr", "SUptr")):
             return tPtr(readPtr(addr), dpt)
         else:
