@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/07/25 13:41:18 alexs>
+# Time-stamp: <07/08/23 16:08:06 alexs>
 
 # Tasks and Pids
 
@@ -118,10 +118,10 @@ class Task:
 	out = []
 	task = self
 	if (task.files):
-	    files = task.Deref.files
+	    files = Deref(task.files)
 	    try:
 		# 2.6
-		fdt = files.Deref.fdt
+		fdt = Deref(files.fdt)
 		fd = fdt.fd
 		max_fds = fdt.max_fds
 		open_fds = fdt.open_fds
@@ -146,10 +146,10 @@ class Task:
 		    sfile = readSU("struct file", filep)
 		    # On 2.6.20 f_dentry is really f_path.dentry
 		    try:
-			dentry = sfile.Deref.f_dentry
+			dentry = Deref(sfile.f_dentry)
 		    except KeyError:
-			dentry = sfile.f_path.Deref.dentry
-		    inode = dentry.Deref.d_inode
+			dentry = Deref(sfile.f_path.dentry)
+		    inode = Deref(dentry.d_inode)
 		    out.append((i, filep, dentry, inode))
 	return out
 

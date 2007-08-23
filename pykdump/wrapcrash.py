@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/08/20 10:05:51 alexs>
+# Time-stamp: <07/08/23 16:20:54 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -244,7 +244,7 @@ count_cached_attr = 0
 count_total_attr = 0
 class StructResult(object):
     _cache_access = {}
-    PYT_deref = "Deref"
+    PYT_deref = "badDeref"
     def __init__(self, sname, addr, data = None):
         # If addr is symbolic, convert it to real addr
         if (type(addr) == types.StringType):
@@ -551,6 +551,8 @@ def Deref(obj):
         # OK, now we either have another pointer or SU itself
         if (dpt.smarttype == "SU"):
             return readSU(dpt.basetype, addr)
+        elif (dpt.smarttype == "SUptr"):
+            raise "AttributeError", obj.ptype
         elif (dpt.smarttype in ("Ptr", "SUptr")):
             return tPtr(readPtr(addr), dpt)
         else:
@@ -565,7 +567,14 @@ class tPtr(long):
     def __new__(cls, l, ptype):
         return long.__new__(cls, l)
     def __init__(self, l, ptype):
-        self.ptype = ptype
+        # If ptype is a string, treat it as typename and assume we
+        # want to declare a pointer to this type
+        if (type(ptype) == type("")):
+            # This is a hack, please reimplement
+            self.ptype = whatis(ptype, ptype + " dummy;")
+            self.ptype.typedef = False
+        else:
+            self.ptype = ptype
     # For pointers, index access is equivalent to pointer arithmetic
     def __getitem__(self, i):
         dpt = self.ptype.Deref()
@@ -590,6 +599,7 @@ class SmartString(str):
     def __init__(self, s, addr, ptr):
         self.addr = addr
         self.ptr = ptr
+        self.fullstr = s
     def __long__(self):
         return self.ptr
     

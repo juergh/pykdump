@@ -1,6 +1,6 @@
 # module LinuxDump.inet.proto
 #
-# Time-stamp: <07/03/29 14:50:26 alexs>
+# Time-stamp: <07/08/23 16:22:06 alexs>
 #
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -172,7 +172,7 @@ class IP_sock(object):
                 elif (self.state == tcpState.TCP_LISTEN):
                     self.sk_max_ack_backlog = s.max_ack_backlog
                     self.sk_ack_backlog = s.ack_backlog
-		    self.l_opt= s.tp_pinfo.af_tcp.Deref.listen_opt
+		    self.l_opt= Deref(s.tp_pinfo.af_tcp.listen_opt)
             elif (self.protocol == 17): # UDP
                 self.uopt = s.tp_pinfo.af_udp
             elif (self.sktype == sockTypes.SOCK_RAW): # RAW (mostly ICMP)
@@ -199,7 +199,7 @@ class IP_sock(object):
                 self.dst = sp.daddr
                 self.dport = ntohs(sp.dport)
             elif (family == P_FAMILIES.PF_INET6):
-                pinet6 = s.Deref.pinet6
+                pinet6 = Deref(s.pinet6)
                 v =  pinet6.rcv_saddr.in6_u
                 self.src = pinet6.rcv_saddr.in6_u.u6_addr32
                 self.dst = pinet6.daddr.in6_u.u6_addr32
@@ -237,10 +237,10 @@ class IP_sock(object):
 		    if (struct_exists("inet_connection_sock")):
 			csk = o.castTo("inet_connection_sock")
 			accept_queue = csk.icsk_accept_queue
-			l_opt = accept_queue.Deref.listen_opt
+			l_opt = Deref(accept_queue.listen_opt)
 		    else:
 		        tcpsk = o.tcp
-		        l_opt = tcpsk.Deref.listen_opt
+		        l_opt = Deref(tcpsk.listen_opt)
                     self.sk_max_ack_backlog = sk.sk_max_ack_backlog
                     self.sk_ack_backlog = sk.sk_ack_backlog
 		    self.l_opt = l_opt
@@ -364,7 +364,7 @@ class IP_conn_tw(IP_sock):
             skc = iw.__tw_common
             self.state = skc.skc_state
             self.family = skc.skc_family
-            prot = skc.Deref.skc_prot
+            prot = Deref(skc.skc_prot)
             if (self.family == P_FAMILIES.PF_INET6):
                 # On 2.6.17 we have a generic inet6_timewait_sock, but on
                 # 2.6.15 we have tcp6_timewait_sock
@@ -454,10 +454,10 @@ def decodeSock(sock):
 	skcomm = sock.__sk_common
 	family = skcomm.skc_family
 	try:
-	    protoname =  skcomm.Deref.skc_prot.name
+	    protoname =  skcomm.skc_prot.Deref.name
 	except KeyError:
 	    try:
-		protoname = sock.Deref.sk_prot.name
+		protoname = sock.sk_prot.Deref.name
 	    except IndexError:
 		protoname= '???'
 	sktype = sock.sk_type
@@ -838,7 +838,7 @@ def get_AF_UNIX(details=False):
                         vfs_inode = readSU("struct inode", vfs_inode_addr)
                         ino = vfs_inode.i_ino
                         if (s.addr):
-                            uaddr = s.Deref.addr
+                            uaddr = Deref(s.addr)
                             path =  uaddr.name.sun_path
                             if (uaddr.hash != UNIX_HASH_SIZE):
                                 # ABSTRACT
