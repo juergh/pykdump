@@ -1,6 +1,6 @@
 # module LinuxDump.inet.routing
 #
-# Time-stamp: <07/08/02 10:50:09 alexs>
+# Time-stamp: <07/08/24 16:49:30 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -95,7 +95,7 @@ def print_rt_hash():
             fl4_dst = readU32(addrfl + nl_u_off)
             fl4_src = readU32(addrfl + nl_u_off + 4)
 
-            print dst.Deref.dev.name.ljust(5), \
+            print dst.dev.Deref.name.ljust(5), \
                   ntodots(r.rt_src).ljust(16), \
                   ntodots(r.rt_dst).ljust(16),\
                   ntodots(fl4_src).ljust(16), \
@@ -206,7 +206,7 @@ def get_fib_v26():
                         fi = readSU("struct fib_info", fa_info)
                         # Here, at last we have fib_info available
                         if (fi.fib_nh.nh_dev):
-                            b.dev = fi.fib_nh.Deref.nh_dev.name
+                            b.dev = fi.fib_nh.nh_dev.Deref.name
                         else:
                             b.dev = '*'
                         b.gw = fi.fib_nh.nh_gw
@@ -259,10 +259,10 @@ def get_fib_v24():
                 f = readSU("struct fib_node", a)
                 prefix = f.fn_key.datum
                 #print '-'*20
-                fi = f.Deref.fn_info
+                fi = Deref(f.fn_info)
                 # Here, at last we have fib_info available
                 if (fi.fib_nh.nh_dev):
-                    b.dev = fi.fib_nh.Deref.nh_dev.name
+                    b.dev = fi.fib_nh.nh_dev.Deref.name
                 else:
                     b.dev = '*'
                 b.gw = fi.fib_nh.nh_gw

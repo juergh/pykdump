@@ -1,7 +1,7 @@
 #
 #  Code that does not depend on whether we use embedded API or PTY
 #
-# Time-stamp: <07/08/24 16:21:01 alexs>
+# Time-stamp: <07/08/24 16:43:25 alexs>
 #
 import string
 import pprint
@@ -113,30 +113,29 @@ class Bunch(dict):
 # it should be easier to use attributes
 
 class FieldInfo(dict):
-    deref_cache = {}
-    mincopy_cache = {}
     def __init__(self, d = {}):
         object.__setattr__(self, 'mutable', True)
         self.parentstype = None
         dict.__init__(self, d)
         self.__dict__.update(d)
-    def __setattr__(self, name, value):
-        if (self.mutable):
-            object.__setattr__(self, name, value)
+    def __attr_check(self, attr):
+        if (self.mutable or attr == 'deref'):
+            return
         else:
             raise AttributeError( "this instance is immutable")
+    def __setattr__(self, name, value):
+        self.__attr_check(name)
 
+        object.__setattr__(self, name, value)
         dict.__setitem__(self, name, value)
-        object.__setattr__(self, name, value) 
+        object.__setattr__(self, name, value)
     def __setitem__(self, name, value):
-        if (not self.mutable):
-            raise AttributeError( "this instance is immutable")
+        self.__attr_check(name)
 
         dict.__setitem__(self, name, value)
         object.__setattr__(self, name, value)
     def __delattr__(self, name):
-        if (not self.mutable):
-            raise AttributeError( "this instance is immutable")
+        self.__attr_check(name)
         
         dict.__delitem__(self, name)
         object.__delattr__(self, name)
@@ -156,10 +155,6 @@ class FieldInfo(dict):
     # If self desribes a pointer, Deref returns
     # a new FieldInfo which describes a dereferenced pointer
     def Deref(self):
-	try:
-	    return FieldInfo.deref_cache[id(self)]
-	except KeyError:
-	    pass
         try:
             star = self.star
         except AttributeError:
@@ -177,7 +172,6 @@ class FieldInfo(dict):
         dummy = nf.smarttype
         nf.mutable = False
              
-	#FieldInfo.deref_cache[id(self)] = nf
         return nf
 
     # Dimension. For multidim arrays a total size, i.e. i1*i2*...*in
@@ -255,6 +249,7 @@ class FieldInfo(dict):
     dim = LazyEval("dim", getDim)
     indices = LazyEval("indices", getIndices)
     mincopy = LazyEval("mincopy", getMinCopy)
+    deref = LazyEval("deref", Deref)
 
 
 

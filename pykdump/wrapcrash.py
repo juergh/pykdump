@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/08/24 16:16:39 alexs>
+# Time-stamp: <07/08/24 16:46:01 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -556,7 +556,7 @@ def Deref(obj):
 	if (ptype.smarttype == "SUptr"):
 	    return readSU(ptype.basetype, addr)
 
-        dpt = ptype.Deref()
+        dpt = ptype.deref
         # OK, now we either have another pointer or SU itself
         if (dpt.smarttype == "SU"):
             return readSU(dpt.basetype, addr)
@@ -584,7 +584,7 @@ class tPtr(long):
             self.ptype = ptype
     # For pointers, index access is equivalent to pointer arithmetic
     def __getitem__(self, i):
-        dpt = self.ptype.Deref()
+        dpt = self.ptype.deref
         smarttype = dpt.smarttype
         if (smarttype == "SU"):
             sz = sizeof(dpt.basetype)
@@ -713,7 +713,7 @@ def readStructNext(shead, nextname):
         if (shead == 0):
             return []
         else:
-            shead = shead.Deref
+            shead = Deref(shead)
     stype = shead.PYT_symbol
     offset = shead.PYT_sinfo[nextname].offset
     out = []
