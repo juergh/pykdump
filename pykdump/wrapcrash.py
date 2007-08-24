@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/08/24 16:46:01 alexs>
+# Time-stamp: <07/08/24 17:13:32 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -244,7 +244,7 @@ count_cached_attr = 0
 count_total_attr = 0
 class StructResult(object):
     _cache_access = {}
-    PYT_deref = "badDeref"
+    PYT_deref = "Deref"
     def __init__(self, sname, addr, data = None):
         # If addr is symbolic, convert it to real addr
         if (type(addr) == types.StringType):

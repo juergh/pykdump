@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/08/01 12:20:09 alexs>
+# Time-stamp: <07/08/24 17:11:57 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -340,7 +340,7 @@ def print_dev_pack():
 
             if (pfunc == 'packet_rcv' or pfunc == 'packet_rcv_spkt'):
                 sock = readSU("struct sock", pt.af_packet_priv)
-                socket = sock.Deref.sk_socket
+                socket = Deref(sock.sk_socket)
                 filep = socket.file
                 for t in tt.getByFile(filep):
                     print "\t    pid=%d, command=%s" %(t.pid, t.comm)
