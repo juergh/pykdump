@@ -1,6 +1,6 @@
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <07/07/05 15:47:44 alexs>
+# Time-stamp: <07/08/24 16:56:48 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -326,7 +326,7 @@ def tg3_get_stats(priv):
     if (debug):
         print "hw_stats=0x%x" % tg3.hw_stats
     try:
-        hw_stats = tg3.Deref.hw_stats
+        hw_stats = Deref(tg3.hw_stats)
     except:
 	delModule("tg3")
         return old_stats
@@ -485,7 +485,8 @@ def print_If(dev, details):
     # Get the list of inet6-devices and put into a dict
     if6devs = {}
     for ifa in get_inet6_ifaddr():
-        name = ifa.Deref.idev.Deref.dev.name
+        print repr(ifa)
+        name = ifa.idev.Deref.dev.Deref.name
         if6devs.setdefault(name, []).append(ifa)
 
     devname = dev.name
@@ -543,7 +544,7 @@ def print_If(dev, details):
 
     # Bonding info
     try:
-        master = dev.Deref.master
+        master = Deref(dev.master)
         print "    master=%s" % master.name
     except IndexError:
         pass
@@ -562,7 +563,7 @@ def print_If(dev, details):
             print "    \ttrans_start %7.2f s ago" % \
                   ((jiffies - trans_start)/HZ)
     getStats(dev)
-    printQdisc(dev.Deref.qdisc)
+    printQdisc(Deref(dev.qdisc))
    
 def print_Ifs(IF):
     for a in readList(dev_base, offset):
