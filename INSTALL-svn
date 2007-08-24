@@ -1,0 +1,142 @@
+How to install from subversion repository
+-----------------------------------------
+
+1. Before doing anything else, obtain and compile from sources a recent
+version of 'crash'. See INSTALL for details
+
+
+2. Retrieve sources from SourceForge SVN repository:
+
+$ svn svn co http://pykdump.svn.sourceforge.net/svnroot/pykdump/trunk pykdump
+
+This will create in your current directory pykdump/ tree. In the future,
+you can receive updates just by running in this directory
+
+$ svn up
+
+this will update all subdirectories
+
+
+3. To facilitate the development process, directory has symlinks that
+make it possible to edit/run programs without installing them globally.
+
+Here is layout of the top project directory:
+
+docs/		- documentation in LYX format
+
+Extension/	- C-extension
+
+html/		- HTML-documentation (not in SVN, generated from LYX)
+LinuxDump/	- Python sources describing Linux kernel structures
+progs/		- programs that can be run by user
+pykdump/	- Python sources implementing general framework
+
+
+4. Please install PyParsing Python module if you don't have it on your
+host yet (see INSTALL)
+
+5. Compile C-extension by going to Extension/ directory, editing Makefile
+to match your location of 'crash' sourced (needed for headers)
+
+6. Let us assume that you have unpacked the sources in /home/alexs/tools
+directory. In this case the extension library will be
+
+/home/alexs/tools/pykdump/Extension/pykdump32.so
+
+(if you have compiled it on a 32-bit system)
+
+You can load it manually from crash like that:
+
+a) start crash in a usual way, e.g.
+  $ crash32 vmlinux-2.4.21-40.ELhugemem vmcore
+
+b) load the extension
+
+crash32> extend /home/alexs/tools/pykdump/Extension/pykdump32.so
+/home/alexs/tools/pykdump/Extension/pykdump32.so: shared object loaded
+
+If you don't want to do this every time, specify extend command in .crashrc
+file. Please note that the name of the file used depend on your 'crash'
+executable name. For example, if you have installed a new version 'crash' as
+
+/usr/local/bin/crashnew
+
+the name of the file will be ~/.crashnewrc
+
+Here is the contents of ~/.crash32rc on my dump host:
+
+--------------- ~/.crash32rc-------------------
+# crash tool options
+set emacs
+extend /usr/local/lib/pykdump32.so
+-----------------------------------------------
+
+
+7. If you hav reached this step, you can start running programs on real
+dumps. An example (I am running the program directly from my development
+tree):
+
+{alexs 10:18:58} cd /Dumps/Linux/IO
+{alexs 10:19:06} ~/tools/pykdump/progs/xportshow.py --summary
+crash32 System.map-2.6.9-42.ELhugemem vmlinux-2.6.9-42.ELhugemem vmcore
+Starting crash...
+~~~~~~~~~~~~~~ /Dumps/Linux/IO/vmcore  (2.6.9-42.0.8.ELhugemem) ~~~~~~~~~~~~~~
+...
+
+
+For conevenience, you might create symlinks for programs and they will still
+work fine. For example:
+
+{root 10:22:30} ln -s ~alexs/tools/pykdump/progs/xportshow.py \
+	/usr/local/bin/newxportshow
+{root 10:22:37} newxportshow --stat
+crash64 /boot/System.map-2.6.20-16-generic /boot/vmlinux-dbg-2.6.20-16-generic --memory_module=crash
+Starting crash...crash64: using pre-loaded "crash" module
+...
+
+
+8. Installing for production purposes.
+
+Instead of making symlinks directly from SVN tree, you may prefer to do the
+'real' installation - install Python packages to the system-wide location.
+
+Typically additional Python packages are installed to your 'site-packages'
+directory, e.g. /usr/lib/python2.5/site-packages
+
+To install them in this way do the following as 'root'
+
+In the top Pykdump directory (this will install to site-packages/pykdump)
+# cd ~/pykdump
+# python setup.py install
+
+
+In the progs/ subdirectory (this will install to site-packages/LinuxDump)
+# cd ./progs
+# python setup.py install
+
+
+
+Copy pykdump32.so to /usr/local/lib, e.g.
+
+# cp Extension/pykdump32.so /usr/local/lib
+
+
+Copy programs of interest from progs/ to /usr/local/bin
+At this moment two programs are mature enough for general usage:
+xportshow.py and crashinfo.py
+
+I usually strip '.py' suffix while copying them to /usr/local/bin , e.g.
+
+# cp progs/xportshow.py /usr/local/bin/xportshow
+
+
+This lets me to have a 'reference' version of a program and a 'development'
+version of a program. This is mainly useful when doing changes to the general
+framework (e.g. we want to improve the performance by using a different
+algorithm). Then to test whether our improvements do not lead to incorrect
+results we can do:
+
+$ xportshow ... >old
+$ xportshow.py ... >new
+$ diff old new
+

@@ -9,7 +9,7 @@ Before doing anything else, please install the following components:
 1. CRASH can be obtained from http://people.redhat.com/anderson
 2. Python programming language with runtime libraries, http://www.python.org
 3. PyParsing module, http://pyparsing.wikispaces.com/
-4. Pexpect, a Pure Python Expect-like module, http://pexpect.sourceforge.net/
+
 
 All these tools have licenses compatible with GPL and can be downloaded from
 sites referenced above. They are usually included in Linux distributions so
@@ -54,8 +54,8 @@ with Python-2.4 and Python-2.4; it may not work with eaelier versions of Python
 (some library functions can be missing). If needed, you can always compile
 Python froms sources yourself.
 
-Installing Pexpect and Pyparsing
---------------------------------
+Installing Pyparsing
+--------------------
 
 On Ubuntu/Edgy these packages are already available. Otherwise, you can
 download them and install following the instructions. Basically, after

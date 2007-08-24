@@ -11,7 +11,11 @@ Bugs fixed, some new features added:
   FD_ISSET and sLong to manipulate bits, getListSize to get the size of the
   linked list without returning its elements
 - we determine HZ by consulting crash's machdep structure
-- 
+- added global options to specify sysmap/vmlinux/vmcore manually:
+   --vmcore=myvmcore
+   --vmlinux /tmp/vmlinux
+
+  (options are separated from arguments either with space or = sign)
 
 
 What's new in version 0.2?
