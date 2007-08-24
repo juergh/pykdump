@@ -1,7 +1,7 @@
 #
 #  Code that does not depend on whether we use embedded API or PTY
 #
-# Time-stamp: <07/08/24 16:16:17 alexs>
+# Time-stamp: <07/08/24 16:21:01 alexs>
 #
 import string
 import pprint
@@ -149,6 +149,7 @@ class FieldInfo(dict):
         newdict['typedef'] = self.typedef
         newdict['star'] = self.star
         nf = FieldInfo(newdict)
+        dummy = nf.smarttype
         nf.mutable = False
         return nf
     
