@@ -10,5 +10,5 @@ setup(name='LinuxDump',
       url='http://sourceforge.net/projects/pykdump/',
       license='GPL',
       #package_dir = {'': '..'},
-      packages=['LinuxDump', 'LinuxDump.inet'],
+      packages=['LinuxDump', 'LinuxDump.inet', 'LinuxDump.fs'],
      )
