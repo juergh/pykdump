@@ -347,7 +347,7 @@ def findDumpFiles(dir):
 	    # We don't need this for IA64
 	    if (os.uname()[-1] == 'ia64'):
 		dumpfile = ''
-    return (mapfile, namelist, dumpfile)
+    return [mapfile, namelist, dumpfile]
 
 # For fbase specified as 'nfsd' find all files like nfds.o, nfsd.ko,
 # nfsd.o.debug and nfsd.ko.debug that are present in a given directory
@@ -547,6 +547,22 @@ def __cmdlineOptions():
               action="store", default=None,
               help="Specify the name of the 'crash' executable")
 
+    op.add_option("--vmcore", dest="vmcore",
+              action="store", type="string",
+              help="Specify vmcore explicitly")
+
+    op.add_option("--vmlinux", dest="vmlinux",
+              action="store", type="string",
+              help="Specify vmlinux explicitly")
+
+    op.add_option("--sysmap", dest="sysmap",
+              action="store", type="string",
+              help="Specify vmcore explicitly")
+    
+    op.add_option("--pythonso", dest="pythonso",
+              action="store", type="string",
+              help="Specify pythonso pathname")
+
     op.add_option("--nopsyco", dest="nopsyco", default=0,
               action="store_true",
               help="disable Psyco even if it available")
@@ -605,14 +621,25 @@ def __cmdlineOptions():
     # --------------------------------------------------------------------
     
     #print args
+    # findDumpFiles returns (sysmap, vmlinux, vmcore)
+    # if it is unable to find them, it returns empty strings
     if (len(args) ==  1):
         files = findDumpFiles(args[0])
     else:
         files = findDumpFiles('')
+    # Check whether we used options to override filenames manually
+    if (o.sysmap):
+	files[0] = o.sysmap
+    if (o.vmlinux):
+	files[1] = o.vmlinux
+    if (o.vmcore):
+	files[2] = o.vmcore
+
     if (files[1]):
         cmd = string.join(files)
     else:
-        print "Cannot find dump in the specified directory"
+	
+	print "Cannot find dump in the specified directory"
         sys.exit(1)
         
     if (crashex == None):
@@ -645,6 +672,12 @@ def __cmdlineOptions():
 
     # epython cmd
     ecmd = "epython " + string.join(filtered_argv)
+    
+    if (o.pythonso):
+	pythonso = o.pythonso
+    if (not pythonso):
+	print "Cannot find an extension"
+	sys.exit(1)
 
     if (sys.stdout.isatty()):
         print "Starting crash...",

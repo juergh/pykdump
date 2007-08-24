@@ -786,7 +786,7 @@ def get_AF_UNIX(details=False):
                     sk_socket = s.socket
                     if (socket):
                         #sk->socket->inode->i_ino
-                        ino = s.Deref.socket.Deref.inode.i_ino
+                        ino = s.socket.Deref.inode.Deref.i_ino
                     else:
                         ino = 0
                     addr = s.protinfo.af_unix.addr

@@ -209,7 +209,7 @@ def check_runqueues():
     for cpu, rq in enumerate(getRunQueues()):
 	RT_count = 0
 	# Print Active
-	active = rq.Deref.active
+	active = Deref(rq.active)
 	if (not quiet):
 	   print ' ---- CPU#%d ---  %s' % (cpu, str(rq))
 	#print active
