@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/08/23 16:20:54 alexs>
+# Time-stamp: <07/08/24 16:16:39 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -302,6 +302,8 @@ class StructResult(object):
         if (name == StructResult.PYT_deref):
             return Dereference(self)
 
+        # 'ni' object should be the same for all StructResults with
+        # the same SU
         ni = self.PYT_sinfo[name]
         off = ni.offset
         sz = ni.size
@@ -413,8 +415,7 @@ def _getInt(fieldaddr, ni, s = None):
             sz1 = sz/dim
             # We should strip dim/array information for 1-dim arrays
 	    # But what if we have a multidimensional array?
-            nf = ni.mincopy()
-            nf.star = ni.star
+            nf = ni.mincopy
             for i in range(dim):
                 val.append(tPtr(mem2long(s[i*sz1:(i+1)*sz1]), nf))
     else:
@@ -827,8 +828,7 @@ def readSymbol(symbol, art = None):
             return SUArray(stype, addr)
 	elif (swtype == "SUptr" or swtype ==  "Ptr"):
 	    # We don't want to preserve dim=0 information
-	    nf = symi.mincopy()
-	    nf.star = symi.star
+	    nf = symi.mincopy
 	    #print "SYMI:", symi
 	    #print "NF:", nf
  	    return tPtrDimensionlessArray(nf, addr)

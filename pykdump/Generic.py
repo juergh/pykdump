@@ -1,7 +1,7 @@
 #
 #  Code that does not depend on whether we use embedded API or PTY
 #
-# Time-stamp: <07/08/20 09:26:50 alexs>
+# Time-stamp: <07/08/24 16:16:17 alexs>
 #
 import string
 import pprint
@@ -114,27 +114,42 @@ class Bunch(dict):
 
 class FieldInfo(dict):
     deref_cache = {}
+    mincopy_cache = {}
     def __init__(self, d = {}):
+        object.__setattr__(self, 'mutable', True)
         self.parentstype = None
         dict.__init__(self, d)
         self.__dict__.update(d)
     def __setattr__(self, name, value):
+        if (self.mutable):
+            object.__setattr__(self, name, value)
+        else:
+            raise AttributeError( "this instance is immutable")
+
         dict.__setitem__(self, name, value)
         object.__setattr__(self, name, value) 
     def __setitem__(self, name, value):
+        if (not self.mutable):
+            raise AttributeError( "this instance is immutable")
+
         dict.__setitem__(self, name, value)
         object.__setattr__(self, name, value)
     def __delattr__(self, name):
+        if (not self.mutable):
+            raise AttributeError( "this instance is immutable")
+        
         dict.__delitem__(self, name)
         object.__delattr__(self, name)
     def copy(self):
         return FieldInfo(dict.copy(self))
     # A minimal copy - to be used in tPtr
-    def mincopy(self):
+    def getMinCopy(self):
         newdict ={}
         newdict['type'] = self.type
         newdict['typedef'] = self.typedef
+        newdict['star'] = self.star
         nf = FieldInfo(newdict)
+        nf.mutable = False
         return nf
     
     # If self desribes a pointer, Deref returns
@@ -150,10 +165,17 @@ class FieldInfo(dict):
             raise TypeError, "Cannot dereference non-pointers"
         if (self.dim != 1):
             raise TypeError, "Cannot dereference arrays"
-        nf = self.mincopy()
         newstar = star[1:]
+
+        newdict ={}
+        newdict['type'] = self.type
+        newdict['typedef'] = self.typedef
         if (newstar):
-            nf.star = newstar
+            newdict['star'] = newstar
+        nf = FieldInfo(newdict)
+        dummy = nf.smarttype
+        nf.mutable = False
+             
 	#FieldInfo.deref_cache[id(self)] = nf
         return nf
 
@@ -231,6 +253,7 @@ class FieldInfo(dict):
     cstmt = LazyEval("cstmt", getCstmt)
     dim = LazyEval("dim", getDim)
     indices = LazyEval("indices", getIndices)
+    mincopy = LazyEval("mincopy", getMinCopy)
 
 
 
