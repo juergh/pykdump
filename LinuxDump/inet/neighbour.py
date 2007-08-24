@@ -1,6 +1,6 @@
 # module LinuxDump.inet.neighbour
 #
-# Time-stamp: <07/04/18 11:11:06 alexs>
+# Time-stamp: <07/08/24 17:09:29 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -74,7 +74,7 @@ def print_neighbour_table(tbl):
                     ip = '???'
                     
                 nud_state = dbits2str(s.nud_state, NUD, 4)
-                dev = s.Deref.dev
+                dev = Deref(s.dev)
                 dev_type = dev.type
                 dev_addr_len = dev.addr_len
                 ha = s.ha
