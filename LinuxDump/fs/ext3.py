@@ -194,7 +194,6 @@ def statfs_Ext3(sbaddr):
 
     block_size = (sbi.s_frag_size * sbi.s_frags_per_block)/1024
     buf.f_bsize = sb.s_blocksize
-    buf.block_kbsize = block_size
 
     # We convert to 1k blocksize
 
@@ -299,9 +298,14 @@ def showExt3():
     for vfsmount, superblk, fstype, devname, mnt in getMount():
         if (fstype != 'ext3' or mnt[:5] == '/dev/'):
             continue
-        print "0x%x 0x%x %8s   %s" % (vfsmount, superblk, fstype, mnt)
+        print "\n0x%x 0x%x %8s   %s" % (vfsmount, superblk, fstype, mnt)
         s = statfs_Ext3(superblk)
-        print s
+	print "%10d    size of fs in 1KB blocks" % s.f_blocks
+        print "%10d    file system block size" % s.f_bsize
+	print "%10d    free blocks" % s.f_bfree
+	print "%10d    free blocks for non-root" % s.f_bavail
+	print "%10d    inodes" % s.f_files
+	print "%10d    free inodes" % s.f_ffree
 
 # Tests to understand what is the kernel we are running on
 if (not struct_exists("struct ext3_super_block") and \

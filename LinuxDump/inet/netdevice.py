@@ -485,7 +485,6 @@ def print_If(dev, details):
     # Get the list of inet6-devices and put into a dict
     if6devs = {}
     for ifa in get_inet6_ifaddr():
-        print repr(ifa)
         name = ifa.idev.Deref.dev.Deref.name
         if6devs.setdefault(name, []).append(ifa)
 

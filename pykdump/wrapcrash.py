@@ -210,8 +210,20 @@ class ArtUnionInfo(BaseStructInfo):
 
 # An auxiliary class to be used in StructResult to process dereferences
 
+# Warning: this is obsoleted and will go away sooner or later
+
+import inspect
 class Dereference:
+    __first = True
     def __init__(self, sr):
+	#raise AttributeError, "Dereference"
+	if (Dereference.__first):
+	    frame, fn, lineno, subr, stmts, sl = inspect.stack()[-2]
+	    print "!!!Warning: do not use Deref attribute for non-pointers"
+	    print "!!!  trying to use it for", sr
+	    print "!!!  at line %d of %s (%s)" % (lineno, fn, subr)
+	    print "!!!\t", stmts[sl]
+	    Dereference.__first = False
         self.sr = sr
     def __getattr__(self, f):
         # Get address from the struct.
@@ -606,9 +618,13 @@ class SmartString(str):
     def __init__(self, s, addr, ptr):
         self.addr = addr
         self.ptr = ptr
-        self.fullstr = s
+        self.__fullstr = s
     def __long__(self):
         return self.ptr
+    def __getslice__(  self, i, j):
+	return self.__fullstr.__getslice__(i, j)
+    def __getitem__(self, key):
+	return self.__fullstr.__getitem__(key)
     
 
 # Print the object delegating all work to GDB. At this moment can do this

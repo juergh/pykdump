@@ -761,8 +761,8 @@ def unix_sock():
             path =  uaddr.name.sun_path
             if (uaddr.hash != UNIX_HASH_SIZE):
                 # ABSTRACT
-                path = '@' + path.fullstr[1:]
-            print  path.split('\0')[0]
+                path = '@' + path[1:]
+            print  path
             #print  s.GDBderef("->addr->name->sun_path")
         else:
             print ''
@@ -842,7 +842,8 @@ def get_AF_UNIX(details=False):
                             path =  uaddr.name.sun_path
                             if (uaddr.hash != UNIX_HASH_SIZE):
                                 # ABSTRACT
-                                path = '@' + path.fullstr[1:]
+				path = '@' + path[1:]
+
                             path = path.split('\0')[0]
                         yield (s, state, ino, path)
                     else:
