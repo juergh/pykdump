@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/08/23 16:08:06 alexs>
+# Time-stamp: <07/08/27 14:25:29 alexs>
 
 # Tasks and Pids
 
@@ -245,7 +245,7 @@ class TaskTable:
     def getByFile(self, filep):
         if (len(self.filepids) == 0):
             for t in self.tt:
-                for fp in taskFds(t, True):
+                for fp in t.taskFds(True):
                     self.filepids.setdefault(fp, []).append(t)
 
         try:

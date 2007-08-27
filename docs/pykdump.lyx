@@ -1,16 +1,24 @@
-#LyX 1.4.3 created this file. For more info see http://www.lyx.org/
-\lyxformat 245
+#LyX 1.5.1 created this file. For more info see http://www.lyx.org/
+\lyxformat 276
 \begin_document
 \begin_header
 \textclass docbook
 \language english
 \inputencoding auto
-\fontscheme default
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_default_family default
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
 \graphics default
 \paperfontsize default
 \papersize default
 \use_geometry false
 \use_amsmath 0
+\use_esint 0
 \cite_engine basic
 \use_bibtopic false
 \paperorientation portrait
@@ -23,7 +31,8 @@
 \papersides 1
 \paperpagestyle default
 \tracking_changes false
-\output_changes true
+\output_changes false
+\author "" 
 \end_header
 
 \begin_body
@@ -38,6 +47,7 @@ Date
 
 \begin_layout Author
 \begin_inset CharStyle Firstname
+show_label true
 status inlined
 
 \begin_layout Standard
@@ -48,6 +58,7 @@ Alex
 
 
 \begin_inset CharStyle Surname
+show_label true
 status inlined
 
 \begin_layout Standard
@@ -75,7 +86,9 @@ Tutorial
 \begin_layout Standard
 If you have never used Python before, please read an excellent tutorial
  at 
-\begin_inset LatexCommand \url[http://docs.python.org/tut/tut.html]{http://docs.python.org/tut/tut.html}
+\begin_inset LatexCommand url
+name "http://docs.python.org/tut/tut.html"
+target "http://docs.python.org/tut/tut.html"
 
 \end_inset
 
@@ -455,7 +468,9 @@ To emulate the missing features we can define some attributes as special
  'Deref' name.
  Luckily, this is highly improbable for kernel structures.
  The "Linux Coding Style" document, 
-\begin_inset LatexCommand \url[Coding_Style]{http://www.llnl.gov/linux/slurm/coding_style.pdf}
+\begin_inset LatexCommand url
+name "Coding_Style"
+target "http://www.llnl.gov/linux/slurm/coding_style.pdf"
 
 \end_inset
 
@@ -546,7 +561,7 @@ We map all C integer types to Python native 'long integer' type and we map
  Pointers and arrays are normally represented by Python integers and lists.
  But in some cases we would like to preserve additional information while
  returning value so that we use classes instead of Python integers strings.
- Please note that you shoud not construct objects of this type yourself,
+ Please note that you usually do not construct objects of these type yourself,
  they will be initialized and returned as needed when using 
 \series bold
 \emph on
@@ -554,23 +569,48 @@ readSymbol
 \series default
 \emph default
  and similar functions.
- Two most important cases are:
+ Three most important cases are 
+\emph on
+StructResult
+\emph default
+ (to represent C structs/unions), 
+\emph on
+tPtr 
+\emph default
+(to represent pointers to different C-types) and 
+\emph on
+SmartString
+\emph default
+ (used for C char * pointers).
+ When you obtain these objects from 
+\series bold
+\emph on
+readSymbol
+\series default
+\emph default
+, they store internally additional useful information.
+ 
 \end_layout
 
 \begin_layout Subsubsection
-SmartString
+StructResult
 \end_layout
 
 \begin_layout Standard
-This type has already been described abover, in 
-\begin_inset Quotes eld
-\end_inset
+This type represents struct/union.
+ Operations that we can use:
+\end_layout
 
-Mapping C-structures To Python Objects
-\begin_inset Quotes erd
-\end_inset
+\begin_layout Code
+s = readSU("struct sock", addr)     # read from address addr
+\end_layout
 
- subsection.
+\begin_layout Code
+socket = s.socket                   # similar to C s.socket
+\end_layout
+
+\begin_layout Code
+addr = Addr(s)                      # similar to C &s
 \end_layout
 
 \begin_layout Subsubsection
@@ -615,12 +655,89 @@ i = long(t)
 We return this type when a global variable or struct member is defined as
  a pointer to struct.
  It contains internally both address and pointer type.
- You can dereference it using Deref atribute.
+ You can dereference it using Deref function atribute.
  For example:
 \end_layout
 
 \begin_layout Code
-shead = shead.Deref
+s = readSU("struct sock", addr)
+\end_layout
+
+\begin_layout Code
+#s.socket->inode->i_ino
+\end_layout
+
+\begin_layout Code
+ino = s.socket.Deref.inode.Deref.i_ino
+\end_layout
+
+\begin_layout Standard
+A few words about mapping between C-code as present in kernel and Python
+ code.
+ In C, we use pointers extensively.
+ While rewriting the same algorithm in Python, we can use both struct/unions
+ object (class StructResult) and pointers to them.
+ For example:
+\end_layout
+
+\begin_layout Code
+/* in C */
+\end_layout
+
+\begin_layout Code
+struct AAA *a;
+\end_layout
+
+\begin_layout Code
+int b = a->field1;
+\end_layout
+
+\begin_layout Code
+# In Python:
+\end_layout
+
+\begin_layout Code
+a = readSymbol(a)     # this returns tPtr
+\end_layout
+
+\begin_layout Code
+sa = Deref(a)         # this reads the structure itself
+\end_layout
+
+\begin_layout Code
+b = sa.b
+\end_layout
+
+\begin_layout Code
+#
+\end_layout
+
+\begin_layout Code
+# Or we can do like that
+\end_layout
+
+\begin_layout Code
+b = sa.Deref.b
+\end_layout
+
+\begin_layout Standard
+So we use 
+\emph on
+Deref(p)
+\emph default
+ to emulate 
+\emph on
+*p
+\emph default
+ operation, 
+\emph on
+p.Deref.attr
+\emph default
+ to emulate 
+\emph on
+p->attr
+\emph default
+ operation.
 \end_layout
 
 \begin_layout Standard
@@ -632,6 +749,89 @@ readSymbol
 \series default
 \emph default
  function (see below).
+\end_layout
+
+\begin_layout Subsubsection
+SmartString
+\end_layout
+
+\begin_layout Standard
+This type is used to represent variables and structure fields declared in
+ C as 'char *' or 'char []'.
+ This is a subclass of the standard Python string, with additional data
+ attached and some methods redefines.
+ In particular, we store the pointer value and address of the variable.
+ For example, if we have in kernel sources a variable declared like that:
+\end_layout
+
+\begin_layout Code
+char *testvar;
+\end_layout
+
+\begin_layout Standard
+and the first 7 bytes of it are 
+\begin_inset Quotes eld
+\end_inset
+
+abc
+\backslash
+0def
+\begin_inset Quotes erd
+\end_inset
+
+.
+ We'll be able to do the following in Python:
+\end_layout
+
+\begin_layout Code
+# Read the variable, return SmartString object
+\end_layout
+
+\begin_layout Code
+s = readSymbol("testvar")
+\end_layout
+
+\begin_layout Code
+# Print thes string using C NULL-terminated convention (i.e."abc")
+\end_layout
+
+\begin_layout Code
+print s
+\end_layout
+
+\begin_layout Code
+# print 2 chars after NULL
+\end_layout
+
+\begin_layout Code
+print s[4:6]
+\end_layout
+
+\begin_layout Code
+# Print the address of testvar (i.e.
+ &testvar)
+\end_layout
+
+\begin_layout Code
+print Addr(testvar)
+\end_layout
+
+\begin_layout Code
+# print the pointer value
+\end_layout
+
+\begin_layout Code
+print long(testvar)         # works in Python 2.4 and later
+\end_layout
+
+\begin_layout Code
+print testvar.ptr           # works in Python 2.3 and later
+\end_layout
+
+\begin_layout Standard
+By default, readSymbol() reads and stores just the first 256 chars.
+ If you need to read more, you can use the pointer value (retrieved as shown
+ above).
 \end_layout
 
 \begin_layout Section
@@ -774,6 +974,18 @@ You can pass a number of options that are consumed by API itself; if you
 
 \begin_layout Itemize
 --crash=crashcommandpath
+\end_layout
+
+\begin_layout Itemize
+--vmcore vmcorefile
+\end_layout
+
+\begin_layout Itemize
+--vmlinux vmlinuxfile
+\end_layout
+
+\begin_layout Itemize
+--sysmap sysmapfile
 \end_layout
 
 \begin_layout Itemize
