@@ -3,7 +3,7 @@
 # and its development packages installed properly, you only need to customize
 # the next line (CRASH sources location)
 
-CRASHSRCDIR := /src/kerntools/crash-4.0-3.19
+CRASHSRCDIR := /src/kerntools/crash-4.0-4.3
 
 PYTHON := python
 
@@ -13,12 +13,9 @@ INSTALL := /usr/bin/install
 DESTDIR := /usr/local/lib
 DIRMODE= 755
 
-OBJEXT := epython.o functions.o
-
 ifdef STATICBUILD
   DEFINES := -DSTATICBUILD
   buildtype := --static
-  OBJEXT += pythonrun.o
 endif
 
 
@@ -34,10 +31,14 @@ TARGET := $(shell grep '^TARGET=' $(CRASHSRCDIR)/Makefile | sed -e s/TARGET=//)
 INCLUDES := -I$(CRASHSRCDIR) $(PYINCLUDE)
 DEFINES += -D$(TARGET)
 
+GDBDIR =  $(CRASHSRCDIR)/gdb-6.1/gdb
+GDBINCL =  -I$(GDBDIR)  -I$(GDBDIR)/config  -I$(GDBDIR)/../bfd \
+  -I$(GDBDIR)/../include -I$(GDBDIR)/../intl
 
 # Older 'make' does not support 'else ifeq'
 
 EXT = pykdump64.so
+
 
 ifeq ($(TARGET),X86)
   EXT = pykdump32.so
@@ -47,14 +48,17 @@ ifeq ($(TARGET),X86_64)
   EXT = pykdump64.so
 endif
 
+all: $(EXT)
+
 .PHONY: clean distclean install
 
 %o: %c
 	$(CC) -c $(CFLAGS) $(DEFINES) $(INCLUDES) $< -o $@
 
+gdbspec.o: gdbspec.c
+	$(CC) -c $(CFLAGS) $(GDBINCL) $(PYINCLUDE)  $< -o $@
 
-
-$(EXT): $(OBJEXT)
+$(EXT): epython.o functions.o gdbspec.o
 	$(CC) -nostartfiles -shared  $(LINKFLAGS)  $^ -o $@  $(LIBS)
 
 install: $(EXT)
@@ -65,5 +69,5 @@ install: $(EXT)
 	$(INSTALL) $(EXT) $(DESTDIR)
 
 clean:
-	rm -f epython.o functions.o pythonrun.o $(EXT)
+	rm -f epython.o functions.o gdbspec.o $(EXT)
 
