@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <07/08/20 11:29:32 alexs>
+  Time-stamp: <07/09/11 12:21:19 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -27,7 +27,7 @@
 
 
 /* crash exception */
-static PyObject *crashError;
+PyObject *crashError;
 
 
 static PyObject *
@@ -733,24 +733,11 @@ py_cpu_to_le32(PyObject *self, PyObject *args) {
   return PyLong_FromUnsignedLong(__cpu_to_le32(val));
 }
 
-      
-#if 0
-#include "gdb-6.1/gdb/objfiles.h"
+PyObject * py_gdb_ptype(PyObject *self, PyObject *args);
+PyObject * py_gdb_whatis(PyObject *self, PyObject *args);
+PyObject * py_gdb_typeinfo(PyObject *self, PyObject *args);
+PyObject * py_gdb_mywhatis(PyObject *self, PyObject *args);
 
-static CORE_ADDR
-ia64_convert_from_func_ptr_addr (CORE_ADDR addr)
-{
-  struct obj_section *s;
-
-  s = find_pc_section (addr);
-
-  /* check if ADDR points to a function descriptor.  */
-  if (s && strcmp (s->the_bfd_section->name, ".opd") == 0)
-    return read_memory_unsigned_integer (addr, 8);
-
-  return addr;
-}
-#endif
 
 static PyMethodDef crashMethods[] = {
   {"symbol_exists",  py_crash_symbol_exists, METH_VARARGS},
@@ -775,6 +762,10 @@ static PyMethodDef crashMethods[] = {
   {"getListSize", py_getlistsize, METH_VARARGS},
   {"getFullBuckets", py_getFullBuckets, METH_VARARGS},
   {"FD_ISSET", py_FD_ISSET, METH_VARARGS},
+  {"gdb_ptype", py_gdb_ptype, METH_VARARGS},
+  {"gdb_whatis", py_gdb_whatis, METH_VARARGS},
+  {"gdb_mywhatis", py_gdb_mywhatis, METH_VARARGS},
+  {"gdb_typeinfo", py_gdb_typeinfo, METH_VARARGS},
   {NULL,      NULL}        /* Sentinel */
 };
 

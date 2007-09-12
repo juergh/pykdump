@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/08/24 17:13:32 alexs>
+# Time-stamp: <07/08/30 17:37:38 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -68,6 +68,22 @@ def unique(s):
 # Struct/Union info representation with methods to append data
 class StructInfo(BaseStructInfo):
     def __init__(self, sname):
+        def oldptype(sname):
+            rstr = None
+            for pref in ('', 'struct ', 'union '):
+                qsname = pref + sname
+                cmd = "ptype " + qsname
+                rstr = exec_gdb_command(cmd)
+                if (rstr and rstr.find("type =") == 0): break
+            return rstr
+        def newptype(sname):
+            try:
+                rstr = crash.gdb_ptype(sname)
+                return "type = " + rstr
+            except crash.error:
+                #print sname
+                return None
+
         BaseStructInfo.__init__(self, sname)
         # If command w/o explicit struct/union specifier does not work,
         # we'll try again
@@ -75,11 +91,10 @@ class StructInfo(BaseStructInfo):
             sname = sname.strip()
         except:
             raise TypeError, "bad type " + str(sname)
-        for pref in ('', 'struct ', 'union '):
-            cmd = "ptype " + pref + sname
-            rstr = exec_gdb_command(cmd)
-            #print "CMD:", cmd, "\n", rstr
-            if (rstr and rstr.find("type =") == 0): break
+        rstr = None
+
+        rstr = newptype(sname)
+        #print "CMD:", cmd, "\n", rstr
 	#print "="*10, sname, "\n <%s>" % rstr
         # Check whether the return string is OK.
         # None if command fails
@@ -1082,12 +1097,7 @@ __whatis_cache = {}
 re_gdb_whatis = re.compile('([^[]+)(.*)$')
 # Whatis command
 def whatis(symbol, art=None):
-    global __whatis_cache
-    try:
-        return __whatis_cache[symbol]
-    except:
-        pass
-    if (art == None):
+    def oldwhatis(symbol):
 	resp = exec_gdb_command('whatis ' + symbol)
         # if resp is None, there's no symbol like that
         if (resp == None):
@@ -1099,7 +1109,19 @@ def whatis(symbol, art=None):
 	#crash> gdb whatis chrdevs
 	#type = struct char_device_struct *[255]
         #type = struct list_head [32][8]   => struct list_head nf_hooks[32][8];
-	resp = resp.split('=', 1)[1]
+	return resp.split('=', 1)[1]
+    def newwhatis(symbol):
+        return crash.gdb_whatis(symbol)
+        
+    global __whatis_cache
+    try:
+        return __whatis_cache[symbol]
+    except:
+        pass
+    if (art == None):
+        #print 'whatis',symbol
+        resp = newwhatis(symbol)
+        #print resp
 	m = re_gdb_whatis.match(resp)
 	if (m):
 	    resp = m.group(1) + ' ' + symbol + m.group(2) + ";"
@@ -1310,31 +1332,15 @@ def getTypedefInfo(tname):
     else:
         return None
 
-# Return either a simple string or a StructInfo object
-re_ptype_new = re.compile('^type = ([^{]+)\s*$')
-def getTypedefInfo_new(tname):
+
+def newgetTypedefInfo(tname):
     try:
-        rstr = exec_gdb_command("ptype " + tname)
-    except:
+        rstr = crash.gdb_ptype(tname)
+    except crash.error:
         return None
-    # If we are OK, the 1st line is something like
-    # 'type = struct sock {'
-    # or type = unsigned int
-    m = re_ptype.match(rstr)
-    if (m):
-        # Typedef may include *
-        return m.group(1).strip()
-    else:
-        try:
-            (stype, size, body) = GDBStructInfo(rstr)
-            size = getSizeOf(stype)
-            # If typedef is to an unnamed struct, there is a chance that typedef
-            # size is known
-            if (size == -1):
-                size = getSizeOf(tname)
-            return (stype, size, body)
-        except:
-            return None
+    return rstr.split("{")[0].strip()
+
+getTypedefInfo = newgetTypedefInfo
 
 
 # A cached version

@@ -1,6 +1,6 @@
 # module LinuxDump.inet.proto
 #
-# Time-stamp: <07/08/23 16:22:06 alexs>
+# Time-stamp: <07/08/30 17:36:03 alexs>
 #
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -234,8 +234,8 @@ class IP_sock(object):
                         # Newer 2.6, e.g. 2.6.15
                         self.rx_opt = o.rx_opt
                 elif (self.state == tcpState.TCP_LISTEN):
-		    if (struct_exists("inet_connection_sock")):
-			csk = o.castTo("inet_connection_sock")
+		    if (struct_exists("struct inet_connection_sock")):
+			csk = o.castTo("struct inet_connection_sock")
 			accept_queue = csk.icsk_accept_queue
 			l_opt = Deref(accept_queue.listen_opt)
 		    else:
@@ -530,7 +530,7 @@ def init_INET_Stuff():
 	ehash_addr = tcp_hashinfo.ehash
 
 	tcp_listening_hash = tcp_hashinfo.listening_hash
-	tw_type = "tcp_timewait_sock"
+	tw_type = "struct tcp_timewait_sock"
     
     if (struct_size("struct sock_common") == -1):
 	# 2.4
