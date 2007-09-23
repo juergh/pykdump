@@ -78,6 +78,8 @@ ptype_eval (struct expression *exp)
     }
 }
 
+static void do_SU(struct type *type, PyObject *dict);
+
 
 static void
 do_ftype(struct type *ftype, PyObject *item) {
@@ -85,7 +87,7 @@ do_ftype(struct type *ftype, PyObject *item) {
   struct type *range_type;
   struct type *tmptype;
 
-  char buf[246];
+  char buf[256];
 
   int i;
   
@@ -93,22 +95,28 @@ do_ftype(struct type *ftype, PyObject *item) {
   int dims[4] = {0,0,0,0};
   int ndim = 0;
 
-  
-  switch (TYPE_CODE(ftype)) {
+  int codetype = TYPE_CODE(ftype);
+  const char *typename = TYPE_NAME(ftype);
+  PyObject *fname;
+
+  switch (codetype) {
   case TYPE_CODE_STRUCT:
-    if (tagname != NULL) {
-      sprintf(buf, "struct %s", tagname);
-    } else {
-      sprintf(buf, "(embedded struct)");
-    }
-    PyDict_SetItem(item, PyString_FromString("basetype"),
-		   PyString_FromString(buf));
-    break;
   case TYPE_CODE_UNION:
+    fname = PyDict_GetItem(item, PyString_FromString("fname"));
+    /* Expand only if we don't have tagname or fname */
     if (tagname != NULL) {
-      sprintf(buf, "union %s", tagname);
-    } else{
-      sprintf(buf, "(embedded union)");
+      if (codetype == TYPE_CODE_STRUCT)
+	sprintf(buf, "struct %s", tagname);
+      else
+	sprintf(buf, "union %s", tagname);
+      if (fname == NULL)
+	do_SU(ftype, item);
+    } else {
+      if  (codetype == TYPE_CODE_STRUCT)
+	sprintf(buf, "struct");
+      else
+	sprintf(buf, "union");
+      do_SU(ftype, item);
     }
     PyDict_SetItem(item, PyString_FromString("basetype"),
 		   PyString_FromString(buf));
@@ -126,8 +134,13 @@ do_ftype(struct type *ftype, PyObject *item) {
       stars++;
     } while (TYPE_CODE(tmptype = TYPE_TARGET_TYPE(tmptype)) == TYPE_CODE_PTR);
 
-    if (TYPE_CODE(tmptype) == TYPE_CODE_TYPEDEF)
+    if (TYPE_CODE(tmptype) == TYPE_CODE_TYPEDEF) {
+      const char *ttypename = TYPE_NAME(tmptype);
+      if (ttypename)
+	PyDict_SetItem(item, PyString_FromString("typedef"),
+		       PyString_FromString(ttypename));
       CHECK_TYPEDEF(tmptype);
+    }
     do_ftype(tmptype, item);
     PyDict_SetItem(item, PyString_FromString("stars"),
 		   PyInt_FromLong(stars));
@@ -139,6 +152,11 @@ do_ftype(struct type *ftype, PyObject *item) {
 		   PyString_FromString("(func)"));
     break;
   case TYPE_CODE_TYPEDEF:
+    /* Add extra tag - typedef name. This is useful
+       in struct/union case as we can cache info based on it */
+    if (typename)
+      PyDict_SetItem(item, PyString_FromString("typedef"),
+		     PyString_FromString(typename));
     CHECK_TYPEDEF(ftype);
     do_ftype(ftype, item);
     break;
@@ -158,7 +176,6 @@ do_ftype(struct type *ftype, PyObject *item) {
       dims[ndim++] = TYPE_FIELD_BITPOS(range_type, 1)+1;
     } while (TYPE_CODE(ftype) == TYPE_CODE_ARRAY);
     do_ftype(ftype, item);
-    printf(" ");
     PyObject *pdims = PyList_New(0);
     for (i=0; i < ndim; i++)
       PyList_Append(pdims, PyInt_FromLong(dims[i]));
@@ -178,17 +195,23 @@ do_ftype(struct type *ftype, PyObject *item) {
   */
   PyDict_SetItem(item, PyString_FromString("codetype"),
 		 PyInt_FromLong(TYPE_CODE(ftype)));
+  PyDict_SetItem(item, PyString_FromString("typelength"),
+		 PyInt_FromLong(TYPE_LENGTH(ftype)));
   
 }
 
 
-void
-toplevel(struct type *type, PyObject *list) {
+static void
+do_SU(struct type *type, PyObject *pitem) {
   int nfields =   TYPE_NFIELDS(type);
   int i;
+  PyObject *body = PyList_New(0);
+  PyDict_SetItem(pitem, PyString_FromString("body"),
+		 body);
+
   for (i=0; i < nfields; i++) {
     PyObject *item = PyDict_New();
-    PyList_Append(list, item);
+    PyList_Append(body, item);
     struct type *ftype = TYPE_FIELD_TYPE(type, i);
     char *fname = TYPE_FIELD_NAME(type, i);
     int boffset = TYPE_FIELD_BITPOS(type, i);
@@ -196,6 +219,12 @@ toplevel(struct type *type, PyObject *list) {
 
     PyDict_SetItem(item, PyString_FromString("fname"),
 		   PyString_FromString(fname));
+    if (bsize)
+      PyDict_SetItem(item, PyString_FromString("bitsize"),
+		     PyInt_FromLong(bsize));
+    PyDict_SetItem(item, PyString_FromString("bitoffset"),
+		   PyInt_FromLong(boffset));
+   
     do_ftype(ftype, item);
   }
  
@@ -220,15 +249,15 @@ PyObject * py_gdb_typeinfo(PyObject *self, PyObject *args) {
   type = ptype_eval (expr);
   //myptype(type, 0);
 
-  PyObject *toplist = PyList_New(0);
-  PyList_Append(toplist, PyString_FromString(typename));
-  toplevel(type, toplist);
+  //PyList_Append(toplist, PyString_FromString(typename));
+  PyObject *topdict =  PyDict_New();
+  do_ftype(type, topdict);
   
   do_cleanups (old_chain);
   // ----------------------------------------------
 
   GDB2PY_EXITNP;
-  return toplist;
+  return topdict;
 }
 
 
@@ -256,13 +285,9 @@ PyObject * py_gdb_mywhatis(PyObject *self, PyObject *args) {
 
   //printf("vartype=%s\n", typecode2s(TYPE_CODE(type)));
 
-  PyObject *toplist = PyList_New(0);
-  PyList_Append(toplist, PyString_FromString("(vartype)"));
-  
   PyObject *item = PyDict_New();
   PyDict_SetItem(item, PyString_FromString("fname"),
 		 PyString_FromString(varname));
-  PyList_Append(toplist, item);
 
 
   do_ftype(type, item);
@@ -271,7 +296,7 @@ PyObject * py_gdb_mywhatis(PyObject *self, PyObject *args) {
   // ----------------------------------------------
 
   GDB2PY_EXITNP;
-  return toplist;
+  return item;
 }
 
 
