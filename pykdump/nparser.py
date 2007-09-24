@@ -48,6 +48,7 @@ def actionStar(s,loc, toks):
     return Attr("star", toks[0])
 
 def actionArray(s,loc, toks):
+    
     return Attr("array", int(toks[0],0))
 
 def actionFunc(s,loc, toks):
@@ -80,8 +81,8 @@ eqsign = Suppress("=")
 pars = CharsNotIn("()")
 Stars = Word("*").setParseAction(actionStar)
 
-Array = lsqb + Integer + rsqb
-Array.setParseAction(actionArray)
+Array1 = lsqb + Integer + rsqb
+Array = ZeroOrMore(Array1.setParseAction(actionArray))
 Cid = Word(alphas+"_", alphanums+"_")
 EndSimple = Literal(";").suppress()
 dStruct = Literal("struct")
@@ -98,7 +99,7 @@ fbody = lpar + Suppress("*") + Cid + rpar + SkipTo(EndSimple, False).suppress()
 fbody.setParseAction(actionFunc)
 
 
-s1 = begtype + Optional(Stars) + Optional(Cid|fbody) + Optional(Array|bitfield) + \
+s1 = begtype + Optional(Stars) + Optional(Cid|fbody) + Optional(bitfield|Array) + \
      EndSimple
 
 s2 = OneOrMore(Cid) + Optional(Stars) + Optional(Cid) + Optional(Array) + \
@@ -117,7 +118,7 @@ f1.setParseAction(actionFunc)
 #        struct {...} vm_set;
 #        struct prio_tree_node prio_tree_node;
 #    } shared;
-incomplete =  dStruct + Literal("{...}") + Cid + EndSimple;
+incomplete =  (dStruct|dUnion) + Literal("{...}") + Cid + EndSimple;
 
 enumvals =  (Lbracket + delimitedList(Cid) + Rbracket).setParseAction(actionEnumvals)
 e1 = dEnum + Optional(Cid) + enumvals + Optional(Cid) + EndSimple
