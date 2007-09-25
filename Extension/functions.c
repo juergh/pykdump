@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <07/09/11 12:21:19 alexs>
+  Time-stamp: <07/09/25 15:17:00 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -733,10 +733,10 @@ py_cpu_to_le32(PyObject *self, PyObject *args) {
   return PyLong_FromUnsignedLong(__cpu_to_le32(val));
 }
 
-PyObject * py_gdb_ptype(PyObject *self, PyObject *args);
-PyObject * py_gdb_whatis(PyObject *self, PyObject *args);
+PyObject * py_gdb_ptype_str(PyObject *self, PyObject *args);
+PyObject * py_gdb_whatis_str(PyObject *self, PyObject *args);
 PyObject * py_gdb_typeinfo(PyObject *self, PyObject *args);
-PyObject * py_gdb_mywhatis(PyObject *self, PyObject *args);
+PyObject * py_gdb_whatis(PyObject *self, PyObject *args);
 
 
 static PyMethodDef crashMethods[] = {
@@ -762,9 +762,9 @@ static PyMethodDef crashMethods[] = {
   {"getListSize", py_getlistsize, METH_VARARGS},
   {"getFullBuckets", py_getFullBuckets, METH_VARARGS},
   {"FD_ISSET", py_FD_ISSET, METH_VARARGS},
-  {"gdb_ptype", py_gdb_ptype, METH_VARARGS},
+  {"gdb_ptype_str", py_gdb_ptype_str, METH_VARARGS},
+  {"gdb_whatis_str", py_gdb_whatis_str, METH_VARARGS},
   {"gdb_whatis", py_gdb_whatis, METH_VARARGS},
-  {"gdb_mywhatis", py_gdb_mywhatis, METH_VARARGS},
   {"gdb_typeinfo", py_gdb_typeinfo, METH_VARARGS},
   {NULL,      NULL}        /* Sentinel */
 };

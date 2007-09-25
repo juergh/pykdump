@@ -247,7 +247,10 @@ PyObject * py_gdb_typeinfo(PyObject *self, PyObject *args) {
   expr = parse_expression (typename);
   old_chain = make_cleanup (free_current_contents, &expr);
   type = ptype_eval (expr);
-  //myptype(type, 0);
+  //printf("type=%p\n", type);
+
+  if (type == NULL)
+    my_error_hooknp();
 
   //PyList_Append(toplist, PyString_FromString(typename));
   PyObject *topdict =  PyDict_New();
@@ -261,14 +264,13 @@ PyObject * py_gdb_typeinfo(PyObject *self, PyObject *args) {
 }
 
 
-PyObject * py_gdb_mywhatis(PyObject *self, PyObject *args) {
+PyObject * py_gdb_whatis(PyObject *self, PyObject *args) {
   char *varname;
 
   struct expression *expr;
   struct value *val;
   struct cleanup *old_chain = NULL;
   struct type *type;
-
 
   if (!PyArg_ParseTuple(args, "s", &varname)) {
     PyErr_SetString(crashError, "invalid parameter type");	\
@@ -283,7 +285,7 @@ PyObject * py_gdb_mywhatis(PyObject *self, PyObject *args) {
 
   type = VALUE_TYPE (val);
 
-  //printf("vartype=%s\n", typecode2s(TYPE_CODE(type)));
+  //printf("vartype=%d\n", TYPE_CODE(type));
 
   PyObject *item = PyDict_New();
   PyDict_SetItem(item, PyString_FromString("fname"),
@@ -353,7 +355,7 @@ my_error_hook(void)  {
 
 
 
-PyObject * py_gdb_whatis(PyObject *self, PyObject *args) {
+PyObject * py_gdb_whatis_str(PyObject *self, PyObject *args) {
   char *varname;
 
   if (!PyArg_ParseTuple(args, "s", &varname)) {
@@ -537,7 +539,7 @@ whatis_exp (char *exp, int show)
     do_cleanups (old_chain);
 }
 
-PyObject * py_gdb_ptype(PyObject *self, PyObject *args) {
+PyObject * py_gdb_ptype_str(PyObject *self, PyObject *args) {
   char *varname;
 
   if (!PyArg_ParseTuple(args, "s", &varname)) {

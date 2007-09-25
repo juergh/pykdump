@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/08/20 10:05:35 alexs>
+# Time-stamp: <07/09/25 16:30:56 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -66,7 +66,7 @@ import atexit
 import os, os.path
 
 import Generic as gen
-from Generic import Bunch, PYT_tmpfiles
+from Generic import Bunch, PYT_tmpfiles, BaseStructInfo
 
 
 
@@ -110,6 +110,8 @@ def enter_epython():
 
 # We call this when exiting epython
 def exit_epython():
+    if API_options.dumpcache:
+        BaseStructInfo.printCache()
     cleanup()
 
 # Similar to sys.exit() but does not call the os._exit()
@@ -154,8 +156,8 @@ if (crashloaded):
          readList, getListSize, readListByHead,  list_for_each_entry, \
          readSUArray, readSUListFromHead, readStructNext, \
          getStructInfo, getFullBuckets, FD_ISSET, \
-         struct_exists, struct_size, symbol_exists,\
-         ArtStructInfo, ArtUnionInfo, getTypedefInfo,\
+         struct_exists, symbol_exists,\
+         ArtStructInfo, ArtUnionInfo, \
          Addr, Deref, SmartString, tPtr, \
          sym2addr, addr2sym, readmem, uvtop, readProcessMem,  \
          struct_size, union_size, member_offset, member_size, \
@@ -512,6 +514,10 @@ def __epythonOptions():
               action="store", type="int",
               help="enable debugging output")
 
+    op.add_option("--dumpcache", dest="dumpcache", default=0,
+              action="store_true",
+              help="dump API caches info")
+
     op.add_option("--ofile", dest="filename",
                   help="write report to FILE", metavar="FILE")
 
@@ -530,6 +536,8 @@ def __epythonOptions():
     
     sys.argv[1:] = uargs
     #print "EPYTHON sys.argv=", sys.argv
+
+    API_options.dumpcache = o.dumpcache
 
     
 # This function is called only from driving external scripts, never

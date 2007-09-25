@@ -1,6 +1,6 @@
 # module LinuxDump.inet.proto
 #
-# Time-stamp: <07/08/30 17:36:03 alexs>
+# Time-stamp: <07/09/25 16:37:45 alexs>
 #
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -516,6 +516,15 @@ def init_INET_Stuff():
     #  __tcp_ehash, __tcp_bhash, __tcp_listening_hash
     # On 2.6.15:
     # ehash, bhash, listening_hash
+    # On 2.6.22:
+    # tcp_hashinfo is as table of inet_ehash_bucket, each bucket
+    # has two chains: normal and tw
+    #     struct inet_hashinfo {
+    #        struct inet_ehash_bucket	*ehash;
+    #        struct inet_bind_hashbucket	*bhash;
+    # 	     int				bhash_size;
+    # 	     unsigned int			ehash_size;
+    # 	     struct hlist_head		listening_hash[INET_LHTABLE_SIZE];
 
     try:
 	ehash_size = tcp_hashinfo.__tcp_ehash_size
@@ -524,7 +533,7 @@ def init_INET_Stuff():
 
 	tcp_listening_hash = tcp_hashinfo.__tcp_listening_hash
 	tw_type = "struct tcp_tw_bucket"
-    except: # IndexError:
+    except KeyError:
 	ehash_size = tcp_hashinfo.ehash_size
 	ehash_btype = tcp_hashinfo["ehash"].basetype
 	ehash_addr = tcp_hashinfo.ehash
@@ -545,6 +554,12 @@ def init_INET_Stuff():
     
     chain_off = eb_info["chain"].offset
     chain_sz = eb_info["chain"].size
+
+    try:
+        tw_chain_off = eb_info["twchain"].offset
+    except KeyError:
+        tw_chain_off = -1
+
     
     # Now copy locals to INET_Stuff
     INET_Stuff.__dict__.update(locals())
@@ -612,8 +627,14 @@ def get_TCP_TIMEWAIT():
                 yield s
     else:
         # 2.6
-        ehash_tw = t.ehash_addr + t.eb_size * t.ehash_size
-        for b in getFullBuckets(ehash_tw, t.eb_size, t.ehash_size, t.chain_off):
+        if (t.tw_chain_off != -1):
+            # 2.6.22
+            ehash_tw = t.ehash_addr
+            chain_off = t.tw_chain_off
+        else:
+            ehash_tw = t.ehash_addr + t.eb_size * t.ehash_size
+            chain_off = t.chain_off
+        for b in getFullBuckets(ehash_tw, t.eb_size, t.ehash_size, chain_off):
             for a in sk_for_each(b):
                 tw = readSU(t.tw_type, a)
                 yield tw

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/08/24 17:11:57 alexs>
+# Time-stamp: <07/09/24 14:31:18 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -29,6 +29,9 @@ details = False
 print_listen = False
 print_nolisten = True
 
+sport_filter = False
+dport_filter = False
+port_filter = False
 
 
 def print_TCP_sock(o):
@@ -621,9 +624,6 @@ if ( __name__ == '__main__'):
     if (o.Verbose):
         details = True
 
-    sport_filter = False
-    dport_filter = False
-    port_filter = False
 
     if (o.New):
         pass

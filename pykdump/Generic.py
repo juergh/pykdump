@@ -1,7 +1,7 @@
 #
 #  Code that does not depend on whether we use embedded API or PTY
 #
-# Time-stamp: <07/08/24 16:43:25 alexs>
+# Time-stamp: <07/09/25 16:07:43 alexs>
 #
 import string
 import pprint
@@ -47,8 +47,6 @@ class BaseStructInfo(dict):
         dict.__init__(self, {})
         self.stype = stype
         self.size = -1
-        self.body = []
-        self.reclevel = 0
 
     # Field ptype suitable for passing to crash/gdb, e.g.
     # for 'struct tcp_ehash_bucket *__tcp_ehash;' we return
@@ -57,9 +55,9 @@ class BaseStructInfo(dict):
     #def fieldbasetype(self, fname):
     #    fi = self[fname]
     #    return fi.basetype
-    
+
     def __repr__(self):
-        return "StructInfo <%s> size=%d" % \
+        return "TypeInfo <%s> size=%d" % \
                    (self.stype, self.size) +\
                    "\n" + pp.pformat(self.body)
 
@@ -67,6 +65,13 @@ class BaseStructInfo(dict):
         stype = self.stype
         #print "++Adding to cache: ", stype
         BaseStructInfo.PYT__sinfo_cache[stype] = self
+    def printCache():
+        keys = BaseStructInfo.PYT__sinfo_cache.keys()
+        keys.sort()
+        print "  ++++ TypeInfo Cache +++"
+        for k in keys:
+            print "\t", k
+    printCache = staticmethod(printCache)
 
 
 
@@ -118,6 +123,7 @@ class FieldInfo(dict):
         self.parentstype = None
         dict.__init__(self, d)
         self.__dict__.update(d)
+        self.new = False
     def __attr_check(self, attr):
         if (self.mutable or attr == 'deref'):
             return
@@ -147,6 +153,7 @@ class FieldInfo(dict):
         newdict['type'] = self.type
         newdict['typedef'] = self.typedef
         newdict['star'] = self.star
+        newdict['new'] = self.new
         nf = FieldInfo(newdict)
         dummy = nf.smarttype
         nf.mutable = False

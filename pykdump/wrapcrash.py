@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/08/30 17:37:38 alexs>
+# Time-stamp: <07/09/25 17:14:34 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -37,25 +37,27 @@ pp = pprint.PrettyPrinter(indent=4)
 import tparser
 import nparser
 
+experimental = False
+experimental = True
+
 #GDBStructInfo = tparser.GDBStructInfo
 GDBStructInfo = nparser.GDBStructInfo
 
 
 import Generic as Gen
-from Generic import BaseStructInfo
+from Generic import BaseStructInfo, FieldInfo
 
 hexl = Gen.hexl
 
 
 # GLobals used my this module
 
+
+
 # the default number of elements returned from list traversal
 
 _MAXEL = 10000
 
-PYT_sizetype = {} 
-
-	
 # A well-known way to remove dups from sequence
 def unique(s):
     u = {}
@@ -66,88 +68,78 @@ def unique(s):
 
 
 # Struct/Union info representation with methods to append data
-class StructInfo(BaseStructInfo):
-    def __init__(self, sname):
-        def oldptype(sname):
-            rstr = None
-            for pref in ('', 'struct ', 'union '):
-                qsname = pref + sname
-                cmd = "ptype " + qsname
-                rstr = exec_gdb_command(cmd)
-                if (rstr and rstr.find("type =") == 0): break
-            return rstr
-        def newptype(sname):
-            try:
-                rstr = crash.gdb_ptype(sname)
-                return "type = " + rstr
-            except crash.error:
-                #print sname
-                return None
 
-        BaseStructInfo.__init__(self, sname)
-        # If command w/o explicit struct/union specifier does not work,
-        # we'll try again
+# Convert the new typeinfo output to old-style
+
+def new2old(ns):
+    out = []
+    #print "--", type(ns)
+    #pp.pprint(ns)
+    try:
+        body = ns["body"]
+    except KeyError:
+        body = [ns]
+    for e in body:
+        f = FieldInfo()
         try:
-            sname = sname.strip()
-        except:
-            raise TypeError, "bad type " + str(sname)
-        rstr = None
-
-        rstr = newptype(sname)
-        #print "CMD:", cmd, "\n", rstr
-	#print "="*10, sname, "\n <%s>" % rstr
-        # Check whether the return string is OK.
-        # None if command fails
-        if (rstr == None):
-            errmsg = "The type <%s> does not exist in this dump" % sname
-            raise TypeError, errmsg
-	(stype, self.size, self.body) = GDBStructInfo(rstr)
-        if (stype == 'struct' or stype == 'union'):
-            self.stype = sname
-        else:
-            self.stype = stype
-        # It is possible that self.stype now contains just one word 'struct' or
-        # 'union', this can happen if typedef points to unnamed struct. In this
-        # case it is better to leave the original type
-        self.size = getSizeOf(self.stype)
-        bitfieldpos = 0
-        for f  in self.body:
-            f.parentstype = self.stype
-
-            # GCC can handle unions without field name (not ANSI-compatible!)
-            # e.g. in "struct inode" (2.6.20):
-            #	union {
-            # 		struct pipe_inode_info	*i_pipe;
-            # 		struct block_device	*i_bdev;
-            # 		struct cdev		*i_cdev;
-            # 	};
-            # Then if that union is declared inside struct b, the compiler
-            # can handle b.i_pipe
-            #
-            try:
-                fname = f.fname
-            except AttributeError:
-                # Non-ANSI internal union w/o fieldname
-                # crash does support direct access to fields but GDB does
-                # Add all union fields as to our dict with the same offset
-                offset = None
-                for uf in f.body:
-                    ufname = uf.fname
-                    if (offset == None):
-                        offset = GDBmember_offset(self.stype, ufname)
-                    uf.offset = offset
-                    self[ufname] = uf
-                continue
-            if (f.has_key("bitfield")):
-                #print self.stype, fname
-                f.offset = nc_member_offset(self.stype, fname)
-                f.bitoffset = bitfieldpos%8
-                bitfieldpos += f.bitfield
+            # This is an aggregate, e.g. struct
+            f.fname = e["fname"]
+            bitoffset = e["bitoffset"]
+            f.offset = bitoffset/8
+        except KeyError:
+            # This is a non-aggregate
+            f.fname = '-'
+        f.type = e["basetype"].split()
+        sz =  e["typelength"]
+        if (e.has_key("dims")):
+            dims = e["dims"]
+            if (len(dims) == 1):
+                f.array = dims[0]
             else:
-                bitfieldpos = 0
-                
-	    self[fname] = f
+                f.array = dims
+            sz *= reduce(lambda x, y: x*y, dims)
+        if (e.has_key("stars")):
+            f.star = '*' * e["stars"]
+        if (e.has_key("bitsize")):
+            f.bitfield = e["bitsize"]
+            f.bitoffset = e["bitoffset"] - f.offset*8
+        if (e.has_key("body")):
+            # Recurse
+            s1 = new2old(e)
+            f.body = s1
+            f.parentstype = ns["basetype"]
+            #f.size = e["typelength"]
+        else:
+            # Non-aggregate field
+            pass
+        f.size = sz
 
+        # We use this flag to mark new-style FieldInfo
+        f.new = True
+        out.append(f)
+    return out
+            
+
+class StructInfo(BaseStructInfo):
+    def __init__(self, stype):
+        BaseStructInfo.__init__(self, stype)
+
+        try:
+            newsi = crash.gdb_typeinfo(stype)
+        except:
+            errmsg = "The type <%s> does not exist in this dump" % stype
+            raise TypeError, errmsg
+
+        self.stype = stype
+        self.size = newsi["typelength"]
+        self.body = new2old(newsi)
+
+        for f in self.body:
+            self[f.fname] = f
+
+        # Add ourselves to cache
+        self.addToCache()
+        
 
 # Artificial StructInfo - in case we don't have the needed symbolic info,
 # we'd like to be able to assemble it manually
@@ -157,6 +149,7 @@ class ArtStructInfo(BaseStructInfo):
         BaseStructInfo.__init__(self, stype)
         # Add ourselves to cache
         self.size = 0
+        self.body = []
         self.addToCache()
 
     # Append info. Reasonable approaches:
@@ -203,6 +196,8 @@ class ArtUnionInfo(BaseStructInfo):
     def __init__(self, stype):
         BaseStructInfo.__init__(self, stype)
         self.size = 0
+        self.body = []
+
         # Add ourselves to cache
         self.addToCache()
 
@@ -211,7 +206,11 @@ class ArtUnionInfo(BaseStructInfo):
     def append(self, obj):
         # If obj is a string, we'll need to parse it - not done yet
         if (type(obj) == types.StringType):
-            f = tparser.OneStatement.parseString(obj).asList()[0]
+            try:
+                f = tparser.OneStatement.parseString(obj).asList()[0]
+            except:
+                print "Cannot parse <%s>, parent type=<%s>" %(obj, self.stype)
+                raise TypeError
             f.offset = 0
             size = f.size
             if (size == -1):
@@ -283,7 +282,11 @@ class StructResult(object):
         if (data):
             self.PYT_data = data
         else:
-            self.PYT_data = readmem(addr, self.PYT_size)
+            try:
+                self.PYT_data = readmem(addr, self.PYT_size)
+            except crash.error, msg:
+                print "crash.error: %s sname=%s" % (msg, sname)
+                raise crash.error, msg
     
     def __getitem__(self, name):
         return self.PYT_sinfo[name]
@@ -477,12 +480,29 @@ def _getCharArray(fieldaddr, ni, s = None):
 
     return val
 
+# Convert an embedded struct/union fieldinfo into a StructInfo
+# We create a fake name and adjust offsets if they are available
+class embeddedStructInfo(BaseStructInfo):
+    def __init__(self, stype, fi):
+        BaseStructInfo.__init__(self, stype)
+        self.size = fi.size
+        self.body = fi.body
+
+        for f in self.body:
+            self[f.fname] = f
+
+        # Add ourselves to cache
+        self.addToCache()
+
+
 def _getSU(fieldaddr, ni, s = None):
     sz = ni.size
     name = ni.fname
     # This can be an array...
     dim = ni.dim
     ftype = ni.basetype
+    #print ftype
+    #pp.pprint(ni)
 
     # This can be a fake type - in this case we might need to create it
     if (ftype.find('-') != -1):
@@ -492,14 +512,20 @@ def _getSU(fieldaddr, ni, s = None):
             au = getStructInfo(ftype, createnew=False)
         except TypeError:
             #print "Creating", ftype
-            if (su == 'struct'):
-                au = ArtStructInfo(ftype)
-            elif (su == 'union'):
-                au = ArtUnionInfo(ftype)
+            #pp.pprint(ni)
+
+            # With new low-level interface, we can use embedded
+            if (ni.new):
+                au = embeddedStructInfo(ftype, ni)
             else:
-                raise TypeError, su
-            for fi in ni.body:
-                au.append(fi.cstmt)
+                if (su == 'struct'):
+                    au = ArtStructInfo(ftype)
+                elif (su == 'union'):
+                    au = ArtUnionInfo(ftype)
+                else:
+                    raise TypeError, su
+                for fi in ni.body:
+                    au.append(fi.cstmt)
 
     # This can be an array...
     if (dim != 1):
@@ -846,7 +872,7 @@ def readSymbol(symbol, art = None):
     dim = symi.dim
 
     
-    size = getSizeOf(symbol)
+    size = symi.size
     # There is a special case - on some kernels we obtain zero-dimensioned
     # arrays, e.g. on 2.6.9 sizeof(ipv4_table) = 0 and it ise declared as
     # ctl_table ipv4_table[] = {...}
@@ -899,132 +925,23 @@ def multilist(mdim):
 
 # Get sizeof(type)
 def getSizeOf(vtype):
-    try:
-        return PYT_sizetype[vtype]
-    except KeyError:
-        sz = GDB_sizeof(vtype)
-        if (sz == -1):
-            # Check whether we are in SU-cache and if yes, whether
-            # our size is already known. This is mainly needed for
-            # Artificial SU
-            try:
-                si = getStructInfo(vtype)
-                print "++Got si"
-                sz = si.size
-            except TypeError:
-                pass
-        #print "++getSizeOf", vtype, sz
-        PYT_sizetype[vtype] = sz
-        return sz
-
-#int readmem(ulonglong addr, int memtype, void *buffer, long size,
-#	char *type, ulong error_handle)
-# memtype:
-#     UVADDR
-#     KVADDR
-#     PHYSADDR
-
-# Non-cached version
-def ncreadmem(addr, size, memtype = 'KVADDR'):
-    if (memtype != 'KVADDR'):
-        print "Cannot read anything but KVADDR w/o extension"
-        sys.exit(1)
-    return dumpMemory(addr, addr+size)
-
-# Cached version - do not use on live kernels
-def creadmem(addr, size, memtype = 'KVADDR'):
-    if (memtype != 'KVADDR'):
-        print "Cannot read anything but KVADDR w/o extension"
-        sys.exit(1)
-    return cdumpMemory(addr, addr+size)
-
-
-# By default, we use a cached version - the difference can be 2-3 times!
-readmem = creadmem
-
+    return struct_size(vtype)
 
 # .........................................................................
 import time
-def readFifo(func, *args, **kwargs):
-    res = []
-    def readFifo():
-        fd = open(fifoname, "r")
-        res.append(fd.read())
-        #print "FIFO read"
-        fd.close()
-    mt = threading.Thread(target=readFifo)
-    mt.start()
-    func(*args, **kwargs)
-    mt.join()
-    return res[0]
 
-# Dump memory and get it
-def dumpMemory(start, stop):
-    command = "dump memory %s 0x%x 0x%x" % (fifoname, start, stop)
-    #print command
-    res = readFifo(exec_gdb_command, command)
-    #print "Line sent"
-    return res
 
 # 8K - pages
 shift = 12
 psize = 1 << shift
 _page_cache = {}
 
-# Dump memory with page cache
-def cdumpMemory(start, stop):
-    pstart = start>>shift
-    pstop = stop>>shift
-    if (pstart == pstop):
-        pagestart = pstart << shift
-        try:
-            page = _page_cache[pstart]
-            #print "cpage pstart=0x%x len=%d" % (pstart, len(page))
-        except:
-            page = dumpMemory(pagestart, pagestart+psize)
-            _page_cache[pstart] = page
-        return page[start - pagestart:stop-pagestart]
-    else:
-        return dumpMemory(start, stop)
 
 # Flush cache (for tools running on a live system)
 def flushCache():
     _page_cache.clear()
     
 # ..............................................................
-
-# Convert raw memory of proper size to int/long
-
-# 1/2/4/8 sizes are OK both for 32-bit and 64-bit systems:
-# 1 - unsigned char
-# 2 - unsigned short
-# 4 - unsigned int
-# 8 - long long
-#
-# But I am not sure about IA64 - need to check
-
-ustructcodes32 = [0, 'B', 'H', 3, 'I', 5, 6, 7, 'Q']
-structcodes32 = [0, 'b', 'h', 3, 'i', 5, 6, 7, 'q']
-
-def old_mem2long(s, signed=False, array=False):
-    if (not array):
-        sz = len(s)
-        if(signed):
-            val = struct.unpack(structcodes32[sz], s)[0]
-        else:
-            val = struct.unpack(ustructcodes32[sz], s)[0]
-        return val
-    else:
-        sz = len(s)/array
-        out = []
-        for i in range(array):
-            if(signed):
-                val = struct.unpack(structcodes32[sz], s[i*sz:(i+1)*sz])[0]
-            else:
-                val = struct.unpack(ustructcodes32[sz], s[i*sz:(i+1)*sz])[0]
-            out.append(val)
-        return val
-
     
 # Get a list of non-empty bucket addrs (ppointers) from a hashtable.
 # A hashtable here is is an array of buckets, each one is a structure
@@ -1054,119 +971,30 @@ def getFullBuckets(start, bsize, items, chain_off=0):
 # Traverse list_head linked lists
 
 
-# d.emulateCrashList('block_device.bd_disk', 'block_device.bd_list', 'all_bdevs')
-#                        what to get               list_head              symbol
-
-def emulateCrashList(off_need, off_list, addr, maxel=_MAXEL):
-    # All arguments can be either symbolic or integer. In case the first two
-    # are integer we expect them to specify the same structure
-    if (type(off_need) == types.StringType):
-        (sname, fname) = off_need.split('.')
-        si = getStructInfo(sname)
-        off_need = si[fname].offset
-    if (type(off_list) == types.StringType):
-        (sname, fname) = off_list.split('.')
-        si = getStructInfo(sname)
-        off_list = si[fname].offset
-    if (type(addr) == types.StringType):
-        addr = sym2addr(addr)
-
-    offset = off_need - off_list
-    ptrs = readList(addr, 0, _MAXEL)
-    # Now recompute so that we'll point to struct of interest
-    ptrs = [(p - off_list, readPtr(p+offset)) for p in ptrs]
-    return ptrs
-
-
 def getStructInfo(stype, createnew = True):
-    for pref in ('', 'struct ', 'union '):
-        try:
-            return Gen.getSIfromCache(pref+stype)
-        except:
-            if (not createnew):
-                raise TypeError, "Unknown Type <%s>" % stype
-            pass
+    try:
+        return Gen.getSIfromCache(stype)
+    except:
+        if (not createnew):
+            raise TypeError, "Unknown Type <%s>" % stype
+        pass
     #print "  -- SI Cache miss:", stype
+    # StructInfo() constructor adds itself to cache
     si = StructInfo(stype)
-    si.addToCache()
-    #.__sinfo_cache[stype] = si
     return si
 
-__whatis_cache = {}
-#re_gdb_whatis = re.compile(r'(.+)(\[\d+\])$')
-re_gdb_whatis = re.compile('([^[]+)(.*)$')
-# Whatis command
-def whatis(symbol, art=None):
-    def oldwhatis(symbol):
-	resp = exec_gdb_command('whatis ' + symbol)
-        # if resp is None, there's no symbol like that
-        if (resp == None):
-            raise TypeError, "There's no symbol <%s>" % symbol
-	# 'gdb whatis' is different from just 'whatis': identifier is not there.
-        # E.g.
-	# crash> whatis chrdevs
-	# struct char_device_struct *chrdevs[255];
-	#crash> gdb whatis chrdevs
-	#type = struct char_device_struct *[255]
-        #type = struct list_head [32][8]   => struct list_head nf_hooks[32][8];
-	return resp.split('=', 1)[1]
-    def newwhatis(symbol):
-        return crash.gdb_whatis(symbol)
-        
-    global __whatis_cache
+
+
+def whatis(symbol, art = None):
     try:
-        return __whatis_cache[symbol]
-    except:
-        pass
-    if (art == None):
-        #print 'whatis',symbol
-        resp = newwhatis(symbol)
-        #print resp
-	m = re_gdb_whatis.match(resp)
-	if (m):
-	    resp = m.group(1) + ' ' + symbol + m.group(2) + ";"
-	else:
-	    resp = resp + ' ' + symbol + ";"
-    else:
-	resp = art
-    f = tparser.OneStatement.parseString(resp).asList()[0]
-    
-    # A special case: we have a nameless global struct.
-    # In this case body=['...'].
-    if (f.has_key('body') and f['body'][0] == '...'):
-        # Create an Artificial struct with the name GLOB-symbol
-        artname = "struct GLOB-"+symbol
-        as = ArtStructInfo(artname)
-        fields =  GDB_ptype(symbol)[2]
-        for af in fields:
-            as.append(af.cstmt)
-        del f['body']
-        f.type = artname.split()
-    elif (len(f.type) == 1):
-        # If our type consists of a single word and it is not struct/union,
-        # this is probably a typedef (or basic type).
-        # Try to obtain more info in this case
-        newtype = getTypedefInfo(f.basetype)
-        if (newtype):
-            # typedef may be mapped to a base type or to pointer to basetype
-            # count and remove stars. At this moment GDB glues all stars, e.g.
-            # gdb ptype int* * * => type = int ***
-            #print newtype
-            spl = newtype.split()
+        newsi = crash.gdb_whatis(symbol)
+    except crash.error:
+        raise TypeError, "There's no symbol <%s>" % symbol
 
-            if (spl[-1][0] == '*'):
-                stars = spl[-1]
-                f.type = spl[0:-1]
-                if (f.has_key('star')):
-                    f.star += stars
-                else:
-                    f.star = stars
-            else:
-                f.type = spl
-
+    f = new2old(newsi)[0]
     f.addr = sym2addr(symbol)
-    __whatis_cache[symbol] = f 
     return f
+
 
 # Check whether our basetype is really a typedef. We need this to understand how
 # to generate 'smarttype'. E.g. for __u32 we'll find that this is an unsigned integer
@@ -1181,17 +1009,7 @@ def whatis(symbol, art=None):
 #           String  - this is a pointer to Char
 
 def isTypedef(basetype):
-    #If there is a 'struct' or 'union' word, it does not make sense to continue
-    spl = basetype.split()
-    if ('struct' in spl or 'union' in spl):
-        return None
-    newtype = getTypedefInfo(basetype)
-    if (newtype == None or newtype == basetype):
-        # No need not modify anything
-        return None
-    return newtype
-
-
+    return None
 
 
 
@@ -1251,96 +1069,7 @@ def member_offset(sname, fname):
     except:
         return -1
 
-
-# A trick like that does not always work as GDB tries to validate the address
-# p &(((struct sock *)0)->sk_rcvbuf)
-# But if we use a 'good' base address it seems to work fine
-
-goodbase = 0
-def GDBmember_offset(sname, fname):
-    global goodbase
-    if (not goodbase):
-        goodbase = sym2addr("tcp_hashinfo")
-    cmd = "p (unsigned long)(&(((%s *)0x%x)->%s))" % (sname, goodbase, fname)
-    rs = exec_gdb_command(cmd)
-    #print "cmd=<%s>, rs=<%s>" % (cmd, rs)
-    if (rs[0] != '$'):
-        offset = -1
-    else:
-        offset = int(int(rs.split("=")[1]) - goodbase)
-    #print "Offset for %s.%s = %d" % (sname, fname, offset)
-    return offset
     
-
-# GDB version of symbol_exists
-
-#crash> gdb info address tcp_hashinfo
-#Symbol "tcp_hashinfo" is static storage at address 0xc038e180.
-#crash> gdb info address tcp_hashinfo1
-#No symbol "tcp_hashinfo1" in current context.
-
-# WARNING: sometimes the symbol is visible using 'sym' command but not GDB command
-# E.g.:
-#crash> sym udpv6_protocol
-#f8b835a0 (d) udpv6_protocol
-#crash> gdb info address udpv6_protocol
-#No symbol "udpv6_protocol" in current context.
-
-
-def GDB_symbol_exists(sym):
-    s = exec_gdb_command("info address " + sym)
-    if (s == None or s[0] == 'N'):
-        return 0
-    else:
-        return 1
-
-# Uncached GDB version
-def GDB_sizeof(vtype):
-    command = "p sizeof(%s)" % vtype
-    rs = exec_gdb_command(command)
-    #print 'vtype=<%s> rs=<%s>' % (vtype, rs)
-    if ((not rs) or rs[0] != '$'):
-        sz = -1
-    else:
-        sz = int(rs.split('=')[1])
-    return sz
- 
-# GDB version of 'ptype'
-def GDB_ptype(sym):
-    rstr = exec_gdb_command("ptype " + sym)
-    return GDBStructInfo(rstr)
-
-# Return a string with part of of 'ptype' command before the first {.
-# At this moment this will work only for typedefs that
-# reference an already existing type. This will not work for
-# typedefs like
-
-# typedef struct {
-# 	unsigned long fds_bits [__FDSET_LONGS];
-# } __kernel_fd_set;
-
-re_ptype = re.compile('^type = ([^{]+)\s*{*$')
-def getTypedefInfo(tname):
-    rstr = exec_gdb_command("ptype " + tname).split('\n')[0]
-    # If we are OK, the 1st line is something like
-    # 'type = struct sock {'
-    # or type = unsigned int
-    m = re_ptype.match(rstr)
-    if (m):
-        # Typedef may include *
-        return m.group(1).strip()
-    else:
-        return None
-
-
-def newgetTypedefInfo(tname):
-    try:
-        rstr = crash.gdb_ptype(tname)
-    except crash.error:
-        return None
-    return rstr.split("{")[0].strip()
-
-getTypedefInfo = newgetTypedefInfo
 
 
 # A cached version

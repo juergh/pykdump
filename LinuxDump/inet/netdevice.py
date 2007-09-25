@@ -1,6 +1,6 @@
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <07/08/24 16:56:48 alexs>
+# Time-stamp: <07/09/24 14:15:48 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -460,7 +460,12 @@ def getStats(dev):
 # read device list starting from dev_base
 
 offset = member_offset("struct net_device", "next")
-dev_base = readSymbol("dev_base")
+try:
+    dev_base = readSymbol("dev_base")
+except TypeError:
+    # 2.6.22 and later
+    dev_base = readSymbol("dev_base_head")
+    
 
 # At this moment contains values 0-2, i.e. 3 bands
 prio2band = readSymbol("prio2band")
