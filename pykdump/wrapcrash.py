@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/09/26 16:23:05 alexs>
+# Time-stamp: <07/09/26 16:46:07 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -102,28 +102,30 @@ def _arr1toM(dims, arr1):
     
 # Classes to be used for basic types representation
 class BaseTypeinfo(object):
-    def __init__(self, size):
+    def __init__(self, size, dims = [1]):
+        # dims is a list of array dimensions, e.g. for
+        # [2][3][4] we'll have [2,3,4]
         # Size of this basetype. If we want to represent arrays,
         # this is a size of one element
         self.size = size
+        self.dims = dims
+        self.elements = reduce(lambda x, y: x*y, dims)
+        self.totsize = self.size * self.elements
 
 # Simple integers and arrays of them. Not bitfields or anything fancy
 class pykdump_Integer(BaseTypeinfo):
-    # dims is a list of array dimensions, e.g. for
-    # [2][3][4] we'll have [2,3,4]
     def __init__(self, size, signed = True, dims = [1]):
-        BaseTypeinfo.__init__(self, size)
-        self.elements = reduce(lambda x, y: x*y, dims)
-        self.dims = dims
+        BaseTypeinfo.__init__(self, size, dims)
         self.signed = signed
-        self.totsize = self.size * self.elements
-    def readobj_1(self, addr):
-        s = readmem(addr, self.totsize)
+    def readobj_1(self, addr, s = None):
+        if (not s):
+            s = readmem(addr, self.totsize)
         return mem2long(s, signed = self.signed)
-    def readobj(self, addr):
+    def readobj(self, addr, s = None):
         #print "-- sz=", self.size, "signed=",  self.signed, \
         #      "totsize=", self.totsize, "elements=", self.elements
-        s = readmem(addr, self.totsize)
+        if (not s):
+            s = readmem(addr, self.totsize)
         # Performance: check whether keywords slow down the code
         val = mem2long(s, signed = self.signed, array=self.elements)
         if (self.elements == 1):
@@ -137,6 +139,26 @@ class pykdump_Integer(BaseTypeinfo):
         else:
             return _arr1toM(self.dims, val)
         
+
+# Pointers
+class pykdump_Pointer(BaseTypeinfo):
+    def __init__(self, size, signed = True, dims = [1]):
+        BaseTypeinfo.__init__(self, size, dims)
+    def readobj(self, addr, s = None):
+        if (not s):
+            s = readmem(addr, self.totsize)
+        # Performance: check whether keywords slow down the code
+        val = mem2long(s, signed = self.signed, array=self.elements)
+        if (self.elements == 1):
+            # Most frequent case
+            #self.readobj = self.readobj_1
+            return mem2long(s, signed = self.signed)
+        val =  mem2long(s, signed = self.signed, array=self.elements)
+        if (len(self.dims) == 1):
+            # 1-dimarray
+            return val
+        else:
+            return _arr1toM(self.dims, val)
         
 
 
@@ -440,7 +462,7 @@ class StructResult(object):
         # This can be an array...
         fieldaddr = self.PYT_addr + off
         try:
-            return ni.accessor.readobj(fieldaddr)
+            return ni.accessor.readobj(fieldaddr, s)
         except AttributeError:
             pass
 
