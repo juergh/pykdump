@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/09/25 17:14:34 alexs>
+# Time-stamp: <07/09/26 16:23:05 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -65,6 +65,79 @@ def unique(s):
         u[x] = 1
     return u.keys()
 
+# An auxiliary function: create a multi-dim list based on index list,
+# e.g. [2,3,4] =>  a[2][3][4] filled with None
+def multilist(mdim):
+    d1 = mdim[0]
+    if (len(mdim) > 1):
+        a = []
+        for i in range(d1):
+            a.append(multilist(mdim[1:]))
+    else:
+        a =  [None for i in range(d1)]
+    return a
+
+def _arr1toM(dims, arr1):    
+    # We do this for 2- and 3-dim only
+    out = multilist(multidim)
+    if (len(dims) == 2):
+        I = dims[0]
+        J = dims[1]
+        for i in range(I):
+            for j in range(J):
+                out[i][j] = arr1[i*J+j]
+
+    elif (len(dims) == 3):
+        I = dims[0]
+        J = dims[1]
+        K = dims[2]
+        for i in range(I):
+            for j in range(J):
+                for k in range(K):
+                    out[i][j] = arr1[i*J*K+j*K +k]
+    else:
+        raise TypeError, "Array with dim >3"
+    return out
+
+    
+# Classes to be used for basic types representation
+class BaseTypeinfo(object):
+    def __init__(self, size):
+        # Size of this basetype. If we want to represent arrays,
+        # this is a size of one element
+        self.size = size
+
+# Simple integers and arrays of them. Not bitfields or anything fancy
+class pykdump_Integer(BaseTypeinfo):
+    # dims is a list of array dimensions, e.g. for
+    # [2][3][4] we'll have [2,3,4]
+    def __init__(self, size, signed = True, dims = [1]):
+        BaseTypeinfo.__init__(self, size)
+        self.elements = reduce(lambda x, y: x*y, dims)
+        self.dims = dims
+        self.signed = signed
+        self.totsize = self.size * self.elements
+    def readobj_1(self, addr):
+        s = readmem(addr, self.totsize)
+        return mem2long(s, signed = self.signed)
+    def readobj(self, addr):
+        #print "-- sz=", self.size, "signed=",  self.signed, \
+        #      "totsize=", self.totsize, "elements=", self.elements
+        s = readmem(addr, self.totsize)
+        # Performance: check whether keywords slow down the code
+        val = mem2long(s, signed = self.signed, array=self.elements)
+        if (self.elements == 1):
+            # Most frequent case
+            #self.readobj = self.readobj_1
+            return mem2long(s, signed = self.signed)
+        val =  mem2long(s, signed = self.signed, array=self.elements)
+        if (len(self.dims) == 1):
+            # 1-dimarray
+            return val
+        else:
+            return _arr1toM(self.dims, val)
+        
+        
 
 
 # Struct/Union info representation with methods to append data
@@ -90,14 +163,28 @@ def new2old(ns):
             # This is a non-aggregate
             f.fname = '-'
         f.type = e["basetype"].split()
-        sz =  e["typelength"]
+        sz1 = sz =  e["typelength"]
+        new_dims = [1]
         if (e.has_key("dims")):
+            new_dims = e["dims"]
             dims = e["dims"]
             if (len(dims) == 1):
                 f.array = dims[0]
             else:
                 f.array = dims
             sz *= reduce(lambda x, y: x*y, dims)
+
+        # For integer types add accessor (but not for arrays of chars yet)
+        if (e.has_key("uint")):
+            uint = e["uint"]
+            # char a[dim] is a special case
+            if (sz1 == 1 and not uint and \
+                e.has_key("dims") and len(new_dims) == 1):
+                pass
+            else:
+                accessor = pykdump_Integer(sz1, uint, new_dims)
+                f.accessor = accessor
+
         if (e.has_key("stars")):
             f.star = '*' * e["stars"]
         if (e.has_key("bitsize")):
@@ -352,6 +439,11 @@ class StructResult(object):
 
         # This can be an array...
         fieldaddr = self.PYT_addr + off
+        try:
+            return ni.accessor.readobj(fieldaddr)
+        except AttributeError:
+            pass
+
 	try:
 	    one, two = _ni_cache[id(ni)]
 	    if (type(one) == type(True)):
@@ -374,7 +466,7 @@ class StructResult(object):
         elif (reprtype == "CharArray"):
             val = _getCharArray(fieldaddr, ni, s)
         elif (reprtype == "String"):
-            val = _getString(fieldaddr, ni, s)
+            val = _getString(fieldaddr, ni, s) 
         elif (reprtype in ('UInt', 'SInt', 'Ptr', 'FPtr', 'SUptr')):
             val =  _getInt(fieldaddr, ni, s)
         else:
@@ -423,7 +515,7 @@ def _getInt(fieldaddr, ni, s = None):
             raise "TypeError", "Cannot process fptr arrays"
     elif (smarttype == 'SInt'):
         val = mem2long(s, signed = True, array=dim)
-	_ni_cache[id(ni)] = (True, dim)
+	#_ni_cache[id(ni)] = (True, dim)
     
     elif (smarttype == 'UInt'):
         val = mem2long(s, array=dim)
@@ -433,8 +525,9 @@ def _getInt(fieldaddr, ni, s = None):
 		raise "TypeError", ni
             else:	
                 val = (val&(~(~0<<ni.bitoffset+ ni.bitfield)))>>ni.bitoffset
-	else:
-	   _ni_cache[id(ni)] = (False, dim)
+        else:
+            #_ni_cache[id(ni)] = (False, dim)
+            pass
         
     elif (smarttype in ('SUptr', 'Ptr')):
         if (dim == 1):
@@ -911,17 +1004,6 @@ def readSymbol(symbol, art = None):
 
     return out
 
-# An auxiliary function: create a multi-dim list based on index list,
-# e.g. [2,3,4] =>  a[2][3][4] filled with None
-def multilist(mdim):
-    d1 = mdim[0]
-    if (len(mdim) > 1):
-        a = []
-        for i in range(d1):
-            a.append(multilist(mdim[1:]))
-    else:
-        a =  [None for i in range(d1)]
-    return a
 
 # Get sizeof(type)
 def getSizeOf(vtype):
