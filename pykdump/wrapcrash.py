@@ -187,6 +187,13 @@ class pykdump_Pointer(BaseTypeinfo):
         self.addstats("pointer " + ni.basetype)
     def readobj(self, addr, s = None):
         #pp.pprint(self.ni)
+	if (self.elements == 0):
+            # We don't want to preserve dim=0 information
+            nf = self.ni.mincopy
+            #print "SYMI:", symi
+            #print "NF:", nf
+            return tPtrDimensionlessArray(nf, addr)
+
         if (not s):
             s = readmem(addr, self.totsize)
         if (self.elements == 1):
@@ -876,6 +883,20 @@ def readStructNext(shead, nextname):
         out.append(readSU(stype, p))
     return out 
 
+#    ======= Arrays Without Dimension =============
+#
+#  In some cases we have declarations like
+#  struct AAA *ptr[];
+
+class tPtrDimensionlessArray(object):
+    def __init__(self, ptype, addr):
+        self.ptype = ptype
+        self.addr = addr
+        self.size = pointersize
+    def __getitem__(self, key):
+        addr = readPtr(self.addr + pointersize * key)
+        return tPtr(addr, self.ptype)
+
 #     ======= return a Generator to iterate through SU array
 def SUArray(sname, addr, maxel = _MAXEL):
     size = getSizeOf(sname)
@@ -947,6 +968,14 @@ def readSymbol(symbol, art = None):
     stype = symi.basetype
     swtype = symi.smarttype
     addr = symi.addr
+    
+    # There is a special case - on some kernels we obtain zero-dimensioned
+    # arrays, e.g. on 2.6.9 sizeof(ipv4_table) = 0 and it ise declared as
+    # ctl_table ipv4_table[] = {...}
+    # In this case we return a generator to this array and expect that
+    # there is an end marker that lets programmer detect EOF. For safety
+    # reasons, we limit the number of returned entries to _MAXEL
+
     reader = symi.reader
     out = reader.readobj(addr)
     
