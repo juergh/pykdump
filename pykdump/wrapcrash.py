@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/09/27 14:32:10 alexs>
+# Time-stamp: <07/09/27 15:35:01 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -314,9 +314,9 @@ def new2old(ns):
             t_stars = None
 
         if (e.has_key("uint")):
-            t_uint = e["uint"]
+            t_signed = not e["uint"]
         else:
-            t_uint = None
+            t_signed = None
 
         if (e.has_key("bitsize")):
             t_bitsize = e["bitsize"]
@@ -379,7 +379,7 @@ def new2old(ns):
             f.reader = pykdump_CharArray(t_size, t_dims)
         # An integer type
         elif (t_code == _GDB.TYPE_CODE_INT):
-            f.reader = pykdump_Integer(t_size, f, dims = t_dims)
+            f.reader = pykdump_Integer(t_size, f, t_signed, dims = t_dims)
         # A pointer or an array of pointers
         elif (t_stars):
             f.reader = pykdump_Pointer(t_size, f, t_dims)
