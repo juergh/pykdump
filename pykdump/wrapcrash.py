@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/09/26 16:46:07 alexs>
+# Time-stamp: <07/09/27 14:32:10 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -79,7 +79,7 @@ def multilist(mdim):
 
 def _arr1toM(dims, arr1):    
     # We do this for 2- and 3-dim only
-    out = multilist(multidim)
+    out = multilist(dims)
     if (len(dims) == 2):
         I = dims[0]
         J = dims[1]
@@ -102,21 +102,51 @@ def _arr1toM(dims, arr1):
     
 # Classes to be used for basic types representation
 class BaseTypeinfo(object):
-    def __init__(self, size, dims = [1]):
+    _counter = 0
+    _types = []
+    def __init__(self, size, dims = None):
+        BaseTypeinfo._counter += 1
         # dims is a list of array dimensions, e.g. for
         # [2][3][4] we'll have [2,3,4]
         # Size of this basetype. If we want to represent arrays,
         # this is a size of one element
         self.size = size
         self.dims = dims
-        self.elements = reduce(lambda x, y: x*y, dims)
+        self.multidim = False
+        if (dims):
+            self.elements = reduce(lambda x, y: x*y, dims)
+            if (len(dims) > 1):
+                self.multidim = True
+        else:
+            self.elements = 1
         self.totsize = self.size * self.elements
+    def addstats(self, text):
+        BaseTypeinfo._types.append(text)
+    def printCache():
+        print " -- TypeInfo: %d readers created" % BaseTypeinfo._counter
+        lr = BaseTypeinfo._types
+        lr.sort()
+        for l in lr:
+            print "\t", l
+    printCache = staticmethod(printCache)
+
+# For debugging
+class pykdump_Badtype(BaseTypeinfo):
+    def __init__(self, size, ni, dims = None):
+        BaseTypeinfo.__init__(self, size, dims)
+        self.ni = ni
+    def readobj(self, addr, s):
+        print "Don't know how to read"
+        pp.pprint(self.ni)
+        raise TypeError, "bad type"
+   
 
 # Simple integers and arrays of them. Not bitfields or anything fancy
 class pykdump_Integer(BaseTypeinfo):
-    def __init__(self, size, signed = True, dims = [1]):
+    def __init__(self, size, signed = True, dims = None):
         BaseTypeinfo.__init__(self, size, dims)
         self.signed = signed
+        self.addstats("integer")
     def readobj_1(self, addr, s = None):
         if (not s):
             s = readmem(addr, self.totsize)
@@ -124,45 +154,130 @@ class pykdump_Integer(BaseTypeinfo):
     def readobj(self, addr, s = None):
         #print "-- sz=", self.size, "signed=",  self.signed, \
         #      "totsize=", self.totsize, "elements=", self.elements
+
+        if (self.totsize == 0):
+            # We assume we should return a pointer to this offset
+            return addr
+
         if (not s):
             s = readmem(addr, self.totsize)
         # Performance: check whether keywords slow down the code
-        val = mem2long(s, signed = self.signed, array=self.elements)
+        signed = False
+        if (self.signed != None):
+            signed = self.signed
+        val = mem2long(s, signed = signed, array=self.elements)
         if (self.elements == 1):
             # Most frequent case
             #self.readobj = self.readobj_1
-            return mem2long(s, signed = self.signed)
-        val =  mem2long(s, signed = self.signed, array=self.elements)
-        if (len(self.dims) == 1):
-            # 1-dimarray
-            return val
-        else:
-            return _arr1toM(self.dims, val)
+            return mem2long(s, signed = signed)
+        return  mem2long(s, signed = signed, array=self.elements)
         
 
 # Pointers
 class pykdump_Pointer(BaseTypeinfo):
-    def __init__(self, size, signed = True, dims = [1]):
+    def __init__(self, size, ni, dims = None):
         BaseTypeinfo.__init__(self, size, dims)
+        self.ni = ni
+        self.addstats("pointer " + ni.basetype)
     def readobj(self, addr, s = None):
+        #pp.pprint(self.ni)
         if (not s):
             s = readmem(addr, self.totsize)
-        # Performance: check whether keywords slow down the code
-        val = mem2long(s, signed = self.signed, array=self.elements)
         if (self.elements == 1):
-            # Most frequent case
-            #self.readobj = self.readobj_1
-            return mem2long(s, signed = self.signed)
-        val =  mem2long(s, signed = self.signed, array=self.elements)
-        if (len(self.dims) == 1):
-            # 1-dimarray
-            return val
-        else:
-            return _arr1toM(self.dims, val)
+            # Most frequent case 
+            return tPtr(mem2long(s), self.ni)
+        ptrs = mem2long(s, array=self.elements)
+        nf = self.ni.mincopy()
+        sz1 = self.size
+        val = []
+        for i in range(self.elements):
+            val.append(tPtr(ptrs[i], nf))
+        return val
         
+ # Strings - 'char *'
+class pykdump_String(BaseTypeinfo):
+    def __init__(self, size, dims = None):
+        BaseTypeinfo.__init__(self, size, dims)
+        self.ni = ni
+    def readobj(self, addr, s = None):
+        if (not s):
+            ptr = readPtr(addr)
+        else:
+            ptr = mem2long(s)
+        if (ptr == 0):
+            return None
+        else:
+            s = readmem(ptr, 256)
+            return SmartString(s, addr, ptr) 
 
+ # Strings - 'char *'
+class pykdump_CharArray(BaseTypeinfo):
+    def __init__(self, size, dims):
+        BaseTypeinfo.__init__(self, size, dims)
+    def readobj(self, addr, s = None):
+        dim = self.elements
+        sz = self.size
+        if (dim == 0):
+            # We assume we should return a pointer to this offset
+            val = addr
+        else:
+            # Return it as a string - may contain ugly characters!
+            # not NULL-terminated like String reprtype
+            if (s == None):
+                s = readmem(addr, sz)
+            val = SmartString(s, addr, None)
 
+        return val
+
+# Struct/union
+class pykdump_SU(BaseTypeinfo):
+    def __init__(self, size, ftype, dims = None):
+        BaseTypeinfo.__init__(self, size, dims)
+        self.ftype = ftype
+    def readobj(self, addr, s = None):
+        #print "Reading", self.ftype, self.size, self.dims, self.elements
+     
+        # A special case: dim=0, e.g.
+        # struct sockaddr_un name[0]
+        # This is legal at the end of struct
+        
+        if (self.elements == 0):
+            totsize = self.size              # 1 elements
+        else:
+            totsize = self.totsize
+        if (not s):
+            s = readmem(addr, totsize)
+        if (self.elements == 1 or self.elements == 0):
+            # Most frequent case 
+            return StructResult(self.ftype, addr, s)
+
+            
+        # An array, maybe even multidimensional
+        out = []
+        sz1 = self.size
+        for i in range(self.elements):
+            s1 = s[i*sz1:(i+1)*sz1]
+            v1 = StructResult(self.ftype, addr+i*sz1, s1)
+            out.append(v1)
+        return out
+            
+
+        
+    
 # Struct/Union info representation with methods to append data
+
+class _GDB:
+    TYPE_CODE_PTR = 1		#/* Pointer type */
+    TYPE_CODE_ARRAY = 2		#/* Array type with lower & upper bounds. */
+    TYPE_CODE_STRUCT = 3	#/* C struct or Pascal record */
+    TYPE_CODE_UNION = 4		#/* C union or Pascal variant part */
+    TYPE_CODE_ENUM = 5		#/* Enumeration type */
+    TYPE_CODE_FUNC = 6		#/* Function type */
+    TYPE_CODE_INT = 7		#/* Integer type */
+    TYPE_CODE_FLT = 8
+    TYPE_CODE_VOID = 9
+
+
 
 # Convert the new typeinfo output to old-style
 
@@ -175,43 +290,67 @@ def new2old(ns):
     except KeyError:
         body = [ns]
     for e in body:
+        # These fields are always set
+        t_basetype = e["basetype"]
+        t_size = e["typelength"]
+        t_code = e["codetype"]
+        
+        t_1dim = False
+        if (e.has_key("dims")):
+            t_dims = e["dims"]
+            if (len(t_dims) == 1):
+                t_1dim = True
+        else:
+            t_dims = None
+
+        if (e.has_key("stars")):
+            t_stars = e["stars"]
+        else:
+            t_stars = None
+
+        if (e.has_key("uint")):
+            t_uint = e["uint"]
+        else:
+            t_uint = None
+
+        if (e.has_key("bitsize")):
+            t_bitsize = e["bitsize"]
+        else:
+            t_bitsize = None
+
+        if (e.has_key("bitoffset")):
+            t_bitoffset = e["bitoffset"]
+        else:
+            t_bitoffset = None
+
         f = FieldInfo()
+
+        if (t_bitoffset != None):
+            f.offset = t_bitoffset/8
+
         try:
             # This is an aggregate, e.g. struct
             f.fname = e["fname"]
-            bitoffset = e["bitoffset"]
-            f.offset = bitoffset/8
         except KeyError:
             # This is a non-aggregate
             f.fname = '-'
-        f.type = e["basetype"].split()
-        sz1 = sz =  e["typelength"]
-        new_dims = [1]
-        if (e.has_key("dims")):
-            new_dims = e["dims"]
-            dims = e["dims"]
+
+        f.type = t_basetype.split()
+        sz1 = sz =  t_size
+        if (t_dims != None):
+            dims = t_dims
             if (len(dims) == 1):
                 f.array = dims[0]
             else:
                 f.array = dims
             sz *= reduce(lambda x, y: x*y, dims)
 
-        # For integer types add accessor (but not for arrays of chars yet)
-        if (e.has_key("uint")):
-            uint = e["uint"]
-            # char a[dim] is a special case
-            if (sz1 == 1 and not uint and \
-                e.has_key("dims") and len(new_dims) == 1):
-                pass
-            else:
-                accessor = pykdump_Integer(sz1, uint, new_dims)
-                f.accessor = accessor
+        if (t_stars != None):
+            f.star = '*' * t_stars
 
-        if (e.has_key("stars")):
-            f.star = '*' * e["stars"]
-        if (e.has_key("bitsize")):
-            f.bitfield = e["bitsize"]
-            f.bitoffset = e["bitoffset"] - f.offset*8
+        if (t_bitsize != None):
+            f.bitfield = t_bitsize
+            f.bitoffset = t_bitoffset - f.offset*8
         if (e.has_key("body")):
             # Recurse
             s1 = new2old(e)
@@ -223,6 +362,42 @@ def new2old(ns):
             pass
         f.size = sz
 
+        # Here we attach readers to types - this will eventually replace
+        # smarttype hack
+
+        # 'char *' pointers without dimension
+        if (t_basetype =='char' and t_dims == None and t_stars == None
+            and t_bitsize == None):
+            f.reader = pykdump_String(t_size)
+        # 'char a[n]' - chararray
+        elif (t_basetype == 'char' and t_bitsize == None and t_1dim):
+            f.reader = pykdump_CharArray(t_size, t_dims)
+        # An integer type
+        elif (t_code == _GDB.TYPE_CODE_INT):
+            f.reader = pykdump_Integer(t_size, dims = t_dims)
+        # A pointer or an array of pointers
+        elif (t_stars):
+            f.reader = pykdump_Pointer(t_size, f, t_dims)
+        # A struct/union or an array of them
+        elif (t_code in (_GDB.TYPE_CODE_STRUCT, _GDB.TYPE_CODE_UNION)):
+            if (e.has_key("body")):
+                # This is an embedded SU
+                #print '--embdedded:', t_basetype
+                # Create an embedded info if needed
+                try:
+                    getStructInfo(f.basetype, createnew=False)
+                except TypeError:
+                    embeddedStructInfo(f.basetype, f)
+
+                f.reader = pykdump_SU(t_size, f.basetype, t_dims)
+            else:
+                # This is a normal SU
+                #print '--normal SU:', t_basetype
+                f.reader = pykdump_SU(t_size, t_basetype, t_dims)
+        else:
+            # Catch errors
+            f.reader = pykdump_Badtype(t_size, e)
+            
         # We use this flag to mark new-style FieldInfo
         f.new = True
         out.append(f)
@@ -461,42 +636,15 @@ class StructResult(object):
 
         # This can be an array...
         fieldaddr = self.PYT_addr + off
-        try:
-            return ni.accessor.readobj(fieldaddr, s)
-        except AttributeError:
-            pass
 
-	try:
-	    one, two = _ni_cache[id(ni)]
-	    if (type(one) == type(True)):
-	       return mem2long(s, signed = one, array=two)
-	    if (one == 'tPtr'):
-	        return tPtr(mem2long(s), ni)
-	    elif (one== 'SU'):
-		return StructResult(two, fieldaddr, s)
-	except KeyError:
-	    pass
-	
-        reprtype = ni.smarttype
-	
-        if (sz >0 and len(s) != sz):
-            print ni.ctype, name, off, sz, len(s), len(self.PYT_data)
-            raise TypeError
+        reader = ni.reader
+        out = reader.readobj(fieldaddr, s)
 
-        if (reprtype == "SU"):
-            val = _getSU(fieldaddr, ni, s)
-        elif (reprtype == "CharArray"):
-            val = _getCharArray(fieldaddr, ni, s)
-        elif (reprtype == "String"):
-            val = _getString(fieldaddr, ni, s) 
-        elif (reprtype in ('UInt', 'SInt', 'Ptr', 'FPtr', 'SUptr')):
-            val =  _getInt(fieldaddr, ni, s)
-        else:
-            raise 'TypeError', reprtype
-            #return oldStructResult.__getattr__(self, name)
-
-        return val
-    
+        # Correct for multidim of needed
+        if (reader.multidim):
+            out = _arr1toM(self.dims, val)
+        return out
+ 
     # An ugly hack till we implement something better
     # We want to be able to do something like
     # s.GDBderef('->addr->name->sun_path')
@@ -510,90 +658,6 @@ class StructResult(object):
         return f
 
 
-_ni_cache = {}
-
-
-def _getInt(fieldaddr, ni, s = None):
-    dim = ni.dim
-    if (dim == 0):
-        # We assume we should return a pointer to this offset
-        return fieldaddr
-
-    sz = ni.size
-    if (s == None):
-        s = readmem(fieldaddr, sz)
-
-    smarttype = ni.smarttype
-    
-    if (ni.has_key("bitfield") and smarttype != "UInt"):
-	raise "TypeError", ni
-
-    if (smarttype == 'FPtr'):
-        val = mem2long(s)
-        if (dim == 1):
-            if (val and machine == "ia64"):
-                val = readPtr(val)
-        else:
-            raise "TypeError", "Cannot process fptr arrays"
-    elif (smarttype == 'SInt'):
-        val = mem2long(s, signed = True, array=dim)
-	#_ni_cache[id(ni)] = (True, dim)
-    
-    elif (smarttype == 'UInt'):
-        val = mem2long(s, array=dim)
-	# Are we a bitfield??
-	if (ni.has_key("bitfield")):
-	    if (dim != 1):
-		raise "TypeError", ni
-            else:	
-                val = (val&(~(~0<<ni.bitoffset+ ni.bitfield)))>>ni.bitoffset
-        else:
-            #_ni_cache[id(ni)] = (False, dim)
-            pass
-        
-    elif (smarttype in ('SUptr', 'Ptr')):
-        if (dim == 1):
-            val = tPtr(mem2long(s), ni)
-	    _ni_cache[id(ni)] = "tPtr", None
-        else:
-            val = []
-            sz1 = sz/dim
-            # We should strip dim/array information for 1-dim arrays
-	    # But what if we have a multidimensional array?
-            nf = ni.mincopy
-            for i in range(dim):
-                val.append(tPtr(mem2long(s[i*sz1:(i+1)*sz1]), nf))
-    else:
-        raise TypeError, str(smarttype) + ' ' + str(dim)
-
-    return val
- 
-
-def _getString(fieldaddr, ni, s = None):
-    if (s == None):
-        ptr = readPtr(fieldaddr)
-    else:
-        ptr = mem2long(s)
-    if (ptr == 0):
-        return None
-    else:
-        s = readmem(ptr, 256)
-        return SmartString(s, fieldaddr, ptr)
-
-def _getCharArray(fieldaddr, ni, s = None):
-    dim = ni.dim
-    sz = ni.size
-    if (dim == 0):
-        # We assume we should return a pointer to this offset
-        val = fieldaddr
-    else:
-        # Return it as a string - may contain ugly characters!
-        # not NULL-terminated like String reprtype
-        if (s == None):
-            s = readmem(fieldaddr, sz)
-        val = SmartString(s, fieldaddr, None)
-
-    return val
 
 # Convert an embedded struct/union fieldinfo into a StructInfo
 # We create a fake name and adjust offsets if they are available
@@ -608,92 +672,6 @@ class embeddedStructInfo(BaseStructInfo):
 
         # Add ourselves to cache
         self.addToCache()
-
-
-def _getSU(fieldaddr, ni, s = None):
-    sz = ni.size
-    name = ni.fname
-    # This can be an array...
-    dim = ni.dim
-    ftype = ni.basetype
-    #print ftype
-    #pp.pprint(ni)
-
-    # This can be a fake type - in this case we might need to create it
-    if (ftype.find('-') != -1):
-        su = ni.type[0]
-        # Check whether we have already created this faketype
-        try:
-            au = getStructInfo(ftype, createnew=False)
-        except TypeError:
-            #print "Creating", ftype
-            #pp.pprint(ni)
-
-            # With new low-level interface, we can use embedded
-            if (ni.new):
-                au = embeddedStructInfo(ftype, ni)
-            else:
-                if (su == 'struct'):
-                    au = ArtStructInfo(ftype)
-                elif (su == 'union'):
-                    au = ArtUnionInfo(ftype)
-                else:
-                    raise TypeError, su
-                for fi in ni.body:
-                    au.append(fi.cstmt)
-
-    # This can be an array...
-    if (dim != 1):
-        # We sometimes meet dim=0, e.g.
-        # struct sockaddr_un name[0];
-        # I am not sure about that but let us process by
-        # loading new data from this address
-        if (dim == 0):
-            #print "dim=0", ftype, hexl(self.PYT_addr + off)
-            val = StructResult(ftype, fieldaddr)
-        else:
-            sz1 = sz/dim
-            val = []
-            for i in range(0, dim):
-                if (s):
-                    s1 = s[i*sz1:(i+1)*sz1]
-                else:
-                    s1 = None
-                one =  StructResult(ftype, fieldaddr+i*sz1, s1)
-                val.append(one)
-    else:
-        # We return this in case of SU with an 'external' type
-        val = StructResult(ftype, fieldaddr, s)
-	_ni_cache[id(ni)] = "SU", ftype
-    return val
-# Convert a flat (1-dim) list to multidimensional
-
-def _flat2Multi(symi, out):    
-    multidim = symi.indices
-    if (type(multidim) == type([])):
-        # We do this for 2- and 3-dim only
-        out1 = multilist(multidim)
-        if (len(multidim) == 2):
-            I = multidim[0]
-            J = multidim[1]
-            for i in range(I):
-                for j in range(J):
-                    out1[i][j] = out[i*J+j]
-        
-        elif (len(multidim) == 3):
-            I = multidim[0]
-            J = multidim[1]
-            K = multidim[2]
-            for i in range(I):
-                for j in range(J):
-                    for k in range(K):
-                        out1[i][j] = out[i*J*K+j*K +k]
-        else:
-            raise TypeError, "Array with dim >3"
-        return out1
-    else:
-        return out
-    
 
 
 
@@ -902,19 +880,6 @@ def SUArray(sname, addr, maxel = _MAXEL):
         yield readSU(sname, addr)
     return
 
-#    ======= Arrays Without Dimension =============
-#
-#  In some cases we have declarations like 
-#  struct AAA *ptr[];
-
-class tPtrDimensionlessArray(object):
-    def __init__(self, ptype, addr):
-	self.ptype = ptype
-	self.addr = addr
-	self.size = pointersize
-    def __getitem__(self, key):
-	addr = readPtr(self.addr + pointersize * key)
-	return tPtr(addr, self.ptype)
 
 # Walk list_Head and return the full list (or till maxel)
 #
@@ -972,59 +937,21 @@ def getListSize(addr, offset, maxel):
 #     ======= read from global according to its type  =========
 
 
-
-# Try to read symbol according to its type and return the appropriate object
-# For example, if this is a struct, return StructObj, if this is an array
-# of Structs, return a list of StructObj
-
 def readSymbol(symbol, art = None):
     symi = whatis(symbol, art)
     stype = symi.basetype
     swtype = symi.smarttype
     addr = symi.addr
-
-    # This can be an array...
-    dim = symi.dim
-
+    reader = symi.reader
+    out = reader.readobj(addr)
     
-    size = symi.size
-    # There is a special case - on some kernels we obtain zero-dimensioned
-    # arrays, e.g. on 2.6.9 sizeof(ipv4_table) = 0 and it ise declared as
-    # ctl_table ipv4_table[] = {...}
-    # In this case we return a generator to this array and expect that
-    # there is an end marker that lets programmer detect EOF. For safety
-    # reasons, we limit the number of returned entries to _MAXEL
-    if (dim == 0 and size == 0):
-	if (swtype == "SU"):
-	    sz1 = getSizeOf(stype)
-            return SUArray(stype, addr)
-	elif (swtype == "SUptr" or swtype ==  "Ptr"):
-	    # We don't want to preserve dim=0 information
-	    nf = symi.mincopy
-	    #print "SYMI:", symi
-	    #print "NF:", nf
- 	    return tPtrDimensionlessArray(nf, addr)
-
-    sz1 = size/dim
-
-    s = readmem(addr, size)
-
-    #print "ctype=<%s> swtype=<%s> dim=%d" % (symi.ctype, swtype, dim)
-    out = None
-    if (swtype == "SU"):
-        out = _getSU(addr, symi)
-    elif (swtype in ("SInt", "UInt", 'Ptr', 'SUptr')):
-        out = _getInt(addr, symi)
-    else:
-        raise TypeError, symi.ctype
-
-    # If we have multidim set and 'out' is a list, convert it to
-    # a list of lists as needed
-
-    if (type(out) == type([])):
-        out = _flat2Multi(symi, out)
-
+    # Correct for multidim of needed
+    if (reader.multidim):
+        out = _arr1toM(self.dims, val)
     return out
+    
+
+
 
 
 # Get sizeof(type)

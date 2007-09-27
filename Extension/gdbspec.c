@@ -175,6 +175,16 @@ do_ftype(struct type *ftype, PyObject *item) {
       ftype= TYPE_TARGET_TYPE(ftype);
       dims[ndim++] = TYPE_FIELD_BITPOS(range_type, 1)+1;
     } while (TYPE_CODE(ftype) == TYPE_CODE_ARRAY);
+
+    /* Reduce typedefs of the target */
+    if (TYPE_CODE(ftype) == TYPE_CODE_TYPEDEF) {
+      const char *ttypename = TYPE_NAME(ftype);
+      if (ttypename)
+	PyDict_SetItem(item, PyString_FromString("typedef"),
+		       PyString_FromString(ttypename));
+      CHECK_TYPEDEF(ftype);
+    }
+
     do_ftype(ftype, item);
     PyObject *pdims = PyList_New(0);
     for (i=0; i < ndim; i++)

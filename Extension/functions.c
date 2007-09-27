@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <07/09/25 15:17:00 alexs>
+  Time-stamp: <07/09/27 14:27:10 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -523,7 +523,7 @@ py_readmem(PyObject *self, PyObject *args) {
   if (readmem(addr, mtype, buffer, size, "Python",
 	      RETURN_ON_ERROR) == FALSE) {
     char pb[256];
-    sprintf(pb, "readmem error at addr 0x%llx", addr);
+    sprintf(pb, "readmem error at addr 0x%llx, reading %ld bytes", addr, size);
     PyErr_SetString(crashError, pb);
     return NULL;
     

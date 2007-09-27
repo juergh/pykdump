@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/09/25 16:30:56 alexs>
+# Time-stamp: <07/09/27 14:10:17 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -112,6 +112,7 @@ def enter_epython():
 def exit_epython():
     if API_options.dumpcache:
         BaseStructInfo.printCache()
+        wrapcrash.BaseTypeinfo.printCache()
     cleanup()
 
 # Similar to sys.exit() but does not call the os._exit()
