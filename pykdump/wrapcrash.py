@@ -371,7 +371,7 @@ def new2old(ns):
         # smarttype hack
 
         # 'char *' pointers without dimension
-        if (t_basetype =='char' and t_dims == None and t_stars == None
+        if (t_basetype =='char' and t_dims == None and t_stars == 1
             and t_bitsize == None):
             f.reader = pykdump_String(t_size)
         # 'char a[n]' - chararray
