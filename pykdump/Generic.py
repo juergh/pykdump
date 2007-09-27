@@ -151,7 +151,7 @@ class FieldInfo(dict):
     def getMinCopy(self):
         newdict ={}
         newdict['type'] = self.type
-        newdict['typedef'] = self.typedef
+        #newdict['typedef'] = self.typedef
         newdict['star'] = self.star
         newdict['new'] = self.new
         nf = FieldInfo(newdict)

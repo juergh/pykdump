@@ -143,10 +143,11 @@ class pykdump_Badtype(BaseTypeinfo):
 
 # Simple integers and arrays of them. Not bitfields or anything fancy
 class pykdump_Integer(BaseTypeinfo):
-    def __init__(self, size, signed = True, dims = None):
+    def __init__(self, size, ni, signed = True, dims = None):
         BaseTypeinfo.__init__(self, size, dims)
         self.signed = signed
         self.addstats("integer")
+	self.ni = ni
     def readobj_1(self, addr, s = None):
         if (not s):
             s = readmem(addr, self.totsize)
@@ -169,7 +170,12 @@ class pykdump_Integer(BaseTypeinfo):
         if (self.elements == 1):
             # Most frequent case
             #self.readobj = self.readobj_1
-            return mem2long(s, signed = signed)
+	    val = mem2long(s, signed = signed)
+	    # Is this a bitfield?
+	    ni = self.ni
+            if (ni.has_key("bitfield")):
+                val = (val&(~(~0<<ni.bitoffset+ ni.bitfield)))>>ni.bitoffset
+            return val
         return  mem2long(s, signed = signed, array=self.elements)
         
 
@@ -187,7 +193,7 @@ class pykdump_Pointer(BaseTypeinfo):
             # Most frequent case 
             return tPtr(mem2long(s), self.ni)
         ptrs = mem2long(s, array=self.elements)
-        nf = self.ni.mincopy()
+        nf = self.ni.mincopy
         sz1 = self.size
         val = []
         for i in range(self.elements):
@@ -198,7 +204,6 @@ class pykdump_Pointer(BaseTypeinfo):
 class pykdump_String(BaseTypeinfo):
     def __init__(self, size, dims = None):
         BaseTypeinfo.__init__(self, size, dims)
-        self.ni = ni
     def readobj(self, addr, s = None):
         if (not s):
             ptr = readPtr(addr)
@@ -374,7 +379,7 @@ def new2old(ns):
             f.reader = pykdump_CharArray(t_size, t_dims)
         # An integer type
         elif (t_code == _GDB.TYPE_CODE_INT):
-            f.reader = pykdump_Integer(t_size, dims = t_dims)
+            f.reader = pykdump_Integer(t_size, f, dims = t_dims)
         # A pointer or an array of pointers
         elif (t_stars):
             f.reader = pykdump_Pointer(t_size, f, t_dims)
