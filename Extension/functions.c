@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <07/09/27 14:27:10 alexs>
+  Time-stamp: <07/10/04 16:30:05 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -733,8 +733,6 @@ py_cpu_to_le32(PyObject *self, PyObject *args) {
   return PyLong_FromUnsignedLong(__cpu_to_le32(val));
 }
 
-PyObject * py_gdb_ptype_str(PyObject *self, PyObject *args);
-PyObject * py_gdb_whatis_str(PyObject *self, PyObject *args);
 PyObject * py_gdb_typeinfo(PyObject *self, PyObject *args);
 PyObject * py_gdb_whatis(PyObject *self, PyObject *args);
 
@@ -762,8 +760,6 @@ static PyMethodDef crashMethods[] = {
   {"getListSize", py_getlistsize, METH_VARARGS},
   {"getFullBuckets", py_getFullBuckets, METH_VARARGS},
   {"FD_ISSET", py_FD_ISSET, METH_VARARGS},
-  {"gdb_ptype_str", py_gdb_ptype_str, METH_VARARGS},
-  {"gdb_whatis_str", py_gdb_whatis_str, METH_VARARGS},
   {"gdb_whatis", py_gdb_whatis, METH_VARARGS},
   {"gdb_typeinfo", py_gdb_typeinfo, METH_VARARGS},
   {NULL,      NULL}        /* Sentinel */
