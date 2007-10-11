@@ -1,0 +1,6 @@
+
+set edit emacs
+extend /uuu/users/sid/tools/pykdump/Extension/pykdump64.so
+#extend /usr/local/lib/pykdump32.so
+set scroll off
+mod -s testmod testmod.ko
