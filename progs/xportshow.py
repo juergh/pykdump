@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/10/11 11:14:04 alexs>
+# Time-stamp: <07/10/11 14:36:04 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -440,18 +440,7 @@ def printTaskSockets(t):
     prn.close()
 
 def print_iface(if1="", details=False):
-
-    # read device list starting from dev_base
-
-    offset = member_offset("struct net_device", "next")
-    try:
-        dev_base = readSymbol("dev_base")
-    except TypeError:
-        # 2.6.22 and later
-        dev_base = readSymbol("dev_base_head")
- 
-    for a in readList(dev_base, offset):
-        dev = readSU("struct net_device", a)
+    for dev in netdevice.dev_base_list():
         if (if1 == "" or if1 == dev.name):
             netdevice.print_If(dev, details)
 

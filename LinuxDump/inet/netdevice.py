@@ -1,6 +1,6 @@
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <07/10/11 10:55:42 alexs>
+# Time-stamp: <07/10/11 14:55:29 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -400,6 +400,9 @@ def getStats(dev):
     if (func == 'nv_get_stats'):
         # struct fe_priv - 'forcedeth' module
         off = struct_size("spinlock_t")
+        # Pad to a pointer size
+        if (off < sys_info.pointersize):
+            off = sys_info.pointersize
         stats = readSU("struct net_device_stats", priv + off)
     elif (func == 'tg3_get_stats'):
         stats = tg3_get_stats(priv)
@@ -457,14 +460,28 @@ def getStats(dev):
     print2columns(left, right)
     
 
-# read device list starting from dev_base
 
-offset = member_offset("struct net_device", "next")
+# New style: dev_base_head is 'struct list_head	dev_base_head;' and this is
+# embedded in 'struct net_device' as
+# 	struct list_head	dev_list;
+
+# Old style: 'struct net_device *dev_base;'
+# and we are linked by 'next', e.g. dev_base->next
+
+
 try:
-    dev_base = readSymbol("dev_base")
+    __dev_base = readSymbol("dev_base")
+    # read device list starting from dev_base
+    __offset = member_offset("struct net_device", "next")
+    def dev_base_list():
+        return [readSU("struct net_device", a) \
+                for a in readList(__dev_base, __offset)]
 except TypeError:
     # 2.6.22 and later
-    dev_base = readSymbol("dev_base_head")
+    __dev_base_head = readSymbol("dev_base_head")
+    def dev_base_list():
+        return readSUListFromHead(Addr(__dev_base_head), "dev_list",
+                                  "struct net_device")
     
 
 # At this moment contains values 0-2, i.e. 3 bands
@@ -570,8 +587,7 @@ def print_If(dev, details):
     printQdisc(Deref(dev.qdisc))
    
 def print_Ifs(IF):
-    for a in readList(dev_base, offset):
-        dev = readSU("struct net_device", a)
+    for dev in dev_base_list():
         devname = dev.name
         if (IF and IF != devname):
             continue
