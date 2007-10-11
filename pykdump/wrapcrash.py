@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/10/11 12:15:37 alexs>
+# Time-stamp: <07/10/11 13:52:41 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -367,6 +367,9 @@ def suReader(vi):
 def ptrReader(vi, ptrlev):
     def strPtr(addr):
         ptr = readPtr(addr)
+        # If ptr = NULL, return None, needed for backwards compatibility
+        if (ptr == 0):
+            return None
         s = readmem(ptr, 256)
         return SmartString(s, addr, ptr)
     def genPtr(addr):
