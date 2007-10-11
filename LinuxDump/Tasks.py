@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/10/09 18:28:52 alexs>
+# Time-stamp: <07/10/11 15:28:58 alexs>
 
 # Tasks and Pids
 
@@ -65,6 +65,9 @@ class Task:
         ts = self.ts
         if (ts.hasField("cpu")):
             return ts.cpu
+        elif (ts.hasField("stack")):
+              thread_info = readSU("struct thread_info", self.ts.stack)
+              return thread_info.cpu
         else:
             return  self.ts.Deref.thread_info.cpu
     cpu = property(__get_cpu)
