@@ -1,6 +1,6 @@
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <07/09/24 14:15:48 alexs>
+# Time-stamp: <07/10/11 10:55:42 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.

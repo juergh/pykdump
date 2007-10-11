@@ -30,7 +30,9 @@ import types
 
 pp = pprint.PrettyPrinter(indent=4)
 
-from Generic import FieldInfo, hexl
+from Generic import hexl, Bunch
+
+FieldInfo = Bunch
 
 test = '''
         union {
@@ -288,7 +290,7 @@ class oldCDefine(object):
 
 # Globals updated by parsing actions
 
-attrs = FieldInfo()
+attrs = Bunch()
 attrstack = []
 
 

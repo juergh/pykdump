@@ -28,7 +28,7 @@ import atexit
 
 pp = pprint.PrettyPrinter(indent=4)
 
-from Generic import FieldInfo, hexl, Bunch
+from Generic import hexl, Bunch
 
 import pyparsing as pyp
 from pyparsing import *

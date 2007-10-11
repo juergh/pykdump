@@ -1,13 +1,14 @@
 #
 #  Code that does not depend on whether we use embedded API or PTY
 #
-# Time-stamp: <07/09/27 15:17:11 alexs>
+# Time-stamp: <07/10/11 12:00:02 alexs>
 #
 import string
 import pprint
 
 import os
 import tempfile
+import copy
 
 from StringIO import StringIO
 
@@ -29,51 +30,6 @@ def unsigned16(l):
 
 def unsigned32(l):
     return l & 0xffffffff
-
-# INTTYPES = ('char', 'short', 'int', 'long', 'signed', 'unsigned',
-#             '__u8', '__u16', '__u32', '__u64',
-#              'u8', 'u16', 'u32', 'u64',
-#             )
-# EXTRASPECS = ('static', 'const', 'volatile')
-
-# Struct/Union info representation base class. It does not contain methods
-# to add info as they rely at this moment on parser
-
-# Here we assume that the full type name is used - with struct/union word if needed
-class BaseStructInfo(dict):
-    # This is used for global caching of StructInfo
-    PYT__sinfo_cache = {}
-    def __init__(self, stype):
-        dict.__init__(self, {})
-        self.stype = stype
-        self.size = -1
-
-    # Field ptype suitable for passing to crash/gdb, e.g.
-    # for 'struct tcp_ehash_bucket *__tcp_ehash;' we return
-    # 'struct tcp_ehash_bucket'
-
-    #def fieldbasetype(self, fname):
-    #    fi = self[fname]
-    #    return fi.basetype
-
-    def __repr__(self):
-        return "TypeInfo <%s> size=%d" % \
-                   (self.stype, self.size) +\
-                   "\n" + pp.pformat(self.body)
-
-    def addToCache(self):
-        stype = self.stype
-        #print "++Adding to cache: ", stype
-        BaseStructInfo.PYT__sinfo_cache[stype] = self
-    def printCache():
-        keys = BaseStructInfo.PYT__sinfo_cache.keys()
-        keys.sort()
-        print "  ++++ TypeInfo Cache +++"
-        for k in keys:
-            print "\t", k
-    printCache = staticmethod(printCache)
-
-
 
 # A helper class to implement lazy attibute computation. It calls the needed
 # function only once and adds the result as an attribute so that next time
@@ -114,252 +70,281 @@ class Bunch(dict):
         prn.close()
         return rc
 
-# A class to manipulate field info easily. Initially it was a dictionary but
-# it should be easier to use attributes
+# Memoize methods with one simple arg  
+class MemoizeTI(type):
+    __cache = {}
+    def __call__(cls, *args):
+        sname = args[0]
+        try:
+            return MemoizeTI.__cache[sname]
+        except KeyError:
+            rc =  super(MemoizeTI, cls).__call__(*args)
+            MemoizeTI.__cache[sname] = rc
+            return rc
 
-class FieldInfo(dict):
-    def __init__(self, d = {}):
-        object.__setattr__(self, 'mutable', True)
-        self.parentstype = None
-        dict.__init__(self, d)
-        self.__dict__.update(d)
-        self.new = False
-    def __attr_check(self, attr):
-        if (self.mutable or attr == 'deref'):
-            return
+class MemoizeSU(type):
+    __cache = {}
+    def __call__(cls, *args):
+        sname = args[0]
+        try:
+            return MemoizeSU.__cache[sname]
+        except KeyError:
+            rc =  super(MemoizeSU, cls).__call__(*args)
+            MemoizeSU.__cache[sname] = rc
+            return rc
+
+
+
+
+# INTTYPES = ('char', 'short', 'int', 'long', 'signed', 'unsigned',
+#             '__u8', '__u16', '__u32', '__u64',
+#              'u8', 'u16', 'u32', 'u64',
+#             )
+# EXTRASPECS = ('static', 'const', 'volatile')
+
+# Representing types. Here is how we do it:
+
+# 1. basetype or 'target type' - a symbolic name after removing * and
+# arrays. For example, for 'struct test **a[2]' this will be 'struct test'.
+#
+# 2. type of basetype: integer/float/struct/union/func etc.
+#    for integers: signed/unsigned and size
+#
+# 3. Numbers of stars (ptrlev) or None
+#
+# 4. Dimensions as a list or None
+
+class TypeInfo(object):
+    X__metaclass__ = MemoizeTI
+    def __init__(self, stype, gdbinit = True ):
+        self.stype = stype
+        self.size = -1
+        self.dims = None
+        self.ptrlev = None
+        self.typedef = None
+        self.details = None
+        # For integer types
+        self.integertype = None
+        if (gdbinit):
+            d.update_TI_fromgdb(self, stype)
+
+    def getElements(self):
+        if (self.dims):
+            elements = reduce(lambda x, y: x*y, self.dims)
         else:
-            raise AttributeError( "this instance is immutable")
-    def __setattr__(self, name, value):
-        self.__attr_check(name)
+            elements = 1
+        return elements
 
-        object.__setattr__(self, name, value)
-        dict.__setitem__(self, name, value)
-        object.__setattr__(self, name, value)
-    def __setitem__(self, name, value):
-        self.__attr_check(name)
-
-        dict.__setitem__(self, name, value)
-        object.__setattr__(self, name, value)
-    def __delattr__(self, name):
-        self.__attr_check(name)
+    # Get target info for arrays/pointers - i.e. the same type
+    # but without ptrlev or dims
+    def getTargetType(self):
+        return TypeInfo(self.stype)
         
-        dict.__delitem__(self, name)
-        object.__delattr__(self, name)
-    def copy(self):
-        return FieldInfo(dict.copy(self))
-    # A minimal copy - to be used in tPtr
-    def getMinCopy(self):
-        newdict ={}
-        newdict['type'] = self.type
-        #newdict['typedef'] = self.typedef
-        newdict['star'] = self.star
-        newdict['new'] = self.new
-        nf = FieldInfo(newdict)
-        dummy = nf.smarttype
-        nf.mutable = False
-        return nf
-    
-    # If self desribes a pointer, Deref returns
-    # a new FieldInfo which describes a dereferenced pointer
-    def Deref(self):
-        try:
-            star = self.star
-        except AttributeError:
-            raise TypeError, "Cannot dereference non-pointers"
-        if (self.dim != 1):
-            raise TypeError, "Cannot dereference arrays"
-        newstar = star[1:]
 
-        newdict ={}
-        newdict['type'] = self.type
-        newdict['typedef'] = self.typedef
-        if (newstar):
-            newdict['star'] = newstar
-        nf = FieldInfo(newdict)
-        dummy = nf.smarttype
-        nf.mutable = False
-             
-        return nf
+    def fullname(self):
+        out = []
+        if (self.ptrlev != None):
+            out.append('*' * self.ptrlev)
 
-    # Dimension. For multidim arrays a total size, i.e. i1*i2*...*in
-    def getDim(self):
-        if (type(self.indices) == type([])):
-            dimtot = reduce(lambda x,y: x*y, self.indices)
+        # Here we will insert the varname
+        pref = string.join(out, '')
+        
+        out = []
+        if (self.dims != None):
+            for i in self.dims:
+                out.append("[%d]" % i)
+        suff = string.join(out, '')
+        return (self.stype, pref,suff)
+  
+        
+    # A full form with embedded structs unstubbed
+    def fullstr(self, indent = 0):
+        stype, pref, suff = self.fullname()
+        if (self.details):
+            rc = self.details.fullstr(indent)+ ' ' + pref + \
+                 suff + ';'
         else:
-            dimtot = self.indices
-        return dimtot
+            rc =  ' ' * indent + "%s %s%s;" % \
+                 (stype, pref, suff)
+        return rc
+     
+    def __repr__(self):
+        stype, pref, suff = self.fullname()
+        out = "TypeInfo <%s %s%s> size=%d" % (stype, pref, suff, self.size)
+        return out
+    elements = LazyEval("elements", getElements)
 
-    # Indices as they found by parser. For 1-dim array just an int,
-    # for multidim a list, e.g. [2][3][4] -> [2,3,4]
-    def getIndices(self):
-        if (self.has_key("array")):
-            return self["array"]
-        else:
-            return 1
 
-    # If the line with field definition is
-    # 'struct hello *ptr[10];' we might need different pieces of it
+
+
+# A global Variable or a struct/union field
+# This is TypeInfo plus name plus addr.
+# For SU we add manually two attributes: offset and parent
+
+class VarInfo(object):
+     def __init__(self,  name = None, addr = -1):
+         self.name = name
+         self.addr = addr
+         self.bitsize = None
+         self.ti = None
+     # A short form for printing inside struct
+     def shortstr(self, indent = 0):
+         stype, pref, suff = self.ti.fullname()
+         rc =  ' ' * indent + "%s %s%s%s;" % \
+              (stype, pref, self.name, suff)
+         return rc
+
+     # A full form with embedded structs unstubbed
+     def fullstr(self, indent = 0):
+         stype, pref, suff = self.ti.fullname()
+         details =self.ti.details
+         if (self.bitsize != None):
+             suff +=":%d" % self.bitsize
+
+         if (self.ti.details):
+             rc = self.ti.details.fullstr(indent)+ ' ' + pref + \
+                  self.name + suff + ';'
+         else:
+             rc =  ' ' * indent + "%s %s%s%s;" % \
+                  (stype, pref, self.name, suff)
+         #return rc
+         # Add offset etc.
+         size = self.ti.size * self.ti.elements
+         return rc + ' | off=%d size=%d' % (self.offset, size)
+
+     # Return a dereferencer for this varinfo (PTR type)
+     def getDereferencer(self):
+         ti = self.ti
+         tti = ti.getTargetType()
+         nvi = VarInfo()
+         nvi.ti = tti
+         self.tsize = tti.size
+         #print "Creating a dereferencer for", self
+         return nvi.getReader()
+     # Return a reader for this varinfo
+     def getReader(self, ptrlev = None):
+         ti = self.ti
+         codetype = ti.codetype
+         if (codetype == 7):
+             return d.intReader(self)
+         elif (codetype == 3 or codetype == 4):
+             # Struct/Union
+             return d.suReader(self)
+         elif (codetype == 1):
+             #print "getReader", id(self), self
+             # Pointer
+             if (ptrlev == None):
+                 ptrlev = ti.ptrlev
+             return d.ptrReader(self, ptrlev)
+         else:
+             raise TypeError, "don't know how to read codetype "+str(codetype)
+
+
+     def __repr__(self):
+         stype, pref, suff = self.ti.fullname()
+         out = "VarInfo <%s%s %s%s> addr=0x%x" % (stype, pref,
+                                                 self.name, suff, self.addr)
+         return out
+
+     # Backwards compatibility
+     def getBaseType(self):
+         return self.ti.stype
+
+     def getSize(self):
+         return self.ti.size * self.ti.elements
+
+     def getArray(self):
+         dims = self.ti.dims
+         if (len(dims) == 1):
+             return dims[0]
+         else:
+             return dims
     
-    # Base type, without * and other modifiers - 'struct hello'
-    # For structs/unions declared inside other struct/union, we
-    # create a fakename and artificial struct/union as needed
-    def getBaseType(self):
-        # Here we have a special case: a struct declared directly in another
-        # struct (so that it is not declared globally). For example:
-        #
-        # struct AA {
-        #   struct {} fname;
-        #
-        # struct AA {
-        #   struct BB {} fname;
+     reader = LazyEval("reader", getReader)
+     dereferencer = LazyEval("dereferencer", getDereferencer)
 
-        # In this case (no type defined globally) we generate a fakename
-        # 'struct AA-struct-fname' or 'struct AA-struct-BB-fname'
+     # Backwards compatibility
+     basetype = LazyEval("basetype", getBaseType)
+     size = LazyEval("size", getSize)
+     array = LazyEval("array", getArray)
 
-        #print '++', self.parentstype, self.type, self.fname
-        if (not self.has_key('body')):
-            # A normal case
-            return string.join(self.type)
-        else:
-            ftype = string.join(self.type, '-')
-            fakename = self.parentstype+ '-' + ftype + '-' + self.fname
-            return fakename
 
     
-    # Ctype, i.e. the basetype with * as needed 'struct hello *'
-    def getCtype(self):
-        try:
-            return self.basetype + ' ' + self.star
-        except:
-            return self.basetype
 
-    # Smart Type to return the most useful value. E.g. if
-    # we have 'char *' we convert it to Python string
-    # 'SUptr'
-    def getSmartType(self):
-        return _smartType(self)
+# This is unstubbed struct representation - showing all its fields.
+# Each separate field is represented as SFieldInfo and access to fields
+# is possible both via attibutes and dictionary
+class SUInfo(dict):
+    __metaclass__ = MemoizeSU
+    def __init__(self, sname, gdbinit = True):
+        #print "Creating SUInfo", sname
+        #self.parentstype = None
+        #dict.__init__(self, {})
+        object.__setattr__(self, "PYT_sname", sname)
+        object.__setattr__(self, "PYT_body",  []) # For printing only
+        if (gdbinit):
+            d.update_SUI_fromgdb(self, sname)
 
+    def __setitem__(self, name, value):
+        dict.__setitem__(self, name, value)
+        object.__setattr__(self, name, value)
 
-    # The full statement incuding name, dimension and ; - suitable
-    # for our parsed
-    def getCstmt(self):
-        if (self.dim and self.dim != 1):
-            dims = "[%d]" % self.dim
-        else:
-            dims = ""
-        return self.ctype + ' ' + self.fname + dims + ';'
+    def append(self, name, value):
+        self.PYT_body.append(name)
+        self[name] = value
+        
+    def fullstr(self, indent = 0):
+        inds = ' ' * indent
+        out = []
+        out.append(inds + self.PYT_sname + " {")
+        for fn in self.PYT_body:
+            out.append(self[fn].fullstr(indent+4))
+        out.append(inds+ "}")
+        return string.join(out, "\n")
+
+    def __repr__(self):
+        return self.fullstr()
     
-    basetype = LazyEval("basetype", getBaseType)
-    ctype = LazyEval("ctype", getCtype)
-    smarttype = LazyEval("smarttype", getSmartType)
-    cstmt = LazyEval("cstmt", getCstmt)
-    dim = LazyEval("dim", getDim)
-    indices = LazyEval("indices", getIndices)
-    mincopy = LazyEval("mincopy", getMinCopy)
-    deref = LazyEval("deref", Deref)
+    def __str__(self):
+        out = ["<SUInfo>"]
+        out.append(self.PYT_sname + " {")
+        for fn in self.PYT_body:
+            out.append("    " + self[fn].shortstr())
+        out.append("}")
+        return string.join(out, "\n")
 
 
+class ArtStructInfo(SUInfo):
+    def __init__(self, sname):
+        SUInfo.__init__(self, sname, False)
+        self.size = self.PYT_size = 0
+    def append(self, ftype, fname):
+        vi = VarInfo(fname)
+        vi.ti = TypeInfo(ftype)
+        vi.offset = self.PYT_size
+        vi.bitoffset = vi.offset * 8
 
-# Get field size as best as we can. Return -1 if we cannot do it
-def fieldsize(f):
-    size = -1
-    if (f.has_key("star") or f.has_key("func")):
-        size = d.pointersize
-    elif (f["type"][0] == "enum"):
-        size = d.getSizeOf("int")
-    else:
-        #ftype = string.join(f["type"])
-        ftype = f.basetype
-        size =  d.getSizeOf(ftype)
-    # Correct the size if this is an array
-    if (f.has_key("array")):
-        size *= f.dim
-    return size
-
-# Find the best data representation a field. E.g. we want (char *)
-# to be printed as string, integer types as integers
-def _smartType(fi):
-    # Analyse ctype
-    def analyseCtype(ctype):
-        spl = ctype.split()
-        # The new type can be a function declaration.
-        # At this moment we detect this by a presense of '(*)' string
-        if (ctype.find('(*)') != -1):
-            return 'FPtr'
-
-        signtype = 'S'
-        maintype = 'Int'
-        if ('unsigned' in spl):
-            signtype = 'U'
-        if ('struct' in spl or 'union' in spl):
-            maintype = 'SU'
-        elif ('char' in spl):
-            maintype = 'char'
-        star = None
-        if (ctype.find('*') >= 0):
-            star = '*'
-
-        # If we have SU + star here, we still return just Ptr
-        stype = 'UInt'
-        if (maintype == 'SU'):
-            stype = 'SU'
-        elif (maintype == 'char' and star and signtype == 'S'):
-            stype = 'String'
-        elif (maintype == 'char'):
-            if (signtype == 'U'):
-                stype = 'UChar'
-            else:
-                stype = 'Char'
-        elif (star):
-            stype = 'Ptr'
-        elif (signtype == 'S'):
-            stype = 'SInt'
-
-        return stype
-
-    # Reduce typedefs if any
-    newctype = d.isTypedef(fi.basetype)
-    if (newctype):
-        stype = analyseCtype(newctype)
-        fi.typedef = True
-    else:
-        stype = analyseCtype(fi.basetype)
-        fi.typedef = False
-
-    # In some cases we need to change the returned type.
-    # E.g. if it was SU and we have a '*', change this to SUptr
-    fullstype = stype
-    try:
-        star = fi.star
-    except:
-        star = ''
-
-    if (fi.has_key('func') or fullstype == 'FPtr'):
-        fullstype = 'FPtr'
-    elif (stype == 'Char'):
-        if (star == '*'):
-            fullstype = 'String'
-        elif (fi.has_key("array")):
-            fullstype = "CharArray"
-        else:
-            fullstype = 'SInt'
-    elif (stype == 'UChar'):
-        fullstype = 'UInt'
-    elif (stype == 'SU' and star == '*'):
-        fullstype = 'SUptr'
-    elif (star):
-        fullstype = 'Ptr'
-
-    #print 'SMARTTYPE for <%s>  is %s (stype=%s)' % (fi.ctype, fullstype, stype)
-    return fullstype
-    
-    
-def getSIfromCache(stype):
-    return BaseStructInfo.PYT__sinfo_cache[stype]
-
-# For debugging
-def printSICache():
-    pp.pprint(BaseStructInfo.PYT__sinfo_cache.keys())
+        SUInfo.append(self, fname, vi)
+        # Adjust the size
+        self.PYT_size += vi.size
+        self.size = self.PYT_size
+    # Inline an already defined SUInfo adding its fields and
+    # adjusting their offsets
+    def inline(self, si):
+        osize = self.PYT_size
+        for f in si.PYT_body:
+            vi = copy.copy(si[f])
+            vi.offset += osize
+            vi.bitoffset += 8 *osize
+            SUInfo.append(self, vi.name, vi)
+            
+        # Adjust the size
+        self.PYT_size += si.PYT_size
+        self.size += si.PYT_size
+            
+        
+        
+        
 
             
 # If 'flags' integer variable has some bits set and we assume their

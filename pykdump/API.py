@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/09/27 14:10:17 alexs>
+# Time-stamp: <07/10/11 11:59:10 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -36,8 +36,10 @@ import pykdump                          # For version check
 import sys, os, os.path
 
 # On Ubuntu the debug kernel has name /boot/vmlinux-dbg-<uname>
+# On Ubuntu/Gutsy it is /boot/vmlinux-debug-<uname>
 # On CG it is /usr/lib/kernel-image-<uname>-dbg/vmlinux
-kerntemplates = ("/boot/vmlinux-%s", "/boot/vmlinux-dbg-%s",
+kerntemplates = ("/boot/vmlinux-%s",
+                 "/boot/vmlinux-dbg-%s", "/boot/vmlinux-debug-%s", 
                  "/usr/lib/kernel-image-%s-dbg/vmlinux")
 
 
@@ -66,7 +68,7 @@ import atexit
 import os, os.path
 
 import Generic as gen
-from Generic import Bunch, PYT_tmpfiles, BaseStructInfo
+from Generic import Bunch, PYT_tmpfiles, ArtStructInfo
 
 
 
@@ -111,8 +113,9 @@ def enter_epython():
 # We call this when exiting epython
 def exit_epython():
     if API_options.dumpcache:
-        BaseStructInfo.printCache()
-        wrapcrash.BaseTypeinfo.printCache()
+        #BaseStructInfo.printCache()
+        #wrapcrash.BaseTypeinfo.printCache()
+        pass
     cleanup()
 
 # Similar to sys.exit() but does not call the os._exit()
@@ -158,7 +161,6 @@ if (crashloaded):
          readSUArray, readSUListFromHead, readStructNext, \
          getStructInfo, getFullBuckets, FD_ISSET, \
          struct_exists, symbol_exists,\
-         ArtStructInfo, ArtUnionInfo, \
          Addr, Deref, SmartString, tPtr, \
          sym2addr, addr2sym, readmem, uvtop, readProcessMem,  \
          struct_size, union_size, member_offset, member_size, \
@@ -186,14 +188,14 @@ def funcToMethod(func,clas,method_name=None):
 def addLazyMethods():
     """Add methods for lazy evaluation"""
     # Methods to be added dynamically to FieldInfo
-    def _getSizeOf(self):
-        return gen.fieldsize(self)
-    gen.FieldInfo.size = gen.LazyEval("size", _getSizeOf)
+#     def _getSizeOf(self):
+#         return gen.fieldsize(self)
+#     gen.FieldInfo.size = gen.LazyEval("size", _getSizeOf)
 
-    def _getOffset(self):
-        offset = wrapcrash.GDBmember_offset(self.parentstype, self.fname)
-        return offset
-    gen.FieldInfo.offset = gen.LazyEval("offset", _getOffset)
+#     def _getOffset(self):
+#         offset = wrapcrash.GDBmember_offset(self.parentstype, self.fname)
+#         return offset
+#     gen.FieldInfo.offset = gen.LazyEval("offset", _getOffset)
     
 
 
@@ -205,7 +207,11 @@ def initAfterDumpIsOpen():
     """Do needed initializations after dump is successfully opened"""
     global __dump_is_accessible
     __dump_is_accessible = True
-    pointersize = sys_info.pointersize = wrapcrash.pointersize
+    # Make some of our methods available for other modules
+    gen.d = wrapcrash
+
+    pointersize = getSizeOf("void *")
+    sys_info.pointersize = wrapcrash.pointersize = pointersize
     sys_info.pointermask = 2**(pointersize*8)-1
     _doSys()
 
@@ -216,8 +222,6 @@ def initAfterDumpIsOpen():
         sys_info.livedump = False
 
 
-    # Make some of our methods available for other modules
-    gen.d = wrapcrash
 
     # It's OK to cache struct info on live kernels, but we shouldn't
     # cache memory access and results (if we want to watch non-static

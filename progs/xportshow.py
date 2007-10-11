@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/09/24 14:31:18 alexs>
+# Time-stamp: <07/10/11 11:14:04 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -444,7 +444,12 @@ def print_iface(if1="", details=False):
     # read device list starting from dev_base
 
     offset = member_offset("struct net_device", "next")
-    dev_base = readSymbol("dev_base")
+    try:
+        dev_base = readSymbol("dev_base")
+    except TypeError:
+        # 2.6.22 and later
+        dev_base = readSymbol("dev_base_head")
+ 
     for a in readList(dev_base, offset):
         dev = readSU("struct net_device", a)
         if (if1 == "" or if1 == dev.name):
@@ -481,7 +486,6 @@ def print_sysctl():
     for n in names:
         print n.ljust(45), dall[n]
     #pp.pprint(ddef)
-    sys.exit(0)
 
 # Print those values that are not equal to default ones
 def print_sysctl_nodef():
@@ -619,11 +623,38 @@ if ( __name__ == '__main__'):
                   action="store_true",
                   help="Print the routing cache")
 
+    op.add_option("--everything", dest="Everything", default = 0,
+                  action="store_true",
+                  help="Run all functions available - for developers")
+
     (o, args) = op.parse_args()
 
     if (o.Verbose):
         details = True
 
+    if (o.Everything):
+        from LinuxDump.inet.netfilter import nf
+        from LinuxDump.inet import neighbour
+        from LinuxDump.inet.routing import print_fib, print_rt_hash
+        details = True
+
+        nf()
+        print_sysctl()
+        print_dev_pack()
+        print_fib()
+        print_rt_hash()
+        print_iface(o.If1, details)
+        Summarize()
+        print_Stats()
+        print_TCP()
+        print_UDP()
+        print_RAW()
+        print_UNIX()
+        sys.exit(0)
+
+        
+
+        
 
     if (o.New):
         pass

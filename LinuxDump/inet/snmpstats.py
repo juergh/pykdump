@@ -1,6 +1,6 @@
 # module LinuxDump.inet.snmpstats
 #
-# Time-stamp: <07/03/29 14:50:26 alexs>
+# Time-stamp: <07/10/11 12:25:18 alexs>
 #
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -81,12 +81,11 @@ class SnmpTable(dict):
 def __getSnmpTable_26(tname):
     table = readSymbol(tname)
     snmpname = tabnames[tname]
-
     out = []
     for sn in readSymbol(snmpname):
 	entry = sn.entry
-	f = sn.name
         if (entry == 0): break
+	f = sn.name
 	sum = __getSnmpEntry(table, entry)
 	out.append((f, sum))
     return out
@@ -117,8 +116,8 @@ def __getSnmpEntry(mib2, entry):
 def __getSnmpTable_24(tname):
     table = readSymbol(tname)
     sinfo = table[0].PYT_sinfo
-    stype = sinfo.stype
-    fnames = [e['fname'] for e in sinfo.body][:-1]
+    #fnames = [e['fname'] for e in sinfo.body][:-1]
+    fnames = sinfo.PYT_body[:-1]
     pref = tname.split('_')[0]
     # For all proto-specific tables (e.g. IP or TCP) the field names
     # in v2.4 have extra pref in the beginning of field names, compared

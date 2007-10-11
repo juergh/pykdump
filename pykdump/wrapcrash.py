@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/09/27 15:35:01 alexs>
+# Time-stamp: <07/10/11 12:15:37 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -40,12 +40,14 @@ import nparser
 experimental = False
 experimental = True
 
+debug = False
+
 #GDBStructInfo = tparser.GDBStructInfo
 GDBStructInfo = nparser.GDBStructInfo
 
 
 import Generic as Gen
-from Generic import BaseStructInfo, FieldInfo
+from Generic import Bunch, TypeInfo, VarInfo, SUInfo
 
 hexl = Gen.hexl
 
@@ -101,178 +103,312 @@ def _arr1toM(dims, arr1):
 
     
 # Classes to be used for basic types representation
-class BaseTypeinfo(object):
-    _counter = 0
-    _types = []
-    def __init__(self, size, dims = None):
-        BaseTypeinfo._counter += 1
-        # dims is a list of array dimensions, e.g. for
-        # [2][3][4] we'll have [2,3,4]
-        # Size of this basetype. If we want to represent arrays,
-        # this is a size of one element
-        self.size = size
-        self.dims = dims
-        self.multidim = False
-        if (dims):
-            self.elements = reduce(lambda x, y: x*y, dims)
-            if (len(dims) > 1):
-                self.multidim = True
-        else:
-            self.elements = 1
-        self.totsize = self.size * self.elements
-    def addstats(self, text):
-        BaseTypeinfo._types.append(text)
-    def printCache():
-        print " -- TypeInfo: %d readers created" % BaseTypeinfo._counter
-        lr = BaseTypeinfo._types
-        lr.sort()
-        for l in lr:
-            print "\t", l
-    printCache = staticmethod(printCache)
+# We adjust 'stype' if needed
 
-# For debugging
-class pykdump_Badtype(BaseTypeinfo):
-    def __init__(self, size, ni, dims = None):
-        BaseTypeinfo.__init__(self, size, dims)
-        self.ni = ni
-    def readobj(self, addr, s):
-        print "Don't know how to read"
-        pp.pprint(self.ni)
-        raise TypeError, "bad type"
+def update_TI(f, e):
+    # These fields are always set
+    t_size = e["typelength"]
+    f.codetype = e["codetype"]
+    f.stype = e_to_tagname(e)
+
+    f.size = t_size
+
+    if (e.has_key("dims")):
+        f.dims = e["dims"]
+
+    if (e.has_key("stars")):
+        f.ptrlev = e["stars"]
+
+    if (e.has_key("uint")):
+        f.uint = e["uint"]
+    else:
+        f.uint = None
+
+
+    if (e.has_key("typedef")):
+        f.typedef = e["typedef"]        # The initial type
+
+    if (e.has_key("ptrbasetype")):
+        f.ptrbasetype = e["ptrbasetype"] # The base type of pointer
+
+    # A special case is a struct/union without tag. In this case
+    # we create an artifical name for it
+
+    # If we have a body, get details
+    if (e.has_key("body")):
+        tag = e_to_tagname(e)
+        # Add this typeinfo to cache
+        ff = SUInfo(tag, False)
+        if (not ff.PYT_body):
+            update_SUI(ff, e)
+        f.details = ff
+
+def update_TI_fromgdb(f, sname):
+    e = crash.gdb_typeinfo(sname)
+    update_TI(f, e)
+
+# Choose a tag used for caching:
+# - if we have typedef, use it
+# - otherwise, use the real type
+# - if the tag is non-descriptive (e.g. embedded structs), create a fakename
+def e_to_tagname(e):
+    if (e.has_key("typedef")):
+        tag = e["typedef"]        # The initial type
+    else:
+        tag = e["basetype"]
+    # Do we just one word in basetype? If yes, create a proper tag
+    if (tag in ('struct', 'union')):
+        tag = tag + " fake-" + str(id(e))
+
+    return tag
+        
+ 
    
+def update_SUI(f, e):
+    f.PYT_size = f.size = e["typelength"]
+    for ee in e["body"]:
+        fname = ee["fname"]
+        f1 = VarInfo(fname, False)
+        ti = TypeInfo('', False)
+        update_TI(ti, ee)
+        f1.ti = ti
+        f1.bitoffset = ee["bitoffset"]
+        f1.offset = f1.bitoffset/8
+        if (ee.has_key("bitsize")):
+            f1.bitsize = ee["bitsize"]
 
-# Simple integers and arrays of them. Not bitfields or anything fancy
-class pykdump_Integer(BaseTypeinfo):
-    def __init__(self, size, ni, signed = True, dims = None):
-        BaseTypeinfo.__init__(self, size, dims)
-        self.signed = signed
-        self.addstats("integer")
-	self.ni = ni
-    def readobj_1(self, addr, s = None):
-        if (not s):
-            s = readmem(addr, self.totsize)
-        return mem2long(s, signed = self.signed)
-    def readobj(self, addr, s = None):
-        #print "-- sz=", self.size, "signed=",  self.signed, \
-        #      "totsize=", self.totsize, "elements=", self.elements
+        f.append(fname, f1)
 
-        if (self.totsize == 0):
-            # We assume we should return a pointer to this offset
-            return addr
 
-        if (not s):
-            s = readmem(addr, self.totsize)
-        # Performance: check whether keywords slow down the code
-        signed = False
-        if (self.signed != None):
-            signed = self.signed
-        val = mem2long(s, signed = signed, array=self.elements)
-        if (self.elements == 1):
-            # Most frequent case
-            #self.readobj = self.readobj_1
-	    val = mem2long(s, signed = signed)
-	    # Is this a bitfield?
-	    ni = self.ni
-            if (ni.has_key("bitfield")):
-                val = (val&(~(~0<<ni.bitoffset+ ni.bitfield)))>>ni.bitoffset
+def update_TI_fromgdb(f, sname):
+    e = crash.gdb_typeinfo(sname)
+    update_TI(f, e)
+    
+
+def update_SUI_fromgdb(f, sname):
+    try:
+        e = crash.gdb_typeinfo(sname)
+    except crash.error:
+        raise TypeError, "no type " + sname
+    update_SUI(f, e)
+
+class StructResult(object):
+    def __init__(self, sname, addr):
+       	self.PYT_symbol = sname
+	self.PYT_addr = addr
+        self.PYT_sinfo = SUInfo(sname)
+        self.PYT_size = self.PYT_sinfo.PYT_size;
+
+    def __getattr__(self, name):
+        try:
+            fi = self.PYT_sinfo[name]
+        except KeyError:
+            # This is ugly - but I have not found a better way yet
+            ind = name.find('__')
+            if (ind > 0):
+                name = name[ind:]
+            fi = self.PYT_sinfo[name]
+            
+        reader = fi.reader
+        addr = self.PYT_addr + fi.offset
+        return reader(addr)
+
+    def __str__(self):
+        return "<%s 0x%x>" % \
+               (self.PYT_symbol, self.PYT_addr)
+
+    def __repr__(self):
+        return "StructResult <%s 0x%x> \tsize=%d" % \
+               (self.PYT_symbol, self.PYT_addr, self.PYT_size)
+    
+    # Backwards compatibility
+    def __nonzero__(self):
+        return True
+
+    def __len__(self):
+        return self.PYT_size
+
+    def hasField(self, fname):
+        return self.PYT_sinfo.has_key(fname)
+
+    def isNamed(self, sname):
+        return sname == self.PYT_symbol
+
+    # Cast to another type. Here we assume that that one struct resides
+    # as the first member of another one, this is met frequently in kernel
+    # sources
+    def castTo(self, sname):
+        return StructResult(sname, self.PYT_addr)
+
+    def __getitem__(self, name):
+        return self.PYT_sinfo[name]
+
+# A factory function for integer readers
+def intReader(vi):
+    def signedReader(addr):
+        s = readmem(addr, size)
+        return mem2long(s, signed = True)
+    def unsignedReader(addr):
+        s = readmem(addr, size)
+        return mem2long(s)
+    def signedBFReader(addr):
+        s = readmem(addr, size)
+        val = mem2long(s)
+        val = (val >> bitoffset) & mask
+        sign = val >> (bitsize - 1)
+        if (sign):
+            return val - mask -1
+        else:
             return val
-        return  mem2long(s, signed = signed, array=self.elements)
-        
-
-# Pointers
-class pykdump_Pointer(BaseTypeinfo):
-    def __init__(self, size, ni, dims = None):
-        BaseTypeinfo.__init__(self, size, dims)
-        self.ni = ni
-        self.addstats("pointer " + ni.basetype)
-    def readobj(self, addr, s = None):
-        #pp.pprint(self.ni)
-	if (self.elements == 0):
-            # We don't want to preserve dim=0 information
-            nf = self.ni.mincopy
-            #print "SYMI:", symi
-            #print "NF:", nf
-            return tPtrDimensionlessArray(nf, addr)
-
-        if (not s):
-            s = readmem(addr, self.totsize)
-        if (self.elements == 1):
-            # Most frequent case 
-            return tPtr(mem2long(s), self.ni)
-        ptrs = mem2long(s, array=self.elements)
-        nf = self.ni.mincopy
-        sz1 = self.size
-        val = []
-        for i in range(self.elements):
-            val.append(tPtr(ptrs[i], nf))
-        return val
-        
- # Strings - 'char *'
-class pykdump_String(BaseTypeinfo):
-    def __init__(self, size, dims = None):
-        BaseTypeinfo.__init__(self, size, dims)
-    def readobj(self, addr, s = None):
-        if (not s):
-            ptr = readPtr(addr)
-        else:
-            ptr = mem2long(s)
-        if (ptr == 0):
-            return None
-        else:
-            s = readmem(ptr, 256)
-            return SmartString(s, addr, ptr) 
-
- # Strings - 'char *'
-class pykdump_CharArray(BaseTypeinfo):
-    def __init__(self, size, dims):
-        BaseTypeinfo.__init__(self, size, dims)
-    def readobj(self, addr, s = None):
-        dim = self.elements
-        sz = self.size
-        if (dim == 0):
-            # We assume we should return a pointer to this offset
-            val = addr
-        else:
-            # Return it as a string - may contain ugly characters!
-            # not NULL-terminated like String reprtype
-            if (s == None):
-                s = readmem(addr, sz)
-            val = SmartString(s, addr, None)
-
+    def unsignedBFReader(addr):
+        s = readmem(addr, size)
+        val = mem2long(s)
+        val = (val>>bitoffset) & mask
         return val
 
-# Struct/union
-class pykdump_SU(BaseTypeinfo):
-    def __init__(self, size, ftype, dims = None):
-        BaseTypeinfo.__init__(self, size, dims)
-        self.ftype = ftype
-    def readobj(self, addr, s = None):
-        #print "Reading", self.ftype, self.size, self.dims, self.elements
-     
-        # A special case: dim=0, e.g.
-        # struct sockaddr_un name[0]
-        # This is legal at the end of struct
-        
-        if (self.elements == 0):
-            totsize = self.size              # 1 elements
-        else:
-            totsize = self.totsize
-        if (not s):
-            s = readmem(addr, totsize)
-        if (self.elements == 1 or self.elements == 0):
-            # Most frequent case 
-            return StructResult(self.ftype, addr, s)
+    def charArray(addr):
+        s = readmem(addr, dim1)
+        val = SmartString(s, addr, None)
+        return val
 
-            
-        # An array, maybe even multidimensional
+    # Arrays
+    def signedArrayReader(addr):
+        s = readmem(addr, totsize)
+        val = mem2long(s, signed = True, array = elements)
+        if (len(dims) > 1):
+            val = _arr1toM(dims, val)
+        return val
+
+    def unsignedArrayReader(addr):
+        s = readmem(addr, totsize)
+        val =  mem2long(s, array = elements)
+        if (len(dims) > 1):
+            val = _arr1toM(dims, val)
+        return val
+
+    # A special case like unsigned char tb_data[0];
+    # Return address
+    def zeroArrayReader(addr):
+        return addr
+
+    ti = vi.ti
+    size = ti.size
+    bitsize = vi.bitsize
+    if (bitsize != None):
+        bitoffset = vi.bitoffset - vi.offset * 8
+    uint = ti.uint
+    dims = ti.dims
+    elements = ti.elements
+    totsize = size * elements
+    if (debug):
+        print "Creating an intReader size=%d" % size, \
+              "uint=", uint, \
+              "bitsize=", bitsize, "bitoffset=", bitoffset
+
+    if (dims != None and len(dims) == 1 and ti.stype == 'char'):
+        # CharArray
+        dim1 = dims[0]
+        return charArray
+    elif (dims != None and  len(dims) == 1 and dims[0] == 0):
+        return zeroArrayReader
+    elif (uint == None or uint):
+        if (bitsize == None):
+            if (dims == None):
+                return unsignedReader
+            else:
+                return unsignedArrayReader
+        else:
+            mask = (~(~0<<bitsize))
+            return unsignedBFReader
+    else:
+        if (bitsize == None):
+            if (dims == None):
+                return signedReader
+            else:
+                return signedArrayReader
+        else:
+            mask = (~(~0<<bitsize))
+            return signedBFReader
+
+
+# A factory function for struct/union readers
+def suReader(vi):
+    def reader1(addr):
+        return StructResult(stype, addr)
+
+    def readerarr(addr):
         out = []
-        sz1 = self.size
-        for i in range(self.elements):
-            s1 = s[i*sz1:(i+1)*sz1]
-            v1 = StructResult(self.ftype, addr+i*sz1, s1)
-            out.append(v1)
+        for i in range(elements):
+            sr = StructResult(stype, addr + i * size)
+            out.append(sr)
+        if (len(dims) > 1):
+            out = _arr1toM(dims, out)
         return out
-            
+
+    # A special case, e.g. struct sockaddr_un name[0]
+    def zeroArrayReader(addr):
+        return StructResult(stype, addr)
+
+    ti = vi.ti
+    dims = ti.dims
+    elements = ti.elements
+    size = ti.size
+    stype = ti.stype
+
+    if (elements == 1):
+        return reader1
+    elif (elements == 0):
+        return zeroArrayReader
+    else:
+        return readerarr
+    
+
+# A factory function for pointer readers
+def ptrReader(vi, ptrlev):
+    def strPtr(addr):
+        ptr = readPtr(addr)
+        s = readmem(ptr, 256)
+        return SmartString(s, addr, ptr)
+    def genPtr(addr):
+        ptr = readPtr(addr)
+        tptr = tPtr(ptr, vi)
+        return tptr
+
+    def ptrArray(addr):
+        val = []
+        for i in range(elements):
+            ptr = readPtr(addr + i * size)
+            val.append(tPtr(ptr, vi))
+        if (len(dims) > 1):
+            val = _arr1toM(dims, val)
+        return val
+   
+    # A special case like struct x8664_pda *_cpu_pda[0];
+    # Convert it internally to struct x8664_pda **_cpu_pda;
+    # 
+    def ptrArr0(addr):
+        tptr = tPtr(addr, vi)
+        tptr.ptrlev += 1
+        return tptr
+
+    ti = vi.ti
+    dims = ti.dims
+    elements = ti.elements
+    size = ti.size
+    stype = ti.stype
+        
+    if (ptrlev == 1 and stype == 'char'):
+        reader = strPtr
+    else:
+        if (dims != None):
+            if (len(dims) == 1 and elements == 0):
+                return ptrArr0
+            else:
+                return ptrArray
+        else:
+            # A generic ptr
+            reader = genPtr
+    return reader
 
         
     
@@ -291,232 +427,8 @@ class _GDB:
 
 
 
-# Convert the new typeinfo output to old-style
-
-def new2old(ns):
-    out = []
-    #print "--", type(ns)
-    #pp.pprint(ns)
-    try:
-        body = ns["body"]
-    except KeyError:
-        body = [ns]
-    for e in body:
-        # These fields are always set
-        t_basetype = e["basetype"]
-        t_size = e["typelength"]
-        t_code = e["codetype"]
-        
-        t_1dim = False
-        if (e.has_key("dims")):
-            t_dims = e["dims"]
-            if (len(t_dims) == 1):
-                t_1dim = True
-        else:
-            t_dims = None
-
-        if (e.has_key("stars")):
-            t_stars = e["stars"]
-        else:
-            t_stars = None
-
-        if (e.has_key("uint")):
-            t_signed = not e["uint"]
-        else:
-            t_signed = None
-
-        if (e.has_key("bitsize")):
-            t_bitsize = e["bitsize"]
-        else:
-            t_bitsize = None
-
-        if (e.has_key("bitoffset")):
-            t_bitoffset = e["bitoffset"]
-        else:
-            t_bitoffset = None
-
-        f = FieldInfo()
-
-        if (t_bitoffset != None):
-            f.offset = t_bitoffset/8
-
-        try:
-            # This is an aggregate, e.g. struct
-            f.fname = e["fname"]
-        except KeyError:
-            # This is a non-aggregate
-            f.fname = '-'
-
-        f.type = t_basetype.split()
-        sz1 = sz =  t_size
-        if (t_dims != None):
-            dims = t_dims
-            if (len(dims) == 1):
-                f.array = dims[0]
-            else:
-                f.array = dims
-            sz *= reduce(lambda x, y: x*y, dims)
-
-        if (t_stars != None):
-            f.star = '*' * t_stars
-
-        if (t_bitsize != None):
-            f.bitfield = t_bitsize
-            f.bitoffset = t_bitoffset - f.offset*8
-        if (e.has_key("body")):
-            # Recurse
-            s1 = new2old(e)
-            f.body = s1
-            f.parentstype = ns["basetype"]
-            #f.size = e["typelength"]
-        else:
-            # Non-aggregate field
-            pass
-        f.size = sz
-
-        # Here we attach readers to types - this will eventually replace
-        # smarttype hack
-
-        # 'char *' pointers without dimension
-        if (t_basetype =='char' and t_dims == None and t_stars == 1
-            and t_bitsize == None):
-            f.reader = pykdump_String(t_size)
-        # 'char a[n]' - chararray
-        elif (t_basetype == 'char' and t_bitsize == None and t_1dim):
-            f.reader = pykdump_CharArray(t_size, t_dims)
-        # An integer type
-        elif (t_code == _GDB.TYPE_CODE_INT):
-            f.reader = pykdump_Integer(t_size, f, t_signed, dims = t_dims)
-        # A pointer or an array of pointers
-        elif (t_stars):
-            f.reader = pykdump_Pointer(t_size, f, t_dims)
-        # A struct/union or an array of them
-        elif (t_code in (_GDB.TYPE_CODE_STRUCT, _GDB.TYPE_CODE_UNION)):
-            if (e.has_key("body")):
-                # This is an embedded SU
-                #print '--embdedded:', t_basetype
-                # Create an embedded info if needed
-                try:
-                    getStructInfo(f.basetype, createnew=False)
-                except TypeError:
-                    embeddedStructInfo(f.basetype, f)
-
-                f.reader = pykdump_SU(t_size, f.basetype, t_dims)
-            else:
-                # This is a normal SU
-                #print '--normal SU:', t_basetype
-                f.reader = pykdump_SU(t_size, t_basetype, t_dims)
-        else:
-            # Catch errors
-            f.reader = pykdump_Badtype(t_size, e)
-            
-        # We use this flag to mark new-style FieldInfo
-        f.new = True
-        out.append(f)
-    return out
             
 
-class StructInfo(BaseStructInfo):
-    def __init__(self, stype):
-        BaseStructInfo.__init__(self, stype)
-
-        try:
-            newsi = crash.gdb_typeinfo(stype)
-        except:
-            errmsg = "The type <%s> does not exist in this dump" % stype
-            raise TypeError, errmsg
-
-        self.stype = stype
-        self.size = newsi["typelength"]
-        self.body = new2old(newsi)
-
-        for f in self.body:
-            self[f.fname] = f
-
-        # Add ourselves to cache
-        self.addToCache()
-        
-
-# Artificial StructInfo - in case we don't have the needed symbolic info,
-# we'd like to be able to assemble it manually
-
-class ArtStructInfo(BaseStructInfo):
-    def __init__(self, stype):
-        BaseStructInfo.__init__(self, stype)
-        # Add ourselves to cache
-        self.size = 0
-        self.body = []
-        self.addToCache()
-
-    # Append info. Reasonable approaches:
-    # 1. Append (inline) an already existing structinfo.
-    # 2. Append a field manually (do we need to parse its definition string?)
-    #
-    # In both cases we'll append with offset equal to self.size
-    def append(self, obj):
-        # If obj is a string, we'll need to parse it - not done yet
-        if (type(obj) == types.StringType):
-            f = tparser.OneStatement.parseString(obj).asList()[0]
-            f.offset = self.size
-            size = f.size
-            if (size == -1):
-                raise TypeError
-
-            self.body.append(f)
-            self[f.fname] = f 
-            self.size += size
-            #raise TypeError
-        else:
-            off = self.size
-            # append adjusting offsets
-            addsize = obj.size
-            body = obj.body
-            for f in body:
-                fn = f.copy()           # We don't want to spoil the original
-                try:
-                    fn.offset += off
-                except:
-                    pass
-                self.body.append(fn)
-                self[fn.fname] = fn
-            # Adjust the original size
-            self.size += addsize
-
-# Artificial StructInfo for Unions - in case we don't have the needed symbolic
-# info, we'd like to be able to assemble it manually. We cannot use the same
-# class for both Struct and Union as when we assemble them manually offsets
-# are computed differently. Or maybe we can merge these two classes and
-# use separate append_as_struct and append_as_union methods ?
-
-class ArtUnionInfo(BaseStructInfo):
-    def __init__(self, stype):
-        BaseStructInfo.__init__(self, stype)
-        self.size = 0
-        self.body = []
-
-        # Add ourselves to cache
-        self.addToCache()
-
-    # Append info. Reasonable approaches:
-    # 1. Append a field manually (do we need to parse its definition string?)
-    def append(self, obj):
-        # If obj is a string, we'll need to parse it - not done yet
-        if (type(obj) == types.StringType):
-            try:
-                f = tparser.OneStatement.parseString(obj).asList()[0]
-            except:
-                print "Cannot parse <%s>, parent type=<%s>" %(obj, self.stype)
-                raise TypeError
-            f.offset = 0
-            size = f.size
-            if (size == -1):
-                raise TypeError
-
-            self.body.append(f)
-            self[f.fname] = f
-            if (self.size < size):
-                self.size = size
-           
 
 # An auxiliary class to be used in StructResult to process dereferences
 
@@ -547,146 +459,6 @@ class Dereference:
         stype = self.sr.PYT_sinfo[f].basetype
         return readSU(stype, addr) 
 
-
-# A cache to simplify access fo StructResult atributes. Indexed by
-# (PYT_symbol, attr)
-# Value is (type,  off, sz, signed)
-# At this moment for 1-dim
-# integer values only
-
-
-# Raw Struct Result - read directly from memory, lazy evaluation
-
-
-# Warning: there can be a namespace collision if strcut/union of interest
-# has a field with the same name as one of our methods. I am not sure
-# whether we shall ever meet this but just in case there should be a method
-# to bypass the normal accessor approach (GDBderef at this moment)
-count_cached_attr = 0
-count_total_attr = 0
-class StructResult(object):
-    _cache_access = {}
-    PYT_deref = "Deref"
-    def __init__(self, sname, addr, data = None):
-        # If addr is symbolic, convert it to real addr
-        if (type(addr) == types.StringType):
-            addr = sym2addr(addr)
-	self.PYT_symbol = sname
-	self.PYT_addr = addr
-        self.PYT_sinfo = getStructInfo(sname)
-        self.PYT_size = self.PYT_sinfo.size;
-        if (data):
-            self.PYT_data = data
-        else:
-            try:
-                self.PYT_data = readmem(addr, self.PYT_size)
-            except crash.error, msg:
-                print "crash.error: %s sname=%s" % (msg, sname)
-                raise crash.error, msg
-    
-    def __getitem__(self, name):
-        return self.PYT_sinfo[name]
-
-    def __str__(self):
-        return "<%s 0x%x>" % \
-               (self.PYT_symbol, self.PYT_addr)
-    def __repr__(self):
-        return "StructResult <%s 0x%x> \tsize=%d" % \
-               (self.PYT_symbol, self.PYT_addr, self.PYT_size)
-    def __nonzero__(self):
-        return True
-    def __len__(self):
-        return self.PYT_size
-
-    def hasField(self, fname):
-        return self.PYT_sinfo.has_key(fname)
-    
-    def isNamed(self, sname):
-	return sname == self.PYT_symbol
-    
-    # Cast to another type. Here we assume that that one struct resides
-    # as the first member of another one, this is met frequently in kernel
-    # sources
-    def castTo(self, sname):
-        newsize = struct_size(sname)
-	# If the new size is smaller than the old one, reuse data
-	if (newsize <= self.PYT_size):
-	    # We don't truncate data as we rely on PYT_size
-	    return StructResult(sname, self.PYT_addr, self.PYT_data)
-	else:
-	    return StructResult(sname, self.PYT_addr)
-	
-
-    # It is highly untrivial to read the field properly as there
-    # are many subcases. We probably need to split it into several subroutines,
-    # maybe internal to avoid namespace pollution
-    def __getattr__(self, name):
-        ind = name.find('__')
-        if (ind > 0):
-            name = name[ind:]
-        # A special case - dereference
-        if (name == StructResult.PYT_deref):
-            return Dereference(self)
-
-        # 'ni' object should be the same for all StructResults with
-        # the same SU
-        ni = self.PYT_sinfo[name]
-        off = ni.offset
-        sz = ni.size
-
-
-
-        # if sz == -1, this means that we cannot find the size of this
-        # field. It usually happens when we try to obtain the size
-        # of artificial SU before creating them. In this case, pass the
-        # whole chunk of data (starting from off:)
-
-        if (sz == -1):
-            s = self.PYT_data[off:]
-        else:
-            s = self.PYT_data[off:off+sz]
-
-        # This can be an array...
-        fieldaddr = self.PYT_addr + off
-
-        reader = ni.reader
-        out = reader.readobj(fieldaddr, s)
-
-        # Correct for multidim of needed
-        if (reader.multidim):
-            out = _arr1toM(self.dims, val)
-        return out
- 
-    # An ugly hack till we implement something better
-    # We want to be able to do something like
-    # s.GDBderef('->addr->name->sun_path')
-    #
-    def GDBderef(self, derefexpr):
-        # Use our type and addr
-        cmd = "p ((%s *) 0x%x)%s"%(self.PYT_sinfo.stype, self.PYT_addr, derefexpr)
-        #print cmd
-        resp = exec_gdb_command(cmd)
-        f = tparser.derefstmt.parseString(resp).asList()[0]
-        return f
-
-
-
-# Convert an embedded struct/union fieldinfo into a StructInfo
-# We create a fake name and adjust offsets if they are available
-class embeddedStructInfo(BaseStructInfo):
-    def __init__(self, stype, fi):
-        BaseStructInfo.__init__(self, stype)
-        self.size = fi.size
-        self.body = fi.body
-
-        for f in self.body:
-            self[f.fname] = f
-
-        # Add ourselves to cache
-        self.addToCache()
-
-
-
 # Wrapper functions to return attributes of StructResult
 
 def Addr(obj, extra = None):
@@ -705,57 +477,64 @@ def Addr(obj, extra = None):
 # Dereference a tPtr object - at this moment 1-dim pointers to SU only
 def Deref(obj):
     if (isinstance(obj, tPtr)):
-        addr = long(obj)
-	if (addr == 0):
-	    msg = "\nNULL pointer %s" % repr(obj)
-            raise IndexError, msg
-	ptype = obj.ptype
-	# Optimization fpr "SUptr"
-	if (ptype.smarttype == "SUptr"):
-	    return readSU(ptype.basetype, addr)
-
-        dpt = ptype.deref
-        # OK, now we either have another pointer or SU itself
-        if (dpt.smarttype == "SU"):
-            return readSU(dpt.basetype, addr)
-        elif (dpt.smarttype in ("Ptr", "SUptr")):
-            return tPtr(readPtr(addr), dpt)
-        else:
-            raise TypeError, str(obj.ptype)
+        return obj.Deref
+    else:
+        raise TypeError, "Trying to dereference a non-pointer " + str(obj)
 
 
 # When we do readSymbol and have pointers to struct, we need a way
 # to record this info instead of just returnin integer address
 
-# A general typed Pointer
+# To make dereferences faster, we store the basetype and ptrlev
+
 class tPtr(long):
-    def __new__(cls, l, ptype):
+    def __new__(cls, l, vi):
         return long.__new__(cls, l)
-    def __init__(self, l, ptype):
+    def __init__(self, l, vi):
         # If ptype is a string, treat it as typename and assume we
         # want to declare a pointer to this type
-        if (type(ptype) == type("")):
+        if (type(vi) == type("")):
             # This is a hack, please reimplement
-            self.ptype = whatis(ptype, ptype + " dummy;")
-            self.ptype.typedef = False
+            raise TypeError, "not implemented yet"
+            #ptype = whatis(ptype, ptype + " dummy;")
+        elif (isinstance(vi, tPtr)):
+            # A copy constructor
+            raise TypeError
         else:
-            self.ptype = ptype
+            # Store the basetype and number of stars separately
+            self.vi = vi
+            self.ptrlev = vi.ti.ptrlev
     # For pointers, index access is equivalent to pointer arithmetic
     def __getitem__(self, i):
-        dpt = self.ptype.deref
-        smarttype = dpt.smarttype
-        if (smarttype == "SU"):
-            sz = sizeof(dpt.basetype)
-            return readSU(dpt.basetype, long(self) + i * sz)
-        elif (smarttype in ("Ptr", "SUptr")):
-            return tPtr(readPtr(self + i * pointersize), dpt)
+        sz1 = self.vi.ti.size
+        return self.getDeref(i)
+    def getDeref(self, i = None):
+        addr = long(self)
+        if (addr == 0):
+            msg = "\nNULL pointer %s" % repr(self)
+            raise IndexError, msg
+
+        if (self.ptrlev == 1):
+            dereferencer = self.vi.dereferencer
+            if (i != None):
+                addr += i * self.vi.tsize
+            return dereferencer(addr)
         else:
-            raise TypeError, str(self.ptype)
-    def getDeref(self):
-        return Deref(self)
+            if (i != None):
+                addr += i * self.vi.ti.size
+            ntptr = tPtr(readPtr(addr), self.vi)
+            ntptr.ptrlev = self.ptrlev - 1
+            return ntptr
     def __repr__(self):
-        return "<tPtr addr=0x%x ctype='%s'>" % (self, self.ptype.ctype)
+        stars = '*' * self.ptrlev
+        return "<tPtr addr=0x%x ctype='%s %s'>" % \
+               (self, self.vi.ti.stype, stars)
     Deref = property(getDeref)
+
+    # Backwards compatibility
+    def getPtype(self):
+        return self.vi
+    ptype = property(getPtype)
 
 
 class SmartString(str):
@@ -964,27 +743,9 @@ def getListSize(addr, offset, maxel):
 
 
 def readSymbol(symbol, art = None):
-    symi = whatis(symbol, art)
-    stype = symi.basetype
-    swtype = symi.smarttype
-    addr = symi.addr
+    vi = whatis(symbol)
+    return vi.reader(vi.addr)
     
-    # There is a special case - on some kernels we obtain zero-dimensioned
-    # arrays, e.g. on 2.6.9 sizeof(ipv4_table) = 0 and it ise declared as
-    # ctl_table ipv4_table[] = {...}
-    # In this case we return a generator to this array and expect that
-    # there is an end marker that lets programmer detect EOF. For safety
-    # reasons, we limit the number of returned entries to _MAXEL
-
-    reader = symi.reader
-    out = reader.readobj(addr)
-    
-    # Correct for multidim of needed
-    if (reader.multidim):
-        out = _arr1toM(self.dims, val)
-    return out
-    
-
 
 
 
@@ -1036,29 +797,31 @@ def getFullBuckets(start, bsize, items, chain_off=0):
 # Traverse list_head linked lists
 
 
-def getStructInfo(stype, createnew = True):
-    try:
-        return Gen.getSIfromCache(stype)
-    except:
-        if (not createnew):
-            raise TypeError, "Unknown Type <%s>" % stype
-        pass
-    #print "  -- SI Cache miss:", stype
-    # StructInfo() constructor adds itself to cache
-    si = StructInfo(stype)
+def getStructInfo(stype):
+    si = SUInfo(stype)
     return si
 
 
 
 def whatis(symbol, art = None):
     try:
-        newsi = crash.gdb_whatis(symbol)
+        e = crash.gdb_whatis(symbol)
     except crash.error:
         raise TypeError, "There's no symbol <%s>" % symbol
 
-    f = new2old(newsi)[0]
-    f.addr = sym2addr(symbol)
-    return f
+    # Return Varinfo
+    vi = VarInfo(e["fname"])
+    ti = TypeInfo('', False)
+    update_TI(ti, e)
+    vi.ti = ti
+    vi.addr = sym2addr(symbol)
+
+    # This is for backwards compatibility only, will be obsoleted
+    vi.ctype = ti.stype
+    return vi
+
+    
+    
 
 
 # Check whether our basetype is really a typedef. We need this to understand how
@@ -1095,7 +858,7 @@ def isTypedef(basetype):
 # Return -1 if the struct is unknown
 def struct_size(sname):
     try:
-        si = getStructInfo(sname)
+        si = TypeInfo(sname)
         return si.size
     except:
         return -1
@@ -1110,11 +873,9 @@ def member_size(sname, fname):
     #print "++member_size", sname, fname
     sz = -1
     try:
-        fi = getStructInfo(sname)[fname]
-        sz = fi.size
-        if (fi.has_key("array")):
-            sz *= fi.array
-    except:
+        ti = getStructInfo(sname)[fname].ti
+        sz = ti.size * ti.elements
+    except KeyError:
         pass
     return sz
 
@@ -1174,9 +935,6 @@ getListSize = crash.getListSize
 #GDB_sizeof = crash.struct_size
 readmem = crash.readmem
 nc_member_offset = crash.member_offset
-pointersize = getSizeOf("void *")
-
-
 
 
 def print_stats():
