@@ -377,6 +377,12 @@ def ptrReader(vi, ptrlev):
         tptr = tPtr(ptr, vi)
         return tptr
 
+    def funcPtr(addr):
+        ptr = readPtr(addr)
+	if (ptr and machine == "ia64"):
+	    ptr = readPtr(ptr)
+        return ptr
+
     def ptrArray(addr):
         val = []
         for i in range(elements):
@@ -402,6 +408,8 @@ def ptrReader(vi, ptrlev):
         
     if (ptrlev == 1 and stype == 'char'):
         reader = strPtr
+    elif (ti.ptrbasetype == 6):      # A pointer to function
+	reader = funcPtr
     else:
         if (dims != None):
             if (len(dims) == 1 and elements == 0):
