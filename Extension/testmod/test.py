@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/10/11 10:48:11 alexs>
+# Time-stamp: <07/10/12 14:55:38 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -90,6 +90,15 @@ if (ptrarr[0].Deref.a0 == 11 and ptrarr[1].Deref.a0 == 22 \
 else:
     print "Pointer arrays failed"
     print ptrarr[0].Deref.a0, ptrarr[1].Deref.a0, ptrarr[2].Deref.a0
+    nfailed += 1
+
+# Function pointers
+ntests += 1
+if (addr2sym(asid.funcptr) == "testfunc"):
+    pass
+else:
+    print "Function Pointers"
+    print addr2sym(asid.funcptr)
     nfailed += 1
 
 print "%d tests run, %d failed" % (ntests, nfailed)

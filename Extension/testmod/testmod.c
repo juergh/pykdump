@@ -19,6 +19,10 @@
 
 #define LBLOG(...) printk (KERN_ALERT "LBI: " __VA_ARGS__)
 
+int testfunc(int a) {
+  return a*2;
+}
+
 struct AA {
   int a0;
   char *b0;
@@ -54,6 +58,8 @@ struct ASID {
   int ***ippptr;
 
   int iarr2[5][3];
+
+  int (*funcptr)(int);
   
   struct {
     int a1;
@@ -122,6 +128,8 @@ testmod_init(void) {
   for (i=0; i < 5; i++)
     for (j=0; j < 3; j++)
       asid.iarr2[i][j] = i*10+j;
+
+  asid.funcptr = testfunc;
   
   return 0;
 }
