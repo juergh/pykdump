@@ -1,7 +1,7 @@
 #
 #  Code that does not depend on whether we use embedded API or PTY
 #
-# Time-stamp: <07/10/11 12:00:02 alexs>
+# Time-stamp: <07/10/16 09:23:45 alexs>
 #
 import string
 import pprint
@@ -246,6 +246,9 @@ class VarInfo(object):
                                                  self.name, suff, self.addr)
          return out
 
+     def getPtrlev(self):
+         return self.ti.ptrlev
+
      # Backwards compatibility
      def getBaseType(self):
          return self.ti.stype
@@ -267,6 +270,7 @@ class VarInfo(object):
      basetype = LazyEval("basetype", getBaseType)
      size = LazyEval("size", getSize)
      array = LazyEval("array", getArray)
+     ptrlev = LazyEval("ptrlev", getPtrlev)
 
 
     

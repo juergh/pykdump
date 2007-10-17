@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/10/11 14:36:04 alexs>
+# Time-stamp: <07/10/17 13:59:01 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -514,6 +514,21 @@ def print_Stats():
 	t = SnmpTable(t)
 	print t
 
+def print_Everything():
+    nf()
+    print_sysctl()
+    print_dev_pack()
+    print_fib()
+    print_rt_hash()
+    print_iface(o.If1, details)
+    Summarize()
+    print_Stats()
+    print_TCP()
+    print_UDP()
+    print_RAW()
+    print_UNIX()
+    
+
 if ( __name__ == '__main__'):
     import sys
     from optparse import OptionParser
@@ -616,6 +631,11 @@ if ( __name__ == '__main__'):
                   action="store_true",
                   help="Run all functions available - for developers")
 
+    op.add_option("--profile", dest="Profile", default = 0,
+                  action="store_true",
+                  help="Run with profiler (for developers)")
+
+
     (o, args) = op.parse_args()
 
     if (o.Verbose):
@@ -625,22 +645,25 @@ if ( __name__ == '__main__'):
         from LinuxDump.inet.netfilter import nf
         from LinuxDump.inet import neighbour
         from LinuxDump.inet.routing import print_fib, print_rt_hash
+
         details = True
 
-        nf()
-        print_sysctl()
-        print_dev_pack()
-        print_fib()
-        print_rt_hash()
-        print_iface(o.If1, details)
-        Summarize()
-        print_Stats()
-        print_TCP()
-        print_UDP()
-        print_RAW()
-        print_UNIX()
+        print_Everything()
         sys.exit(0)
 
+    if (o.Profile):
+        from LinuxDump.inet.netfilter import nf
+        from LinuxDump.inet import neighbour
+        from LinuxDump.inet.routing import print_fib, print_rt_hash
+
+        import cProfile
+
+        details = True
+
+        print_Everything()
+        cProfile.run('print_Everything()')
+
+        sys.exit(0)
         
 
         

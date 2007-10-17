@@ -1,6 +1,6 @@
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <07/10/11 14:55:29 alexs>
+# Time-stamp: <07/10/17 14:33:06 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -320,14 +320,13 @@ def tg3_get_stats(priv):
         except TypeError:
             print tg3_warning
             return None
-            
+
     stats = tg3.net_stats
     old_stats = tg3.net_stats_prev
     if (debug):
         print "hw_stats=0x%x" % tg3.hw_stats
-    try:
-        hw_stats = Deref(tg3.hw_stats)
-    except:
+    hw_stats = Deref(tg3.hw_stats)
+    if (hw_stats == 0):
 	delModule("tg3")
         return old_stats
 

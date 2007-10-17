@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/10/11 13:52:41 alexs>
+# Time-stamp: <07/10/17 14:07:44 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -192,7 +192,7 @@ def update_SUI_fromgdb(f, sname):
         raise TypeError, "no type " + sname
     update_SUI(f, e)
 
-class StructResult(object):
+class X_StructResult(object):
     def __init__(self, sname, addr):
        	self.PYT_symbol = sname
 	self.PYT_addr = addr
@@ -243,17 +243,113 @@ class StructResult(object):
     def __getitem__(self, name):
         return self.PYT_sinfo[name]
 
+    def getArrow(self):
+        return ArrowHolder(self)
+    Arrow = property(getArrow)
+
+class ArrowHolder:
+    def __init__(self, sr):
+        self.sr = sr
+    def __getattr__(self, name):
+        try:
+            fi = self.sr.PYT_sinfo[name]
+        except KeyError:
+            # This is ugly - but I have not found a better way yet
+            ind = name.find('__')
+            if (ind > 0):
+                name = name[ind:]
+            fi = self.sr.PYT_sinfo[name]
+        #
+        addr = self.sr.PYT_addr + fi.offset
+
+
+        if (fi.ti.ptrlev == 1):
+            dereferencer = fi.dereferencer
+            return dereferencer(readPtr(addr))
+        else:
+            tptr = fi.reader(addr)
+            return tptr.getDeref()
+
+class StructPtr(long):
+    def __new__(cls, sname, addr):
+        return long.__new__(cls, addr)
+    
+    def __init__(self, sname, addr):
+       	self.PYT_symbol = sname
+	self.PYT_addr = addr
+        self.PYT_sinfo = SUInfo(sname)
+        self.PYT_size = self.PYT_sinfo.PYT_size;
+
+    def __getitem__(self, i):
+        if (type(i) == type("")):
+            return self.PYT_sinfo[i]
+
+        sz1 = self.PYT_size
+        return StructPtr(self.PYT_symbol, self.PYT_addr + i * sz1)
+
+    def __getattr__(self, name):
+        try:
+            fi = self.PYT_sinfo[name]
+        except KeyError:
+            # This is ugly - but I have not found a better way yet
+            ind = name.find('__')
+            if (ind > 0):
+                name = name[ind:]
+            fi = self.PYT_sinfo[name]
+            
+        reader = fi.reader
+        addr = self.PYT_addr + fi.offset
+        return reader(addr)
+
+    def __str__(self):
+        return "<%s 0x%x>" % \
+               (self.PYT_symbol, self.PYT_addr)
+
+    def __repr__(self):
+        return "StructPtr <%s 0x%x> \tsize=%d" % \
+               (self.PYT_symbol, self.PYT_addr, self.PYT_size)
+    
+    # Backwards compatibility
+    def __nonzero__(self):
+        return (self.PYT_addr != 0)
+
+    def __len__(self):
+        return self.PYT_size
+
+    def hasField(self, fname):
+        return self.PYT_sinfo.has_key(fname)
+
+    def isNamed(self, sname):
+        return sname == self.PYT_symbol
+
+    def getDeref(self):
+        return self
+
+    # Cast to another type. Here we assume that that one struct resides
+    # as the first member of another one, this is met frequently in kernel
+    # sources
+    def castTo(self, sname):
+        return StructPtr(sname, self.PYT_addr)
+
+    Deref = property(getDeref)
+
+
+StructResult = StructPtr
+
 # A factory function for integer readers
 def intReader(vi):
     def signedReader(addr):
-        s = readmem(addr, size)
-        return mem2long(s, signed = True)
+        #s = readmem(addr, size)
+        #return mem2long(s, signed = True)
+        return readInt(addr, size, True)
     def unsignedReader(addr):
-        s = readmem(addr, size)
-        return mem2long(s)
+        #s = readmem(addr, size)
+        #return mem2long(s)
+        return readInt(addr, size)
     def signedBFReader(addr):
-        s = readmem(addr, size)
-        val = mem2long(s)
+        #s = readmem(addr, size)
+        #val = mem2long(s)
+        val = readInt(addr, size)
         val = (val >> bitoffset) & mask
         sign = val >> (bitsize - 1)
         if (sign):
@@ -261,8 +357,9 @@ def intReader(vi):
         else:
             return val
     def unsignedBFReader(addr):
-        s = readmem(addr, size)
-        val = mem2long(s)
+        #s = readmem(addr, size)
+        #val = mem2long(s)
+        val = readInt(addr, size)
         val = (val>>bitoffset) & mask
         return val
 
@@ -365,6 +462,10 @@ def suReader(vi):
 
 # A factory function for pointer readers
 def ptrReader(vi, ptrlev):
+    # Struct/Union reader
+    def ptrSU(addr):
+        ptr = readPtr(addr)
+        return StructPtr(stype, ptr)
     def strPtr(addr):
         ptr = readPtr(addr)
         # If ptr = NULL, return None, needed for backwards compatibility
@@ -373,9 +474,7 @@ def ptrReader(vi, ptrlev):
         s = readmem(ptr, 256)
         return SmartString(s, addr, ptr)
     def genPtr(addr):
-        ptr = readPtr(addr)
-        tptr = tPtr(ptr, vi)
-        return tptr
+        return tPtr(readPtr(addr), vi)
 
     def funcPtr(addr):
         ptr = readPtr(addr)
@@ -410,6 +509,9 @@ def ptrReader(vi, ptrlev):
         reader = strPtr
     elif (ti.ptrbasetype == 6):      # A pointer to function
 	reader = funcPtr
+    elif (ptrlev == 1 and ti.ptrbasetype in (3, 4) \
+          and dims == None): #A pointer to struct/union
+	reader = ptrSU
     else:
         if (dims != None):
             if (len(dims) == 1 and elements == 0):
@@ -489,12 +591,15 @@ def Addr(obj, extra = None):
 def Deref(obj):
     if (isinstance(obj, tPtr)):
         return obj.Deref
+    if (isinstance(obj, StructPtr)):
+        # This is needed for backwards compatibility only!
+        return obj
     else:
         raise TypeError, "Trying to dereference a non-pointer " + str(obj)
 
 
 # When we do readSymbol and have pointers to struct, we need a way
-# to record this info instead of just returnin integer address
+# to record this info instead of just returning integer address
 
 # To make dereferences faster, we store the basetype and ptrlev
 
@@ -502,24 +607,14 @@ class tPtr(long):
     def __new__(cls, l, vi):
         return long.__new__(cls, l)
     def __init__(self, l, vi):
-        # If ptype is a string, treat it as typename and assume we
-        # want to declare a pointer to this type
-        if (type(vi) == type("")):
-            # This is a hack, please reimplement
-            raise TypeError, "not implemented yet"
-            #ptype = whatis(ptype, ptype + " dummy;")
-        elif (isinstance(vi, tPtr)):
-            # A copy constructor
-            raise TypeError
-        else:
-            # Store the basetype and number of stars separately
-            self.vi = vi
-            self.ptrlev = vi.ti.ptrlev
+        self.vi = vi
+        self.ptrlev = vi.ti.ptrlev
+        #self.ptrlev = vi.ptrlev
     # For pointers, index access is equivalent to pointer arithmetic
     def __getitem__(self, i):
         sz1 = self.vi.ti.size
-        return self.getDeref(i)
-    def getDeref(self, i = None):
+        return self.getArrDeref(i)
+    def getArrDeref(self, i = None):
         addr = long(self)
         if (addr == 0):
             msg = "\nNULL pointer %s" % repr(self)
@@ -533,6 +628,18 @@ class tPtr(long):
         else:
             if (i != None):
                 addr += i * self.vi.ti.size
+            ntptr = tPtr(readPtr(addr), self.vi)
+            ntptr.ptrlev = self.ptrlev - 1
+            return ntptr
+    def getDeref(self, i = None):
+        addr = long(self)
+        if (addr == 0):
+            msg = "\nNULL pointer %s" % repr(self)
+            raise IndexError, msg
+
+        if (self.ptrlev == 1):
+            return self.vi.dereferencer(addr)
+        else:
             ntptr = tPtr(readPtr(addr), self.vi)
             ntptr.ptrlev = self.ptrlev - 1
             return ntptr
@@ -927,7 +1034,7 @@ union_size = struct_size
 
 import crash
 from crash import sym2addr, addr2sym
-from crash import  mem2long, FD_ISSET
+from crash import  mem2long, readInt, FD_ISSET
 def exec_gdb_command(cmd):
     return crash.get_GDB_output(cmd).replace('\r', '')
 
@@ -936,6 +1043,7 @@ exec_crash_command = crash.exec_crash_command
 exec_gdb_command = crash.get_GDB_output
 getFullBuckets = crash.getFullBuckets
 readPtr = crash.readPtr
+readInt = crash.readInt
 sLong = crash.sLong
 le32_to_cpu = crash.le32_to_cpu
 le16_to_cpu = crash.le16_to_cpu
