@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <07/10/04 16:30:05 alexs>
+  Time-stamp: <07/10/17 13:40:36 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -26,7 +26,7 @@
 #include <sys/select.h>
 
 
-/* crash exception */
+/* crash exceptions */
 PyObject *crashError;
 
 
@@ -458,10 +458,19 @@ py_readPtr(PyObject *self, PyObject *args) {
     mtype = PyInt_AsLong(PyTuple_GetItem(args, 1));
 
   addr = PyLong_AsUnsignedLongLong(arg1);
-  
+
+  /* When we see a NULL pointer we raise not a crash-specific
+     exception but rather IndexError. This is useful as we often
+     need to detect NULL pointers, e.g. the end of list marker
+  */
+  if (!addr) {
+    sprintf(pb, "readPtr NULL pointer");
+    PyErr_SetString(PyExc_IndexError, pb);
+    return NULL;
+  }
   if (readmem(addr, mtype, &p, sizeof(void *), "Python",
 	      RETURN_ON_ERROR) == FALSE) {
-    sprintf(pb, "readmem error at addr 0x%llx", addr);	\
+    sprintf(pb, "readmem error at addr 0x%llx", addr);
     PyErr_SetString(crashError, pb);
     return NULL;
     
@@ -496,6 +505,7 @@ py_addr2sym(PyObject *self, PyObject *args) {
 
 static PyObject *
 py_readmem(PyObject *self, PyObject *args) {
+  char pb[256];
   char *symbol;
   ulonglong addr;
   int size;
@@ -518,11 +528,21 @@ py_readmem(PyObject *self, PyObject *args) {
   addr = PyLong_AsUnsignedLongLong(arg1);
   size = PyLong_AsLong(arg2);
 
+  /* When we see a NULL pointer we raise not a crash-specific
+     exception but rather IndexError. This is useful as we often
+     need to detect NULL pointers, e.g. the end of list marker
+  */
+
+  if (!addr) {
+    sprintf(pb, "readPtr NULL pointer");
+    PyErr_SetString(PyExc_IndexError, pb);
+    return NULL;
+  }
+
   buffer = (void *) malloc(size);
   //printf("trying to read %ld bytes from %p %p\n", size, addr, buffer);
   if (readmem(addr, mtype, buffer, size, "Python",
 	      RETURN_ON_ERROR) == FALSE) {
-    char pb[256];
     sprintf(pb, "readmem error at addr 0x%llx, reading %ld bytes", addr, size);
     PyErr_SetString(crashError, pb);
     return NULL;
@@ -533,6 +553,57 @@ py_readmem(PyObject *self, PyObject *args) {
   return out;
   
 }
+
+/* Read an integer (not an array of integers)
+   To improve the performance, we assume that sizeof of any integer is not
+   greater than 32 and use a predefined buffer for that
+
+   Args: addr, size, signed (False/True)
+*/
+static PyObject *
+py_readInt(PyObject *self, PyObject *args) {
+  char *symbol;
+  ulonglong addr;
+  int size;
+  int signedvar = 0;		/* The default */
+  int mtype = KVADDR;
+  char buffer[32];
+
+  PyObject *out;
+
+  PyObject *arg1 = PyTuple_GetItem(args, 0);
+  PyObject *arg2 = PyTuple_GetItem(args, 1);
+
+  if (PyTuple_Size(args) > 2)
+    signedvar = PyInt_AsLong(PyTuple_GetItem(args, 2));
+
+  addr = PyLong_AsUnsignedLongLong(arg1);
+  size = PyLong_AsLong(arg2);
+
+  if (size > 32) {
+    char pb[256];
+    sprintf(pb, "readInt cannot read reading %ld bytes", size);
+    PyErr_SetString(crashError, pb);
+    return NULL;
+  }
+
+  if (readmem(addr, mtype, buffer, size, "Python",
+	      RETURN_ON_ERROR) == FALSE) {
+    char pb[256];
+    sprintf(pb, "readmem/py_readInt error at addr 0x%llx, reading %ld bytes",
+	    addr, size);
+    PyErr_SetString(crashError, pb);
+    return NULL;
+    
+  }
+  if (size < 0 || size > sizeof(functable_signed)/sizeof(conversion_func))
+    return nu_badsize(buffer);
+  if (signedvar)
+    return functable_signed[size-1](buffer);
+  else
+    return functable_usigned[size-1](buffer);
+}
+
 
 /*
   physaddr = uvtop(tskaddr, vaddr)
@@ -753,6 +824,7 @@ static PyMethodDef crashMethods[] = {
   {"PAGEOFFSET",  py_pageoffset, METH_VARARGS},
   {"readmem", py_readmem, METH_VARARGS},
   {"readPtr", py_readPtr, METH_VARARGS},
+  {"readInt", py_readInt, METH_VARARGS},
   {"sLong", py_sLong, METH_VARARGS},
   {"le32_to_cpu", py_le32_to_cpu, METH_VARARGS},
   {"le16_to_cpu", py_le16_to_cpu, METH_VARARGS},

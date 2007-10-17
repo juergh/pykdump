@@ -30,6 +30,7 @@ struct AA {
 
 struct ASID {
   long int li;
+  int i2;
   unsigned char bf1:1;
   unsigned char bf2:3;
   signed int bf3:12;
@@ -94,6 +95,7 @@ testmod_init(void) {
   
   LBLOG("++++++++++++++ testmod loaded\n");
   asid.li = 123456789;
+  asid.i2 = -555;
   asid.bf1 = 1;
   asid.bf2 = 2;
   asid.bf3 = -2;

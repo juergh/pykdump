@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/10/12 14:55:38 alexs>
+# Time-stamp: <07/10/16 14:17:34 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -10,7 +10,9 @@
 
 import sys
 sys.path.append(".")
+import time
 
+import cProfile
 
 from pykdump.API import *
 
@@ -27,6 +29,13 @@ asid = readSU("struct ASID", addr)
 
 nfailed = 0
 ntests = 0
+
+ntests += 1
+if(asid.li == 123456789 and  asid.i2 == -555):
+    pass
+else:
+    print "Integers failed"
+    nfailed += 1
 
 ntests += 1
 if(asid.bf1 == 1 and  asid.bf2 == 2 and  asid.bf3 == -2 and asid.bf4 == 123):
@@ -51,6 +60,7 @@ else:
 
 # Integer Pointers 
 
+
 ntests += 1
 if (asid.lptr.Deref == 7 and asid.iptr.Deref == 6 \
     and asid.ipptr.Deref.Deref == 6 and asid.ippptr.Deref.Deref.Deref == 6):
@@ -58,6 +68,7 @@ if (asid.lptr.Deref == 7 and asid.iptr.Deref == 6 \
 else:
     print "Integer pointers failed"
     nfailed += 1
+
 
 # Integer multidim arrays
 ntests += 1
@@ -103,3 +114,96 @@ else:
 
 print "%d tests run, %d failed" % (ntests, nfailed)
 
+print " ------------ Performance testing --------------"
+
+addr = sym2addr("asid")
+
+tot = 100000
+
+t0 = time.time()
+for i in xrange(0, tot):
+    readPtr(addr)
+    
+print "readPtr: %10.0f/s" % (tot/(time.time() - t0))
+
+t0 = time.time()
+size = 8
+for i in xrange(0, tot):
+    readInt(addr, size, True)
+    
+print "readinteger: %10.0f/s" % (tot/(time.time() - t0))
+
+t0 = time.time()
+for i in xrange(0, tot):
+    s = getStructInfo("struct ASID")
+
+print "SUInfo: %10.0f/s" % (tot/(time.time() - t0))
+
+t0 = time.time()
+for i in xrange(0, tot):
+    asid.li
+
+print "struct.integer: %10.0f/s" % (tot/(time.time() - t0))
+
+t0 = time.time()
+for i in xrange(0, tot):
+    asid.lptr
+    
+print "struct.iptr: %10.0f/s" % (tot/(time.time() - t0))
+
+t0 = time.time()
+for i in xrange(0, tot):
+    asid.lptr.Deref
+    
+print "*(struct.iptr): %10.0f/s" % (tot/(time.time() - t0))
+
+t0 = time.time()
+for i in xrange(0, tot):
+    s = readSU("struct ASID", addr)
+
+print "readSU: %10.0f/s" % (tot/(time.time() - t0))
+
+s = readSU("struct ASID", addr)
+fi = s.PYT_sinfo["li"]
+reader = fi.reader
+faddr = addr + fi.offset
+t0 = time.time()
+for i in xrange(0, tot):
+    reader(faddr)
+
+print "intReader: %10.0f/s" % (tot/(time.time() - t0))
+
+fi = s.PYT_sinfo["sptr"]
+reader = fi.reader
+faddr = addr + fi.offset
+t0 = time.time()
+for i in xrange(0, tot):
+    reader(faddr)
+    
+    
+print "ptrReader: %10.0f/s" % (tot/(time.time() - t0))
+
+
+t0 = time.time()
+for i in xrange(0, tot):
+    fi = s.PYT_sinfo["sptr"]
+    reader = fi.reader
+    
+print "getattr/reader: %10.0f/s" % (tot/(time.time() - t0))
+
+t0 = time.time()
+for i in xrange(0, tot):
+    tptr = tPtr(addr, fi)
+    
+print "tPtr: %10.0f/s" % (tot/(time.time() - t0))
+
+
+
+# Profiler stuff
+
+def testfunc():
+    for i in xrange(0, tot):
+        #asid.lptr
+        asid.lptr.Deref
+
+cProfile.run('testfunc()')
