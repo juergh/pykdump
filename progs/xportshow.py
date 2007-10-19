@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/10/19 12:06:49 alexs>
+# Time-stamp: <07/10/19 14:29:22 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -69,7 +69,7 @@ def print_TCP_sock(o):
 	    print "\t max_qlen_log=%d qlen=%d qlen_young=%d" %\
 		    (l_opt.max_qlen_log, l_opt.qlen, l_opt.qlen_young)
 	    #printObject(l_opt)
-            if (pstr.accept_queue):
+            if (pstr.sk_ack_backlog):
                 print_accept_queue(pstr)
 
 
