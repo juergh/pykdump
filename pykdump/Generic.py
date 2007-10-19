@@ -1,7 +1,7 @@
 #
 #  Code that does not depend on whether we use embedded API or PTY
 #
-# Time-stamp: <07/10/16 09:23:45 alexs>
+# Time-stamp: <07/10/19 13:29:44 alexs>
 #
 import string
 import pprint
@@ -139,7 +139,9 @@ class TypeInfo(object):
     # but without ptrlev or dims
     def getTargetType(self):
         return TypeInfo(self.stype)
-        
+
+    def getTargetCodeType(self):
+        return self.getTargetType().codetype
 
     def fullname(self):
         out = []
@@ -167,12 +169,13 @@ class TypeInfo(object):
             rc =  ' ' * indent + "%s %s%s;" % \
                  (stype, pref, suff)
         return rc
-     
+
     def __repr__(self):
         stype, pref, suff = self.fullname()
         out = "TypeInfo <%s %s%s> size=%d" % (stype, pref, suff, self.size)
         return out
     elements = LazyEval("elements", getElements)
+    tcodetype = LazyEval("tcodetype", getTargetCodeType)
 
 
 

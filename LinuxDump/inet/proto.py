@@ -1,6 +1,6 @@
 # module LinuxDump.inet.proto
 #
-# Time-stamp: <07/10/11 10:30:15 alexs>
+# Time-stamp: <07/10/19 14:07:16 alexs>
 #
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -172,7 +172,10 @@ class IP_sock(object):
                 elif (self.state == tcpState.TCP_LISTEN):
                     self.sk_max_ack_backlog = s.max_ack_backlog
                     self.sk_ack_backlog = s.ack_backlog
-		    self.l_opt= Deref(s.tp_pinfo.af_tcp.listen_opt)
+                    tcp_opt = s.tp_pinfo.af_tcp
+		    self.l_opt= tcp_opt.listen_opt
+                    self.accept_queue = tcp_opt.accept_queue
+
             elif (self.protocol == 17): # UDP
                 self.uopt = s.tp_pinfo.af_udp
             elif (self.sktype == sockTypes.SOCK_RAW): # RAW (mostly ICMP)
@@ -236,11 +239,12 @@ class IP_sock(object):
                 elif (self.state == tcpState.TCP_LISTEN):
 		    if (struct_exists("struct inet_connection_sock")):
 			csk = o.castTo("struct inet_connection_sock")
-			accept_queue = csk.icsk_accept_queue
-			l_opt = Deref(accept_queue.listen_opt)
+			self.accept_queue = csk.icsk_accept_queue
+			l_opt = self.accept_queue.listen_opt
 		    else:
 		        tcpsk = o.tcp
-		        l_opt = Deref(tcpsk.listen_opt)
+		        l_opt = tcpsk.listen_opt
+                        self.accept_queue = tcpsk.accept_queue
                     self.sk_max_ack_backlog = sk.sk_max_ack_backlog
                     self.sk_ack_backlog = sk.sk_ack_backlog
 		    self.l_opt = l_opt
@@ -902,6 +906,59 @@ def get_AF_UNIX(details=False):
                     else:
                         yield s
 
+
+# Print the contents of accept_queue
+def print_accept_queue(pstr):
+    accept_queue = pstr.accept_queue
+    syn_table = pstr.l_opt.syn_table
+    print "    --- Accept Queue", accept_queue
+    if (accept_queue.hasField("rskq_accept_head")):
+        qhead = accept_queue.rskq_accept_head
+    else:
+        qhead = accept_queue
+    if (qhead.hasField("dl_next")):
+        for rq in readStructNext(qhead, "dl_next"):
+            if (rq.hasField("af")):
+                v4_req = rq.af.v4_req
+                laddr = v4_req.loc_addr
+                raddr = v4_req.rmt_addr
+            else:
+                inet_sock = rq.sk.castTo("struct inet_sock")
+                laddr = inet_sock.rcv_saddr
+                raddr = inet_sock.daddr
+            print '\t  laddr=%s raddr=%s' % (ntodots(laddr), ntodots(raddr))
+    # Now print syn_table. It can be either an explicitly-sized array, e.g.
+    # 	struct open_request	*syn_table[TCP_SYNQ_HSIZE];
+    # or zero-sized array with hashsize in nr_table_entries
+    # 	struct open_request	*syn_table[0];
+
+    if (type(syn_table) == type([])):
+        entries = len(syn_table)
+    else:
+        entries = pstr.l_opt.nr_table_entries
+    synq = []
+    for i in range(entries):
+        for rq in readStructNext(syn_table[i], "dl_next"):
+            synq.append(rq)
+    if (synq):
+        print "    --- SYN-Queue"
+        for rq in synq:
+            if (rq.hasField("af")):
+                v4_req = rq.af.v4_req
+                laddr = v4_req.loc_addr
+                raddr = v4_req.rmt_addr
+            elif (rq.sk):
+                inet_sock = rq.sk.castTo("struct inet_sock")
+                laddr = inet_sock.rcv_saddr
+                raddr = inet_sock.daddr
+            elif (struct_exists('struct inet_request_sock')):
+                irq = rq.castTo('struct inet_request_sock')
+                laddr = irq.loc_addr
+                raddr = irq.rmt_addr
+            else:
+                print "Don't know how to print synq for this kernel"
+            print '\t  laddr=%-20s raddr=%-20s' % (ntodots(laddr), ntodots(raddr))
+            
 
 #  Protocol families
 P_FAMILIES_c = '''

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/10/17 13:59:01 alexs>
+# Time-stamp: <07/10/19 12:06:49 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -13,7 +13,7 @@ from pykdump.API import *
 from LinuxDump.inet import *
 from LinuxDump.inet import proto, netdevice
 from LinuxDump.inet.proto import tcpState, sockTypes, \
-    IPv4_conn, IPv6_conn, IP_sock,  P_FAMILIES, decodeSock
+    IPv4_conn, IPv6_conn, IP_sock,  P_FAMILIES, decodeSock, print_accept_queue
 
 from LinuxDump.Tasks import TaskTable
 
@@ -69,6 +69,9 @@ def print_TCP_sock(o):
 	    print "\t max_qlen_log=%d qlen=%d qlen_young=%d" %\
 		    (l_opt.max_qlen_log, l_opt.qlen, l_opt.qlen_young)
 	    #printObject(l_opt)
+            if (pstr.accept_queue):
+                print_accept_queue(pstr)
+
 
 
 # Print TCP info from TIMEWAIT buckets

@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/10/17 14:07:44 alexs>
+# Time-stamp: <07/10/19 13:32:37 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -192,12 +192,22 @@ def update_SUI_fromgdb(f, sname):
         raise TypeError, "no type " + sname
     update_SUI(f, e)
 
-class X_StructResult(object):
+class StructResult(long):
+    def __new__(cls, sname, addr):
+        return long.__new__(cls, addr)
+    
     def __init__(self, sname, addr):
        	self.PYT_symbol = sname
 	self.PYT_addr = addr
         self.PYT_sinfo = SUInfo(sname)
         self.PYT_size = self.PYT_sinfo.PYT_size;
+
+    def __getitem__(self, i):
+        if (type(i) == type("")):
+            return self.PYT_sinfo[i]
+
+        sz1 = self.PYT_size
+        return StructResult(self.PYT_symbol, self.PYT_addr + i * sz1)
 
     def __getattr__(self, name):
         try:
@@ -223,94 +233,6 @@ class X_StructResult(object):
     
     # Backwards compatibility
     def __nonzero__(self):
-        return True
-
-    def __len__(self):
-        return self.PYT_size
-
-    def hasField(self, fname):
-        return self.PYT_sinfo.has_key(fname)
-
-    def isNamed(self, sname):
-        return sname == self.PYT_symbol
-
-    # Cast to another type. Here we assume that that one struct resides
-    # as the first member of another one, this is met frequently in kernel
-    # sources
-    def castTo(self, sname):
-        return StructResult(sname, self.PYT_addr)
-
-    def __getitem__(self, name):
-        return self.PYT_sinfo[name]
-
-    def getArrow(self):
-        return ArrowHolder(self)
-    Arrow = property(getArrow)
-
-class ArrowHolder:
-    def __init__(self, sr):
-        self.sr = sr
-    def __getattr__(self, name):
-        try:
-            fi = self.sr.PYT_sinfo[name]
-        except KeyError:
-            # This is ugly - but I have not found a better way yet
-            ind = name.find('__')
-            if (ind > 0):
-                name = name[ind:]
-            fi = self.sr.PYT_sinfo[name]
-        #
-        addr = self.sr.PYT_addr + fi.offset
-
-
-        if (fi.ti.ptrlev == 1):
-            dereferencer = fi.dereferencer
-            return dereferencer(readPtr(addr))
-        else:
-            tptr = fi.reader(addr)
-            return tptr.getDeref()
-
-class StructPtr(long):
-    def __new__(cls, sname, addr):
-        return long.__new__(cls, addr)
-    
-    def __init__(self, sname, addr):
-       	self.PYT_symbol = sname
-	self.PYT_addr = addr
-        self.PYT_sinfo = SUInfo(sname)
-        self.PYT_size = self.PYT_sinfo.PYT_size;
-
-    def __getitem__(self, i):
-        if (type(i) == type("")):
-            return self.PYT_sinfo[i]
-
-        sz1 = self.PYT_size
-        return StructPtr(self.PYT_symbol, self.PYT_addr + i * sz1)
-
-    def __getattr__(self, name):
-        try:
-            fi = self.PYT_sinfo[name]
-        except KeyError:
-            # This is ugly - but I have not found a better way yet
-            ind = name.find('__')
-            if (ind > 0):
-                name = name[ind:]
-            fi = self.PYT_sinfo[name]
-            
-        reader = fi.reader
-        addr = self.PYT_addr + fi.offset
-        return reader(addr)
-
-    def __str__(self):
-        return "<%s 0x%x>" % \
-               (self.PYT_symbol, self.PYT_addr)
-
-    def __repr__(self):
-        return "StructPtr <%s 0x%x> \tsize=%d" % \
-               (self.PYT_symbol, self.PYT_addr, self.PYT_size)
-    
-    # Backwards compatibility
-    def __nonzero__(self):
         return (self.PYT_addr != 0)
 
     def __len__(self):
@@ -329,12 +251,10 @@ class StructPtr(long):
     # as the first member of another one, this is met frequently in kernel
     # sources
     def castTo(self, sname):
-        return StructPtr(sname, self.PYT_addr)
+        return StructResult(sname, self.PYT_addr)
 
     Deref = property(getDeref)
 
-
-StructResult = StructPtr
 
 # A factory function for integer readers
 def intReader(vi):
@@ -465,7 +385,7 @@ def ptrReader(vi, ptrlev):
     # Struct/Union reader
     def ptrSU(addr):
         ptr = readPtr(addr)
-        return StructPtr(stype, ptr)
+        return StructResult(stype, ptr)
     def strPtr(addr):
         ptr = readPtr(addr)
         # If ptr = NULL, return None, needed for backwards compatibility
@@ -591,7 +511,7 @@ def Addr(obj, extra = None):
 def Deref(obj):
     if (isinstance(obj, tPtr)):
         return obj.Deref
-    if (isinstance(obj, StructPtr)):
+    if (isinstance(obj, StructResult)):
         # This is needed for backwards compatibility only!
         return obj
     else:
@@ -614,22 +534,23 @@ class tPtr(long):
     def __getitem__(self, i):
         sz1 = self.vi.ti.size
         return self.getArrDeref(i)
-    def getArrDeref(self, i = None):
+    def getArrDeref(self, i):
         addr = long(self)
+        ptrlev = self.ptrlev
         if (addr == 0):
             msg = "\nNULL pointer %s" % repr(self)
             raise IndexError, msg
 
-        if (self.ptrlev == 1):
-            dereferencer = self.vi.dereferencer
-            if (i != None):
-                addr += i * self.vi.tsize
-            return dereferencer(addr)
+        if (ptrlev == 1):
+            addr += i * self.vi.tsize
+            return  self.vi.dereferencer(addr)
+        elif (ptrlev == 2 and self.vi.ti.tcodetype in (3,4)):
+            addr += i * self.vi.ti.size
+            return self.vi.dereferencer(readPtr(addr))
         else:
-            if (i != None):
-                addr += i * self.vi.ti.size
+            addr += i * self.vi.ti.size
             ntptr = tPtr(readPtr(addr), self.vi)
-            ntptr.ptrlev = self.ptrlev - 1
+            ntptr.ptrlev = ptrlev - 1
             return ntptr
     def getDeref(self, i = None):
         addr = long(self)
@@ -939,25 +860,6 @@ def whatis(symbol, art = None):
     return vi
 
     
-    
-
-
-# Check whether our basetype is really a typedef. We need this to understand how
-# to generate 'smarttype'. E.g. for __u32 we'll find that this is an unsigned integer
-# For typedefs to pointers we'll know that this is really a pointer type and should
-# be treated as such.
-# Possible return values:
-#           None    - this is not a typedef, not transformation possible
-#           Int     - this is a signed Integer type
-#           Uint    - this is a Unsigned integer type
-#           Ptr     - this is a pointer, do not try to do anything else
-#           SUPtr   - this is a pointer to SU
-#           String  - this is a pointer to Char
-
-def isTypedef(basetype):
-    return None
-
-
 
 #
 #
