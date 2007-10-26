@@ -109,6 +109,15 @@ do_ftype(struct type *ftype, PyObject *item) {
   PyObject *fname;
   PyObject *ptr;
 
+  if(TYPE_STUB(ftype) && tagname) {
+    struct symbol *sym = lookup_symbol(tagname,
+				       0, STRUCT_DOMAIN,
+				       0, (struct symtab **) NULL);
+    if(sym) {
+      ftype=sym->type;
+    } 
+  }
+
   switch (codetype) {
   case TYPE_CODE_STRUCT:
   case TYPE_CODE_UNION:
