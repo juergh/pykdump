@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/10/19 14:29:22 alexs>
+# Time-stamp: <07/10/26 16:48:49 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -630,6 +630,10 @@ if ( __name__ == '__main__'):
                   action="store_true",
                   help="Print the routing cache")
 
+    op.add_option("--ipsec", dest="ipsec", default = 0,
+                  action="store_true",
+                  help="Print IPSEC stuff")
+
     op.add_option("--everything", dest="Everything", default = 0,
                   action="store_true",
                   help="Run all functions available - for developers")
@@ -711,7 +715,9 @@ if ( __name__ == '__main__'):
         print_rt_hash()
         sys.exit(0)
 
-    if (o.arp):
+    if (o.ipsec):
+        from LinuxDump.inet import ipsec
+        ipsec.print_IPSEC()
         sys.exit(0)
 
     if (o.Ifaces):
