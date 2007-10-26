@@ -2,7 +2,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <07/08/20 10:42:55 alexs>
+# Time-stamp: <07/10/26 11:08:31 alexs>
 
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -209,7 +209,7 @@ def check_runqueues():
     for cpu, rq in enumerate(getRunQueues()):
 	RT_count = 0
 	# Print Active
-	active = Deref(rq.active)
+	active = rq.active
 	if (not quiet):
 	   print ' ---- CPU#%d ---  %s' % (cpu, str(rq))
 	#print active
@@ -307,10 +307,10 @@ if (o.stacksummary):
     
 HZ = sys_info.HZ
 
-print_basics()
-dump_reason(dmesg)
-check_loadavg()
-check_mem()
-check_auditf()
+#print_basics()
+#dump_reason(dmesg)
+#check_loadavg()
+#check_mem()
+#check_auditf()
 check_runqueues()
 #check_network()
