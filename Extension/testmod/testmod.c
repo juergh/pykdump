@@ -87,6 +87,9 @@ struct AA aa;
 long seven = 7;
 int six = 6;
 
+typedef struct ASID asid_t;
+
+asid_t aaa;
 
 static int __init
 testmod_init(void) {
