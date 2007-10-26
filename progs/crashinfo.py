@@ -2,7 +2,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <07/10/26 11:08:31 alexs>
+# Time-stamp: <07/10/26 11:22:27 alexs>
 
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -145,6 +145,13 @@ def dump_reason(dmesg):
 	if (verbose):
 	    for bts in res:
 		print bts
+    else:
+        # This seems to be a real panic - search for BUG/general protection
+        res = [bts for bts in btat if bts.hasfunc('die')]
+        if (res):
+            print "Dump was triggered by kernel"
+            if (test(res, "general_protection")):
+                print "\t- General Protection Fault"
 	
 # Check Load Averages
 def check_loadavg():
@@ -307,10 +314,10 @@ if (o.stacksummary):
     
 HZ = sys_info.HZ
 
-#print_basics()
-#dump_reason(dmesg)
-#check_loadavg()
-#check_mem()
-#check_auditf()
+print_basics()
+dump_reason(dmesg)
+check_loadavg()
+check_mem()
+check_auditf()
 check_runqueues()
 #check_network()
