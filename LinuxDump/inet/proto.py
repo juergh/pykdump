@@ -1,6 +1,6 @@
 # module LinuxDump.inet.proto
 #
-# Time-stamp: <07/10/19 14:07:16 alexs>
+# Time-stamp: <07/10/26 16:31:07 alexs>
 #
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -1039,5 +1039,12 @@ PROTONAMES = {
     6:  'tcp',
     17: 'udp',
     50: 'esp',
-    51: 'ah'
+    51: 'ah',
+    132: 'sctp'
     }
+
+def protoName(proto):
+    try:
+        return PROTONAMES[proto]
+    except KeyError:
+        return "proto=%d" % proto

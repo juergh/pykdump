@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/10/19 13:32:37 alexs>
+# Time-stamp: <07/10/26 14:38:48 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -209,6 +209,9 @@ class StructResult(long):
         sz1 = self.PYT_size
         return StructResult(self.PYT_symbol, self.PYT_addr + i * sz1)
 
+    def __add__(self, i):
+        return self[i]
+    
     def __getattr__(self, name):
         try:
             fi = self.PYT_sinfo[name]
@@ -833,7 +836,19 @@ def getFullBuckets(start, bsize, items, chain_off=0):
     del m
     return buckets
 
-# Traverse list_head linked lists
+# Traverse hlist_node hash-lists. E.g.
+# hlist_for_each_entry("struct xfrm_policy", table, "bydst")
+
+def hlist_for_each_entry(emtype, head, member):
+    pos = head.first                    # struct hlist_node *first
+    si = SUInfo(emtype)
+    offset = si[member].offset
+    while (pos):
+        yield readSU(emtype, long(pos) - offset)
+        pos = pos.next
+
+    return
+    
 
 
 def getStructInfo(stype):

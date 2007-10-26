@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/10/16 08:10:01 alexs>
+# Time-stamp: <07/10/26 14:09:55 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -158,6 +158,7 @@ if (crashloaded):
          readSymbol, readSU, \
          sLong, le32_to_cpu, cpu_to_le32, le16_to_cpu, \
          readList, getListSize, readListByHead,  list_for_each_entry, \
+         hlist_for_each_entry, \
          readSUArray, readSUListFromHead, readStructNext, \
          getStructInfo, getFullBuckets, FD_ISSET, \
          struct_exists, symbol_exists,\

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/10/16 14:17:34 alexs>
+# Time-stamp: <07/10/26 14:37:28 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -84,7 +84,9 @@ for i in range(5):
 ntests += 1
 
 sarrptr = asid.sarrptr
-if (sarrptr[0].a0 == 11 and sarrptr[1].a0 == 22 and sarrptr[2].a0 == 33):
+print sarrptr
+if (sarrptr[0].a0 == 11 and sarrptr[1].a0 == 22 and sarrptr[2].a0 == 33 and \
+    (sarrptr+2).a0 == 33):
     pass
 else:
     print "Pointer aritmetic failed"
