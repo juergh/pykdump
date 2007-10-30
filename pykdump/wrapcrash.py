@@ -209,7 +209,9 @@ class StructResult(long):
         sz1 = self.PYT_size
         return StructResult(self.PYT_symbol, self.PYT_addr + i * sz1)
 
-    def __add__(self, i):
+    # The __add__ method can break badly-written programs easily - if
+    # we forget to cast the pointer to (void *)
+    def X__add__(self, i):
         return self[i]
     
     def __getattr__(self, name):
@@ -748,6 +750,7 @@ list_for_each_entry = readListByHead
 # of LIST_HEAD point to its own address
 
 def readList(start, offset=0, maxel = _MAXEL, inchead = True):
+    start = long(start)     # equivalent to (void *) cast
     if (start == 0):
         return []
     if (inchead):

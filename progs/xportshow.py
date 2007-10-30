@@ -20,6 +20,8 @@ from LinuxDump.Tasks import TaskTable
 import string
 from StringIO import StringIO
 
+WARNING = "+++WARNING+++"
+
 debug = API_options.debug
 
 sock_V1 = proto.sock_V1
@@ -223,6 +225,9 @@ def Summarize():
     w_snd_closed = 0
     for o in proto.get_TCP_ESTABLISHED():
         pstr = IP_sock(o, True)
+	if (pstr.protocol != 6):
+	    print WARNING, "non-TCP socket in TCP-hash", o, pstr.protocol
+	    continue
         counts[pstr.state] = counts.setdefault(pstr.state, 0) + 1
         nonagle=pstr.topt.nonagle
         if (nonagle == 1):
