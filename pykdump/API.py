@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/10/26 14:09:55 alexs>
+# Time-stamp: <07/11/01 12:13:23 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -233,7 +233,8 @@ def initAfterDumpIsOpen():
     exec_gdb_command("set width 300")
 
     # Check the kernel version and set HZ
-    sys_info.kernel = re.search(r'^(\d+\.\d+\.\d+)', sys_info.RELEASE).group(1)
+    kernel = re.search(r'^(\d+\.\d+\.\d+)', sys_info.RELEASE).group(1)
+    sys_info.kernel = gen.KernelRev(kernel)
     sys_info.HZ = crash.HZ;
 
     # Convert CPUS to integer

@@ -1,7 +1,7 @@
 #
 #  Code that does not depend on whether we use embedded API or PTY
 #
-# Time-stamp: <07/10/19 13:29:44 alexs>
+# Time-stamp: <07/11/01 12:09:59 alexs>
 #
 import string
 import pprint
@@ -416,3 +416,27 @@ class PYT_tmpfiles:
         fd, fname = tempfile.mkstemp('', '', self.tempdir)
         self.flist.append(fname)
         return os.fdopen(fd, "w"), fname
+
+class KernelRev(str):
+    def __init__(self, s):
+        self.ov = KernelRev.conv(s)
+
+    def __lt__(self, s):
+        nv = KernelRev.conv(s)
+        return self.ov < nv
+    def __le__(self, s):
+        nv = KernelRev.conv(s)
+        return self.ov <= nv
+    def __gt__(self, s):
+        nv = KernelRev.conv(s)
+        return self.ov > nv
+    def __ge__(self, s):
+        nv = KernelRev.conv(s)
+        return self.ov >= nv
+    
+    def conv(s):
+        a = [0, 0, 0]
+        for i, v in enumerate(s.split('.')):
+            a[i] = long(v)
+        return a[0] * 100000 + a[1] * 1000 + a[2]
+    conv = staticmethod(conv)
