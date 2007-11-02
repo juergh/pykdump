@@ -271,6 +271,10 @@ op.add_option("--ext3", dest="ext3", default = 0,
 		action="store_true",
 		help="Print EXT3 info.")
 
+op.add_option("--filelock", dest="filelock", default = 0,
+		action="store_true",
+		help="Print filelock info.")
+
 op.add_option("--stacksummary", dest="stacksummary", default = 0,
 		action="store_true",
 		help="Print sysctl info.")
@@ -303,6 +307,11 @@ if (o.ext3):
     showExt3()
     sys.exit(0)
 
+if (o.filelock):
+    from LinuxDump.flock import print_locks
+
+    print_locks()
+    sys.exit(0)
 if (o.stacksummary):
     from LinuxDump.Tasks import TaskTable
     if (not btsl):

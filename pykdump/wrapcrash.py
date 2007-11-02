@@ -222,7 +222,12 @@ class StructResult(long):
             ind = name.find('__')
             if (ind > 0):
                 name = name[ind:]
-            fi = self.PYT_sinfo[name]
+	    try:
+                fi = self.PYT_sinfo[name]
+	    except KeyError:
+		msg = "<%s> does not have a field <%s>" % \
+		      (self.PYT_symbol,  name)
+		raise KeyError, msg
             
         reader = fi.reader
         addr = self.PYT_addr + fi.offset

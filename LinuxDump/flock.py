@@ -13,9 +13,17 @@ def print_locks():
     print "Active locks"
     for fl in  readSUListFromHead(file_lock_list, "fl_link", 
 	"struct file_lock"):
-	print fl
+	file = fl.fl_file
+	try:
+	    dentry = file.f_dentry
+	except KeyError:
+	    dentry = file.f_path.dentry
+	inode = dentry.d_inode
+	print fl, file, dentry, "\n\tpid=%d inode=0x%x" % (fl.fl_pid, inode)
 	
-    print "Blocked list"
+    print "\nBlocked list"
     for fl in  readSUListFromHead(blocked_list, "fl_link", 
 	"struct file_lock"):
-	print fl
+	file = fl.fl_file
+	inode = file.f_dentry.d_inode
+	print fl, file, "pid=%d inode=0x%x" % (fl.fl_pid, inode)
