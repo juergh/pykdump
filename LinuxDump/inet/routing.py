@@ -105,7 +105,7 @@ def print_rt_hash():
     print "\n", count, "entries"
 
 def print_fib():
-    if (struct_exists("struct hlist_head")):
+    if (member_offset("struct fib_node", "fn_alias") !=-1):
         g = get_fib_v26()
     else:
         g = get_fib_v24()
