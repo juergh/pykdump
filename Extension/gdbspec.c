@@ -17,6 +17,7 @@
 
 #include "gdb_string.h"
 #include <errno.h>
+#include <setjmp.h>
 
 extern PyObject *crashError;
 static void ptype_command (char *typename, int from_tty);

@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/11/01 12:13:23 alexs>
+# Time-stamp: <07/11/07 16:21:09 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -288,9 +288,9 @@ def guessDumptype(cmd):
     s = p.read().split(':', 1)[1]
     p.close()
     if (s.find('32-bit') != -1):
-	return "IA32"
+	return "32"
     elif (s.find('64-bit') != -1):
-	return "AMD64"
+	return "64"
     else:
 	return None
 
@@ -554,9 +554,6 @@ def __cmdlineOptions():
     and  execute our script inside it using 'epython' command"""
 
     op = OptionParser(add_help_option=False, option_class=Option)
-    op.add_option("--ext", dest="UseExt",
-              action="store", type="int", default=1,
-              help="enable/disable extension if available")
     
     op.add_option("--crash", dest="crashex",
               action="store", default=None,
@@ -581,10 +578,6 @@ def __cmdlineOptions():
     op.add_option("--nopsyco", dest="nopsyco", default=0,
               action="store_true",
               help="disable Psyco even if it available")
-
-    op.add_option("--pty", dest="pty", default=0,
-              action="store_true",
-              help="use PTY-driver")
 
     # This option is special - it can be used both by
     # PTY-driver and by epython command
@@ -660,9 +653,9 @@ def __cmdlineOptions():
     if (crashex == None):
         dtype = guessDumptype(cmd)
         #print cmd, dtype
-        if (dtype == 'IA32'):
+        if (dtype == '32'):
             crashex = 'crash32'
-        elif (dtype == 'AMD64'):
+        elif (dtype == '64'):
             crashex = 'crash64'
         else:
             crashex = 'crash'
@@ -691,12 +684,20 @@ def __cmdlineOptions():
     if (o.pythonso):
 	pythonso = o.pythonso
     if (not pythonso):
-	print "Cannot find an extension"
-	sys.exit(1)
+        # Try the default location
+        defaultloc = "/usr/local/lib"
+        pykdumpfn = "pykdump%s.so" % dtype
+        pythonso = os.path.join(defaultloc, pykdumpfn)
+        if (not os.access(pythonso, os.R_OK)):
+            print "Cannot find an extension"
+            sys.exit(1)
 
     if (sys.stdout.isatty()):
         print "Starting crash...",
         sys.stdout.flush()
+
+    if (debug):
+        print "\nExtension:", pythonso
 
     executeCrashScriptI(cmd, crashex, ecmd, pythonso)
 
@@ -723,50 +724,6 @@ def executeCrashScriptI(cmd, crashex, ecmd, pythonso):
     tmpgen.cleanup()
     sys.exit(0)
 
-# Execute a crash script via PTY
-def executeCrashScriptPTY(cmd, crashex, ecmd, pythonso, useext, nopsyco):
-    debug = API_options.debug 
-    import LowLevel as ll
-    info = ll.openDump(cmd, crashex)
-    if (not info):
-        print "Cannot open the dump"
-        sys.exit(1)
-    if (sys.stdout.isatty()):
-        print "done!\n",
-        sys.stdout.flush()
-
-    # At this point the dump is open and we have access to it
-
-
-    if (useext):
-        print "extend %s" % pythonso
-        rc = ll.getOutput("extend %s" % pythonso)
-    else:
-        rc = ''
-    if (rc.find("shared object loaded") >= 0):
-        if (debug):
-            print "Extension available"
-        # Invoke the same script again, with the same parameters
-        #print ecmd
-        #sys.exit(0)
-        ll.sendLine(ecmd)
-        ll.sendLine("quit")
-        try:
-            ll.child.interact()
-	    #ll.child.close(True)
-        except:
-            pass
-        sys.exit(0)
-    else:
-        if (debug):
-            print "*** no embedded Python"
-        wrapcrash.fifoname = ll.fifoname
-    #sys.argv = filtered_argv
-
-    # If we reach this point, we are running with PTY-interface
-
-    # This code is needed only when we work without extension.
-    # It should be probably removed completely as we don't need it anymore
     
 
     
