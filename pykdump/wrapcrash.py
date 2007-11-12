@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/11/12 14:44:57 alexs>
+# Time-stamp: <07/11/12 15:02:53 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -238,15 +238,6 @@ class StructResult(long):
         return self[i]
     
     def __getattr__(self, name):
-        readername = 'PYT_R_' + name
-        cls = self.__class__
-        try:
-            (offset, reader) = getattr(cls, readername)
-            addr = long(self) + offset
-            return reader(long(self) + offset)
-        except AttributeError:
-            pass
-            #print "Miss", cls, readername
         try:
             fi = self.PYT_sinfo[name]
         except KeyError:
@@ -257,15 +248,16 @@ class StructResult(long):
 	    try:
                 fi = self.PYT_sinfo[name]
 	    except KeyError:
-		msg = "<%s> does not have a field <%s>" % \
-		      (self.PYT_symbol, name)
-		raise KeyError, msg
+                try:
+                    fi  = self.__class__.Pseudo
+                except AttributeError:
+                    msg = "<%s> does not have a field <%s>" % \
+                          (self.PYT_symbol, name)
+                    raise KeyError, msg
             
-        reader = fi.reader
-        # Install the reader to our subclass
-        setattr(cls, readername, (fi.offset, reader))
+
         addr = long(self) + fi.offset
-        return reader(addr)
+        return fi.reader(addr)
 
     def __str__(self):
         return "<%s 0x%x>" % \
