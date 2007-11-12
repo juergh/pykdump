@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/11/12 15:02:53 alexs>
+# Time-stamp: <07/11/12 15:04:21 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -248,12 +248,9 @@ class StructResult(long):
 	    try:
                 fi = self.PYT_sinfo[name]
 	    except KeyError:
-                try:
-                    fi  = self.__class__.Pseudo
-                except AttributeError:
-                    msg = "<%s> does not have a field <%s>" % \
-                          (self.PYT_symbol, name)
-                    raise KeyError, msg
+                msg = "<%s> does not have a field <%s>" % \
+                      (self.PYT_symbol, name)
+                raise KeyError, msg
             
 
         addr = long(self) + fi.offset
