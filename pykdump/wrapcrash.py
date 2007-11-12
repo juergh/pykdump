@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/11/12 15:08:16 alexs>
+# Time-stamp: <07/11/12 15:44:40 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -234,7 +234,7 @@ class StructResult(long):
     # The __add__ method can break badly-written programs easily - if
     # we forget to cast the pointer to (void *)
     def __add__(self, i):
-        #raise TypeError, "!!!"
+        raise TypeError, "!!!"
         return self[i]
     
     def __getattr__(self, name):

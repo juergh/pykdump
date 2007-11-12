@@ -1,6 +1,6 @@
 # module LinuxDump.inet.proto
 #
-# Time-stamp: <07/11/12 14:12:58 alexs>
+# Time-stamp: <07/11/12 15:44:35 alexs>
 #
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -654,7 +654,7 @@ def get_TCP_TIMEWAIT():
     if (t.Kernel24):
         # 2.4 
         # On 2.4 we really have 'struct tcp_tw_bucket *' table
-        ehash_tw = t.ehash_addr + t.eb_size * t.ehash_size
+        ehash_tw = long(t.ehash_addr) + t.eb_size * t.ehash_size
         for b in getFullBuckets(ehash_tw, t.eb_size, t.ehash_size, t.chain_off):
             next = b
             while (next):
