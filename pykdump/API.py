@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/11/07 16:21:09 alexs>
+# Time-stamp: <07/11/12 11:39:43 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -669,7 +669,7 @@ def __cmdlineOptions():
     crashrc = '.' + os.path.basename(crashex) + 'rc'
 
     pythonso = None
-    re_extend = re.compile(r'^\s*extend\s+(\S+)$')
+    re_extend = re.compile(r'^\s*extend\s+(pykdump\S+)$')
     for f in os.path.expanduser("~/" + crashrc), crashrc:
         if (os.access(f, os.R_OK)):
             # Search for "extend path" line

@@ -1,6 +1,6 @@
 # module LinuxDump.inet.proto
 #
-# Time-stamp: <07/10/26 16:31:07 alexs>
+# Time-stamp: <07/11/12 14:12:58 alexs>
 #
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -668,7 +668,7 @@ def get_TCP_TIMEWAIT():
             ehash_tw = t.ehash_addr
             chain_off = t.tw_chain_off
         else:
-            ehash_tw = t.ehash_addr + t.eb_size * t.ehash_size
+            ehash_tw = long(t.ehash_addr) + t.eb_size * t.ehash_size
             chain_off = t.chain_off
         for b in getFullBuckets(ehash_tw, t.eb_size, t.ehash_size, chain_off):
             for a in sk_for_each(b):
@@ -891,7 +891,7 @@ def get_AF_UNIX(details=False):
                     state = s.sk.__sk_common.skc_state
                     if (details):
                         path = ''
-                        vfs_inode_addr = sk_socket + vfs_off
+                        vfs_inode_addr = long(sk_socket) + vfs_off
                         vfs_inode = readSU("struct inode", vfs_inode_addr)
                         ino = vfs_inode.i_ino
                         if (s.addr):

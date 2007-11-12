@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/10/26 14:38:48 alexs>
+# Time-stamp: <07/11/12 14:12:00 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -192,26 +192,49 @@ def update_SUI_fromgdb(f, sname):
         raise TypeError, "no type " + sname
     update_SUI(f, e)
 
+class subStructResult(type):
+    __cache = {}
+    def __call__(cls, *args):
+        sname = args[0]
+        try:
+            ncls = subStructResult.__cache[sname]
+        except KeyError:
+            supername = cls.__name__
+            classname = '%s_%s' % (supername, sname)
+            # Class names cannot contain spaces or -
+            classname = classname.replace(' ', '_').replace('-', '_')
+            execstr = 'class %s(%s): pass' % (classname, supername)
+            #print '===', execstr
+            exec execstr
+            ncls = locals()[classname]
+            ncls.PYT_symbol = sname
+            ncls.PYT_sinfo = SUInfo(sname)
+            ncls.PYT_size = ncls.PYT_sinfo.PYT_size;
+
+        rc =  ncls.__new__(ncls, *args)
+        rc.__init__(*args)
+        subStructResult.__cache[sname] = ncls
+        return rc
+    
 class StructResult(long):
+    __metaclass__ = subStructResult
     def __new__(cls, sname, addr):
         return long.__new__(cls, addr)
     
     def __init__(self, sname, addr):
-       	self.PYT_symbol = sname
-	self.PYT_addr = addr
-        self.PYT_sinfo = SUInfo(sname)
-        self.PYT_size = self.PYT_sinfo.PYT_size;
+    	pass
 
     def __getitem__(self, i):
         if (type(i) == type("")):
             return self.PYT_sinfo[i]
 
         sz1 = self.PYT_size
-        return StructResult(self.PYT_symbol, self.PYT_addr + i * sz1)
+        return StructResult(self.PYT_symbol, long(self) + i * sz1)
 
     # The __add__ method can break badly-written programs easily - if
     # we forget to cast the pointer to (void *)
-    def X__add__(self, i):
+    def __add__(self, i):
+        raise TypeError, "!!!"
         return self[i]
     
     def __getattr__(self, name):
@@ -230,20 +253,20 @@ class StructResult(long):
 		raise KeyError, msg
             
         reader = fi.reader
-        addr = self.PYT_addr + fi.offset
+        addr = long(self) + fi.offset
         return reader(addr)
 
     def __str__(self):
         return "<%s 0x%x>" % \
-               (self.PYT_symbol, self.PYT_addr)
+               (self.PYT_symbol, long(self))
 
     def __repr__(self):
         return "StructResult <%s 0x%x> \tsize=%d" % \
-               (self.PYT_symbol, self.PYT_addr, self.PYT_size)
+               (self.PYT_symbol, long(self), self.PYT_size)
     
     # Backwards compatibility
-    def __nonzero__(self):
-        return (self.PYT_addr != 0)
+    #def __nonzero__(self):
+    #    return (self.PYT_addr != 0)
 
     def __len__(self):
         return self.PYT_size
@@ -261,7 +284,7 @@ class StructResult(long):
     # as the first member of another one, this is met frequently in kernel
     # sources
     def castTo(self, sname):
-        return StructResult(sname, self.PYT_addr)
+        return StructResult(sname, long(self))
 
     Deref = property(getDeref)
 
@@ -508,10 +531,10 @@ def Addr(obj, extra = None):
     if (isinstance(obj, StructResult)):
         # If we have extra set, we want to know the address of this field
         if (extra == None):
-            return obj.PYT_addr
+            return long(obj)
         else:
             off = obj.PYT_sinfo[extra].offset
-            return obj.PYT_addr + off
+            return long(obj) + off
     elif (isinstance(obj, SmartString)):
           return obj.addr
     else:
@@ -606,12 +629,12 @@ class SmartString(str):
 
 def printObject(obj):
     if (isinstance(obj, StructResult)):
-        cmd = "p *(%s *)0x%x" %(obj.PYT_symbol, obj.PYT_addr)
+        cmd = "p *(%s *)0x%x" %(obj.PYT_symbol, long(self))
         print cmd
         s = exec_gdb_command(cmd)
         # replace the 1st line with something moe useful
         first, rest = s.split("\n", 1)
-	print "%s 0x%x {" %(obj.PYT_symbol, obj.PYT_addr)
+	print "%s 0x%x {" %(obj.PYT_symbol, long(obj))
         print rest
     else:
         raise TypeError

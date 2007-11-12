@@ -1,6 +1,6 @@
 # module LinuxDump.inet.routing
 #
-# Time-stamp: <07/10/16 14:26:33 alexs>
+# Time-stamp: <07/11/12 14:13:32 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -184,7 +184,7 @@ def get_fib_v26():
         #print 'fn_zone=0x%x, head=0x%x entries=%d maxslot=%d' % \
         #      (Addr(fn_zone),hash_head, fn_zone.fz_nent,  maxslot)
         for i in range(0, maxslot):
-            headaddr = hash_head +  i * hlist_head_sz
+            headaddr = long(hash_head) +  i * hlist_head_sz
             first = readSU("struct hlist_head", headaddr).first
             if (not first):
                 continue
