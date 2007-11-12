@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/11/12 14:12:00 alexs>
+# Time-stamp: <07/11/12 14:44:57 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -234,10 +234,19 @@ class StructResult(long):
     # The __add__ method can break badly-written programs easily - if
     # we forget to cast the pointer to (void *)
     def __add__(self, i):
-        raise TypeError, "!!!"
+        #raise TypeError, "!!!"
         return self[i]
     
     def __getattr__(self, name):
+        readername = 'PYT_R_' + name
+        cls = self.__class__
+        try:
+            (offset, reader) = getattr(cls, readername)
+            addr = long(self) + offset
+            return reader(long(self) + offset)
+        except AttributeError:
+            pass
+            #print "Miss", cls, readername
         try:
             fi = self.PYT_sinfo[name]
         except KeyError:
@@ -249,10 +258,12 @@ class StructResult(long):
                 fi = self.PYT_sinfo[name]
 	    except KeyError:
 		msg = "<%s> does not have a field <%s>" % \
-		      (self.PYT_symbol,  name)
+		      (self.PYT_symbol, name)
 		raise KeyError, msg
             
         reader = fi.reader
+        # Install the reader to our subclass
+        setattr(cls, readername, (fi.offset, reader))
         addr = long(self) + fi.offset
         return reader(addr)
 
