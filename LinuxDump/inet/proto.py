@@ -1,6 +1,6 @@
 # module LinuxDump.inet.proto
 #
-# Time-stamp: <07/11/12 15:44:35 alexs>
+# Time-stamp: <07/11/13 14:20:49 alexs>
 #
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -477,38 +477,6 @@ def decodeSock(sock):
 # tcp_sock and so on. Structs definitions are present in newer 2.6 kernels
 # but not on some older 2.6 ones.
 
-# Check whether we have inet_sock
-def X_check_inet_sock():
-    # Let us create inet_sock if needed
-    if (struct_size("struct inet_sock") == -1):
-        as = ArtStructInfo("struct inet_sock")
-        as.append("struct sock	  sk;")
-        if (symbol_exists("tcpv6_protocol") and 
-            symbol_exists("udpv6_protocol")):
-            if (debug):
-                print "Adding struct ipv6_pinfo *pinet6;"
-            as.append("struct ipv6_pinfo *pinet6;")
-        iopti = getStructInfo("struct inet_opt")
-        as.append(iopti)
-        # print as
-
-        # tcp_sock is inet_sock followed by tcp_opt
-        tas = ArtStructInfo("struct tcp_sock")
-        tas.append(as)
-        tas.append("struct tcp_opt tcp;")
-        #print tas
-
-        # udp_sock is inet_sock followed by udp_opt
-        uas = ArtStructInfo("struct udp_sock")
-        uas.append(as)
-        uas.append("struct udp_opt udp;")
-        #print uas
-	
-	# raw_sock is inet_sock followed by raw_opt
-	ras = ArtStructInfo("struct raw_sock")
-        ras.append(as)
-        ras.append("struct raw_opt udp;")
-	#print ras
 
 def check_inet_sock():
     # Let us create inet_sock if needed

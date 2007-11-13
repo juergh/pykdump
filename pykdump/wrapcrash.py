@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/11/12 15:44:40 alexs>
+# Time-stamp: <07/11/13 14:17:34 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -215,14 +215,80 @@ class subStructResult(type):
         rc.__init__(*args)
         subStructResult.__cache[sname] = ncls
         return rc
-    
+
+
+# Parse the derefence string
+def parseDerefString(sname, teststring):
+    si = getStructInfo(sname)
+    out =[]
+    for f in teststring.split('.'):
+        if (si and si.has_key(f)):
+            fi = si[f]
+            offset = fi.offset
+            if (debug):
+                print f, "offset=%d" % offset
+            ti = fi.ti
+            codetype = ti.codetype
+            isptr= False
+            if (codetype == 1):
+                # Pointer
+                tti = ti.getTargetType()
+                tcodetype = ti.getTargetCodeType()
+                if (debug):
+                    print "    pointer:",
+                if (tcodetype in (3,4)):
+                    si = getStructInfo(tti.stype)
+                    if (debug):
+                        print tti.stype
+                    isptr = True
+            elif (codetype == 3 or codetype == 4):
+                # Struct/Union
+                if (debug):
+                    print "    SU:", ti.stype
+                si = getStructInfo(ti.stype)
+            else:
+                si = None
+                if (debug):
+                    print "    codetype=%d" % codetype
+            out.append((isptr, offset))
+        else:
+            if (debug):
+                print "Cannot continue f=%s, codetype=%d" % (f, codetype)
+            return False
+
+    # If we reached this place, we have been able to dereference
+    # everything. If the last field is of integer type, check for
+    # bitsize/bitoffset
+    return (fi, out)
+        
+
+
+def pseudoAttrEvaluator(addr, vi, chain):
+    addr = long(addr)
+    for ptr, offset in chain:
+        if (ptr):
+            addr = readPtr(addr+offset)
+        else:
+            addr += offset
+    # Now read the variable as defined by fi from address addr
+    return vi.reader(addr)
+
+# Pseudoattributes.
+class PseudoAttr(object):
+    def __init__(self, fi, chain):
+        self.fi = fi
+        self.chain = chain
+    def __get__(self, obj, objtype):
+        val = pseudoAttrEvaluator(long(obj),  self.fi, self.chain)
+        return val
+   
 class StructResult(long):
     __metaclass__ = subStructResult
-    def __new__(cls, sname, addr):
+    def __new__(cls, sname, addr = 0):
         return long.__new__(cls, addr)
     
-    def __init__(self, sname, addr):
-    	pass
+    #def __init__(self, sname, addr = 0):
+    #	pass
 
     def __getitem__(self, i):
         if (type(i) == type("")):
@@ -234,7 +300,7 @@ class StructResult(long):
     # The __add__ method can break badly-written programs easily - if
     # we forget to cast the pointer to (void *)
     def __add__(self, i):
-        raise TypeError, "!!!"
+        #raise TypeError, "!!!"
         return self[i]
     
     def __getattr__(self, name):
@@ -278,6 +344,21 @@ class StructResult(long):
     def getDeref(self):
         return self
 
+    def Eval(self, estr):
+        cls = self.__class__
+        try:
+            (fi, chain) = cls.__cache[estr]
+            #print "Got from Eval cache", estr, cls
+            return pseudoAttrEvaluator(long(self), fi, chain)
+        except AttributeError:
+            #print "Creating a Eval cache for", cls
+            cls.__cache = {}
+        except KeyError:
+            pass
+        (fi, chain) = parseDerefString(self.PYT_symbol, estr)
+        cls.__cache[estr] = (fi, chain)
+        return pseudoAttrEvaluator(long(self), fi, chain)
+
     # Cast to another type. Here we assume that that one struct resides
     # as the first member of another one, this is met frequently in kernel
     # sources
@@ -286,6 +367,19 @@ class StructResult(long):
 
     Deref = property(getDeref)
 
+def structSetAttr(sname, aname, estrings):
+    if (type(estrings) == type("")):
+        estrings = [estrings]
+
+    cls = StructResult(sname).__class__
+    for s in estrings:
+        rc = parseDerefString(sname, s)
+        if (rc):
+            fi, chain = rc
+            setattr(cls,  aname, PseudoAttr(fi, chain))
+            return True
+    return False
+        
 
 # A factory function for integer readers
 def intReader(vi):
