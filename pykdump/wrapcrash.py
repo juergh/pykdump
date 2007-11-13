@@ -221,6 +221,9 @@ class subStructResult(type):
 def parseDerefString(sname, teststring):
     si = getStructInfo(sname)
     out =[]
+    codetype = -1
+    if (debug):
+	print '-------sname=%s, test=%s' % (sname, teststring)
     for f in teststring.split('.'):
         if (si and si.has_key(f)):
             fi = si[f]
@@ -367,16 +370,21 @@ class StructResult(long):
 
     Deref = property(getDeref)
 
-def structSetAttr(sname, aname, estrings):
+def structSetAttr(sname, aname, estrings, sextra = []):
     if (type(estrings) == type("")):
         estrings = [estrings]
 
     cls = StructResult(sname).__class__
+    #print sname, cls
     for s in estrings:
         rc = parseDerefString(sname, s)
         if (rc):
             fi, chain = rc
-            setattr(cls,  aname, PseudoAttr(fi, chain))
+	    pa = PseudoAttr(fi, chain)
+            setattr(cls,  aname, pa)
+	    for extra in sextra:
+		ecls = StructResult(extra).__class__
+		setattr(ecls,  aname, pa)
             return True
     return False
         
@@ -438,6 +446,8 @@ def intReader(vi):
     bitsize = vi.bitsize
     if (bitsize != None):
         bitoffset = vi.bitoffset - vi.offset * 8
+    else:
+	bitoffset = None
     uint = ti.uint
     dims = ti.dims
     elements = ti.elements

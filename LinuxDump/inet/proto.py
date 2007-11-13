@@ -306,6 +306,101 @@ class IP_sock(object):
                    formatIPv4(self.dst, self.dport)+\
                self.right
 
+class new_IP_sock(object):
+    def __init__(self, o, details=False):
+	s = o
+        self.left = self.right = ''
+        self.family = family = s.family
+        self.protocol = s.protocol
+        self.sktype = s.type
+	if (family == P_FAMILIES.PF_INET):
+	    self.src = s.Src
+	    self.sport = ntohs(s.sport)
+	    self.dst = s.Dst
+	    self.dport = ntohs(s.dport)
+	    self.state =  s.state   # Makes sense mainly for TCP
+	# Protocol-specific details
+	if (not details):
+	    return
+	# The following parameters make sense for most sockets
+	self.rcvbuf = s.rcvbuf
+	self.sndbuf = s.sndbuf
+	self.rmem_alloc = s.rmem_alloc_counter
+	self.wmem_alloc = s.wmem_alloc_counter
+
+	if (self.protocol == 6):    # TCP
+	    # Details are different for TCP in different states
+	    if (self.state != tcpState.TCP_LISTEN \
+		and self.state != tcpState.TCP_TIME_WAIT):
+		self.rx_opt = self.topt = s.rx_opt
+	    elif (self.state == tcpState.TCP_LISTEN):
+		self.sk_max_ack_backlog = s.max_ack_backlog
+		self.sk_ack_backlog = s.ack_backlog
+		self.l_opt= s.l_opt
+		self.accept_queue = s.accept_queue
+		print s.tp_pinfo.af_tcp
+		self.accept_queue = s.tp_pinfo.af_tcp.accept_queue
+
+	elif (self.protocol == 17): # UDP
+	    self.uopt = s.tp_pinfo.af_udp
+	elif (self.sktype == sockTypes.SOCK_RAW): # RAW (mostly ICMP)
+	    pass
+
+
+        elif (family == P_FAMILIES.PF_INET6):
+	    self.src = s.Src6
+	    self.sport = ntohs(s.sport)
+	    self.dst = s.Dst6
+	    self.dport = ntohs(s.dport)
+	    self.state =  s.state   # Makes sense mainly 
+	if (not details):
+	    return
+
+
+    def __str__(self):
+        #Local Address           Foreign Address
+        #0.0.0.0:45959           0.0.0.0:*
+        try:
+            pname = PROTONAMES[self.protocol]
+        except KeyError:
+            pname = "%d" % self.protocol
+        if (self.sktype == sockTypes.SOCK_RAW):
+            pname = "raw"
+
+        if (self.right == ''):
+            if (self.protocol == 6):    # TCP
+                self.right = ' ' + tcpState[self.state][4:]
+            elif (self.protocol == 17 or pname == "raw"): # UDP, RAW
+                # For UDP and RAW we use two states at this moment:
+                # TCP_ESTABLISHED=1 when we have data in flight
+                # TCP_CLOSED=7      for everything else
+                if (self.state == tcpState.TCP_ESTABLISHED):
+                    self.right = "ESTABLISHED"
+                else:
+                    self.right = "st=%d" % self.state
+            else:
+                self.right = "st=%d" % self.state
+
+        if (self.family == P_FAMILIES.PF_INET6):
+            pname += "6"
+            if (self.left == ''):
+                self.left = pname.ljust(5)
+            return  self.left+ ' ' + \
+                   formatIPv6(self.src, self.sport)+\
+                   formatIPv6(self.dst, self.dport)+\
+                   self.right
+
+        else:
+            # PF_INET
+            if (self.left == ''):
+                self.left = pname.ljust(5)
+
+            return  self.left+ ' ' + \
+                   formatIPv4(self.src, self.sport)+\
+                   formatIPv4(self.dst, self.dport)+\
+               self.right
+
+#IP_sock = new_IP_sock
 # A special case for TIME_WAIT sockets - they are not really sockets but
 # rather some special structures
 
@@ -568,12 +663,54 @@ def init_INET_Stuff():
     # Now copy locals to INET_Stuff
     INET_Stuff.__dict__.update(locals())
 
+def init_PseudoAttrs():
+    if (sock_V1):
+	sn = "struct sock"
+	structSetAttr(sn, "Src", "rcv_saddr")
+	structSetAttr(sn, "Dst", "daddr")
+	structSetAttr(sn, "rmem_alloc_counter", "rmem_alloc.counter")
+	structSetAttr(sn, "wmem_alloc_counter", "wmem_alloc.counter")
+	
+	structSetAttr(sn, "rx_opt", "tp_pinfo.af_tcp")
+	structSetAttr(sn, "l_opt", "tp_pinfo.af_tcp.listen_opt")
+	structSetAttr(sn, "accept_queue", "tp_pinfo.af_tcp.accept_queue")
+	
+    else:
+	sn = "struct inet_sock"
+	structSetAttr(sn, "family", "sk.__sk_common.skc_family")
+	structSetAttr(sn, "protocol", "sk_protocol")
+	structSetAttr(sn, "type", "sk_type")
+	structSetAttr(sn, "state", "sk.__sk_common.skc_state")
+	
+	structSetAttr(sn, "Src", ["inet.rcv_saddr", "rcv_saddr"])
+	structSetAttr(sn, "Dst", ["inet.daddr", "daddr"])
+	structSetAttr(sn, "sport", ["inet.sport", "sport"])
+	structSetAttr(sn, "dport", ["inet.dport", "dport"])
+	
+	sn = "struct inet_sock"
+	extra = ["struct tcp_sock", "struct udp_sock"]
+	structSetAttr(sn, "family", "sk.__sk_common.skc_family", extra)
+	structSetAttr(sn, "protocol", "sk.sk_protocol", extra)
+	structSetAttr(sn, "type", "sk.sk_type", extra)
+	structSetAttr(sn, "state", "sk.__sk_common.skc_state", extra)
+	
+	structSetAttr(sn, "Src", ["inet.rcv_saddr", "rcv_saddr"], extra)
+	structSetAttr(sn, "Dst", ["inet.daddr", "daddr"], extra)
+	structSetAttr(sn, "sport", ["inet.sport", "sport"], extra)
+	structSetAttr(sn, "dport", ["inet.dport", "dport"], extra)
+	
+	structSetAttr(sn, "Src6", "pinet6.rcv_saddr.in6_u.u6_addr32", extra)
+	structSetAttr(sn, "Dst6", "pinet6.daddr.in6_u.u6_addr32", extra)
+	
+	
 # TCP structures are quite different for 2.4 and 2.6 kernels, it makes sense to
 # have two different versions of code
 
 INET_Stuff = Bunch()
 # Initialize TCP stuff
 init_INET_Stuff()
+
+init_PseudoAttrs()
 
 def get_TCP_LISTEN():
     t = INET_Stuff

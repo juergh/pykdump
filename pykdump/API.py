@@ -167,7 +167,7 @@ if (crashloaded):
          struct_size, union_size, member_offset, member_size, \
          getSizeOf, whatis, printObject,\
          exec_gdb_command, exec_crash_command, \
-         flushCache
+         flushCache, structSetAttr
 
     #print "Imported wrapcrash"
 
