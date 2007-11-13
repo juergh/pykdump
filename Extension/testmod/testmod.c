@@ -52,6 +52,8 @@ struct ASID {
   struct AA *sarrptr;
   struct AA *ptrarr[3];
 
+  struct AA *nullptr;
+
   long *lptr;
   
   int *iptr;
@@ -125,6 +127,7 @@ testmod_init(void) {
   asid.sarr[2].a0 = 33;
 
   asid.sarrptr = &(asid.sarr[0]);
+  asid.nullptr = NULL;
 
   asid.ptrarr[0] = &(asid.sarr[0]);
   asid.ptrarr[1] = &(asid.sarr[1]);

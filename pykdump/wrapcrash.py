@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/11/13 14:17:34 alexs>
+# Time-stamp: <07/11/13 16:59:44 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -262,6 +262,9 @@ def parseDerefString(sname, teststring):
     # If we reached this place, we have been able to dereference
     # everything. If the last field is of integer type, check for
     # bitsize/bitoffset
+    # If the last field is of pointer type, we do not need to mark it
+    # as such - the reader knows better what to do
+    out[-1] = (False, out[-1][1])
     return (fi, out)
         
 
