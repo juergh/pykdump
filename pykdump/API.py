@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/11/12 11:39:43 alexs>
+# Time-stamp: <07/11/14 15:10:40 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -167,7 +167,7 @@ if (crashloaded):
          struct_size, union_size, member_offset, member_size, \
          getSizeOf, whatis, printObject,\
          exec_gdb_command, exec_crash_command, \
-         flushCache, structSetAttr
+         flushCache, structSetAttr, structSetProcAttr
 
     #print "Imported wrapcrash"
 
@@ -669,7 +669,7 @@ def __cmdlineOptions():
     crashrc = '.' + os.path.basename(crashex) + 'rc'
 
     pythonso = None
-    re_extend = re.compile(r'^\s*extend\s+(pykdump\S+)$')
+    re_extend = re.compile(r'^\s*extend\s+(\S+pykdump[^/]+)$')
     for f in os.path.expanduser("~/" + crashrc), crashrc:
         if (os.access(f, os.R_OK)):
             # Search for "extend path" line

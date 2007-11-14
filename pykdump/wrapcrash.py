@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/11/13 16:59:44 alexs>
+# Time-stamp: <07/11/14 15:09:50 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -285,9 +285,18 @@ class PseudoAttr(object):
         self.fi = fi
         self.chain = chain
     def __get__(self, obj, objtype):
+        if (self.chain == None):
+            return obj
         val = pseudoAttrEvaluator(long(obj),  self.fi, self.chain)
         return val
-   
+
+# Procedural
+class PseudoAttrProc(object): 
+    def __init__(self, proc):
+        self.proc = proc
+    def __get__(self, obj, objtype):
+        return self.proc(obj)
+  
 class StructResult(long):
     __metaclass__ = subStructResult
     def __new__(cls, sname, addr = 0):
@@ -377,10 +386,18 @@ def structSetAttr(sname, aname, estrings, sextra = []):
     if (type(estrings) == type("")):
         estrings = [estrings]
 
-    cls = StructResult(sname).__class__
+    try:
+        cls = StructResult(sname).__class__
+    except TypeError:
+        # This struct does not exist - return False
+        return False
     #print sname, cls
     for s in estrings:
-        rc = parseDerefString(sname, s)
+        # A special case - an empty string means "return ourself"
+        if (s == ""):
+            rc =  [None, None]
+        else:
+            rc = parseDerefString(sname, s)
         if (rc):
             fi, chain = rc
 	    pa = PseudoAttr(fi, chain)
@@ -390,7 +407,17 @@ def structSetAttr(sname, aname, estrings, sextra = []):
 		setattr(ecls,  aname, pa)
             return True
     return False
-        
+
+# Set a general procedural attr        
+def structSetProcAttr(sname, aname, meth):
+    try:
+        cls = StructResult(sname).__class__
+    except TypeError:
+        # This struct does not exist - return False
+        return False
+
+    setattr(cls, aname, PseudoAttrProc(meth))
+    return True
 
 # A factory function for integer readers
 def intReader(vi):
