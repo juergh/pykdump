@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/11/14 15:09:50 alexs>
+# Time-stamp: <07/11/14 16:45:04 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -225,6 +225,7 @@ def parseDerefString(sname, teststring):
     if (debug):
 	print '-------sname=%s, test=%s' % (sname, teststring)
     for f in teststring.split('.'):
+        f = f.strip()
         if (si and si.has_key(f)):
             fi = si[f]
             offset = fi.offset
@@ -256,7 +257,7 @@ def parseDerefString(sname, teststring):
             out.append((isptr, offset))
         else:
             if (debug):
-                print "Cannot continue f=%s, codetype=%d" % (f, codetype)
+                print "Cannot continue f=<%s>, codetype=%d" % (f, codetype)
             return False
 
     # If we reached this place, we have been able to dereference

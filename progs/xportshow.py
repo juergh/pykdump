@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/11/13 13:55:58 alexs>
+# Time-stamp: <07/11/14 16:30:21 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -12,6 +12,7 @@ from pykdump.API import *
 # For INET stuff
 from LinuxDump.inet import *
 from LinuxDump.inet import proto, netdevice
+reload(proto)
 from LinuxDump.inet.proto import tcpState, sockTypes, \
     IPv4_conn, IPv6_conn, IP_sock,  P_FAMILIES, decodeSock, print_accept_queue
 

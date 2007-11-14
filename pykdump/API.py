@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/11/14 15:10:40 alexs>
+# Time-stamp: <07/11/14 16:29:36 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -521,6 +521,10 @@ def __epythonOptions():
               action="store", type="int",
               help="enable debugging output")
 
+    op.add_option("--reload", dest="reload", default=0,
+              action="store_true",
+              help="reload already imported modules from Linuxdump")
+
     op.add_option("--dumpcache", dest="dumpcache", default=0,
               action="store_true",
               help="dump API caches info")
@@ -540,7 +544,7 @@ def __epythonOptions():
 
     if (o.filename):
         sys.stdout = open(o.filename, "w")
-    
+
     sys.argv[1:] = uargs
     #print "EPYTHON sys.argv=", sys.argv
 

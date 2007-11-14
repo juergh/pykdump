@@ -1,6 +1,6 @@
 # module LinuxDump.inet.proto
 #
-# Time-stamp: <07/11/14 15:23:04 alexs>
+# Time-stamp: <07/11/14 16:47:21 alexs>
 #
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -700,8 +700,14 @@ def init_PseudoAttrs():
             dst = tw6.tw_v6_daddr.in6_u.u6_addr32
             return dst
 
-        structSetProcAttr(sn, "Src6", getSrc6)
-        structSetProcAttr(sn, "Dst6", getDst6)
+        extra = ["struct inet_timewait_sock", "struct tcp_timewait_sock"]
+        if (not structSetAttr("struct tcp6_timewait_sock", "Src6",
+                          "tw_v6_rcv_saddr.in6_u.u6_addr32", extra)):
+            structSetProcAttr(sn, "Src6", getSrc6)
+
+        if (not structSetAttr("struct tcp6_timewait_sock", "Dst6",
+                          "tw_v6_daddr.in6_u.u6_addr32", extra)):
+            structSetProcAttr(sn, "Dst6", getDst6)
             
         
 	
