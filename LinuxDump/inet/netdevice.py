@@ -1,6 +1,6 @@
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <07/10/17 14:33:06 alexs>
+# Time-stamp: <07/11/15 15:17:37 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -25,7 +25,6 @@ from LinuxDump import percpu
 
 from StringIO import StringIO
 import string
-
 
 __IFF_FLAGS_c = '''
 #define	IFF_UP		0x1		/* interface is up		*/

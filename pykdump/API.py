@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/11/14 16:29:36 alexs>
+# Time-stamp: <07/11/15 15:51:39 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -542,6 +542,12 @@ def __epythonOptions():
     wrapcrash.experimental = API_options.experimental = o.experimental
     debug = API_options.debug = o.debug
 
+    if (o.reload):
+        for k, m in sys.modules.items()[:]:
+            if(k.split('.')[0] == 'LinuxDump' and m):
+                del sys.modules[k]
+                print "--reloading", k
+        
     if (o.filename):
         sys.stdout = open(o.filename, "w")
 
@@ -700,6 +706,7 @@ def __cmdlineOptions():
         print "Starting crash...",
         sys.stdout.flush()
 
+    pythonso = pythonso.strip()
     if (debug):
         print "\nExtension:", pythonso
 

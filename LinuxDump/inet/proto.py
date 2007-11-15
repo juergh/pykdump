@@ -1,6 +1,6 @@
 # module LinuxDump.inet.proto
 #
-# Time-stamp: <07/11/14 16:47:21 alexs>
+# Time-stamp: <07/11/15 15:54:43 alexs>
 #
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -21,7 +21,6 @@ For example, a program willing to print or analyze TCP-connection info
 can use this package to obtain the list of TCP structures of interest and
 after that extract more info from them, as needed.
 '''
-
 
 import string, struct
 import sys
@@ -62,28 +61,6 @@ def formatIPv4(ip, port, printstar=True):
     else:
         return ("%s:%d" %(ntodots(ip), port)).ljust(27)
 
-class IPv4_conn:
-    def __init__(self, left='', right='', sock=None):
-        # You can put here anything that needs to be printed, e.g. sock addr
-        self.left = left
-        self.right = right
-        if (right):
-            right = ' ' + right
-        # We expect at least the following members:
-        # src, sport, dst, dport
-	if (sock):
-	    self.src = sock.rcv_saddr
-	    self.sport = ntohs(sock.sport)
-	    self.dst = sock.daddr
-	    self.dport = ntohs(sock.dport)
-
-    def __str__(self):
-        #Local Address           Foreign Address
-        #0.0.0.0:45959           0.0.0.0:*
-        return  self.left+ ' ' + \
-               formatIPv4(self.src, self.sport)+\
-               formatIPv4(self.dst, self.dport)+\
-               self.right
 
 # crash formats addrs as
 # 0:0:0:0:0:ffff:1071:2f2-22 0:0:0:0:0:ffff:ff4:c1fb-3949
@@ -97,37 +74,6 @@ def formatIPv6(ip, port, printstar=True):
     else:
         return ("%s:%d" %(ntodots6(ip), port)).ljust(27)
 
-# Extract src/dest/ports from 'inet_sock'
-class IPv6_conn:
-    def __init__(self, left='', right='', sock=None):
-        # You can put here anything that needs to be printed, e.g. sock addr
-        self.left = left
-        self.right = right
-        if (right):
-            right = ' ' + right
-            
-        # We expect sock to be 'inet_sock' and PF_INET6
-	if (sock):
-            pinet6 = sock.Deref.pinet6
-	    self.src = pinet6.rcv_saddr.in6_u.u6_addr32
-            self.dst = pinet6.daddr.in6_u.u6_addr32
-
-	    try:
-	    	self.sport = ntohs(sock.sport)
-	    	self.dport = ntohs(sock.dport)
-	    except KeyError:
-		sockopt = sock.inet
-                self.sport = ntohs(sockopt.sport)
-                self.dport = ntohs(sockopt.dport)
-
-
-    def __str__(self):
-        #Local Address           Foreign Address
-        #0.0.0.0:45959           0.0.0.0:*
-        return  self.left+ ' ' + \
-               formatIPv6(self.src, self.sport)+\
-               formatIPv6(self.dst, self.dport)+\
-               self.right
 
 # v4/v6 IP - family deduced from socket.
 # We analyze the type of passed object, here is what is acceptable:
@@ -140,6 +86,7 @@ class IPv6_conn:
 class IP_sock(object):
     def __init__(self, o, details=False):
 	s = o
+        isock = o.castTo("struct inet_sock")
         self.left = self.right = ''
         self.family = family = s.family
         self.protocol = s.protocol
@@ -156,7 +103,9 @@ class IP_sock(object):
 	    self.sport = ntohs(s.sport)
 	    self.dst = s.Dst6
 	    self.dport = ntohs(s.dport)
-	    self.state =  s.state   # Makes sense mainly 
+	    self.state =  s.state   # Makes sense mainly
+        else:
+            raise TypeError, "family=%d o=%s" % (family, str(o))
             
 	# Protocol-specific details
 	if (not details):
@@ -232,98 +181,6 @@ class IP_sock(object):
                    formatIPv4(self.dst, self.dport)+\
                self.right
 
-# A special case for TIME_WAIT sockets - they are not really sockets but
-# rather some special structures
-
-class old_IP_conn_tw(IP_sock):
-    def __init__(self, tw, details = False):
-        # We do not call the base class constructor as most
-        # things are different. We have tcp_tw_bucket or inet_timewait_sock
-        # (they both have sock_common at offset 0) on 2.6, but not on 2.4
-        # So it is difficult to check the protocol
-        self.left = self.right = ''
-        self.family = -1
-        self.protocol = 6               # Only TCP at this moment
-        self.sktype = -1                # This is really not a socket
-        if (tw.isNamed("struct tcp_tw_bucket")):
-            # 2.4 and older 2.6 (<2.6.11) has 'struct tcp_tw_bucket'
-            if (tw.hasField("__tw_common")):
-                skc = tw.__tw_common
-                self.state = skc.skc_state
-                self.family = skc.skc_family
-            else:
-                skc = None
-                self.state = tw.state
-                self.family = tw.family
-
-            if  (self.family == P_FAMILIES.PF_INET6):
-                if (skc):
-                    self.sport = ntohs(tw.tw_sport)
-                    self.dport = ntohs(tw.tw_dport)
-                    self.src = tw.tw_v6_rcv_saddr.in6_u.u6_addr32
-                    self.dst = tw.tw_v6_daddr.in6_u.u6_addr32
-                    self.tw_timeout = tw.tw_timeout
-                    self.ttd = tw.tw_ttd
-
-            else:
-                if (skc):
-                    self.src = tw.tw_rcv_saddr
-                    self.sport = ntohs(tw.tw_sport)
-                    self.dst = tw.tw_daddr
-                    self.dport = ntohs(tw.tw_dport)
-                    self.tw_timeout = tw.tw_timeout
-                    self.ttd = tw.tw_ttd
-
-                else:
-                    self.src = tw.rcv_saddr
-                    self.sport = ntohs(tw.sport)
-                    self.dst = tw.daddr
-                    self.dport = ntohs(tw.dport)
-                    self.tw_timeout = tw.timeout
-                    self.ttd = tw.ttd
-
-            if (details):
-                jiffies = readSymbol("jiffies")
-                self.ttd = self.ttd - jiffies
-                if (self.ttd < 0):
-                    self.ttd = 0
-        else:
-            # This is newer 2.6, we have 'tcp_timewait_sock which is based on
-            # inet_timewait_sock
-            iw = tw.castTo("struct inet_timewait_sock")
-            skc = iw.__tw_common
-            self.state = skc.skc_state
-            self.family = skc.skc_family
-            prot = Deref(skc.skc_prot)
-            if (self.family == P_FAMILIES.PF_INET6):
-                # On 2.6.17 we have a generic inet6_timewait_sock, but on
-                # 2.6.15 we have tcp6_timewait_sock
-                try:
-                    # Cast this to inet6_timewait_sock
-                    ipv6_offset = iw.tw_ipv6_offset
-                    # struct inet6_timewait_sock *tw6 = inet6_twsk((struct sock *)tw);
-                    # (((u8 *)sk) + inet_twsk(sk)->tw_ipv6_offset)
-                    addr = Addr(iw) + iw.tw_ipv6_offset
-                    tw6 = readSU("struct inet6_timewait_sock", addr)
-                except KeyError:
-                    # tcp6_timewait_sock
-                    tw6 = tw.castTo("struct tcp6_timewait_sock")
-                self.sport = ntohs(iw.tw_sport)
-                self.dport = ntohs(iw.tw_dport)
-                self.src = tw6.tw_v6_rcv_saddr.in6_u.u6_addr32
-                self.dst = tw6.tw_v6_daddr.in6_u.u6_addr32
-            else:
-                self.sport = ntohs(iw.tw_sport)
-                self.dport = ntohs(iw.tw_dport)
-
-                self.src = iw.tw_rcv_saddr
-                self.dst = iw.tw_daddr
-
-
-            if (details):
-                jiffies = readSymbol("jiffies")
-                self.tw_timeout = iw.tw_timeout
-                self.ttd = iw.tw_ttd - jiffies
 
 
 class IP_conn_tw(IP_sock):
@@ -362,86 +219,6 @@ class IP_conn_tw(IP_sock):
 
         return
 
-        
-        if (tw.isNamed("struct tcp_tw_bucket")):
-            # 2.4 and older 2.6 (<2.6.11) has 'struct tcp_tw_bucket'
-            if (tw.hasField("__tw_common")):
-                skc = tw.__tw_common
-                self.state = tw.State
-                self.family = tw.Family
-            else:
-                skc = None
-                self.state = tw.State
-                self.family = tw.Family
-
-            if  (self.family == P_FAMILIES.PF_INET6):
-                if (skc):
-                    self.sport = ntohs(tw.Sport)
-                    self.dport = ntohs(tw.Dport)
-                    self.src = tw.Src6
-                    self.dst = tw.Dst6
-                    self.tw_timeout = tw.tw_timeout
-                    self.ttd = tw.tw_ttd
-
-            else:
-                if (skc):
-                    self.src = tw.Src
-                    self.sport = ntohs(tw.Sport)
-                    self.dst = tw.Dst
-                    self.dport = ntohs(tw.Dport)
-                    self.tw_timeout = tw.tw_timeout
-                    self.ttd = tw.tw_ttd
-
-                else:
-                    self.src = tw.Src
-                    self.sport = ntohs(tw.Sport)
-                    self.dst = tw.Dst
-                    self.dport = ntohs(tw.Dport)
-                    self.tw_timeout = tw.timeout
-                    self.ttd = tw.ttd
-
-            if (details):
-                jiffies = readSymbol("jiffies")
-                self.ttd = self.ttd - jiffies
-                if (self.ttd < 0):
-                    self.ttd = 0
-        else:
-            # This is newer 2.6, we have 'tcp_timewait_sock which is based on
-            # inet_timewait_sock
-            iw = tw.castTo("struct inet_timewait_sock")
-            skc = iw.__tw_common
-            self.state = tw.State
-            self.family = tw.Family
-            prot = Deref(skc.skc_prot)
-            if (self.family == P_FAMILIES.PF_INET6):
-                # On 2.6.17 we have a generic inet6_timewait_sock, but on
-                # 2.6.15 we have tcp6_timewait_sock
-                try:
-                    # Cast this to inet6_timewait_sock
-                    ipv6_offset = iw.tw_ipv6_offset
-                    # struct inet6_timewait_sock *tw6 = inet6_twsk((struct sock *)tw);
-                    # (((u8 *)sk) + inet_twsk(sk)->tw_ipv6_offset)
-                    addr = Addr(iw) + iw.tw_ipv6_offset
-                    tw6 = readSU("struct inet6_timewait_sock", addr)
-                except KeyError:
-                    # tcp6_timewait_sock
-                    tw6 = tw.castTo("struct tcp6_timewait_sock")
-                self.sport = ntohs(iw.tw_sport)
-                self.dport = ntohs(iw.tw_dport)
-                self.src = tw6.tw_v6_rcv_saddr.in6_u.u6_addr32
-                self.dst = tw6.tw_v6_daddr.in6_u.u6_addr32
-            else:
-                self.sport = ntohs(iw.tw_sport)
-                self.dport = ntohs(iw.tw_dport)
-
-                self.src = tw.Src
-                self.dst = iw.Dst
-
-
-            if (details):
-                jiffies = readSymbol("jiffies")
-                self.tw_timeout = iw.tw_timeout
-                self.ttd = iw.tw_ttd - jiffies
 
 
 # Convert inode to socket
@@ -488,36 +265,43 @@ def decodeSock(sock):
 
 
 def check_inet_sock():
-    # Let us create inet_sock if needed
-    if (struct_size("struct inet_sock") == -1):
-        as = ArtStructInfo("struct inet_sock")
-        as.append("struct sock", "sk")
-        if (symbol_exists("tcpv6_protocol") and 
-            symbol_exists("udpv6_protocol")):
-            if (debug):
-                print "Adding struct ipv6_pinfo *pinet6;"
-            as.append("struct ipv6_pinfo *", "pinet6")
-        iopti = getStructInfo("struct inet_opt")
-        as.inline(iopti)
-        # print as
+    # Let us create inet_sock if needed. struct_exists() checks for real
+    # definitions (in vmlinux), here we check for our cache
+    try:
+        getStructInfo("struct inet_sock")
+        return
+    except TypeError:
+        pass
 
-        # tcp_sock is inet_sock followed by tcp_opt
-        tas = ArtStructInfo("struct tcp_sock")
-        tas.inline(as)
-        tas.append("struct tcp_opt", "tcp")
-        #print tas
+    as = ArtStructInfo("struct inet_sock")
+    as.append("struct sock", "sk")
+    if (symbol_exists("tcpv6_protocol") and 
+        symbol_exists("udpv6_protocol")):
+        if (debug):
+            print "Adding struct ipv6_pinfo *pinet6;"
+        as.append("struct ipv6_pinfo *", "pinet6")
+    iopti = getStructInfo("struct inet_opt")
+    as.inline(iopti)
+    # print as
 
-        # udp_sock is inet_sock followed by udp_opt
-        uas = ArtStructInfo("struct udp_sock")
-        uas.inline(as)
-        uas.append("struct udp_opt", "udp")
-        #print uas
-	
-	# raw_sock is inet_sock followed by raw_opt
-	ras = ArtStructInfo("struct raw_sock")
-        ras.inline(as)
-        ras.append("struct raw_opt", "udp")
-	#print ras
+    # tcp_sock is inet_sock followed by tcp_opt
+    tas = ArtStructInfo("struct tcp_sock")
+    tas.inline(as)
+    tas.append("struct tcp_opt", "tcp")
+    #print tas
+
+    # udp_sock is inet_sock followed by udp_opt
+    uas = ArtStructInfo("struct udp_sock")
+    uas.inline(as)
+    uas.append("struct udp_opt", "udp")
+    #print uas
+
+    # raw_sock is inet_sock followed by raw_opt
+    ras = ArtStructInfo("struct raw_sock")
+    ras.inline(as)
+    ras.append("struct raw_opt", "udp")
+    #print ras
+
 
 
 # Initialize INET_Stuff
@@ -578,136 +362,123 @@ def init_INET_Stuff():
     INET_Stuff.__dict__.update(locals())
 
 def init_PseudoAttrs():
-    if (sock_V1):
-	sn = "struct sock"
-	structSetAttr(sn, "Src", "rcv_saddr")
-	structSetAttr(sn, "Dst", "daddr")
-	structSetAttr(sn, "rmem_alloc_counter", "rmem_alloc.counter")
-	structSetAttr(sn, "wmem_alloc_counter", "wmem_alloc.counter")
-	
-	structSetAttr(sn, "rx_opt", "tp_pinfo.af_tcp")
-	structSetAttr(sn, "topt", "tp_pinfo.af_tcp")
-	structSetAttr(sn, "l_opt", "tp_pinfo.af_tcp.listen_opt")
-	structSetAttr(sn, "accept_queue", "tp_pinfo.af_tcp.accept_queue")
-	structSetAttr(sn, "uopt", "tp_pinfo.af_udp")
-	
-    else:
-	sn = "struct inet_sock"
-	structSetAttr(sn, "family", "sk.__sk_common.skc_family")
-	structSetAttr(sn, "protocol", "sk_protocol")
-	structSetAttr(sn, "type", "sk_type")
-	structSetAttr(sn, "state", "sk.__sk_common.skc_state")
-	
-	structSetAttr(sn, "Src", ["inet.rcv_saddr", "rcv_saddr"])
-	structSetAttr(sn, "Dst", ["inet.daddr", "daddr"])
-	structSetAttr(sn, "sport", ["inet.sport", "sport"])
-	structSetAttr(sn, "dport", ["inet.dport", "dport"])
-	
-	sn = "struct inet_sock"
-	extra = ["struct tcp_sock", "struct udp_sock", "struct raw_sock"]
-	structSetAttr(sn, "family", "sk.__sk_common.skc_family", extra)
-	structSetAttr(sn, "protocol", "sk.sk_protocol", extra)
-	structSetAttr(sn, "type", "sk.sk_type", extra)
-	structSetAttr(sn, "state", "sk.__sk_common.skc_state", extra)
-	
-	structSetAttr(sn, "Src", ["inet.rcv_saddr", "rcv_saddr"], extra)
-	structSetAttr(sn, "Dst", ["inet.daddr", "daddr"], extra)
-	structSetAttr(sn, "sport", ["inet.sport", "sport"], extra)
-	structSetAttr(sn, "dport", ["inet.dport", "dport"], extra)
-	
-	structSetAttr(sn, "Src6", "pinet6.rcv_saddr.in6_u.u6_addr32", extra)
-	structSetAttr(sn, "Dst6", "pinet6.daddr.in6_u.u6_addr32", extra)
+    sn = "struct sock"
+    structSetAttr(sn, "Src", "rcv_saddr")
+    structSetAttr(sn, "Dst", "daddr")
+    structSetAttr(sn, "rmem_alloc_counter", "rmem_alloc.counter")
+    structSetAttr(sn, "wmem_alloc_counter", "wmem_alloc.counter")
 
-        structSetAttr(sn, "rcvbuf", "sk.sk_rcvbuf", extra)
-        structSetAttr(sn, "sndbuf", "sk.sk_sndbuf", extra)
-	structSetAttr(sn, "rmem_alloc_counter", "sk.sk_rmem_alloc.counter",
-                      extra)
-	structSetAttr(sn, "wmem_alloc_counter", "sk.sk_wmem_alloc.counter",
-                      extra)
+    structSetAttr(sn, "rx_opt", "tp_pinfo.af_tcp")
+    structSetAttr(sn, "topt", "tp_pinfo.af_tcp")
+    structSetAttr(sn, "l_opt", "tp_pinfo.af_tcp.listen_opt")
+    structSetAttr(sn, "accept_queue", "tp_pinfo.af_tcp.accept_queue")
+    structSetAttr(sn, "uopt", "tp_pinfo.af_udp")
 
-        # TCP-specific
-        sn = "struct tcp_sock"
-        structSetAttr(sn, "ack_backlog",
-                      ["sk.sk_ack_backlog",
-                       "inet_conn.icsk_inet.sk.sk_ack_backlog"])
-        structSetAttr(sn, "max_ack_backlog", 
-                      ["sk.sk_max_ack_backlog",
-                       "inet_conn.icsk_inet.sk.sk_max_ack_backlog"])
-        structSetAttr(sn, "accept_queue",
-                      ["inet_conn.icsk_accept_queue",
-                       "tcp.accept_queue"])
+    sn = "struct inet_sock"
+    extra = ["struct tcp_sock", "struct udp_sock", "struct raw_sock"]
+    structSetAttr(sn, "family", "sk.__sk_common.skc_family", extra)
+    structSetAttr(sn, "protocol", ["sk_protocol","sk.sk_protocol"], extra)
+    structSetAttr(sn, "type", ["sl_type", "sk.sk_type"], extra)
+    structSetAttr(sn, "state", "sk.__sk_common.skc_state", extra)
 
-        structSetAttr(sn, "l_opt",
-                      ["inet_conn.icsk_accept_queue.listen_opt",
-                       "tcp.listen_opt"])
+    structSetAttr(sn, "Src", ["inet.rcv_saddr", "rcv_saddr"], extra)
+    structSetAttr(sn, "Dst", ["inet.daddr", "daddr"], extra)
+    structSetAttr(sn, "sport", ["inet.sport", "sport"], extra)
+    structSetAttr(sn, "dport", ["inet.dport", "dport"], extra)
 
-        structSetAttr(sn, "rx_opt",
-                      ["tcp", "rx_opt"])
+    structSetAttr(sn, "Src6", "pinet6.rcv_saddr.in6_u.u6_addr32", extra)
+    structSetAttr(sn, "Dst6", "pinet6.daddr.in6_u.u6_addr32", extra)
 
-        # This is used to access snd_wnd. mss and so on. Should be replaced
-        # by separate pseudoattrs
-        structSetAttr(sn, "topt", ["tcp", ""])
+    structSetAttr(sn, "rcvbuf", "sk.sk_rcvbuf", extra)
+    structSetAttr(sn, "sndbuf", "sk.sk_sndbuf", extra)
+    structSetAttr(sn, "rmem_alloc_counter", "sk.sk_rmem_alloc.counter",
+                  extra)
+    structSetAttr(sn, "wmem_alloc_counter", "sk.sk_wmem_alloc.counter",
+                  extra)
 
-        # UDP-specific
-        sn = "struct udp_sock"
-        structSetAttr(sn, "uopt", ["udp", ""])
+    # TCP-specific
+    sn = "struct tcp_sock"
+    structSetAttr(sn, "ack_backlog",
+                  ["sk.sk_ack_backlog",
+                   "inet_conn.icsk_inet.sk.sk_ack_backlog"])
+    structSetAttr(sn, "max_ack_backlog", 
+                  ["sk.sk_max_ack_backlog",
+                   "inet_conn.icsk_inet.sk.sk_max_ack_backlog"])
+    structSetAttr(sn, "accept_queue",
+                  ["inet_conn.icsk_accept_queue",
+                   "tcp.accept_queue"])
+
+    structSetAttr(sn, "l_opt",
+                  ["inet_conn.icsk_accept_queue.listen_opt",
+                   "tcp.listen_opt"])
+
+    structSetAttr(sn, "rx_opt",
+                  ["tcp", "rx_opt"])
+
+    # This is used to access snd_wnd. mss and so on. Should be replaced
+    # by separate pseudoattrs
+    structSetAttr(sn, "topt", ["tcp", ""])
+
+    # UDP-specific
+    sn = "struct udp_sock"
+    structSetAttr(sn, "uopt", ["udp", ""])
 
 
-        # TIME_WAIT sockets
-        
-        # old-style
-        sn = "struct tcp_tw_bucket"
-        structSetAttr(sn, "State", ["__tw_common.skc_state", "state"])
-        structSetAttr(sn, "Family", ["__tw_common.skc_family", "family"])
-        structSetAttr(sn, "Src", ["tw_rcv_saddr", "rcv_saddr"])
-        structSetAttr(sn, "Dst", ["tw_daddr", "daddr"])
-        structSetAttr(sn, "Sport", ["tw_sport", "sport"])
-        structSetAttr(sn, "Dport", ["tw_dport", "dport"])
+    # TIME_WAIT sockets
 
-        structSetAttr(sn, "Timeout", "tw_timeout")
-        structSetAttr(sn, "Ttd", "tw_ttd")
- 
-        structSetAttr(sn, "Src6", "tw_v6_rcv_saddr.in6_u.u6_addr32")
-        structSetAttr(sn, "Dst6", "tw_v6_daddr.in6_u.u6_addr32")
-       
+    # old-style
+    sn = "struct tcp_tw_bucket"
+    structSetAttr(sn, "State", ["__tw_common.skc_state", "state"])
+    structSetAttr(sn, "Family", ["__tw_common.skc_family", "family"])
+    structSetAttr(sn, "Src", ["tw_rcv_saddr", "rcv_saddr"])
+    structSetAttr(sn, "Dst", ["tw_daddr", "daddr"])
+    structSetAttr(sn, "Sport", ["tw_sport", "sport"])
+    structSetAttr(sn, "Dport", ["tw_dport", "dport"])
 
-        # New-style
-        sn = "struct tcp_timewait_sock"
-        extra = ["struct inet_timewait_sock"]
-        structSetAttr(sn, "State", "tw_sk.__tw_common.skc_state")
-        structSetAttr(sn, "Family", "tw_sk.__tw_common.skc_family")
-        structSetAttr(sn, "Src", "tw_sk.tw_rcv_saddr", extra)
-        structSetAttr(sn, "Dst", "tw_sk.tw_daddr", extra)
-        structSetAttr(sn, "Sport", "tw_sk.tw_sport", extra)
-        structSetAttr(sn, "Dport", "tw_sk.tw_dport", extra)
+    structSetAttr(sn, "Timeout", ["tw_timeout", "timeout"])
+    structSetAttr(sn, "Ttd", ["tw_ttd", "ttd"])
 
-        structSetAttr(sn, "Timeout", "tw_sk.tw_timeout")
-        structSetAttr(sn, "Ttd", "tw_sk.tw_ttd")
+    structSetAttr(sn, "Src6", "tw_v6_rcv_saddr.in6_u.u6_addr32")
+    structSetAttr(sn, "Dst6", "tw_v6_daddr.in6_u.u6_addr32")
 
-        # Programmatic attrs
-        def getSrc6(tw):
-            iw = tw.castTo("struct inet_timewait_sock")
-            ipv6_offset = iw.tw_ipv6_offset
-            addr = Addr(iw) + iw.tw_ipv6_offset
-            tw6 = readSU("struct inet6_timewait_sock", addr)
-            src = tw6.tw_v6_rcv_saddr.in6_u.u6_addr32
-            return src
-        def getDst6(tw):
-            iw = tw.castTo("struct inet_timewait_sock")
-            ipv6_offset = iw.tw_ipv6_offset
-            addr = Addr(iw) + iw.tw_ipv6_offset
-            tw6 = readSU("struct inet6_timewait_sock", addr)
-            dst = tw6.tw_v6_daddr.in6_u.u6_addr32
-            return dst
 
-        extra = ["struct inet_timewait_sock", "struct tcp_timewait_sock"]
-        if (not structSetAttr("struct tcp6_timewait_sock", "Src6",
-                          "tw_v6_rcv_saddr.in6_u.u6_addr32", extra)):
-            structSetProcAttr(sn, "Src6", getSrc6)
+    # New-style
+    sn = "struct tcp_timewait_sock"
+    extra = ["struct inet_timewait_sock"]
+    structSetAttr(sn, "State", "tw_sk.__tw_common.skc_state")
+    structSetAttr(sn, "Family", "tw_sk.__tw_common.skc_family")
+    structSetAttr(sn, "Src", "tw_sk.tw_rcv_saddr", extra)
+    structSetAttr(sn, "Dst", "tw_sk.tw_daddr", extra)
+    structSetAttr(sn, "Sport", "tw_sk.tw_sport", extra)
+    structSetAttr(sn, "Dport", "tw_sk.tw_dport", extra)
 
-        if (not structSetAttr("struct tcp6_timewait_sock", "Dst6",
-                          "tw_v6_daddr.in6_u.u6_addr32", extra)):
-            structSetProcAttr(sn, "Dst6", getDst6)
+    structSetAttr(sn, "Timeout", "tw_sk.tw_timeout")
+    structSetAttr(sn, "Ttd", "tw_sk.tw_ttd")
+
+    # Programmatic attrs
+    def getSrc6(tw):
+        iw = tw.castTo("struct inet_timewait_sock")
+        ipv6_offset = iw.tw_ipv6_offset
+        addr = Addr(iw) + iw.tw_ipv6_offset
+        tw6 = readSU("struct inet6_timewait_sock", addr)
+        src = tw6.tw_v6_rcv_saddr.in6_u.u6_addr32
+        return src
+    def getDst6(tw):
+        iw = tw.castTo("struct inet_timewait_sock")
+        ipv6_offset = iw.tw_ipv6_offset
+        addr = Addr(iw) + iw.tw_ipv6_offset
+        tw6 = readSU("struct inet6_timewait_sock", addr)
+        dst = tw6.tw_v6_daddr.in6_u.u6_addr32
+        return dst
+
+    extra = ["struct inet_timewait_sock", "struct tcp_timewait_sock"]
+    if (not structSetAttr("struct tcp6_timewait_sock", "Src6",
+                      "tw_v6_rcv_saddr.in6_u.u6_addr32", extra)):
+        structSetProcAttr(sn, "Src6", getSrc6)
+
+    if (not structSetAttr("struct tcp6_timewait_sock", "Dst6",
+                      "tw_v6_daddr.in6_u.u6_addr32", extra)):
+        structSetProcAttr(sn, "Dst6", getDst6)
             
         
 	

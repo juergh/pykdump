@@ -10,7 +10,7 @@ from pykdump.API import *
 from LinuxDump.inet import *
 from LinuxDump.inet import proto, netdevice
 from LinuxDump.inet.proto import tcpState, sockTypes, \
-    IPv4_conn, IPv6_conn, IP_sock,  P_FAMILIES
+    IP_sock,  P_FAMILIES
 
 import string
 
@@ -120,7 +120,6 @@ def print_rpc_task(s):
 	cl_xprt= tk_client.Deref.cl_xprt
 	print "\tProtocol=",cl_xprt.prot, ", Server=", tk_client.cl_server
 	inetsock = cl_xprt.Deref.inet
-	#print  "\t",IPv4_conn(sock=inetsock)
 	cl_procinfo = tk_client.Deref.cl_procinfo
 	#print "\tprocname=", cl_procinfo.p_procname, tk_client.cl_protname
 	tk_msg = s.tk_msg
@@ -160,7 +159,6 @@ def print_all_tasks():
             cl_xprt= tk_client.Deref.cl_xprt
             print "\tProtocol=",cl_xprt.prot, ", Server=", tk_client.cl_server
             inetsock = cl_xprt.Deref.inet
-            #print  "\t",IPv4_conn(sock=inetsock)
             cl_procinfo = tk_client.Deref.cl_procinfo
             #print "\tprocname=", cl_procinfo.p_procname, tk_client.cl_protname
             tk_msg = s.tk_msg

@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/11/14 16:45:04 alexs>
+# Time-stamp: <07/11/15 15:38:35 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -333,7 +333,8 @@ class StructResult(long):
                 msg = "<%s> does not have a field <%s>" % \
                       (self.PYT_symbol, name)
                 raise KeyError, msg
-          
+
+        #print fi, fi.offset, fi.reader
         return fi.reader(long(self) + fi.offset)
 
     def __str__(self):
