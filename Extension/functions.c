@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <07/10/17 13:40:36 alexs>
+  Time-stamp: <07/11/29 16:16:42 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -25,6 +25,8 @@
 // for FD_ISSET
 #include <sys/select.h>
 
+extern int debug;
+static sigjmp_buf eenv;
 
 /* crash exceptions */
 PyObject *crashError;
@@ -131,6 +133,8 @@ py_get_GDB_output(PyObject *self, PyObject *args) {
     PyErr_SetString(crashError, "invalid parameter type"); \
     return NULL;
   }
+  if (debug > 1)
+    printf("exec_gdb_command %s\n", cmd);
 
   // Send command to GDB and get its text output
 
@@ -173,7 +177,8 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
     return NULL;
   }
 
-
+  if (debug > 1)
+    printf("exec_crash_command %s\n", cmd);
   // Send command to crash and get its text output
 
   strcpy(pc->command_line, cmd);
@@ -187,7 +192,7 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   fp = tmpfile();
 
   /* I use setjmp here as this is how crash recovers after some errors */
-  if (!setjmp(pc->main_loop_env))
+  if (!setjmp(eenv))
       exec_command();
   fflush(fp);
 

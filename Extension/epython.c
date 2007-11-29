@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <07/07/06 15:29:36 alexs>
+  Time-stamp: <07/11/29 15:49:28 alexs>
 
   Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -120,7 +120,7 @@ _init() /* Register the command set. */
 { 
         register_extension(command_table);
 	if (getenv("PYKDUMPDEBUG"))
-	  debug = 1;
+	  debug = atoi(getenv("PYKDUMPDEBUG"));
 }
  
 /* 

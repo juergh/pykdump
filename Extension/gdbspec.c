@@ -19,6 +19,8 @@
 #include <errno.h>
 #include <setjmp.h>
 
+extern int debug;
+
 extern PyObject *crashError;
 static void ptype_command (char *typename, int from_tty);
 static void whatis_exp (char *exp, int show);
@@ -272,6 +274,8 @@ PyObject * py_gdb_typeinfo(PyObject *self, PyObject *args) {
     PyErr_SetString(crashError, "invalid parameter type");	\
     return NULL;
   }
+  if (debug > 1)
+    printf("gdb_typeinfo(%s)\n", typename);
 
   GDB2PY_ENTER;
 
@@ -310,6 +314,9 @@ PyObject * py_gdb_whatis(PyObject *self, PyObject *args) {
     PyErr_SetString(crashError, "invalid parameter type");	\
     return NULL;
   }
+
+  if (debug > 1)
+    printf("gdb_whatis(%s)\n", varname);
 
   GDB2PY_ENTER;
 
