@@ -29,6 +29,7 @@ not call low-level functions directly but use this module instead.
 import pykdump                          # For version check
 
 
+WARNING = "+++WARNING+++"
 
 # sys is a builtin and does not depend on sys.path. But we cannot load 'os' yet
 # if we are running a binary distribution with Python libraries at

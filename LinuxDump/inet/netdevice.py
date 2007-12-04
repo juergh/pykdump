@@ -22,7 +22,7 @@ and related stuff.
 from pykdump.API import *
 from LinuxDump.inet import *
 from LinuxDump import percpu
-
+from LinuxDump.inet.proto import IP_sock, print_skbuff_head, check_skbuff_head
 from StringIO import StringIO
 import string
 
@@ -204,7 +204,7 @@ def hwaddr2str(ha, l):
     return string.join(out, ':')
 
 # Print QDisc data if possible
-def printQdisc(qdisc):
+def printQdisc(qdisc, verbosity):
     qdiscalign = 32
     enqueuename = addr2sym(qdisc.enqueue)
     dequeuename = addr2sym(qdisc.dequeue)
@@ -236,7 +236,16 @@ def printQdisc(qdisc):
             addr = privaddr + skbsz * band
             sk_buff_head = readSU("struct sk_buff_head", addr)
             print "\t  sk_buff_head=0x%x len=%d" % (addr, sk_buff_head.qlen)
+	    if (sk_buff_head.qlen > 0):
+		if (verbosity > 1):
+		    print_skbuff_head(sk_buff_head)
+		else:
+		    check_skbuff_head(sk_buff_head)
+		
 
+
+	
+    
 
 # Extract statistics from net_device (NIC/driver specific, for some cards only)
 __genstats = '''
@@ -582,7 +591,7 @@ def print_If(dev, details):
             print "    \ttrans_start %7.2f s ago" % \
                   ((jiffies - trans_start)/HZ)
     getStats(dev)
-    printQdisc(Deref(dev.qdisc))
+    printQdisc(dev.qdisc, details)
    
 def print_Ifs(IF):
     for dev in dev_base_list():

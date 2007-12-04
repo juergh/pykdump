@@ -14,7 +14,8 @@ from LinuxDump.inet import *
 from LinuxDump.inet import proto, netdevice
 #reload(proto)
 from LinuxDump.inet.proto import tcpState, sockTypes, \
-     IP_sock,  P_FAMILIES, decodeSock, print_accept_queue
+     IP_sock,  P_FAMILIES, decodeSock, print_accept_queue,\
+     print_skbuff_head, check_skbuff_head
 
 from LinuxDump.Tasks import TaskTable
 
@@ -27,7 +28,7 @@ debug = API_options.debug
 
 sock_V1 = proto.sock_V1
 
-details = False
+details = 0         # Defines the level of verbosity
 
 print_listen = False
 print_nolisten = True
@@ -523,6 +524,23 @@ def print_Stats():
 	t = SnmpTable(t)
 	print t
 
+def print_softnet_data(details):
+    from LinuxDump import percpu
+    addrs = percpu.get_cpu_var("softnet_data")
+    for cpu, a in enumerate(addrs):
+	sd = readSU("struct softnet_data", a)
+	# Print the completion queue
+	print " --CPU=%d" % cpu
+	# Count entries in the queue, it starts from sk_buff_head
+	off = member_offset("struct sk_buff_head", "next")
+	nq = getListSize(sd.input_pkt_queue, off, 10000)
+	print "    ..input_pkt_queue has %d elements" % nq
+	if (details > 1):
+	   print_skbuff_head(sd.input_pkt_queue)
+	
+	print "    ..Completion queue"
+	print_skbuff_head(sd.completion_queue)
+	
 def print_Everything():
     nf()
     print_sysctl()
@@ -549,7 +567,7 @@ if ( __name__ == '__main__'):
                   help="print all sockets")
 
     op.add_option("-v", dest="Verbose", default = 0,
-                  action="store_true",
+                  action="count",
                   help="verbose output")
 
     op.add_option("-r", dest="Route", default = 0,
@@ -571,6 +589,10 @@ if ( __name__ == '__main__'):
     op.add_option("--netfilter", dest="Netfilter", default = 0,
                   action="store_true",
                   help="Print Netfilter Hooks")
+
+    op.add_option("--softnet", dest="Softnet", default = 0,
+                  action="store_true",
+                  help="Print Softnet Queues")
 
     op.add_option("--summary", dest="Summary", default = 0,
                   action="store_true",
@@ -651,8 +673,8 @@ if ( __name__ == '__main__'):
 
     (o, args) = op.parse_args()
 
-    if (o.Verbose):
-        details = True
+    details = o.Verbose
+
 
     if (o.Everything):
         from LinuxDump.inet.netfilter import nf
@@ -694,6 +716,10 @@ if ( __name__ == '__main__'):
     if (o.Netfilter):
         from LinuxDump.inet.netfilter import nf
         nf()
+        sys.exit(0)
+
+    if (o.Softnet):
+	print_softnet_data(details)
         sys.exit(0)
 
     # First, check for options that are not netstat-like. If any is present, do

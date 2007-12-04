@@ -855,16 +855,14 @@ def readSUListFromHead(headaddr, listfieldname, mystruct, maxel=_MAXEL,
 # an embedded listhead. 'shead' is either a structure or tPtr pointer
 # to structure
 
-def readStructNext(shead, nextname):
+def readStructNext(shead, nextname, inchead = True):
     if (not isinstance(shead, StructResult)):
         if (shead == 0):
             return []
-        else:
-            shead = Deref(shead)
     stype = shead.PYT_symbol
     offset = shead.PYT_sinfo[nextname].offset
     out = []
-    for p in readList(Addr(shead), offset):
+    for p in readList(Addr(shead), offset, inchead=inchead):
         out.append(readSU(stype, p))
     return out 
 
@@ -947,8 +945,6 @@ def getListSize(addr, offset, maxel):
     return count
 
 #     ======= read from global according to its type  =========
-
-
 def readSymbol(symbol, art = None):
     vi = whatis(symbol)
     return vi.reader(vi.addr)

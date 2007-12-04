@@ -474,7 +474,7 @@ py_readPtr(PyObject *self, PyObject *args) {
     return NULL;
   }
   if (readmem(addr, mtype, &p, sizeof(void *), "Python",
-	      RETURN_ON_ERROR) == FALSE) {
+	      RETURN_ON_ERROR|QUIET) == FALSE) {
     sprintf(pb, "readmem error at addr 0x%llx", addr);
     PyErr_SetString(crashError, pb);
     return NULL;
@@ -547,7 +547,7 @@ py_readmem(PyObject *self, PyObject *args) {
   buffer = (void *) malloc(size);
   //printf("trying to read %ld bytes from %p %p\n", size, addr, buffer);
   if (readmem(addr, mtype, buffer, size, "Python",
-	      RETURN_ON_ERROR) == FALSE) {
+	      RETURN_ON_ERROR|QUIET) == FALSE) {
     sprintf(pb, "readmem error at addr 0x%llx, reading %ld bytes", addr, size);
     PyErr_SetString(crashError, pb);
     return NULL;
@@ -593,7 +593,7 @@ py_readInt(PyObject *self, PyObject *args) {
   }
 
   if (readmem(addr, mtype, buffer, size, "Python",
-	      RETURN_ON_ERROR) == FALSE) {
+	      RETURN_ON_ERROR|QUIET) == FALSE) {
     char pb[256];
     sprintf(pb, "readmem/py_readInt error at addr 0x%llx, reading %ld bytes",
 	    addr, size);
@@ -683,7 +683,7 @@ py_getFullBuckets(PyObject *self, PyObject *args) {
   //	 start, bsize, items, chain_off);
   //readmem(start, KVADDR, buffer, bsize*items, "Python", FAULT_ON_ERROR);
   if (readmem(start, KVADDR, buffer, bsize*items, "Python",
-	      RETURN_ON_ERROR) == FALSE) {
+	      RETURN_ON_ERROR|QUIET) == FALSE) {
     char pb[256];
     sprintf(pb, "readmem error at addr 0x%llx", start);	\
     PyErr_SetString(crashError, pb);
@@ -732,7 +732,7 @@ py_getlistsize(PyObject *self, PyObject *args) {
   while (ptr && count < maxel) {
     /* next = readPtr(ptr+offset) */
     if (readmem((ulonglong)(ulong)(ptr + offset), KVADDR, &next,
-		sizeof(void *), "Python", RETURN_ON_ERROR) == FALSE) {
+		sizeof(void *), "Python", RETURN_ON_ERROR|QUIET) == FALSE) {
           sprintf(pb, "readmem error at addr 0x%llx", addr);	\
 	  PyErr_SetString(crashError, pb);
 	  return NULL;

@@ -1,3 +1,4 @@
+
 # module LinuxDump.inet.proto
 #
 # Time-stamp: <07/11/15 15:54:43 alexs>
@@ -77,16 +78,18 @@ def formatIPv6(ip, port, printstar=True):
 
 # v4/v6 IP - family deduced from socket.
 # We analyze the type of passed object, here is what is acceptable:
-# - 'struct sock' (from 2.4 kernels)
-# - 'struct inet_sock' (from 2.6)
+# - 'struct sock' (from 2.4 kernels and <= 2.6.10)
+# - 'struct inet_sock' (from > 2.6.10)
 # - structs derived from inet_sock (e.g. tcp_sock). All these structures
 # have 'inet_sock' at offset 0
 
 
 class IP_sock(object):
     def __init__(self, o, details=False):
-	s = o
-        isock = o.castTo("struct inet_sock")
+	if (sock_V1):
+	    s = o
+	else:
+            s = o.castTo("struct inet_sock")
         self.left = self.right = ''
         self.family = family = s.family
         self.protocol = s.protocol
@@ -306,7 +309,11 @@ def check_inet_sock():
 
 # Initialize INET_Stuff
 def init_INET_Stuff():
-    check_inet_sock()
+    # 2.4 kernels do not have 'struct inet_sock' at all
+    # Some older 2.6 have it, but it is not accessible from
+    # vmcore for some reason
+    if (not sock_V1):
+        check_inet_sock()
     tcp_hashinfo = readSymbol('tcp_hashinfo')
 
     # On 2.4 and <=2.6.9 kernels we use names :
@@ -363,6 +370,9 @@ def init_INET_Stuff():
 
 def init_PseudoAttrs():
     sn = "struct sock"
+    structSetAttr(sn, "family", "__sk_common.skc_family")
+    structSetAttr(sn, "protocol", "sk_protocol")
+    structSetAttr(sn, "type", "sk_type")
     structSetAttr(sn, "Src", "rcv_saddr")
     structSetAttr(sn, "Dst", "daddr")
     structSetAttr(sn, "rmem_alloc_counter", "rmem_alloc.counter")
@@ -398,30 +408,31 @@ def init_PseudoAttrs():
 
     # TCP-specific
     sn = "struct tcp_sock"
+    extra = ["struct inet_sock"]
     structSetAttr(sn, "ack_backlog",
                   ["sk.sk_ack_backlog",
-                   "inet_conn.icsk_inet.sk.sk_ack_backlog"])
+                   "inet_conn.icsk_inet.sk.sk_ack_backlog"], extra)
     structSetAttr(sn, "max_ack_backlog", 
                   ["sk.sk_max_ack_backlog",
-                   "inet_conn.icsk_inet.sk.sk_max_ack_backlog"])
+                   "inet_conn.icsk_inet.sk.sk_max_ack_backlog"], extra)
     structSetAttr(sn, "accept_queue",
                   ["inet_conn.icsk_accept_queue",
-                   "tcp.accept_queue"])
+                   "tcp.accept_queue"], extra)
 
     structSetAttr(sn, "l_opt",
                   ["inet_conn.icsk_accept_queue.listen_opt",
-                   "tcp.listen_opt"])
+                   "tcp.listen_opt"], extra)
 
     structSetAttr(sn, "rx_opt",
-                  ["tcp", "rx_opt"])
+                  ["tcp", "rx_opt"], extra)
 
     # This is used to access snd_wnd. mss and so on. Should be replaced
     # by separate pseudoattrs
-    structSetAttr(sn, "topt", ["tcp", ""])
+    structSetAttr(sn, "topt", ["tcp", ""], extra)
 
     # UDP-specific
     sn = "struct udp_sock"
-    structSetAttr(sn, "uopt", ["udp", ""])
+    structSetAttr(sn, "uopt", ["udp", ""], extra)
 
 
     # TIME_WAIT sockets
@@ -932,3 +943,66 @@ def protoName(proto):
         return PROTONAMES[proto]
     except KeyError:
         return "proto=%d" % proto
+
+
+# Sk_buffs
+# Can be used to print both sk_buff_head and sk_buff
+__devhdrs = ["dev", "input_dev", "real_dev"]
+def print_skbuff_head(skb):
+    if (skb.isNamed("struct sk_buff_head")):
+	skb = skb.castTo("struct sk_buff")
+	skblist = readStructNext(skb, "next", inchead = False)
+    else:
+	skblist = readStructNext(skb, "next")
+
+    for skb in skblist:
+	#print skb, skb.sk
+	# Check for corruption
+	sk = skb.sk
+	family = "n/a"
+	try:
+	    if (sk):
+	       family = sk.family
+	except crash.error, msg:
+	    print WARNING, "Corrupted entry ", skb, "\n\t\t", msg
+		
+	if (family == P_FAMILIES.PF_INET):
+	    isock = IP_sock(sk)
+	    print "\t", isock
+	else:
+	    print "\tFamily:", family, skb
+	devs = [skb.dev, skb.input_dev]
+	# real_dev does not exist anymore on newer kernels
+	try:
+	    real_dev =  skb.real_dev
+	except KeyError:
+	    real_dev = None
+	devs.append(real_dev)
+	print "\t\t",
+	for h, dev in zip(__devhdrs, devs):
+	    if (dev):
+		ndev = dev.name
+	    else:
+		ndev = '0x0'
+	    print "%s=%s " %(h, ndev),
+	print ''
+
+
+# check skbuf list to detect anything suspicious	    
+def check_skbuff_head(skb):
+    bad_entries = 0
+    if (skb.isNamed("struct sk_buff_head")):
+	skb = skb.castTo("struct sk_buff")
+	skblist = readStructNext(skb, "next", inchead = False)
+    else:
+	skblist = readStructNext(skb, "next")
+    
+    for skb in skblist:
+	try:
+	    # 
+	    sk = skb.sk
+	    family = sk.family
+	except crash.error, msg:
+	    print WARNING, "Corrupted entry ", skb
+	    bad_entries += 1
+    return bad_entries
