@@ -103,6 +103,7 @@ class BTStack:
 	else:
             return False
 
+    # Returns False or (framenum, func) tuple
     def hasfunc(self,  func, reverse = False):
         if (reverse):
             try:
@@ -121,15 +122,15 @@ class BTStack:
             tc = re.compile(func)
             BTStack.__regexps[func] = tc
 
-        for f in frames:
+        for nf, f in enumerate(frames):
             # A regexp
             m1 = tc.search(f.func)
             if (m1):
-                return m1.group(0)
+                return (nf, m1.group(0))
 
             m2 = tc.search(f.via)
             if (m2):
-                return m2.group(0)
+                return (nf, m2.group(0))
 
         return False
 
@@ -193,7 +194,7 @@ def stack_categorize(e, descr):
     for subc in descr[1:-1]:
         m = e.hasfunc(subc)
         if (m):
-            out.append(m)
+            out.append(m[1])
         else:
             out.append('?')
     return tuple(out)

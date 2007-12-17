@@ -7,6 +7,34 @@ from LinuxDump.Tasks import TaskTable, Task
 
 debug = API_options.debug
 
+def tasksSummary():
+    tt = TaskTable()
+    counts = {}
+    d_counts = {}
+    for mt in tt.allTasks():
+	#print mt.pid, mt.comm, mt.state
+	state = mt.state
+	comm = mt.comm
+	counts[state] = counts.setdefault(state, 0) + 1
+	d_counts[(comm, state)] = d_counts.setdefault((comm, state), 0) + 1
+	for t in mt.threads:
+	    #print "\t", t.pid, t.state
+	    state = t.state
+	    counts[state] = counts.setdefault(state, 0) + 1
+	    d_counts[(comm, state)] = d_counts.setdefault((comm, state), 0)+1
+    print " ---- Totals -----"
+    for k,v in counts.items():
+	print "%-20s  %4d" %  (k, v)
+    print ""
+    print " ---- Per Command -----"
+    keys = d_counts.keys()
+    keys.sort()
+    for k in keys:
+	v = d_counts[k]
+	comm, state = k
+	print "%-15s %-20s  %4d" % (comm, state, v)
+
+
 
 def printTasks(reverse = False):
     basems = None
@@ -59,6 +87,11 @@ if ( __name__ == '__main__'):
     op.add_option("-v", dest="Verbose", default = 0,
 		action="store_true",
 		help="verbose output")
+    
+    op.add_option("--summary", dest="Summary", default = 0,
+		action="store_true",
+		help="Summary")
+
     op.add_option("-r", "--reverse", dest="Reverse", default = 0,
                     action="store_true",
                     help="Reverse order while sorting")
@@ -66,6 +99,8 @@ if ( __name__ == '__main__'):
     
     if (o.Reverse):
 	printTasks(reverse=True)
+    elif (o.Summary):
+	tasksSummary()
     else:
         printTasks()
 

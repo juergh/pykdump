@@ -15,7 +15,8 @@ from LinuxDump.inet import proto, netdevice
 #reload(proto)
 from LinuxDump.inet.proto import tcpState, sockTypes, \
      IP_sock,  P_FAMILIES, decodeSock, print_accept_queue,\
-     print_skbuff_head, check_skbuff_head
+     print_skbuff_head, \
+     decode_skbuf, decode_IP_header, decode_TCP_header
 
 from LinuxDump.Tasks import TaskTable
 
@@ -536,7 +537,10 @@ def print_softnet_data(details):
 	nq = getListSize(sd.input_pkt_queue, off, 10000)
 	print "    ..input_pkt_queue has %d elements" % nq
 	if (details > 1):
-	   print_skbuff_head(sd.input_pkt_queue)
+	    skbhead = sd.input_pkt_queue.castTo("struct sk_buff")
+	    for skb in readStructNext(skbhead, "next", inchead = False):
+		print skb
+		decode_skbuf(skb)
 	
 	print "    ..Completion queue"
 	print_skbuff_head(sd.completion_queue)
@@ -609,6 +613,10 @@ if ( __name__ == '__main__'):
     op.add_option("--interface", dest="If1", default = "",
                   action="store",
                   help="Limit output to the specified interface only")
+
+    op.add_option("--decode", dest="Decode", default = None,
+                  action="store",
+                  help="Decode iph/th/uh")
 
     op.add_option("--sport", dest="sport", default = -1,
                   action="store", type="int",
@@ -764,6 +772,20 @@ if ( __name__ == '__main__'):
         print_Stats()
         sys.exit(0)
 
+    if (o.Decode):
+	for a in args:
+	    addr = int(a, 16)
+	    if (o.Decode == 'skb'):
+		decode_skbuf(addr, details)
+	    elif (o.Decode == 'iph'):
+		decode_IP_header(addr)
+	    elif (o.Decode == 'th'):
+		decode_TCP_header(addr, details)
+	    else:
+		print "Cannot decode", o.Decode
+		sys.exit(1)
+	sys.exit(0)
+
     if (o.Program):
         tt = TaskTable()
 	if (o.Program == '*'):
@@ -778,7 +800,7 @@ if ( __name__ == '__main__'):
 
     if (o.Pid != -1):
         tt = TaskTable()
-        task = tt.getByPid(o.Pid)
+        task = tt.getByTid(o.Pid)
 
         if (task):
             printTaskSockets(task)

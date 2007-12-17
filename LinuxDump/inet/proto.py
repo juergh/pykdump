@@ -238,9 +238,9 @@ def decodeSock(sock):
     if (sock_V1):
 	family = sock.family
 	# For old kernels prot is NULL for AF_UNIX
-	try:
-	    protoname = sock.prot.Deref.name
-	except IndexError:
+	if (sock.prot):
+	    protoname = sock.prot.name
+	else:
 	    protoname = "UNIX"
 	sktype = sock.type
     else:
@@ -948,7 +948,7 @@ def protoName(proto):
 # Sk_buffs
 # Can be used to print both sk_buff_head and sk_buff
 __devhdrs = ["dev", "input_dev", "real_dev"]
-def print_skbuff_head(skb):
+def print_skbuff_head(skb, v = 0):
     if (skb.isNamed("struct sk_buff_head")):
 	skb = skb.castTo("struct sk_buff")
 	skblist = readStructNext(skb, "next", inchead = False)
@@ -956,21 +956,23 @@ def print_skbuff_head(skb):
 	skblist = readStructNext(skb, "next")
 
     for skb in skblist:
-	#print skb, skb.sk
+	if (v > 0):
+	   print skb, skb.sk
 	# Check for corruption
 	sk = skb.sk
 	family = "n/a"
-	try:
-	    if (sk):
-	       family = sk.family
-	except crash.error, msg:
-	    print WARNING, "Corrupted entry ", skb, "\n\t\t", msg
+	if (sk):
+	    family = sk.family
 		
 	if (family == P_FAMILIES.PF_INET):
 	    isock = IP_sock(sk)
 	    print "\t", isock
-	else:
+
+	elif (sk):
 	    print "\tFamily:", family, skb
+	else:
+	    print WARNING, 'sk=NULL'
+	    decode_skbuf(skb, v)
 	devs = [skb.dev, skb.input_dev]
 	# real_dev does not exist anymore on newer kernels
 	try:
@@ -986,23 +988,118 @@ def print_skbuff_head(skb):
 		ndev = '0x0'
 	    print "%s=%s " %(h, ndev),
 	print ''
+	
 
+# Generate a 1-liner based on L3 header and L4 header.
+# Here protocol is ETH protocol, e.g.
+#define ETH_P_IP	0x0800		/* Internet Protocol packet	*/
+# and nh and h are addresses of L3 and L4 headers
+ETH_P_IP = 0x0800
+def IP_oneliner(nh, h):
+    iphdr = readSU("struct iphdr", nh)
+    proto = iphdr.protocol
+    saddr = iphdr.saddr
+    daddr = iphdr.daddr
+    ipversion = iphdr.version
+    if (proto == 6):          #TCP
+	tcphdr = readSU("struct tcphdr", h)
+	sport = ntohs(tcphdr.source)
+	dport = ntohs(tcphdr.dest)
+	left = "tcp".ljust(5)
+    return left + formatIPv4(saddr, sport) + formatIPv4(daddr, dport)
 
-# check skbuf list to detect anything suspicious	    
-def check_skbuff_head(skb):
-    bad_entries = 0
-    if (skb.isNamed("struct sk_buff_head")):
-	skb = skb.castTo("struct sk_buff")
-	skblist = readStructNext(skb, "next", inchead = False)
+	
+# Decode and print skbuf as well as we can, taking into account different
+# fields
+def decode_skbuf(addr, v = 0):
+    skb = readSU("struct sk_buff", addr)
+    nh = skb.nh.raw
+    ETH_protocol = ntohs(skb.protocol)
+    if (nh == 0):
+	# Data contains our headers
+	nh = skb.data
+	if (ETH_protocol != ETH_P_IP):
+	   print "Cannot decode protocol=%d" % ETH_protocol
+	   return skb
+	iphdr = readSU("struct iphdr", nh)
+	hlen = 1 << iphdr.ihl
+	h = long(iphdr) + hlen
     else:
-	skblist = readStructNext(skb, "next")
+	h = skb.h.raw
+
+    if (v == 0):
+	# 1-liner
+	print IP_oneliner(nh, h)
+	return skb
+    if (v > 1):
+	print " ===== Decoding", skb, "===="
+ 
+    iph = decode_IP_header(nh, v)
+    # Now check whether we can decode L4
+    proto = iph.protocol
+    if (h == 0):
+	# Try to decode data
+	print "Need to decode raw L4 data, is not implemented yet"
+	return skb	
+    if (proto == 6):
+	# TCP
+	print decode_TCP_header(h, v)
+    return skb
+
+# Decode and print IP header as received from network
+def decode_IP_header(addr, v = 0):
+    iphdr = readSU("struct iphdr", addr)
+    frag = ntohs(iphdr.frag_off)
+    flags = frag >> 13
+    frag_off = frag & (0xffff >> 3)
+    id = ntohs(iphdr.id)
+    saddr = ntodots(iphdr.saddr)
+    daddr = ntodots(iphdr.daddr)
+    proto = iphdr.protocol
+    print "IPv%d" % iphdr.version
+    print "  tos=%d id=%d fl=%d frag=%d ttl=%d proto=%d saddr=%s daddr=%s" %\
+        (iphdr.tos, id, flags, frag_off, iphdr.ttl, proto, saddr, daddr)
+    return iphdr
     
-    for skb in skblist:
-	try:
-	    # 
-	    sk = skb.sk
-	    family = sk.family
-	except crash.error, msg:
-	    print WARNING, "Corrupted entry ", skb
-	    bad_entries += 1
-    return bad_entries
+# Decode and print TCP header as received from network
+def decode_TCP_header(addr, v = 0):
+    tcphdr = readSU("struct tcphdr", addr)
+    sport = ntohs(tcphdr.source)
+    dport = ntohs(tcphdr.dest)
+    tcpstr = "TCP: sport=%d dport=%d" % (sport, dport)
+    if (v < 1):
+        return tcpstr
+    else:
+	flags = readU8(long(addr) + 12)
+	return tcpstr + "\n" + decode_TCP_flags(flags)
+
+__TCP_flags_template = '''
+    Flags: 0x%02x (%s)
+        %d... .... = Congestion Window Reduced (CWR): %s
+        .%d.. .... = ECN-Echo: %s
+        ..%d. .... = Urgent: %s
+        ...%d .... = Acknowledgment: %s
+        .... %d... = Push: %s
+        .... .%d.. = Reset: %s
+        .... ..%d. = Syn: %s
+        .... ...%d = Fin: %s
+'''
+__TCP_flags_names = ('CWR', 'ECN', 'URG', 'ACK', 'PSH', 'RST', 'SYN', 'FIN')
+def decode_TCP_flags(flags):
+    bits = [0] * 16
+    fstr = []
+    flags_copy = flags
+    for i in range(8):
+	f = (flags & 0x1)
+	ind = 2 * (7-i)
+	bits[ind] = f
+	if (f):
+	    fstr.append(__TCP_flags_names[7-i])
+	    bits[ind+1] = "Set"
+	else:
+	    bits[ind+1] = "Not set"
+	flags >>= 1
+    fstr = string.join(fstr, ',')
+    args = tuple([flags_copy, fstr] + bits)
+    return __TCP_flags_template % args
+	

@@ -779,6 +779,9 @@ def printObject(obj):
 #           ======= read functions =======
 #
 # =============================================================
+def readU8(addr):
+    s = readmem(addr, 1)
+    return mem2long(s)
 
 
 def readU16(addr):
@@ -791,6 +794,14 @@ def readU32(addr):
 
 def readS32(addr):
     s = readmem(addr, 4)
+    return mem2long(s, signed = True)
+
+def readU64(addr):
+    s = readmem(addr, 8)
+    return mem2long(s)
+
+def readS64(addr):
+    s = readmem(addr, 8)
     return mem2long(s, signed = True)
     
 # addr should be numeric here

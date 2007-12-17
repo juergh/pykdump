@@ -22,7 +22,7 @@ and related stuff.
 from pykdump.API import *
 from LinuxDump.inet import *
 from LinuxDump import percpu
-from LinuxDump.inet.proto import IP_sock, print_skbuff_head, check_skbuff_head
+from LinuxDump.inet.proto import print_skbuff_head
 from StringIO import StringIO
 import string
 
@@ -237,11 +237,9 @@ def printQdisc(qdisc, verbosity):
             sk_buff_head = readSU("struct sk_buff_head", addr)
             print "\t  sk_buff_head=0x%x len=%d" % (addr, sk_buff_head.qlen)
 	    if (sk_buff_head.qlen > 0):
-		if (verbosity > 1):
-		    print_skbuff_head(sk_buff_head)
-		else:
-		    check_skbuff_head(sk_buff_head)
-		
+		if (verbosity > 0):
+		    print_skbuff_head(sk_buff_head, verbosity - 1)
+	
 
 
 	
@@ -576,7 +574,7 @@ def print_If(dev, details):
         print "    master=%s" % master.name
     except IndexError:
         pass
-    if (not details):
+    if (details < 1):
         return
 
     print "    LINK_STATE %3d %s" %(dev.state, decodeDevState(dev.state))
@@ -591,7 +589,7 @@ def print_If(dev, details):
             print "    \ttrans_start %7.2f s ago" % \
                   ((jiffies - trans_start)/HZ)
     getStats(dev)
-    printQdisc(dev.qdisc, details)
+    printQdisc(dev.qdisc, details-1)
    
 def print_Ifs(IF):
     for dev in dev_base_list():

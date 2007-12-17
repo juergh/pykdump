@@ -155,7 +155,8 @@ except ImportError:
 if (crashloaded):
     import wrapcrash
 
-    from wrapcrash import readPtr, readU16, readU32, readS32, readInt, \
+    from wrapcrash import readU8, readU16, readU32, readS32, \
+         readU64, readS64, readInt, readPtr, \
          readSymbol, readSU, \
          sLong, le32_to_cpu, cpu_to_le32, le16_to_cpu, \
          readList, getListSize, readListByHead,  list_for_each_entry, \
@@ -784,6 +785,17 @@ def openDump():
 
 openDump()
 initAfterDumpIsOpen()
+pointersize = sys_info.pointersize
+if (pointersize == 4):
+    readLong = readS32
+    readULong = readU32
+    INT_MASK = LONG_MASK = 0xffffffff
+    LONG_MAX = ~0L&(LONG_MASK)>>1
+elif (pointersize == 8):
+    readLong = readS64
+    readULong = readU64
+    LONG_MASK = 0xffffffffffffffff
+    LONG_MAX = ~0L&(LONG_MASK)>>1
 
 enter_epython()
 debug = API_options.debug
