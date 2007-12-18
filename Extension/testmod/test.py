@@ -131,7 +131,7 @@ print "readPtr: %10.0f/s" % (tot/(time.time() - t0))
 t0 = time.time()
 size = 8
 for i in xrange(0, tot):
-    readInt(addr, size, True)
+    readIntN(addr, size, True)
     
 print "readinteger: %10.0f/s" % (tot/(time.time() - t0))
 

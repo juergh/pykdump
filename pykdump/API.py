@@ -789,9 +789,13 @@ pointersize = sys_info.pointersize
 if (pointersize == 4):
     readLong = readS32
     readULong = readU32
+    readInt = readS32
+    readUInt = readU32
     INT_MASK = LONG_MASK = 0xffffffff
     LONG_MAX = ~0L&(LONG_MASK)>>1
 elif (pointersize == 8):
+    readInt = readS32
+    readUInt = readU32
     readLong = readS64
     readULong = readU64
     LONG_MASK = 0xffffffffffffffff

@@ -426,15 +426,15 @@ def intReader(vi):
     def signedReader(addr):
         #s = readmem(addr, size)
         #return mem2long(s, signed = True)
-        return readInt(addr, size, True)
+        return readIntN(addr, size, True)
     def unsignedReader(addr):
         #s = readmem(addr, size)
         #return mem2long(s)
-        return readInt(addr, size)
+        return readIntN(addr, size)
     def signedBFReader(addr):
         #s = readmem(addr, size)
         #val = mem2long(s)
-        val = readInt(addr, size)
+        val = readIntN(addr, size)
         val = (val >> bitoffset) & mask
         sign = val >> (bitsize - 1)
         if (sign):
@@ -444,7 +444,7 @@ def intReader(vi):
     def unsignedBFReader(addr):
         #s = readmem(addr, size)
         #val = mem2long(s)
-        val = readInt(addr, size)
+        val = readIntN(addr, size)
         val = (val>>bitoffset) & mask
         return val
 
@@ -1132,7 +1132,7 @@ exec_crash_command = crash.exec_crash_command
 exec_gdb_command = crash.get_GDB_output
 getFullBuckets = crash.getFullBuckets
 readPtr = crash.readPtr
-readInt = crash.readInt
+readIntN = crash.readInt
 sLong = crash.sLong
 le32_to_cpu = crash.le32_to_cpu
 le16_to_cpu = crash.le16_to_cpu
