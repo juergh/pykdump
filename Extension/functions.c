@@ -31,6 +31,8 @@ static sigjmp_buf eenv;
 /* crash exceptions */
 PyObject *crashError;
 
+/* Default memory time for readmem() */
+static int default_mtype = KVADDR;
 
 static PyObject *
 py_crash_symbol_exists(PyObject *self, PyObject *args) {
@@ -458,7 +460,7 @@ py_readPtr(PyObject *self, PyObject *args) {
   PyObject *out;
 
   PyObject *arg1 = PyTuple_GetItem(args, 0);
-  int mtype = KVADDR;
+  int mtype = default_mtype;
   if (PyTuple_Size(args) > 1)
     mtype = PyInt_AsLong(PyTuple_GetItem(args, 1));
 
@@ -520,7 +522,7 @@ py_readmem(PyObject *self, PyObject *args) {
 
   PyObject *arg1 = PyTuple_GetItem(args, 0);
   PyObject *arg2 = PyTuple_GetItem(args, 1);
-  int mtype = KVADDR;
+  int mtype = default_mtype;
   if (PyTuple_Size(args) > 2)
     mtype = PyInt_AsLong(PyTuple_GetItem(args, 2));
 
@@ -530,7 +532,10 @@ py_readmem(PyObject *self, PyObject *args) {
     return NULL;
   }
   */
-  addr = PyLong_AsUnsignedLongLong(arg1);
+  if (PyInt_Check(arg1))
+      addr = PyInt_AsLong(arg1);
+  else
+       addr = PyLong_AsUnsignedLongLong(arg1);
   size = PyLong_AsLong(arg2);
 
   /* When we see a NULL pointer we raise not a crash-specific
@@ -571,7 +576,7 @@ py_readInt(PyObject *self, PyObject *args) {
   ulonglong addr;
   int size;
   int signedvar = 0;		/* The default */
-  int mtype = KVADDR;
+  int mtype = default_mtype;
   char buffer[32];
 
   PyObject *out;
@@ -609,6 +614,72 @@ py_readInt(PyObject *self, PyObject *args) {
     return functable_usigned[size-1](buffer);
 }
 
+
+/*
+  Set default readmem operations to use UVADDR for task
+  readmem_task(taskaddr)  - set to UVADDR and set the current context
+  readmem_task(0)           - reset to KVADDR
+*/
+static PyObject *
+py_readmem_task(PyObject *self, PyObject *args) {
+  ulong tskaddr;
+  struct task_context *task;
+  static struct task_context *prev_task;
+
+  PyObject *arg0 = PyTuple_GetItem(args, 0);
+
+  tskaddr = PyLong_AsUnsignedLong(arg0);
+  
+  if (tskaddr) {
+    task = task_to_context(tskaddr);
+    if (!task) {
+      PyErr_SetString(crashError, "bad taskaddr"); \
+      return NULL;
+    }
+    prev_task = tt->current;
+    tt->current = task;
+    default_mtype = UVADDR;
+  } else {
+    default_mtype = KVADDR;
+    tt->current = prev_task;
+  }
+  Py_INCREF(Py_None);
+  return Py_None;
+}
+
+
+/* 
+   Copied from crash/kernel.c - it is declared as static there,
+   so we have to duplicate
+ */
+static int
+get_NR_syscalls(void)
+{
+        ulong sys_call_table;
+        struct syment *sp;
+        int cnt;
+
+        sys_call_table = symbol_value("sys_call_table");
+        if (!(sp = next_symbol("sys_call_table", NULL)))
+                return 256;
+
+        while (sp->value == sys_call_table) {
+                if (!(sp = next_symbol(sp->name, NULL)))
+                        return 256;
+        }
+
+        if (machine_type("S390X"))
+                cnt = (sp->value - sys_call_table)/sizeof(int);
+        else
+                cnt = (sp->value - sys_call_table)/sizeof(void *);
+
+        return cnt;
+}
+
+static PyObject *
+py_get_NR_syscalls(PyObject *self, PyObject *args) {
+    return PyInt_FromLong(get_NR_syscalls());
+}
 
 /*
   physaddr = uvtop(tskaddr, vaddr)
@@ -839,6 +910,8 @@ static PyMethodDef crashMethods[] = {
   {"FD_ISSET", py_FD_ISSET, METH_VARARGS},
   {"gdb_whatis", py_gdb_whatis, METH_VARARGS},
   {"gdb_typeinfo", py_gdb_typeinfo, METH_VARARGS},
+  {"set_readmem_task", py_readmem_task, METH_VARARGS},
+  {"get_NR_syscalls", py_get_NR_syscalls, METH_VARARGS},  
   {NULL,      NULL}        /* Sentinel */
 };
 

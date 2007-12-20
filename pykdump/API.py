@@ -127,7 +127,7 @@ def cleanup():
         print "++Saving Cache++"
         shelf[getDumpstring()] = gen.PYT__sinfo_cache
         shelf.close()
-
+    set_readmem_task(0)
     try:
         print "\n ** Execution took %6.2fs (real) %6.2fs (CPU)" % \
                                         (time.time() - t_starta,
@@ -165,7 +165,8 @@ if (crashloaded):
          getStructInfo, getFullBuckets, FD_ISSET, \
          struct_exists, symbol_exists,\
          Addr, Deref, SmartString, tPtr, \
-         sym2addr, addr2sym, readmem, uvtop, readProcessMem,  \
+         sym2addr, addr2sym, \
+	 readmem, uvtop, readProcessMem, set_readmem_task, \
          struct_size, union_size, member_offset, member_size, \
          getSizeOf, whatis, printObject,\
          exec_gdb_command, exec_crash_command, \
@@ -798,6 +799,7 @@ elif (pointersize == 8):
     readUInt = readU32
     readLong = readS64
     readULong = readU64
+    INT_MASK = 0xffffffff
     LONG_MASK = 0xffffffffffffffff
     LONG_MAX = ~0L&(LONG_MASK)>>1
 

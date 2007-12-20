@@ -278,7 +278,7 @@ re_pid = re.compile(r'^PID:\s+(\d+)\s+TASK:\s+([\da-f]+)\s+' +
 #  #0 [BSP:e00000038dbb1458] netconsole_netdump at a000000000de7d40
 
 
-re_f1 = re.compile(r'\s*(?:#\d+)?\s+\[(?:BSP:)?([ \da-f]+)\]\s+(.+)\sat\s([\da-f]+)$')
+re_f1 = re.compile(r'\s*(?:#\d+)?\s+\[(?:BSP:)?([ \da-f]+)\]\s+(.+)\sat\s([\da-f]+)(\s+\*)?$')
 # The 1st line of 'bt -t' stacks
 #       START: disk_dump at f8aa6d6e
 re_f1_t = re.compile(r'\s*(START:)\s+([\w.]+)\sat\s([\da-f]+)$')
@@ -311,6 +311,8 @@ def exec_bt(crashcmd = None, text = None):
         bts = BTStack()
         bts.pid = pid
         bts.cmd = cmd
+	bts.addr = addr
+	bts.cpu = cpu
         bts.frames = []
 
         #print "%d 0x%x %d <%s>" % (pid, addr, cpu, cmd)

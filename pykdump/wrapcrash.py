@@ -337,6 +337,8 @@ class StructResult(long):
         #print fi, fi.offset, fi.reader
         return fi.reader(long(self) + fi.offset)
 
+    def __eq__(self, cmp):
+	return (long(self) == cmp)
     def __str__(self):
         return "<%s 0x%x>" % \
                (self.PYT_symbol, long(self))
@@ -1142,6 +1144,7 @@ getListSize = crash.getListSize
 # For some reason the next line runs slower than GDB version
 #GDB_sizeof = crash.struct_size
 readmem = crash.readmem
+set_readmem_task = crash.set_readmem_task
 nc_member_offset = crash.member_offset
 
 
