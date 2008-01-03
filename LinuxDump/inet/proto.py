@@ -1,7 +1,7 @@
 
 # module LinuxDump.inet.proto
 #
-# Time-stamp: <07/11/15 15:54:43 alexs>
+# Time-stamp: <08/01/03 15:19:56 alexs>
 #
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -88,8 +88,11 @@ class IP_sock(object):
     def __init__(self, o, details=False):
 	if (sock_V1):
 	    s = o
-	else:
+	elif (o.isNamed("struct sock")):
             s = o.castTo("struct inet_sock")
+        else:
+            s = o
+        #print o, s
         self.left = self.right = ''
         self.family = family = s.family
         self.protocol = s.protocol
@@ -123,8 +126,10 @@ class IP_sock(object):
 	    # Details are different for TCP in different states
 	    if (self.state != tcpState.TCP_LISTEN \
 		and self.state != tcpState.TCP_TIME_WAIT):
+                self.Tcp = Bunch()
 		self.rx_opt =  s.rx_opt
 		self.topt = s.topt
+                self.Tcp.nonagle = s.Nonagle
 	    elif (self.state == tcpState.TCP_LISTEN):
 		self.sk_max_ack_backlog = s.max_ack_backlog
 		self.sk_ack_backlog = s.ack_backlog
@@ -425,6 +430,8 @@ def init_PseudoAttrs():
 
     structSetAttr(sn, "rx_opt",
                   ["tcp", "rx_opt"], extra)
+
+    structSetAttr(sn, "Nonagle", "nonagle")
 
     # This is used to access snd_wnd. mss and so on. Should be replaced
     # by separate pseudoattrs

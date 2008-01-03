@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/11/15 15:27:16 alexs>
+# Time-stamp: <08/01/03 15:22:04 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -57,7 +57,8 @@ def print_TCP_sock(o):
             snd_wnd = pstr.topt.snd_wnd
             rcv_wnd = pstr.topt.rcv_wnd
             advmss = pstr.topt.advmss
-            nonagle=pstr.topt.nonagle
+            #nonagle=pstr.Tcp.nonagle
+            nonagle = pstr.topt.nonagle
             print "\twindows: rcv=%d, snd=%d  advmss=%d rcv_ws=%d snd_ws=%d" %\
                 (rcv_wnd, snd_wnd, advmss,
                  pstr.rx_opt.rcv_wscale, pstr.rx_opt.snd_wscale)
@@ -232,7 +233,8 @@ def Summarize():
 	    print WARNING, "non-TCP socket in TCP-hash", o, pstr.protocol
 	    continue
         counts[pstr.state] = counts.setdefault(pstr.state, 0) + 1
-        nonagle=pstr.topt.nonagle
+        #nonagle=pstr.Tcp.nonagle
+        nonagle = pstr.topt.nonagle
         if (nonagle == 1):
             nodelay += 1
         snd_wnd = pstr.topt.snd_wnd
