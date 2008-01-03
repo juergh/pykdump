@@ -129,7 +129,7 @@ class IP_sock(object):
                 self.Tcp = Bunch()
 		self.rx_opt =  s.rx_opt
 		self.topt = s.topt
-                self.Tcp.nonagle = s.Nonagle
+                #self.Tcp.nonagle = s.Nonagle
 	    elif (self.state == tcpState.TCP_LISTEN):
 		self.sk_max_ack_backlog = s.max_ack_backlog
 		self.sk_ack_backlog = s.ack_backlog
