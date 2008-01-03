@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/11/15 15:38:35 alexs>
+# Time-stamp: <08/01/03 11:47:04 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -471,9 +471,9 @@ def intReader(vi):
         return val
 
     # A special case like unsigned char tb_data[0];
-    # Return address
+    # Return intDimensionlessArray
     def zeroArrayReader(addr):
-        return addr
+        return intDimensionlessArray(addr, size, not unsigned)
 
     ti = vi.ti
     size = ti.size
@@ -483,6 +483,7 @@ def intReader(vi):
     else:
 	bitoffset = None
     uint = ti.uint
+    unsigned = (uint == None or uint)
     dims = ti.dims
     elements = ti.elements
     totsize = size * elements
@@ -497,7 +498,7 @@ def intReader(vi):
         return charArray
     elif (dims != None and  len(dims) == 1 and dims[0] == 0):
         return zeroArrayReader
-    elif (uint == None or uint):
+    elif (unsigned):
         if (bitsize == None):
             if (dims == None):
                 return unsignedReader
@@ -883,6 +884,19 @@ def readStructNext(shead, nextname, inchead = True):
 #
 #  In some cases we have declarations like
 #  struct AAA *ptr[];
+#
+# unsigned long __per_cpu_offset[0];
+
+class intDimensionlessArray(long):
+    def __new__(cls, addr, isize, signed):
+        return long.__new__(cls, addr)
+    def __init__(self, addr, isize, signed):
+        self.isize = isize
+        self.signed = signed
+    def __getitem__(self, i):
+        addr = long(self) + i * self.isize
+        return readIntN(addr, self.isize, self.signed)
+
 
 class tPtrDimensionlessArray(object):
     def __init__(self, ptype, addr):
@@ -892,6 +906,7 @@ class tPtrDimensionlessArray(object):
     def __getitem__(self, key):
         addr = readPtr(self.addr + pointersize * key)
         return tPtr(addr, self.ptype)
+
 
 #     ======= return a Generator to iterate through SU array
 def SUArray(sname, addr, maxel = _MAXEL):
