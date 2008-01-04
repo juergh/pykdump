@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <07/11/29 16:16:42 alexs>
+  Time-stamp: <08/01/04 11:38:29 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -624,7 +624,7 @@ static PyObject *
 py_readmem_task(PyObject *self, PyObject *args) {
   ulong tskaddr;
   struct task_context *task;
-  static struct task_context *prev_task;
+  static struct task_context *prev_task = NULL;
 
   PyObject *arg0 = PyTuple_GetItem(args, 0);
 
@@ -641,7 +641,8 @@ py_readmem_task(PyObject *self, PyObject *args) {
     default_mtype = UVADDR;
   } else {
     default_mtype = KVADDR;
-    tt->current = prev_task;
+    if (prev_task)
+      tt->current = prev_task;
   }
   Py_INCREF(Py_None);
   return Py_None;
