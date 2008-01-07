@@ -203,6 +203,23 @@ def check_network():
         trans_start = (jiffies - dev.trans_start)/HZ
 	print dev.name, last_rx, trans_start
  
+# Check whether active (bt -a) tasks are looping
+def check_activetasks():
+    from LinuxDump import percpu
+    from LinuxDump.Tasks import TaskTable, Task, getRunQueues
+    tt = TaskTable()
+    basems = tt.basems
+    for cpu, stack in enumerate(bta):
+	pid = stack.pid
+	mt = tt.getByTid(pid)
+	ran_ms_ago = basems - mt.last_ran
+	if (ran_ms_ago > 10 * 1000):
+	    print ""
+	    print WARNING, "possible looping, CPU=%d ran_ago=%d ms" \
+	       % (cpu, ran_ms_ago)
+	    print stack
+
+    
 
 def check_runqueues():
     from LinuxDump import percpu
@@ -326,6 +343,7 @@ HZ = sys_info.HZ
 print_basics()
 dump_reason(dmesg)
 check_loadavg()
+check_activetasks()
 check_mem()
 check_auditf()
 check_runqueues()

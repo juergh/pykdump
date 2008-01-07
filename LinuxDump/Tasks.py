@@ -108,8 +108,9 @@ class Task:
         return self.ts.__getattr__(attr)
     
     def __repr__(self):
-	return "PID=%d <struct task_struct 0x%x>" % (self.ts.pid,
-                                                     Addr(self.ts))
+	return "PID=%d <struct task_struct 0x%x> CMD=%s" % (self.ts.pid,
+                                                     Addr(self.ts), 
+						     self.ts.comm)
 
     __str__ = __repr__
     
