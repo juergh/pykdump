@@ -219,7 +219,45 @@ def check_activetasks():
 	       % (cpu, ran_ms_ago)
 	    print stack
 
+
+# Check some frequently-used spinlocks
+
+re_locks = re.compile(r'^\w+\s+\(D\)\s+(\w+)\s*$')
+def check_spinlocks():
+    sn = "spinlock_t"
+    structSetAttr(sn, "slock", ["raw_lock.slock", "lock"])
     
+    # Locks we are do not care to print
+    ignore_locks = ("die_lock", "oops_lock")
+    
+    # BKL is implemented in a different way
+    BKL = 1
+    if (sym2addr("kernel_flag_cacheline") != 0):
+	BKL = readSymbol("kernel_flag_cacheline").lock.slock
+    if (BKL != 1):
+	print WARNING, "BKL=%d" % BKL
+   
+    # Get a list of all global symbols (D) with the names like *_lock
+    lock_list = []
+    for l in exec_crash_command("sym -q _lock").splitlines():
+	m = re_locks.match(l)
+	#print "<%s>" % l, m
+	if (m):
+	    ln = m.group(1)
+	    if (ln in ignore_locks):
+		continue
+	    lock_list.append(ln)
+	    
+    for ln in lock_list:
+	# We cannot be sure that this is lock_t
+	# (e.g.this can be rwlock_t)
+	try:
+	    lv = readSymbol(ln).slock
+	    if (lv != 1):
+		print WARNING, "Lock %s is held, lock=%d" % (ln, lv)
+	except KeyError:
+	    pass
+
 
 def check_runqueues():
     from LinuxDump import percpu
@@ -343,7 +381,8 @@ HZ = sys_info.HZ
 print_basics()
 dump_reason(dmesg)
 check_loadavg()
-check_activetasks()
+#check_activetasks()
+check_spinlocks()
 check_mem()
 check_auditf()
 check_runqueues()
