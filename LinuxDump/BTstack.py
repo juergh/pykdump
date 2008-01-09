@@ -290,7 +290,7 @@ def exec_bt(crashcmd = None, text = None):
     if (crashcmd != None):
         # Execute a crash command...
         text = exec_crash_command(crashcmd)
-        #print "Got results from crash"
+        #print "Got results from crash", crashcmd
 
 
     # Split text into one-thread chunks
@@ -303,6 +303,8 @@ def exec_bt(crashcmd = None, text = None):
         pidline = lines[0]
         #print pidline
         m = re_pid.match(pidline)
+	if (not m):
+	    continue
         pid = int(m.group(1))
         addr = int(m.group(2), 16)
         cpu = int(m.group(3))
@@ -328,6 +330,11 @@ def exec_bt(crashcmd = None, text = None):
                 f.level = level
                 level += 1
                 f.func = m.group(2)
+		# For 'bt -at' we can have START instead of frameaddr
+		try:
+		    f.frame = int(m.group(1), 16)
+		except ValueError:
+		    f.frame = None
                 viam = re_via.match(f.func)
                 if (viam):
                     f.via = viam.group(2)

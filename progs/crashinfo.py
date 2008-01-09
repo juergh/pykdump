@@ -304,6 +304,33 @@ else:
     bta = []
     btat = []
 
+# The argument can be 'all' (all threads), integer (pid or tid) or
+# syscall name 'e.g. select'
+def decode_syscalls(arg):
+    from LinuxDump.Tasks import TaskTable
+    from LinuxDump.syscall import decode_Stacks
+    # Check argumenttype and decide what to do
+    try:
+	pid = int(arg)
+	bt = exec_bt('bt %d' % pid)
+    except ValueError:
+	# This is not an integer arg
+	bt = exec_bt('foreach bt')
+    	if (bt != 'all'):
+	    # Leave only those that have the specified syscall
+	    def test(stack, bt):
+		if (not stack.hasfunc(r"^(system_call|sysenter_entry)$")):
+		    return False
+		if (stack.hasfunc(arg)):
+		    return True
+		else:
+		    return False
+	bt = [s for s in bt if test(s, arg)]
+    decode_Stacks(bt)
+ 
+    sys.exit(0)
+    
+
 dmesg = exec_crash_command("log")
 
 
@@ -334,6 +361,10 @@ op.add_option("--stacksummary", dest="stacksummary", default = 0,
 		action="store_true",
 		help="Print sysctl info.")
 
+op.add_option("--decodesyscalls", dest="decodesyscalls", default = "",
+		action="store",
+		help="Decode Syscalls on the Stack")
+		
 (o, args) = op.parse_args()
 
 
@@ -356,6 +387,10 @@ if (o.sysctl):
     check_sysctl()
     sys.exit(0)
 
+if (o.decodesyscalls):
+    decode_syscalls(o.decodesyscalls)
+    sys.exit(0)
+
 if (o.ext3):
     from LinuxDump.fs.ext3 import showExt3
 
@@ -367,6 +402,7 @@ if (o.filelock):
 
     print_locks()
     sys.exit(0)
+    
 if (o.stacksummary):
     from LinuxDump.Tasks import TaskTable
     if (not btsl):

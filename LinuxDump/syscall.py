@@ -22,8 +22,44 @@ def get_SysCallTable():
     return out
 
 sct = get_SysCallTable()
-    
 
+def __getRegs(data):
+    # The data consists of lines like that:
+    #   RAX: 00000000000000db  RBX: ffffffff8026111e  RCX: ffffffffffffffff
+    regs = {}
+    for l in data:
+        for rname, v in re.findall(r"\s*([A-Z0-9_]+):\s+([\da-f]+)", l):
+	    regs[rname] = int(v, 16)
+    return regs
+
+# asmlinkage on X86 guarantees that we have all arguments on
+# the stack. We assume our args are either integers or pointers,
+# so they all will be 4-byte. The frame starts from RA, then 
+# we have args
+#
+# System Call number is in EAX
+
+def getSyscallArgs_x86(stack):
+    # Check whether the last frame is 'system_call'
+    lastf = stack.frames[-1]
+    if (not lastf.func in ('system_call', 'sysenter_entry')):
+	raise IndexError, "this is not a system_call stack" + lastf
+    # The data of interest is Frame Pointer from
+    #  #4 [e6d2bfc0] system_call at c02b0068
+    sp = lastf.frame + 4
+    regs = __getRegs(lastf.data)
+    
+    # Read from stack 6 args
+    args = []
+    for i in range(6):
+	arg = readUInt(sp + 4 * i)
+	#print i, hexl(sp + 4 * i), hexl(arg)
+	args.append(arg)
+    nscall = regs["EAX"]
+    #print args
+    return (nscall, args)
+    
+    
 # * Register setup:	
 # * rax  system call number
 # * rdi  arg0
@@ -39,12 +75,7 @@ def getSyscallArgs_x8664(stack):
     lastf = stack.frames[-1]
     if (lastf.func != 'system_call'):
 	raise IndexError, "this is not a system_call stack" + lastf
-    regs = {}
-    # The data consists of lines like that:
-    #   RAX: 00000000000000db  RBX: ffffffff8026111e  RCX: ffffffffffffffff
-    for l in lastf.data:
-        for rname, v in re.findall(r"\s*([A-Z0-9_]+):\s+([\da-f]+)", l):
-	    regs[rname] = int(v, 16)
+    regs = __getRegs(lastf.data)
     #print regs
     # arg0-arg5
     args = [regs["RDI"], regs["RSI"], regs["RDX"], 
@@ -52,6 +83,14 @@ def getSyscallArgs_x8664(stack):
     nscall = regs["RAX"]
     return (nscall, args)
 
+__mach = sys_info.machine
+
+if (__mach in ("i386", "i686", "athlon")):
+    getSyscallArgs = getSyscallArgs_x86
+elif (__mach == "x86_64"):
+    getSyscallArgs = getSyscallArgs_x8664
+else:
+    getSyscallArgs = None
 
 def fdset2list(nfds, addr):
     fileparray = readmem(addr, struct_size("fd_set"))
@@ -108,8 +147,8 @@ def decode_Stacks(stacks):
 	if (not stack.hasfunc(r"^system_call$")):
 	    continue
 	print stack
-	print hexl(stack.addr)
-	nscall, args = getSyscallArgs_x8664(stack)
+	#print hexl(stack.addr)
+	nscall, args = getSyscallArgs(stack)
 	sc = sct[nscall]
 	print nscall, sc, args
 	set_readmem_task(stack.addr)
