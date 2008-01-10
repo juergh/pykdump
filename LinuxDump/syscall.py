@@ -47,14 +47,16 @@ def getSyscallArgs_x86(stack):
     # The data of interest is Frame Pointer from
     #  #4 [e6d2bfc0] system_call at c02b0068
     sp = lastf.frame + 4
-    regs = __getRegs(lastf.data)
     
     # Read from stack 6 args
     args = []
-    for i in range(6):
-	arg = readUInt(sp + 4 * i)
-	#print i, hexl(sp + 4 * i), hexl(arg)
-	args.append(arg)
+    mem = readmem(sp, 24)
+    args = crash.mem2long(mem, array=6)
+#     for i in range(6):
+# 	arg = readUInt(sp + 4 * i)
+# 	#print i, hexl(sp + 4 * i), hexl(arg)
+# 	args.append(arg)
+    regs = __getRegs(lastf.data)
     nscall = regs["EAX"]
     #print args
     return (nscall, args)
@@ -73,7 +75,7 @@ def getSyscallArgs_x86(stack):
 def getSyscallArgs_x8664(stack):
     # Check whether the last frame is 'system_call'
     lastf = stack.frames[-1]
-    if (lastf.func != 'system_call'):
+    if (not lastf.func in ('system_call', 'sysenter_entry')):
 	raise IndexError, "this is not a system_call stack" + lastf
     regs = __getRegs(lastf.data)
     #print regs
@@ -126,40 +128,62 @@ def decode_select(args):
 #       int select(int nfds, fd_set *readfds, fd_set *writefds,
 #                  fd_set *exceptfds, struct timeval *timeout); 
     nfds = args[0]
-    print "nfds=%d" % nfds
+    indent = '  '
+    print indent, "nfds=%d" % nfds
     names = ("readfds", "writefds", "exceptfds")
     for i, name in enumerate(names):
 	addr = args[i+1]
 	if (addr):
 	    # Convert it tp physical
 	    fds = fdset2list(nfds, addr)
-	    print name, fds
+	    print indent, name, fds
 
     timeout = readSU("struct timeval", args[4])
     if (not timeout):
-	print "No timeout"
+	print indent, "No timeout"
     else:
-        print "timeout=%d s, %d usec" %(timeout.tv_sec, timeout.tv_usec)
+        print indent, "timeout=%d s, %d usec" %(timeout.tv_sec,
+                                                timeout.tv_usec)
     
 
+# WARNING: this does not work well on fast live hosts as arguments
+# are changing too fast and we can easily get bogus values
 def decode_Stacks(stacks):
     for stack in stacks:
-	if (not stack.hasfunc(r"^system_call$")):
-	    continue
 	print stack
 	#print hexl(stack.addr)
 	nscall, args = getSyscallArgs(stack)
 	sc = sct[nscall]
-	print nscall, sc, args
+	print nscall, sc,
+        # Print args assuming that small ints are ints, big ones are
+        # pointers. Finally, if we have it slightly below INTMASK, this
+        # is a negative integer
+        def smartint(i):
+            if (i < 8192):
+                return "%d" % i
+            elif ( i <= INT_MASK and i > INT_MASK-1000):
+                return "%d" % (-(INT_MASK - i) - 1)
+            else:
+                return "0x%x" %i
+
+        sargs = []
+        for i in args:
+            sargs.append(smartint(i))
+        print "(%s)" % string.join(sargs, ', ')
+
+        #continue
 	set_readmem_task(stack.addr)
-	
-	if (sc == "sys_select"):
-	    decode_select(args)
-	if (sc == "sys_poll"):
-	    decode_poll(args)
-	else:
-	    set_readmem_task(0)
-	    continue
+
+        try:
+            if (sc == "sys_select"):
+                decode_select(args)
+            if (sc == "sys_poll"):
+                decode_poll(args)
+            else:
+                set_readmem_task(0)
+                continue
+        except crash.error:
+            print "  Cannot read userspace args"
 	set_readmem_task(0)
 	continue
     

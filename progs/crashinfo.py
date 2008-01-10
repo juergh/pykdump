@@ -2,7 +2,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <07/10/26 11:22:27 alexs>
+# Time-stamp: <08/01/09 15:25:02 alexs>
 
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -316,16 +316,15 @@ def decode_syscalls(arg):
     except ValueError:
 	# This is not an integer arg
 	bt = exec_bt('foreach bt')
-    	if (bt != 'all'):
-	    # Leave only those that have the specified syscall
-	    def test(stack, bt):
-		if (not stack.hasfunc(r"^(system_call|sysenter_entry)$")):
-		    return False
-		if (stack.hasfunc(arg)):
-		    return True
-		else:
-		    return False
-	bt = [s for s in bt if test(s, arg)]
+        # Leave only those that have the specified syscall
+        def test(stack, bt):
+            if (not stack.hasfunc(r"^(system_call|sysenter_entry)$")):
+                return False
+            if (arg =='all' or stack.hasfunc('sys_' + arg)):
+                return True
+            else:
+                return False
+        bt = [s for s in bt if test(s, arg)]
     decode_Stacks(bt)
  
     sys.exit(0)
