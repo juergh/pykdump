@@ -172,6 +172,14 @@ class TypeInfo(object):
 
     def __repr__(self):
         stype, pref, suff = self.fullname()
+	if (stype == "(func)"):
+	    out = []
+	    for ati in self.prototype:
+		astype, apref, asuff = ati.fullname()
+	        out.append(("%s %s%s" % (astype, apref, asuff)).strip())
+	    stype = out[0]
+	    suff = "(func)(" + string.join(out[1:], ", ") + ")" 
+
         out = "TypeInfo <%s %s%s> size=%d" % (stype, pref, suff, self.size)
         return out
     elements = LazyEval("elements", getElements)
@@ -245,6 +253,13 @@ class VarInfo(object):
 
      def __repr__(self):
          stype, pref, suff = self.ti.fullname()
+	 if (stype == "(func)"):
+	     out = []
+	     for ati in self.ti.prototype:
+		 astype, apref, asuff = ati.fullname()
+	         out.append(("%s %s%s" % (astype, apref, asuff)).strip())
+	     stype = out[0]
+	     suff = "(" + string.join(out[1:], ", ") + ")" 
          out = "VarInfo <%s%s %s%s> addr=0x%x" % (stype, pref,
                                                  self.name, suff, self.addr)
          return out

@@ -64,7 +64,7 @@ my_error_hook(void)  {
     do_cleanups((struct cleanup *)0); \
     \
     if (setjmp(eenv)) { \
-      PyErr_SetString(crashError, "experimental error");\
+      PyErr_SetString(crashError, "PyKdump/GDB error");\
       return NULL; \
     } \
   } while (0)
@@ -91,7 +91,7 @@ ptype_eval (struct expression *exp)
 }
 
 static void do_SU(struct type *type, PyObject *dict);
-
+static void do_func(struct type *type, PyObject *dict);
 
 static void
 do_ftype(struct type *ftype, PyObject *item) {
@@ -174,6 +174,7 @@ do_ftype(struct type *ftype, PyObject *item) {
   case TYPE_CODE_FUNC:
     PyDict_SetItem(item, PyString_FromString("basetype"),
 		   PyString_FromString("(func)"));
+    do_func(ftype, item);
     break;
   case TYPE_CODE_TYPEDEF:
     /* Add extra tag - typedef name. This is useful
@@ -234,7 +235,36 @@ do_ftype(struct type *ftype, PyObject *item) {
   
 }
 
+static void
+do_func(struct type *type, PyObject *pitem) {
+  int nfields =   TYPE_NFIELDS(type);
+  int i;
+  char buf[256];
 
+  PyObject *body = PyList_New(0);
+  PyDict_SetItem(pitem, PyString_FromString("prototype"),
+		 body);
+
+  /* Function return type */
+  struct type *return_type= TYPE_TARGET_TYPE(type);
+  PyObject *item = PyDict_New();
+  PyList_Append(body, item);
+  PyDict_SetItem(item, PyString_FromString("fname"),
+		PyString_FromString("returntype"));
+  do_ftype(return_type, item);
+
+  for (i=0; i < nfields; i++) {
+    struct type *ftype = TYPE_FIELD_TYPE(type, i);
+    PyObject *item = PyDict_New();
+    PyList_Append(body, item);
+    sprintf(buf, "arg%d", i);
+    PyDict_SetItem(item, PyString_FromString("fname"),
+		PyString_FromString(buf));
+ 
+    do_ftype(ftype, item);
+  }
+}
+    
 static void
 do_SU(struct type *type, PyObject *pitem) {
   int nfields =   TYPE_NFIELDS(type);

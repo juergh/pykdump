@@ -142,6 +142,14 @@ def update_TI(f, e):
         if (not ff.PYT_body):
             update_SUI(ff, e)
         f.details = ff
+    # A function prototype
+    elif (e.has_key("prototype")):
+	prototype = f.prototype = []
+	for ee in e["prototype"]:
+	    fname = ee["fname"]
+	    ti = TypeInfo('', False)
+            update_TI(ti, ee)
+	    prototype.append(ti)
 
 def update_TI_fromgdb(f, sname):
     e = crash.gdb_typeinfo(sname)
