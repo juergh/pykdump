@@ -1053,8 +1053,13 @@ def getStructInfo(stype):
     return si
 
 
+__whatis_cache = {}
 
-def whatis(symbol, art = None):
+def whatis(symbol):
+    try:
+	return __whatis_cache[symbol]
+    except KeyError:
+	pass
     try:
         e = crash.gdb_whatis(symbol)
     except crash.error:
@@ -1069,6 +1074,7 @@ def whatis(symbol, art = None):
 
     # This is for backwards compatibility only, will be obsoleted
     vi.ctype = ti.stype
+    __whatis_cache[symbol] = vi
     return vi
 
     

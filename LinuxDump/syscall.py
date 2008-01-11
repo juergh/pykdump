@@ -94,15 +94,65 @@ elif (__mach == "x86_64"):
 else:
     getSyscallArgs = None
 
-def fdset2list(nfds, addr):
-    fileparray = readmem(addr, struct_size("fd_set"))
-    out = []
-    for i in range(nfds):
-	if (FD_ISSET(i, fileparray)):
-	    out.append(i)
-    return out
 
-def decode_poll(args):
+def generic_decoder(sc, args):
+    ti = whatis(sc).ti
+    prototype = ti.prototype[1:]
+    print sc,
+    # Print args assuming that small ints are ints, big ones are
+    # pointers. Finally, if we have it slightly below INTMASK, this
+    # is a negative integer
+    def smartint(i):
+	if ( i <= INT_MASK and i > INT_MASK-1000):
+	    return "%d" % (-(INT_MASK - i) - 1)
+	else:
+	    return "%d" % i
+    
+    sargs = []
+    for a, ti  in zip(args, prototype):
+	if (ti.ptrlev == None):
+	    darg = smartint(a)
+	else:
+	    # A pointer
+	    ptrtype = ti.fullstr()[:-1]
+	    darg = "(%s) 0x%x" % (ptrtype, a)
+	sargs.append(darg)
+	    
+    print "(%s)" % string.join(sargs, ',\n\t')
+    
+
+# WARNING: this does not work well on fast live hosts as arguments
+# are changing too fast and we can easily get bogus values
+def decode_Stacks(stacks):
+    for stack in stacks:
+	print stack
+	#print hexl(stack.addr)
+	print "    ....... Decoding Syscall Args ......."
+	nscall, args = getSyscallArgs(stack)
+	sc = sct[nscall]
+        generic_decoder(sc, args)
+        #continue
+	set_readmem_task(stack.addr)
+
+        try:
+	    exec '__decode_%s(args)' % sc in globals(), locals()
+        except crash.error:
+            print "  Cannot read userspace args"
+	except NameError:
+	    # There is no syscall-specific decoder defined
+	    pass
+	    print " nnnnnnnnnnnnnnn "
+	set_readmem_task(0)
+
+
+# =================================================================
+#
+# syscall-specific decoders
+#
+#  If you want to add another decoder, write a function with the name
+#  __decode_sys_XXXXX
+
+def __decode_sys_poll(args):
     # int poll(struct pollfd *fds, nfds_t nfds, int timeout);
     #struct pollfd {
     #  int fd;
@@ -124,9 +174,17 @@ def decode_poll(args):
 	pfd = readSU("struct pollfd", start + sz * i)
 	print pfd.fd
     
-def decode_select(args):
+def __decode_sys_select(args):
 #       int select(int nfds, fd_set *readfds, fd_set *writefds,
 #                  fd_set *exceptfds, struct timeval *timeout); 
+    def fdset2list(nfds, addr):
+	fileparray = readmem(addr, struct_size("fd_set"))
+	out = []
+	for i in range(nfds):
+	    if (FD_ISSET(i, fileparray)):
+		out.append(i)
+	return out
+
     nfds = args[0]
     indent = '  '
     print indent, "nfds=%d" % nfds
@@ -146,50 +204,46 @@ def decode_select(args):
                                                 timeout.tv_usec)
     
 
-# WARNING: this does not work well on fast live hosts as arguments
-# are changing too fast and we can easily get bogus values
-def decode_Stacks(stacks):
-    for stack in stacks:
-	print stack
-	#print hexl(stack.addr)
-	nscall, args = getSyscallArgs(stack)
-	sc = sct[nscall]
-	print nscall, sc,
-        # Print args assuming that small ints are ints, big ones are
-        # pointers. Finally, if we have it slightly below INTMASK, this
-        # is a negative integer
-        def smartint(i):
-            if (i < 8192):
-                return "%d" % i
-            elif ( i <= INT_MASK and i > INT_MASK-1000):
-                return "%d" % (-(INT_MASK - i) - 1)
-            else:
-                return "0x%x" %i
 
-        sargs = []
-        for i in args:
-            sargs.append(smartint(i))
-        print "(%s)" % string.join(sargs, ', ')
+def __decode_sys_rmdir(args):
+    # The only arg is a directory name
+    s = readmem(args[0], 256)
+    print "\t rmdir(%s)" % s.split('\0')[0]
 
-        #continue
-	set_readmem_task(stack.addr)
-
-        try:
-            if (sc == "sys_select"):
-                decode_select(args)
-            if (sc == "sys_poll"):
-                decode_poll(args)
-            else:
-                set_readmem_task(0)
-                continue
-        except crash.error:
-            print "  Cannot read userspace args"
-	set_readmem_task(0)
-	continue
-    
-	addr = args[0]
+def __decode_sys_nanosleep(args):
+    # nanosleep(const struct timespec *req, struct timespec *rem)
+    for i, name in enumerate(("req", "rem")):
+	ts = readSU("struct timespec", args[i])
+	sec = ts.tv_sec
+	nsec = ts.tv_nsec
+	print "\t %s  %dsec, %dnsec" % (name, sec, nsec)
 	
-    
-	s = readSU("struct timespec", addr)
-	print "tv_sec=", s.tv_sec
-	set_readmem_task(0)
+__C_SOCKET_SYSCALLS = '''
+#define SYS_SOCKET	1		/* sys_socket(2)		*/
+#define SYS_BIND	2		/* sys_bind(2)			*/
+#define SYS_CONNECT	3		/* sys_connect(2)		*/
+#define SYS_LISTEN	4		/* sys_listen(2)		*/
+#define SYS_ACCEPT	5		/* sys_accept(2)		*/
+#define SYS_GETSOCKNAME	6		/* sys_getsockname(2)		*/
+#define SYS_GETPEERNAME	7		/* sys_getpeername(2)		*/
+#define SYS_SOCKETPAIR	8		/* sys_socketpair(2)		*/
+#define SYS_SEND	9		/* sys_send(2)			*/
+#define SYS_RECV	10		/* sys_recv(2)			*/
+#define SYS_SENDTO	11		/* sys_sendto(2)		*/
+#define SYS_RECVFROM	12		/* sys_recvfrom(2)		*/
+#define SYS_SHUTDOWN	13		/* sys_shutdown(2)		*/
+#define SYS_SETSOCKOPT	14		/* sys_setsockopt(2)		*/
+#define SYS_GETSOCKOPT	15		/* sys_getsockopt(2)		*/
+#define SYS_SENDMSG	16		/* sys_sendmsg(2)		*/
+#define SYS_RECVMSG	17		/* sys_recvmsg(2)		*/
+'''
+
+__SOCKET_SYSCALLS = CDefine(__C_SOCKET_SYSCALLS)
+def __decode_sys_socketcall(args):
+    nsc = args[0]
+    name = __SOCKET_SYSCALLS.value2key(nsc).lower()
+    ti = whatis(name).ti
+    prototype = ti.prototype[1:]
+    nargs = len(prototype)
+
+    print "\t %s, %d args" % (name, nargs)

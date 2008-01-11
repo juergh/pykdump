@@ -124,7 +124,7 @@ def dump_reason(dmesg):
     trigger = re.compile('vfs_write|sys_write')
     kbd  = re.compile('keyboard_interrupt')
     netconsole = re.compile('netconsole')
-    res = [bts for bts in btat if bts.hasfunc(func1)]
+    res = [bts for bts in bta if bts.hasfunc(func1)]
     if (res):
 	# Now check whether we used keyboard or sysrq-trigger
 	print "Dump has been initiated: with sysrq"
@@ -136,7 +136,7 @@ def dump_reason(dmesg):
 	    print "\t- via netconsole"
 	else:
 	    print "\t- ???"
-	if (test(btat, "disk_dump")):
+	if (test(bta, "disk_dump")):
 	    print "\t- using diskdump"
 	elif (ifnetdump(dmesg)):
 	    print "\t- using netdump"
@@ -147,7 +147,7 @@ def dump_reason(dmesg):
 		print bts
     else:
         # This seems to be a real panic - search for BUG/general protection
-        res = [bts for bts in btat if bts.hasfunc('die')]
+        res = [bts for bts in bta if bts.hasfunc('die')]
         if (res):
             print "Dump was triggered by kernel"
             if (test(res, "general_protection")):
@@ -297,12 +297,6 @@ def check_runqueues():
     if (RT_hang):
 	print WARNING, "all CPUs are busy running Real-Time processes"
 	
-if (not sys_info.livedump):
-    bta = exec_bt('bt -a')
-    btat = exec_bt('bt -at')
-else:
-    bta = []
-    btat = []
 
 # The argument can be 'all' (all threads), integer (pid or tid) or
 # syscall name 'e.g. select'
@@ -329,8 +323,6 @@ def decode_syscalls(arg):
  
     sys.exit(0)
     
-
-dmesg = exec_crash_command("log")
 
 
 op =  OptionParser()
@@ -412,6 +404,13 @@ if (o.stacksummary):
     sys.exit(0)
     
 HZ = sys_info.HZ
+
+dmesg = exec_crash_command("log")
+
+if (not sys_info.livedump):
+    bta = exec_bt('bt -a')
+else:
+    bta = []
 
 print_basics()
 dump_reason(dmesg)
