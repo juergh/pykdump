@@ -628,8 +628,11 @@ py_readmem_task(PyObject *self, PyObject *args) {
 
   PyObject *arg0 = PyTuple_GetItem(args, 0);
 
-  tskaddr = PyLong_AsUnsignedLong(arg0);
-  
+  if (PyInt_Check(arg0))
+      tskaddr = PyInt_AsLong(arg0);
+  else
+      tskaddr = PyLong_AsUnsignedLongLong(arg0);
+
   if (tskaddr) {
     task = task_to_context(tskaddr);
     if (!task) {
