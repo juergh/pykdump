@@ -8,6 +8,8 @@
 from pykdump.API import *
 from LinuxDump.BTstack import exec_bt
 
+debug = API_options.debug
+
 import re
 import crash
 
@@ -96,7 +98,7 @@ else:
     getSyscallArgs = None
 
 
-def generic_decoder(sc, args):
+def generic_decoder(taskaddr, sc, args):
     ti = whatis(sc).ti
     prototype = ti.prototype[1:]
     print "   ", sc,
@@ -116,6 +118,10 @@ def generic_decoder(sc, args):
 	else:
 	    # A pointer
 	    ptrtype = ti.fullstr()[:-1]
+	    # Convert pointer from userspace to kernel space
+	    #if (a !=0):
+		#print hexl(a)
+		#a = uvtop(taskaddr, a)
 	    darg = "(%s) 0x%x" % (ptrtype, a)
 	sargs.append(darg)
 	    
@@ -131,18 +137,21 @@ def decode_Stacks(stacks):
 	print "    ....... Decoding Syscall Args ......."
 	nscall, args = getSyscallArgs(stack)
 	sc = sct[nscall]
-        generic_decoder(sc, args)
+	
+	# On 2.4 socket calls are implemented via sys_socketcall
+
         #continue
 	set_readmem_task(stack.addr)
-
+        generic_decoder(stack.addr, sc, args)
         try:
 	    exec '__decode_%s(args)' % sc in globals(), locals()
         except crash.error:
             print "  Cannot read userspace args"
-	except NameError:
+	except NameError, val:
 	    # There is no syscall-specific decoder defined
 	    pass
-	    print " nnnnnnnnnnnnnnn "
+	if (debug):
+	    print " nnnnnnnnnnnnnnn ", val
 	set_readmem_task(0)
 
 
@@ -214,11 +223,17 @@ def __decode_sys_rmdir(args):
 def __decode_sys_nanosleep(args):
     # nanosleep(const struct timespec *req, struct timespec *rem)
     for i, name in enumerate(("req", "rem")):
-	ts = readSU("struct timespec", args[i])
-	sec = ts.tv_sec
-	nsec = ts.tv_nsec
-	print "\t %s  %dsec, %dnsec" % (name, sec, nsec)
-	
+	if (args[i] == 0):
+	    print "\t %s  NULL" % name
+	else:
+	    ts = readSU("struct timespec", args[i])
+	    sec = ts.tv_sec
+	    nsec = ts.tv_nsec
+	    print "\t %s  %dsec, %dnsec" % (name, sec, nsec)
+
+
+    
+
 __C_SOCKET_SYSCALLS = '''
 #define SYS_SOCKET	1		/* sys_socket(2)		*/
 #define SYS_BIND	2		/* sys_bind(2)			*/
