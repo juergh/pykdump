@@ -22,6 +22,7 @@ def get_SysCallTable():
     return out
 
 sct = get_SysCallTable()
+pointersize = sys_info.pointersize
 
 def __getRegs(data):
     # The data consists of lines like that:
@@ -98,7 +99,7 @@ else:
 def generic_decoder(sc, args):
     ti = whatis(sc).ti
     prototype = ti.prototype[1:]
-    print sc,
+    print "   ", sc,
     # Print args assuming that small ints are ints, big ones are
     # pointers. Finally, if we have it slightly below INTMASK, this
     # is a negative integer
@@ -242,8 +243,7 @@ __SOCKET_SYSCALLS = CDefine(__C_SOCKET_SYSCALLS)
 def __decode_sys_socketcall(args):
     nsc = args[0]
     name = __SOCKET_SYSCALLS.value2key(nsc).lower()
-    ti = whatis(name).ti
-    prototype = ti.prototype[1:]
-    nargs = len(prototype)
-
-    print "\t %s, %d args" % (name, nargs)
+    start = args[1]
+    sargs = wrapcrash.intDimensionlessArray(start, pointersize, False)
+    print "    ~~~~~~~ Decoding SocketCall Args ~~~~~~~"    
+    generic_decoder(name, sargs)
