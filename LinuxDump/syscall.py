@@ -53,7 +53,11 @@ def getSyscallArgs_x86(stack):
     
     # Read from stack 6 args
     args = []
-    mem = readmem(sp, 24)
+    try:
+        mem = readmem(sp, 24)
+    except crash.error:
+        "Cannot read stack on x86 - have you loaded crash-driver?"
+        return (-1, [])
     args = crash.mem2long(mem, array=6)
 #     for i in range(6):
 # 	arg = readUInt(sp + 4 * i)
@@ -98,7 +102,7 @@ else:
     getSyscallArgs = None
 
 
-def generic_decoder(taskaddr, sc, args):
+def generic_decoder(sc, args):
     ti = whatis(sc).ti
     prototype = ti.prototype[1:]
     print "   ", sc,
@@ -136,13 +140,15 @@ def decode_Stacks(stacks):
 	#print hexl(stack.addr)
 	print "    ....... Decoding Syscall Args ......."
 	nscall, args = getSyscallArgs(stack)
+        if (nscall == -1):
+            return
 	sc = sct[nscall]
 	
 	# On 2.4 socket calls are implemented via sys_socketcall
 
         #continue
 	set_readmem_task(stack.addr)
-        generic_decoder(stack.addr, sc, args)
+        generic_decoder(sc, args)
         try:
 	    exec '__decode_%s(args)' % sc in globals(), locals()
         except crash.error:
