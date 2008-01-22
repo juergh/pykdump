@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <08/01/03 11:47:04 alexs>
+# Time-stamp: <08/01/18 11:35:43 alexs>
 
 # Functions/classes used while driving 'crash' externally via PTY
 # Most of them should be replaced later with low-level API when
@@ -27,7 +27,6 @@ import sys
 import string, re
 import struct
 
-import threading
 import types
 from StringIO import StringIO
 import pprint
@@ -645,7 +644,7 @@ class _GDB:
 
 # Warning: this is obsoleted and will go away sooner or later
 
-import inspect
+#import inspect
 class Dereference:
     __first = True
     def __init__(self, sr):
