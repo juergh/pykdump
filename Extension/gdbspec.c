@@ -47,6 +47,18 @@ my_error_hook(void)  {
   longjmp(eenv, 1);
 } 
 
+int
+myDict_SetCharChar(PyObject *v, const char *key, const char *item) {
+	PyObject *iv;
+	int err;
+	iv = PyString_FromString(item);
+	if (iv == NULL)
+		return -1;
+	err = PyDict_SetItemString(v, key, iv);
+	Py_DECREF(iv);
+	return err;
+}
+
 
 /* If GDB error was caught, raise Python exception. Cleanup is
    already done in my_error_hook
@@ -142,15 +154,13 @@ do_ftype(struct type *ftype, PyObject *item) {
       if (!ptr)
 	do_SU(ftype, item);
     }
-    PyDict_SetItem(item, PyString_FromString("basetype"),
-		   PyString_FromString(buf));
+    myDict_SetCharChar(item, "basetype", buf);
     break;
   case TYPE_CODE_ENUM:
     if (tagname != NULL) {
       sprintf(buf, "enum %s", tagname);
     }
-    PyDict_SetItem(item, PyString_FromString("basetype"),
-		   PyString_FromString(buf));
+    myDict_SetCharChar(item, "basetype", buf);
     break;
   case TYPE_CODE_PTR:
     tmptype = ftype;
@@ -161,35 +171,30 @@ do_ftype(struct type *ftype, PyObject *item) {
     if (TYPE_CODE(tmptype) == TYPE_CODE_TYPEDEF) {
       const char *ttypename = TYPE_NAME(tmptype);
       if (ttypename)
-	PyDict_SetItem(item, PyString_FromString("typedef"),
-		       PyString_FromString(ttypename));
+	myDict_SetCharChar(item, "typedef", ttypename);
       CHECK_TYPEDEF(tmptype);
     }
-    PyDict_SetItem(item, PyString_FromString("stars"),
-		   PyInt_FromLong(stars));
-    PyDict_SetItem(item, PyString_FromString("ptrbasetype"),
-		 PyInt_FromLong(TYPE_CODE(tmptype)));
+    PyDict_SetItemString(item, "stars", PyInt_FromLong(stars));
+    PyDict_SetItemString(item, "ptrbasetype",
+			 PyInt_FromLong(TYPE_CODE(tmptype)));
     do_ftype(tmptype, item);
     break;
   case TYPE_CODE_FUNC:
-    PyDict_SetItem(item, PyString_FromString("basetype"),
-		   PyString_FromString("(func)"));
+    myDict_SetCharChar(item, "basetype", "(func)");
     do_func(ftype, item);
     break;
   case TYPE_CODE_TYPEDEF:
     /* Add extra tag - typedef name. This is useful
        in struct/union case as we can cache info based on it */
     if (typename)
-      PyDict_SetItem(item, PyString_FromString("typedef"),
-		     PyString_FromString(typename));
+      myDict_SetCharChar(item, "typedef", typename);
     CHECK_TYPEDEF(ftype);
     do_ftype(ftype, item);
     break;
   case TYPE_CODE_INT:
-    PyDict_SetItem(item, PyString_FromString("uint"),
+    PyDict_SetItemString(item, "uint",
 		   PyInt_FromLong(TYPE_UNSIGNED(ftype)));
-    PyDict_SetItem(item, PyString_FromString("basetype"),
-		   PyString_FromString(TYPE_NAME(ftype)));
+    myDict_SetCharChar(item, "basetype", TYPE_NAME(ftype));
     break;
   case TYPE_CODE_ARRAY:
     /* Multidimensional C-arrays are visible as arrays of arrays.
@@ -205,8 +210,7 @@ do_ftype(struct type *ftype, PyObject *item) {
     if (TYPE_CODE(ftype) == TYPE_CODE_TYPEDEF) {
       const char *ttypename = TYPE_NAME(ftype);
       if (ttypename)
-	PyDict_SetItem(item, PyString_FromString("typedef"),
-		       PyString_FromString(ttypename));
+	myDict_SetCharChar(item, "typedef", ttypename);
       CHECK_TYPEDEF(ftype);
     }
 
@@ -215,11 +219,10 @@ do_ftype(struct type *ftype, PyObject *item) {
     for (i=0; i < ndim; i++)
       PyList_Append(pdims, PyInt_FromLong(dims[i]));
     
-    PyDict_SetItem(item, PyString_FromString("dims"), pdims);
+    PyDict_SetItemString(item, "dims", pdims);
     break;
   default:
-    PyDict_SetItem(item, PyString_FromString("basetype"),
-		   PyString_FromString(TYPE_NAME(ftype)));
+    myDict_SetCharChar(item, "basetype", TYPE_NAME(ftype));
    break;
   }
   /* Set CODE_TYPE. For arrays and typedefs it should already be
@@ -228,9 +231,8 @@ do_ftype(struct type *ftype, PyObject *item) {
      original CODE_TYPE (pointer) and target type (when all
      stars are removed)
   */
-  PyDict_SetItem(item, PyString_FromString("codetype"),
-		 PyInt_FromLong(TYPE_CODE(ftype)));
-  PyDict_SetItem(item, PyString_FromString("typelength"),
+  PyDict_SetItemString(item, "codetype", PyInt_FromLong(TYPE_CODE(ftype)));
+  PyDict_SetItemString(item, "typelength",
 		 PyInt_FromLong(TYPE_LENGTH(ftype)));
   
 }
@@ -242,15 +244,13 @@ do_func(struct type *type, PyObject *pitem) {
   char buf[256];
 
   PyObject *body = PyList_New(0);
-  PyDict_SetItem(pitem, PyString_FromString("prototype"),
-		 body);
+  PyDict_SetItemString(pitem, "prototype", body);
 
   /* Function return type */
   struct type *return_type= TYPE_TARGET_TYPE(type);
   PyObject *item = PyDict_New();
   PyList_Append(body, item);
-  PyDict_SetItem(item, PyString_FromString("fname"),
-		PyString_FromString("returntype"));
+  myDict_SetCharChar(item, "fname", "returntype");
   do_ftype(return_type, item);
 
   for (i=0; i < nfields; i++) {
@@ -258,8 +258,7 @@ do_func(struct type *type, PyObject *pitem) {
     PyObject *item = PyDict_New();
     PyList_Append(body, item);
     sprintf(buf, "arg%d", i);
-    PyDict_SetItem(item, PyString_FromString("fname"),
-		PyString_FromString(buf));
+    myDict_SetCharChar(item, "fname", buf);
  
     do_ftype(ftype, item);
   }
@@ -270,8 +269,7 @@ do_SU(struct type *type, PyObject *pitem) {
   int nfields =   TYPE_NFIELDS(type);
   int i;
   PyObject *body = PyList_New(0);
-  PyDict_SetItem(pitem, PyString_FromString("body"),
-		 body);
+  PyDict_SetItemString(pitem, "body", body);
 
   for (i=0; i < nfields; i++) {
     PyObject *item = PyDict_New();
@@ -281,13 +279,10 @@ do_SU(struct type *type, PyObject *pitem) {
     int boffset = TYPE_FIELD_BITPOS(type, i);
     int bsize = TYPE_FIELD_BITSIZE(type, i);
 
-    PyDict_SetItem(item, PyString_FromString("fname"),
-		   PyString_FromString(fname));
+    myDict_SetCharChar(item, "fname", fname);
     if (bsize)
-      PyDict_SetItem(item, PyString_FromString("bitsize"),
-		     PyInt_FromLong(bsize));
-    PyDict_SetItem(item, PyString_FromString("bitoffset"),
-		   PyInt_FromLong(boffset));
+      PyDict_SetItemString(item, "bitsize", PyInt_FromLong(bsize));
+    PyDict_SetItemString(item, "bitoffset",  PyInt_FromLong(boffset));
    
     do_ftype(ftype, item);
   }
@@ -359,8 +354,7 @@ PyObject * py_gdb_whatis(PyObject *self, PyObject *args) {
   //printf("vartype=%d\n", TYPE_CODE(type));
 
   PyObject *item = PyDict_New();
-  PyDict_SetItem(item, PyString_FromString("fname"),
-		 PyString_FromString(varname));
+  myDict_SetCharChar(item, "fname", varname);
 
 
   do_ftype(type, item);
