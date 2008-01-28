@@ -40,3 +40,6 @@ lib/python2.5/trace.pyc
 lib/python2.5/optparse.pyc
 lib/python2.5/copy.pyc
 lib/python2.5/__future__.pyc
+lib/python2.5/weakref.pyc
+lib/python2.5/gettext.pyc
+lib/python2.5/locale.pyc

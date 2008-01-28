@@ -3,7 +3,7 @@
 # and its development packages installed properly, you only need to customize
 # the next line (CRASH sources location)
 
-CRASHSRCDIR := /src/kerntools/crash-4.0-4.3
+CRASHSRCDIR := /src/kerntools/crash-4.0-4.10
 
 PYTHON := python
 
@@ -17,6 +17,8 @@ ifdef STATICBUILD
   DEFINES := -DSTATICBUILD
   buildtype := --static
 endif
+
+SRCDIR :=  $(shell $(PYTHON) pyconf.py --srcdir $(buildtype)) 
 
 
 PYINCLUDE := $(shell $(PYTHON) pyconf.py --includes $(buildtype))
@@ -48,7 +50,10 @@ ifeq ($(TARGET),X86_64)
   EXT = pykdump64.so
 endif
 
+
 all: $(EXT)
+
+
 
 .PHONY: clean distclean install
 
@@ -58,7 +63,19 @@ all: $(EXT)
 gdbspec.o: gdbspec.c
 	$(CC) -c $(CFLAGS) $(GDBINCL) $(PYINCLUDE)  $< -o $@
 
-$(EXT): epython.o functions.o gdbspec.o
+OBJS :=  epython.o functions.o gdbspec.o
+
+ifdef STATICBUILD
+  OBJS += pythonrun.o
+endif
+
+SRCDIR = /src/Python/Python-2.5.1
+pythonrun.o: $(SRCDIR)/Python/pythonrun.c
+	sed 's/Py_Exit(int sts)/xPy_Exit(int sts)/'  $(SRCDIR)/Python/pythonrun.c >pythonrun.c
+	$(CC) -c $(CFLAGS) $(GDBINCL) $(PYINCLUDE)  pythonrun.c -o $@
+	@rm -f pythonrun.c
+
+$(EXT): $(OBJS)
 	$(CC) -nostartfiles -shared  $(LINKFLAGS)  $^ -o $@  $(LIBS)
 
 install: $(EXT)
@@ -69,5 +86,5 @@ install: $(EXT)
 	$(INSTALL) $(EXT) $(DESTDIR)
 
 clean:
-	rm -f epython.o functions.o gdbspec.o $(EXT)
+	rm -f $(OBJS) $(EXT)
 

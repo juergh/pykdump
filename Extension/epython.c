@@ -1,9 +1,9 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <07/11/29 15:49:28 alexs>
+  Time-stamp: <08/01/28 17:11:14 alexs>
 
-  Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
-  Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
+  Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
+  Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
  
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -22,14 +22,15 @@
 #include <stdlib.h>
 #include <sys/times.h>
 
-#include <libgen.h>
-
 
 #include "defs.h"    /* From the crash source top-level directory */
 
 int debug = 0;
 
-static const char *crash_version = "0.3";
+static const char *crash_version = "0.5";
+static char *ext_filename = NULL;
+#define BUFLEN 1024
+
 
 /* Initialize the crashmodule stuff */
 void initcrash(const char *) ;
@@ -45,14 +46,12 @@ void initcrash(const char *) ;
 
 PyAPI_DATA(int) Py_NoSiteFlag;
 
-#if !defined(STATICBUILD)
 
 void
 Py_Exit(int sts) {
   if (sts)
     printf("sys.exit(%d)\n", sts);
 }
-#endif
 
 
 // The next pair of functions makes it possible to run some tasks
@@ -116,21 +115,138 @@ static struct command_table_entry command_table[] = {
 };
 
 
-_init() /* Register the command set. */
-{ 
-        register_extension(command_table);
-	if (getenv("PYKDUMPDEBUG"))
-	  debug = atoi(getenv("PYKDUMPDEBUG"));
-}
- 
-/* 
- *  The _fini() function is called if the shared object is unloaded. 
- *  If desired, perform any cleanups here. 
- */
-_fini() { }
 
 static int py_fclose(FILE *fp) {
   return 0;
+}
+
+/* There is a problem when unloading the extension built with Python
+   shared library. In this case we load other .so files as needed.
+   As a result, the reference count of or .so does not go to zero and
+   when you load again, _init is not called. This is true even for
+   __attribute__ mechanism. But everything's OK for ZIPped version
+*/
+
+/* Old-style constructrs/destructors for dlopen. */
+void _init(void)  {
+//void __attribute__((constructor)) n_init(void) {
+  PyObject *syspath, *sysm;
+  char buffer[BUFLEN];
+  PyObject *s;
+
+  /*
+    WARNING:
+    dlopen() manpage says that _init() is not very reliable and can be called
+    twice in some cases.
+  */
+  if (getenv("PYKDUMPDEBUG"))
+    debug = atoi(getenv("PYKDUMPDEBUG"));
+  if (debug)
+    printf("Running epython_init\n");
+
+  ext_filename = malloc(strlen(pc->curext->filename)+1);
+  strcpy(ext_filename,  pc->curext->filename);
+  if (debug)
+    printf("extname=%s\n", ext_filename);
+  
+  if (!Py_IsInitialized()) {
+#if defined(STATICBUILD)
+    Py_NoSiteFlag = 1;
+    Py_FrozenFlag = 1;
+    Py_IgnoreEnvironmentFlag = 1;
+    Py_SetPythonHome("");
+#endif
+    if (debug)
+      fprintf(fp, "     *** Initializing Embedded Python %s ***\n", crash_version);
+    Py_Initialize();
+    PyEval_InitThreads();
+    initcrash(crash_version);
+    syspath = PySys_GetObject("path");
+    // For static builds, reset sys.path from scratch
+#if defined(STATICBUILD)
+    while (PySequence_DelItem(syspath, 0) != -1);
+    s = PyString_FromString(ext_filename);
+    PyList_Append(syspath, s);
+    Py_DECREF(s);
+    strcpy(buffer, ext_filename);
+    strcat(buffer, "/lib/python2.5");
+    s = PyString_FromString(buffer);
+    PyList_Append(syspath, s);
+    Py_DECREF(s);
+#endif
+  } else {
+    if (debug)
+      printf("Trying to Py_Initialize() twice\n");
+  }
+  //sysm = PyImport_ImportModule("sys");
+  register_extension(command_table);
+  if (debug) {
+    printf("Epython extension registered\n");
+    //PyRun_SimpleString("import sys; print sys.path");
+  }
+  return;
+}
+ 
+void _fini(void) {
+  //void __attribute__((destructor)) n_fini(void) {
+  if (debug)
+    printf("Unloading epython\n");
+  free(ext_filename);
+  ext_filename = NULL;
+  Py_Finalize();
+}
+
+
+
+/*
+  Try to run the program from internal ZIP (should be in progs/).
+ */
+
+static int
+run_fromzip(const char *progname) {
+  PyObject *main, *m, *importer;
+  PyCodeObject *code;
+  PyObject *d, *v;
+  PyObject *ZipImportError;
+  m = PyImport_ImportModule("zipimport");
+  if (!m) {
+    printf("Cannot import <zipimport> module\n");
+    return 0;
+  }
+  importer = PyObject_CallMethod(m, "zipimporter", "s", ext_filename);
+  Py_DECREF(m);
+  code = (PyCodeObject *) PyObject_CallMethod(importer, "get_code", "s",
+					      progname);
+  Py_DECREF(importer);
+  if (!code) {
+    printf("Cannot getcode for <%s>\n", progname);
+    return 0;
+  }
+  
+  m = PyImport_AddModule("__main__");
+  if (m == NULL)
+    return 0;
+  d = PyModule_GetDict(m);
+  v =  PyString_FromString(progname);
+  PyDict_SetItemString(d, "__file__", v);
+  Py_DECREF(v);
+
+  /* Execute code in __main__ context */
+  if (debug)
+    printf("Executing code from ZIP\n");
+  v = PyEval_EvalCode(code, d, d);
+
+  Py_DECREF(code);
+ 
+  if (v == NULL) {
+    // Even though we have been able to run the program, it has ended
+    // raising an exception
+    PyErr_Print();
+    return 1;
+  }
+  Py_DECREF(v);
+  return 1;
+  
 }
 
 /* 
@@ -140,15 +256,7 @@ static int py_fclose(FILE *fp) {
  *  to accomplish what your task.
  */
 
-#if defined(X86)
-const char *PYHOME = "Python32";
-#endif
 
-#if defined(X86_64)
-const char *PYHOME = "Python64";
-#endif
-
-#define BUFLEN 1024
 
 /* Search for our Python program:
 	    1. Check whether we have it in the current directory
@@ -163,8 +271,8 @@ const char *find_pyprog(const char *prog) {
     char buf2[BUFSIZE];
     static char buf1[BUFSIZE];
     char *tok;
-    
-    //If prognames start from '/', no need to searching
+
+    //If prognames start from '/', no need to search
     if (prog[0] == '/')
         return prog;
 
@@ -176,19 +284,23 @@ const char *find_pyprog(const char *prog) {
 
     tok = strtok(buf2, ":");
     while (tok) {
-	sprintf(buf1, "%s/%s", tok, prog);
-	if (debug)
-	   printf("searching for %s\n", buf1);
-	if (file_exists(buf1, NULL)) {
-	    return buf1;
-	}
-	sprintf(buf1, "%s/%s.py", tok, prog);
-	if (debug)
-	   printf("searching for %s\n", buf1);
-	if (file_exists(buf1, NULL)) {
-	    return buf1;
-	}
-	tok = strtok(NULL, ":");
+        sprintf(buf1, "%s/%s", tok, prog);
+        if (debug)
+           printf("Checking %s\n", buf1);
+        if (file_exists(buf1, NULL)) {
+          if (debug)
+            printf("Found: %s\n",  buf1);
+          return buf1;
+        }
+        sprintf(buf1, "%s/%s.py", tok, prog);
+        if (debug)
+           printf("Checking %s\n", buf1);
+        if (file_exists(buf1, NULL)) {
+          if (debug)
+            printf("Found: %s\n",  buf1);
+          return buf1;
+        }
+        tok = strtok(NULL, ":");
     }
     return NULL;
 }
@@ -196,96 +308,43 @@ const char *find_pyprog(const char *prog) {
 void
 cmd_epython()
 {
-  FILE *scriptfp;
+  FILE *scriptfp = NULL;
   PyObject *crashfp;
-  static PyObject *sysm = NULL, *crashm = NULL;
-  PyObject *syspath;
+  PyObject *sysm;
   static long TICKSPS;
-  struct tms t1, t2;
   const char *pypath;
-  const char *oneshot;
   const char *prog;
   char buffer[BUFLEN];
-        
-  path = getenv("PATH");
-  // Search in PATH. If there is no '.py' suffix try to append it
-  if (argcnt < 1) {
-    fprintf(fp, " You need to specify a program file\n");
-    return;
 
+  
+  // Search in PATH. If there is no '.py' suffix try to append it
+  path = getenv("PATH");
+  if (argcnt < 2) {
+    fprintf(fp, " You need to specify a program file\n");
+    // No arguments passed
+    return;
   }
+
   
   prog = find_pyprog(args[1]);
-  if (!prog) {
-    fprintf(fp, " Cannot find the program <%s>\n", args[1]);
-    return;
-
+  if (prog) {
+    args[1] = (char *) prog;		/* Is hopefully OK */
+    scriptfp = fopen(prog, "r");
+    /* No need to do anything if the file does not exist */
+    if (scriptfp == NULL) {
+      fprintf(fp, " Cannot open the file <%s>\n", prog);
+      return;
+    }
   }
+
+  sysm = PyImport_ImportModule("sys");
   
-  scriptfp = fopen(prog, "r");
-  /* No need to do anything if the file does not exist */
-  if (scriptfp == NULL) {
-    fprintf(fp, " Cannot open the file <%s>\n", prog);
-    return;
-  }
-  if (!Py_IsInitialized()) {
-    // A hack - add a correct PATH if needed
-    // Are we running 32-bit or 64-bit?
-    if (sizeof(long) == 4)
-      pypath = getenv("PYTHON32LIB");
-    else
-      pypath = getenv("PYTHON64LIB");
-
-	
-#if defined(STATICBUILD)
-    Py_NoSiteFlag = 1;
-    if (pypath) {
-      snprintf(buffer, BUFLEN, "PYTHONHOME=%s/%s", pypath, PYHOME);
-      putenv(buffer);
-    } else if (argcnt > 1) {
-      // Use the path of the 1st Python script executed
-      char *prog, *pdir;
-      readlink(prog, buffer, BUFLEN);
-      prog = strdup(buffer);
-      pdir = dirname(prog);
-      snprintf(buffer, BUFLEN, "PYTHONHOME=%s/%s", pdir, PYHOME);
-      putenv(buffer);
-      free(prog);
-    }
-#else
-    if (pypath) {
-      Py_NoSiteFlag = 1;
-      snprintf(buffer, BUFLEN, "PYTHONHOME=%s", pypath);
-      putenv(buffer);      
-    }
-
-#endif
-    if (debug)
-      fprintf(fp, "     *** Initializing Embedded Python %s ***\n", crash_version);
-    Py_Initialize();
-    PyEval_InitThreads();
-    initcrash(crash_version);
-    sysm = PyImport_ImportModule("sys");
-    crashm = PyImport_ImportModule("crash");
-    if (debug)
-      PyRun_SimpleString("import sys;print sys.path");
-    
-    if (0) {
-      snprintf(buffer, BUFLEN, "import sys;sys.path.insert(0, \"%s\")", pypath);
-      //printf("CMD=%s\n", buffer);
-      PyRun_SimpleString(buffer);
-    }
-    // For static build, set PYTHONHOME to the first directory in sys.path
-  
-    TICKSPS = sysconf(_SC_CLK_TCK);
-  }
-  times(&t1);
   // Connect sys.stdout to fp
   crashfp = PyFile_FromFile(fp, "<crash fp>", "w", py_fclose);
 
   // We should add handling exceptions here to prevent 'crash' from exiting
   if (argcnt > 1) {
-    PyRun_SimpleString("import sys");
+    /* PySys_SetArgv prepends to sys.path, don't forget to remove it later */
     PySys_SetArgv(argcnt-1, args+1);
     PyModule_AddObject(sysm, "stdout", crashfp);
 
@@ -293,35 +352,28 @@ cmd_epython()
      of epython as it is normally defined in API.py which is not loaded yet */
     call_sys_enterepython();
     /* This is where we run the real user-provided script */
-    PyRun_SimpleFile(scriptfp, args[1]);
+
+    if (scriptfp) {
+      PyRun_SimpleFile(scriptfp, args[1]);
     
-    // PyRun_SimpleFile inserts the path of command every time it is executed
-    // so it's better to remove it here
-    PyRun_SimpleString("del sys.path[0]");
-  } else {
-    // No arguments passed
-    PyRun_SimpleString("import sys; print sys.path");
-  }
+    } else {
+      /* Try to load code from ZIP */
+      int rc = 0;
+#if defined(STATICBUILD)
+      strcpy(buffer, "progs/");
+      rc = run_fromzip(strncat(buffer, args[1], BUFLEN - 60));
+#endif
+      if (!rc)
+	fprintf(fp, " Cannot find the program <%s>\n", args[1]);
+    }
+
+    // Remove frim sys.path the 1st element, inserted by PySys_SetArgv
+    PySequence_DelItem(PySys_GetObject("path"), 0);
+
+  } 
   // Run epython exitfuncs (if registered)
   call_sys_exitepython();
-
-  /* 
-  times(&t2);
-  fprintf(fp, "  -- %6.2fs --\n",
-	  ((double)(t2.tms_utime-t1.tms_utime))/TICKSPS);
   fflush(fp);
-
-  */
-    
-  fflush(fp);
-
-  if (0) {
-    // Destroy - unfortunately this sometimes leads to segfaults, better not to
-    // not it here
-    Py_DECREF(crashfp);
-    Py_Finalize();
-    exit(0);
-  }
 }
 
  

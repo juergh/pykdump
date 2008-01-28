@@ -15,7 +15,8 @@ staticbuild = False
 opts, args = getopt.getopt(sys.argv[1:],
                            'd',
                            ['static', 'cc', 'cflags', 'includes',
-                            'linkflags', 'libs']
+                            'linkflags', 'libs', 'srcdir', 'stdlib',
+                            'compileall']
                            )
 
 for o, a in opts:
@@ -25,26 +26,38 @@ for o, a in opts:
         staticbuild = True
 
 # System libraries we need to link with
-
+testprog = get_config_var('TESTPROG')
 extralibs = get_config_var('LIBS')
 syslibs = get_config_var('SYSLIBS')
 cc = get_config_var('CC')
 cflags = get_config_var('CFLAGSFORSHARED')
 ldflags = get_config_var('LINKFORSHARED')
+stdlib = get_config_var('LIBP')
+compileall = os.path.join(stdlib, "compileall.py")
+# Strip2 levels
+for i in range(2):
+    stdlib = os.path.split(stdlib)[0]
+
+#for k,v in get_config_vars().items():
+#    print k, v
 
 # If compiler is not installed (i.e. compiled but no 'make install'),
 # we have config_h equal to './pyconfig.h'
 
 config_h = get_config_h_filename()
+if (debug):
+    print " *** pyconfig.h at %s ***" % config_h
 
-if (config_h[0] == '.'):
+srcdir = ''
+
+if (testprog[:2] != '..'):
     # We did not run 'make install' and are using the sourcetree
     sourcetree = os.path.dirname(get_makefile_filename())
     if (debug):
         print " *** Source-tree Python at %s ***" % sourcetree
 
     inc1 = get_python_inc()
-    inc2 = os.path.dirname(inc1)
+    srcdir = inc2 = os.path.dirname(inc1)
     includes = "-I%s -I%s" % (inc1, inc2)
 
     # At this moment this works with static build only
@@ -62,6 +75,7 @@ else:
     else:
         # A library for dynamic build
         pylib =  get_config_var('BLDLIBRARY')
+
 
 linkflags = string.join((
     ' -nostartfiles -shared',
@@ -108,3 +122,9 @@ for o, a in opts:
         print linkflags
     elif (o == '--libs'):
         print libs      
+    elif (o == '--srcdir'):
+        print srcdir     
+    elif (o == '--stdlib'):
+        print stdlib     
+    elif (o == '--compileall'):
+        print compileall
