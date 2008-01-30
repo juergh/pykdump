@@ -3,7 +3,7 @@
 # and its development packages installed properly, you only need to customize
 # the next line (CRASH sources location)
 
-CRASHSRCDIR := /src/kerntools/crash-4.0-4.10
+CRASHSRCDIR := /src/kerntools/crash-4.0-4.13
 
 PYTHON := python
 
@@ -20,12 +20,13 @@ endif
 
 SRCDIR :=  $(shell $(PYTHON) pyconf.py --srcdir $(buildtype)) 
 
+DEBUG =  -g
 
 PYINCLUDE := $(shell $(PYTHON) pyconf.py --includes $(buildtype))
 CC := $(shell $(PYTHON)  pyconf.py --cc $(builtype))
-CFLAGS := $(shell $(PYTHON)  pyconf.py --cflags $(buildtype))
+CFLAGS := $(shell $(PYTHON)  pyconf.py --cflags $(buildtype)) $(DEBUG)
 LIBS := $(shell $(PYTHON)  pyconf.py --libs $(buildtype))
-LINKFLAGS := $(shell $(PYTHON)  pyconf.py --linkflags $(buildtype))
+LINKFLAGS := $(shell $(PYTHON)  pyconf.py --linkflags $(buildtype)) $(DEBUG)
 
 
 TARGET := $(shell grep '^TARGET=' $(CRASHSRCDIR)/Makefile | sed -e s/TARGET=//)
@@ -39,15 +40,15 @@ GDBINCL =  -I$(GDBDIR)  -I$(GDBDIR)/config  -I$(GDBDIR)/../bfd \
 
 # Older 'make' does not support 'else ifeq'
 
-EXT = pykdump64.so
+EXT = mpykdump64.so
 
 
 ifeq ($(TARGET),X86)
-  EXT = pykdump32.so
+  EXT = mpykdump32.so
 endif
 
 ifeq ($(TARGET),X86_64)
-  EXT = pykdump64.so
+  EXT = mpykdump64.so
 endif
 
 
@@ -55,7 +56,8 @@ all: $(EXT)
 
 
 
-.PHONY: clean distclean install
+.PHONY: clean distclean standalone_clean install
+vpath %.c ..
 
 %o: %c
 	$(CC) -c $(CFLAGS) $(DEFINES) $(INCLUDES) $< -o $@
@@ -76,7 +78,7 @@ pythonrun.o: $(SRCDIR)/Python/pythonrun.c
 	@rm -f pythonrun.c
 
 $(EXT): $(OBJS)
-	$(CC) -nostartfiles -shared  $(LINKFLAGS)  $^ -o $@  $(LIBS)
+	$(CC) -shared  $(LINKFLAGS)  $^ -o $@  $(LIBS)
 
 install: $(EXT)
 	if test ! -d $(DESTDIR); then \
@@ -85,6 +87,20 @@ install: $(EXT)
 	fi;
 	$(INSTALL) $(EXT) $(DESTDIR)
 
-clean:
-	rm -f $(OBJS) $(EXT)
+all: $(EXT)
 
+build_standalone:
+	@mkdir build_standalone
+	@-ln -sf ../pyconf.py build_standalone
+
+standalone: build_standalone
+	make STATICBUILD=1 -C build_standalone -f ../Makefile all pylib.zip
+
+clean:
+	rm -f $(OBJS) pythonrun.o $(EXT)
+
+pylib.zip: ../minpylib.lst
+	cat $< | (cd $(STDLIBP); zip - -@)| cat> $@
+
+standalone_clean:
+	make  -C build_standalone -f ../Makefile clean
