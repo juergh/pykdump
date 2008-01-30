@@ -111,6 +111,8 @@ do_ftype(struct type *ftype, PyObject *item) {
   struct type *range_type;
   struct type *tmptype;
 
+  PyObject *v;
+
   char buf[256];
 
   int i;
@@ -136,8 +138,13 @@ do_ftype(struct type *ftype, PyObject *item) {
   switch (codetype) {
   case TYPE_CODE_STRUCT:
   case TYPE_CODE_UNION:
-    fname = PyDict_GetItem(item, PyString_FromString("fname"));
-    ptr = PyDict_GetItem(item, PyString_FromString("stars"));
+    v = PyString_FromString("fname");
+    fname = PyDict_GetItem(item, v);
+    Py_DECREF(v);
+
+    v = PyString_FromString("stars");
+    ptr = PyDict_GetItem(item, v);
+    Py_DECREF(v);
     /* Expand only if we don't have tagname or fname */
     if (tagname != NULL) {
       if (codetype == TYPE_CODE_STRUCT)
@@ -174,9 +181,15 @@ do_ftype(struct type *ftype, PyObject *item) {
 	myDict_SetCharChar(item, "typedef", ttypename);
       CHECK_TYPEDEF(tmptype);
     }
-    PyDict_SetItemString(item, "stars", PyInt_FromLong(stars));
-    PyDict_SetItemString(item, "ptrbasetype",
-			 PyInt_FromLong(TYPE_CODE(tmptype)));
+    
+    v =  PyInt_FromLong(stars);
+    PyDict_SetItemString(item, "stars", v);
+    Py_DECREF(v);
+
+    v = PyInt_FromLong(TYPE_CODE(tmptype));
+    PyDict_SetItemString(item, "ptrbasetype", v);
+    Py_DECREF(v);
+
     do_ftype(tmptype, item);
     break;
   case TYPE_CODE_FUNC:
@@ -192,8 +205,10 @@ do_ftype(struct type *ftype, PyObject *item) {
     do_ftype(ftype, item);
     break;
   case TYPE_CODE_INT:
-    PyDict_SetItemString(item, "uint",
-		   PyInt_FromLong(TYPE_UNSIGNED(ftype)));
+    v= PyInt_FromLong(TYPE_UNSIGNED(ftype));
+    PyDict_SetItemString(item, "uint", v);
+    Py_DECREF(v);
+    
     myDict_SetCharChar(item, "basetype", TYPE_NAME(ftype));
     break;
   case TYPE_CODE_ARRAY:
@@ -216,10 +231,14 @@ do_ftype(struct type *ftype, PyObject *item) {
 
     do_ftype(ftype, item);
     PyObject *pdims = PyList_New(0);
-    for (i=0; i < ndim; i++)
-      PyList_Append(pdims, PyInt_FromLong(dims[i]));
+    for (i=0; i < ndim; i++) {
+      v = PyInt_FromLong(dims[i]);
+      PyList_Append(pdims, v);
+      Py_DECREF(v);
+    }
     
     PyDict_SetItemString(item, "dims", pdims);
+    Py_DECREF(pdims);
     break;
   default:
     myDict_SetCharChar(item, "basetype", TYPE_NAME(ftype));
@@ -231,9 +250,13 @@ do_ftype(struct type *ftype, PyObject *item) {
      original CODE_TYPE (pointer) and target type (when all
      stars are removed)
   */
-  PyDict_SetItemString(item, "codetype", PyInt_FromLong(TYPE_CODE(ftype)));
-  PyDict_SetItemString(item, "typelength",
-		 PyInt_FromLong(TYPE_LENGTH(ftype)));
+  v = PyInt_FromLong(TYPE_CODE(ftype));
+  PyDict_SetItemString(item, "codetype", v);
+  Py_DECREF(v);
+
+  v = PyInt_FromLong(TYPE_LENGTH(ftype));
+  PyDict_SetItemString(item, "typelength", v);
+  Py_DECREF(v);
   
 }
 
@@ -252,6 +275,7 @@ do_func(struct type *type, PyObject *pitem) {
   PyList_Append(body, item);
   myDict_SetCharChar(item, "fname", "returntype");
   do_ftype(return_type, item);
+  Py_DECREF(item);
 
   for (i=0; i < nfields; i++) {
     struct type *ftype = TYPE_FIELD_TYPE(type, i);
@@ -261,13 +285,17 @@ do_func(struct type *type, PyObject *pitem) {
     myDict_SetCharChar(item, "fname", buf);
  
     do_ftype(ftype, item);
+    Py_DECREF(item);
   }
+  Py_DECREF(body);
 }
     
 static void
 do_SU(struct type *type, PyObject *pitem) {
   int nfields =   TYPE_NFIELDS(type);
   int i;
+  PyObject *v;
+
   PyObject *body = PyList_New(0);
   PyDict_SetItemString(pitem, "body", body);
 
@@ -280,12 +308,21 @@ do_SU(struct type *type, PyObject *pitem) {
     int bsize = TYPE_FIELD_BITSIZE(type, i);
 
     myDict_SetCharChar(item, "fname", fname);
-    if (bsize)
-      PyDict_SetItemString(item, "bitsize", PyInt_FromLong(bsize));
-    PyDict_SetItemString(item, "bitoffset",  PyInt_FromLong(boffset));
+    if (bsize) {
+      v = PyInt_FromLong(bsize);
+      PyDict_SetItemString(item, "bitsize", v);
+      Py_DECREF(v);
+    }
+
+    v = PyInt_FromLong(boffset);
+    PyDict_SetItemString(item, "bitoffset", v);
+    Py_DECREF(v);
    
     do_ftype(ftype, item);
+    Py_DECREF(item);
+
   }
+  Py_DECREF(body);
  
 }
 
@@ -315,7 +352,6 @@ PyObject * py_gdb_typeinfo(PyObject *self, PyObject *args) {
   if (type == NULL)
     my_error_hook();
 
-  //PyList_Append(toplist, PyString_FromString(typename));
   PyObject *topdict =  PyDict_New();
   do_ftype(type, topdict);
   

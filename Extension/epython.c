@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <08/01/28 17:11:14 alexs>
+  Time-stamp: <08/01/30 16:13:08 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -43,8 +43,6 @@ void initcrash(const char *) ;
    version of this function. This works on IA32 but I am not sure about other
    architectures
 */
-
-PyAPI_DATA(int) Py_NoSiteFlag;
 
 
 void
@@ -161,24 +159,27 @@ void _init(void)  {
     Py_Initialize();
     PyEval_InitThreads();
     initcrash(crash_version);
-    syspath = PySys_GetObject("path");
+    //sysm = PyImport_ImportModule("sys");
     // For static builds, reset sys.path from scratch
 #if defined(STATICBUILD)
-    while (PySequence_DelItem(syspath, 0) != -1);
+    PySys_SetPath("");
+    syspath = PySys_GetObject("path");
+    Py_INCREF(syspath);
     s = PyString_FromString(ext_filename);
-    PyList_Append(syspath, s);
+    //PyList_Append(syspath, s);
+    PyList_SetItem(syspath, 0, s);
     Py_DECREF(s);
     strcpy(buffer, ext_filename);
     strcat(buffer, "/lib/python2.5");
     s = PyString_FromString(buffer);
     PyList_Append(syspath, s);
+    Py_DECREF(syspath);
     Py_DECREF(s);
 #endif
   } else {
     if (debug)
       printf("Trying to Py_Initialize() twice\n");
   }
-  //sysm = PyImport_ImportModule("sys");
   register_extension(command_table);
   if (debug) {
     printf("Epython extension registered\n");
@@ -384,8 +385,8 @@ char *help_epython[] = {
  
         "  This command invokes embedded Python.",
         "\nEXAMPLE",
-        "  Output information about net devices:\n",
-        "    crash> epython netdev.py",
+        "  Output help information for 'xportshow' tool:\n",
+        "    crash> epython xportshow.py --help",
         NULL
 };
 
