@@ -35,6 +35,7 @@ static char *ext_filename = NULL;
 /* Initialize the crashmodule stuff */
 void initcrash(const char *) ;
 
+static int run_fromzip(const char *progname);
 
 /* This function is called when we do sys.exit(n). The standard Py_Exit is
    defines in Python sourcefile Modules/pythonrun.c and it does Py_Finalize
@@ -164,26 +165,26 @@ void _init(void)  {
 #if defined(STATICBUILD)
     PySys_SetPath("");
     syspath = PySys_GetObject("path");
-    Py_INCREF(syspath);
     s = PyString_FromString(ext_filename);
-    //PyList_Append(syspath, s);
-    PyList_SetItem(syspath, 0, s);
+    PyList_Append(syspath, s);
+    //PyList_SetItem(syspath, 0, s);
     Py_DECREF(s);
     strcpy(buffer, ext_filename);
     strcat(buffer, "/lib/python2.5");
     s = PyString_FromString(buffer);
     PyList_Append(syspath, s);
-    Py_DECREF(syspath);
+    //Py_DECREF(syspath);
     Py_DECREF(s);
 #endif
   } else {
     if (debug)
       printf("Trying to Py_Initialize() twice\n");
   }
+
   register_extension(command_table);
   if (debug) {
     printf("Epython extension registered\n");
-    //PyRun_SimpleString("import sys; print sys.path");
+    PyRun_SimpleString("import sys; print sys.path");
   }
   return;
 }
@@ -223,10 +224,10 @@ run_fromzip(const char *progname) {
     printf("Cannot getcode for <%s>\n", progname);
     return 0;
   }
-  
   m = PyImport_AddModule("__main__");
   if (m == NULL)
     return 0;
+
   d = PyModule_GetDict(m);
   v =  PyString_FromString(progname);
   PyDict_SetItemString(d, "__file__", v);
