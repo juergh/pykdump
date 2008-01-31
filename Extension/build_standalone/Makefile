@@ -60,5 +60,5 @@ find:
 	cd ../..; $(call FIND, pykdump)
 
 pycompile:
-	$(PYTHON) $(COMPALL) ../../pykdump
-	$(PYTHON) $(COMPALL) ../../LinuxDump
+	$(PYTHON) $(COMPALL) -f ../../pykdump
+	$(PYTHON) $(COMPALL) -f ../../LinuxDump
