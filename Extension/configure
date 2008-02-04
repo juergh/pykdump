@@ -60,7 +60,7 @@ if test "${CRASHDIR+set}" != set; then
    exit 1
 fi
 
-TARGET=`grep '^TARGET=' ${CRASHDIR}/Makefile | sed -e s/TARGET=//)`
+TARGET=`grep '^TARGET=' ${CRASHDIR}/Makefile | sed -e s/TARGET=//`
 
 # Now output all crash-specific variables to crash.mk
 echo "# Configuration options for 'crash' tree\n" > $cmk
