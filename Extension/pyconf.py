@@ -35,8 +35,8 @@ ldflags = get_config_var('LINKFORSHARED')
 stdlib = get_config_var('LIBP')
 compileall = os.path.join(stdlib, "compileall.py")
 # Strip2 levels
-for i in range(2):
-    stdlib = os.path.split(stdlib)[0]
+#for i in range(2):
+#    stdlib = os.path.split(stdlib)[0]
 
 #for k,v in get_config_vars().items():
 #    print k, v

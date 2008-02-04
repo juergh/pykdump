@@ -1,0 +1,125 @@
+#! /bin/sh
+
+# This is not a GNU-autoconf configure but rather a small utility
+# to create the local.mk to be included in makefiles
+
+cmk="crash.mk"
+lmk="local.mk"
+slmk="slocal.mk"
+
+help="yes"
+
+Usage() {
+  # Omit some internal or obsolete options to make the list less imposing.
+  # This message is too long to be a string in the A/UX 3.1 sh.
+  cat <<_ACEOF
+\`configure' lets you specify the location of Python and Crash source trees.
+
+Usage: $0 [OPTION]... [VAR=VALUE]...
+
+To assign environment variables (e.g., CC, CFLAGS...), specify them as
+VAR=VALUE.  See below for descriptions of some of the useful variables.
+
+Defaults for the options are specified in brackets.
+
+Configuration:
+  -h, --help              display this help and exit
+   --p DIR		  specify the Python source tree dir
+   --c DIR		  specify the Crash source tree dir
+_ACEOF
+}
+
+while [ "$#" -gt "0" ]
+do
+    case $1 in
+        -c|--crashdir)
+	    shift
+	    CRASHDIR=$1
+            ;;
+        -p|--pythondir)
+            shift
+            PYTHONDIR=$1
+            ;;
+        -h|--help)
+            Usage
+            exit 0
+            ;;
+        *)
+            echo "Syntax Error"
+            Usage
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+echo "CRASHDIR=$CRASHDIR  PYTHONDIR=$PYTHONDIR"
+
+if test "${CRASHDIR+set}" != set; then
+   echo "You need to specify the source-tree directory where crash is built"
+   exit 1
+fi
+
+TARGET=`grep '^TARGET=' ${CRASHDIR}/Makefile | sed -e s/TARGET=//)`
+
+# Now output all crash-specific variables to crash.mk
+echo "# Configuration options for 'crash' tree\n" > $cmk
+echo "CRASHDIR := ${CRASHDIR}" >> $cmk
+echo "GDBDIR := ${CRASHDIR}/gdb-6.1/gdb" >>$cmk
+echo 'GDBINCL =  -I$(GDBDIR)  -I$(GDBDIR)/config  -I$(GDBDIR)/../bfd \\'>>$cmk 
+echo '  -I$(GDBDIR)/../include -I$(GDBDIR)/../intl' >>$cmk
+echo "TARGET := ${TARGET}\n" >>$cmk
+
+# Now find all other directories and compilation flags using pyconf
+# If Python is already installed on this host, we can use it for
+# development version (i.e. using locally installed shared libraries).
+# This is not suitable for packaged distribution as the built modules
+# will depend on local shared libraries and Python libraries
+
+PYTHON=python
+
+# Test whether a locally-installed python is present
+if ${PYTHON} -c "import os"; then
+  echo "# Configuration options for local build\n" > $lmk
+
+  echo "PYTHON := ${PYTHON}" >>$lmk
+  echo "PYINCLUDE := `${PYTHON} pyconf.py --includes`" >>$lmk
+  echo "CC := `${PYTHON}  pyconf.py --cc`" >>$lmk
+  echo "CFLAGS := `${PYTHON}  pyconf.py --cflags`"  >>$lmk
+  echo "LIBS := `${PYTHON}  pyconf.py --libs`"  >>$lmk
+  echo "LINKFLAGS := `${PYTHON}  pyconf.py --linkflags`" >>$lmk
+
+fi
+
+# Is PYTHONDIR or are we using the default Python ?
+
+if test "${PYTHONDIR+set}" != set; then
+  # No need to do anything else
+  exit 0
+fi
+
+
+# As source-built Python uses shared library, we need to
+# set some environment variables properly
+PYTHON=${PYTHONDIR}/python
+export LD_LIBRARY_PATH=${PYTHONDIR}
+# Check whether we can run the Python from that directory
+if ! ${PYTHON} -c "import os"; then
+  echo "Cannot use the source-tree Python, did you built it properly?"
+  exit 1
+fi
+
+echo "# Configuration options for static-build\n" > $slmk
+
+echo "PYTHONDIR := ${PYTHONDIR}" >>$slmk
+echo "PYTHON := env LD_LIBRARY_PATH=${PYTHONDIR} ${PYTHONDIR}/python" >>$slmk
+echo "PYINCLUDE := `${PYTHON} pyconf.py --includes`" >>$slmk
+echo "CC := `${PYTHON}  pyconf.py --cc`" >>$slmk
+echo "CFLAGS := `${PYTHON}  pyconf.py --cflags`"  >>$slmk
+echo "LIBS := `${PYTHON}  pyconf.py --libs`"  >>$slmk
+echo "LINKFLAGS := `${PYTHON}  pyconf.py --linkflags`" >>$slmk 
+   
+# Extras for static build
+echo "STDLIBP :=  `${PYTHON} pyconf.py --stdlib`" >>$slmk
+echo "COMPALL :=  `${PYTHON}  pyconf.py --compileall`" >>$slmk
+

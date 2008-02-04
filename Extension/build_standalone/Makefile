@@ -1,64 +1,97 @@
 #
-# Makefile to build standalone extension (with all Python stuff linked in)
-# We rely on the top-level Makefile to build the extension itself,
-# here we build Python libraries, zip them and append to the end of executable
+# Makefile to build standalone extension. We link with nonshared Python library
+# and create a ZIP with allpure Python code
 
-PYTHON := python
 
-INSTALL := /usr/bin/install
+# Programs from prog/ ro include
+PROGS := crashinfo.py xportshow.py task.py itest.py
+ZIPPROGS := $(addprefix progs/, $(PROGS))
+FULLPROGS =  $(addprefix ../../progs/, $(PROGS))
 
-STDLIBP :=  $(shell $(PYTHON)  ../pyconf.py --stdlib)
-COMPALL :=  $(shell $(PYTHON)  ../pyconf.py --compileall)
+# Check whether we ran configure
 
-# This is a directory where extension file will be copied
-DESTDIR := /usr/local/lib
-DIRMODE= 755
+c_ok := $(wildcard ../crash.mk)
 
-EXT_C = pykdump_c.so
+ifeq ($(strip $(c_ok)),)
+not_configured:
+	@echo "You need to configure the directories before running make"
+	@exit 1
+else
+  include ../crash.mk ../slocal.mk
+endif
+
+
+EXT_C := pykdump_c.so
 EXT_CPY = mpykdump.so
 
-.PHONY: $(EXT_C) clean find pycompile
+.PHONY: clean pycompile distclean
 
 all: $(EXT_CPY)
 
+INCLUDES := -I$(CRASHDIR) $(PYINCLUDE)
+DEFINES = -D$(TARGET)  -DSTATICBUILD
+DEBUG =  -g
+
+vpath %.c ..
+
+%o: %c
+	$(CC) -c $(CFLAGS) $(DEFINES) $(INCLUDES) $< -o $@
+
+gdbspec.o: gdbspec.c
+	$(CC) -c $(CFLAGS) $(GDBINCL) $(PYINCLUDE)  $< -o $@
+
+OBJS :=  epython.o functions.o gdbspec.o pythonrun.o
+
+PYTHONRUN_C = $(PYTHONDIR)/Python/pythonrun.c
+
+pythonrun.o: $(PYTHONDIR)/Python/pythonrun.c
+	sed 's/Py_Exit(int sts)/xPy_Exit(int sts)/' $(PYTHONRUN_C) >pythonrun.c
+	$(CC) -c $(CFLAGS) $(GDBINCL) $(PYINCLUDE)  pythonrun.c -o $@
+	@rm -f pythonrun.c
+
+
+$(EXT_C): $(OBJS) $(PYTHONDIR)/python
+	$(CC) -shared  $(LINKFLAGS) $(OBJS) -o $@  $(LIBS)
+
 # A minimal Python library
 PYLIB = pylib.zip
+PYLIBPREF = pylib
 
 # Full library: std Python + Pykdump + LinuxDump + Progs
 PYFULL = pyfull.zip
+PYFULLPATH = $(PWD)/$(PYFULL)
 
-# Which files to include by default
+pyparsing.pyo: pyparsing.py
+	$(PYTHON) -O -c "import pyparsing"
+
+$(PYLIB): minpylib.lst pyparsing.pyo $(PYTHONDIR)/python
+	ln -sf  $(STDLIBP) $(PYLIBPREF)
+	rm -f $(PYLIB)
+	sed -e "s|^|$(PYLIBPREF)/|" minpylib.lst | zip $(PYLIB) -@
+	zip $@ pyparsing.pyo
+	rm -f $(PYLIBPREF)
 
 FIND = find $(1) -name \*.pyc -o -type d -not \( -name .svn\* -prune \)
 
-$(PYLIB): minpylib.lst pyparsing.pyo
-	cat $< | (cd $(STDLIBP); zip $(PWD)/$(PYLIB) -@)
-	zip -r $@ pyparsing.pyo
-
-PYFULLPATH = $(PWD)/$(PYFULL)
-
-$(PYFULL): $(PYLIB)
+$(PYFULL):  $(PYLIB) $(FULLPROGS)
 	cp $(PYLIB) $(PYFULL)
 	cd ../..; $(call FIND, pykdump)  |  zip  $(PYFULLPATH) -@
 	cd ../..; $(call FIND, LinuxDump)  |  zip $(PYFULLPATH) -@
-	cd ../..; zip  $(PYFULLPATH) progs/xportshow.py progs/crashinfo.py progs/itest.py
+	cd ../..; zip  $(PYFULLPATH) $(ZIPPROGS)
 
-$(EXT_C):
-	make -f ../Makefile STATICBUILD=1 EXT=$(EXT_C)
 
+pycompile:
+	$(PYTHON) $(COMPALL) -f ../../pykdump
+	$(PYTHON) $(COMPALL) -f ../../LinuxDump
 
 $(EXT_CPY): $(EXT_C) $(PYFULL)
 	cat  $(EXT_C) $(PYFULL) >$(EXT_CPY)
 	zip -A $(EXT_CPY)
 
+
+
 clean:
-	make -f ../Makefile clean
-	rm -f $(EXT_CPY) $(EXT_C) $(PYLIB) $(PYFULL) pykdump LinuxDump progs
+	rm -f $(OBJS) $(EXT_C) $(EXT_CPY) $(PYLIB) $(PYFULL) pyparsing.pyo
 
-find:
-	cd ../..; $(call FIND, LinuxDump)
-	cd ../..; $(call FIND, pykdump)
-
-pycompile:
-	$(PYTHON) $(COMPALL) -f ../../pykdump
-	$(PYTHON) $(COMPALL) -f ../../LinuxDump
+distclean:
+	rm -f $(OBJS) $(EXT_C) $(EXT_CPY) $(PYLIB) $(PYFULL) pyparsing.pyo *~

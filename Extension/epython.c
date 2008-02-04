@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <08/01/30 16:13:08 alexs>
+  Time-stamp: <08/02/04 16:15:09 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -170,7 +170,7 @@ void _init(void)  {
     //PyList_SetItem(syspath, 0, s);
     Py_DECREF(s);
     strcpy(buffer, ext_filename);
-    strcat(buffer, "/lib/python2.5");
+    strcat(buffer, "/pylib");
     s = PyString_FromString(buffer);
     PyList_Append(syspath, s);
     //Py_DECREF(syspath);
@@ -217,6 +217,7 @@ run_fromzip(const char *progname) {
   }
   importer = PyObject_CallMethod(m, "zipimporter", "s", ext_filename);
   Py_DECREF(m);
+
   code = (PyCodeObject *) PyObject_CallMethod(importer, "get_code", "s",
 					      progname);
   Py_DECREF(importer);
@@ -224,6 +225,7 @@ run_fromzip(const char *progname) {
     printf("Cannot getcode for <%s>\n", progname);
     return 0;
   }
+
   m = PyImport_AddModule("__main__");
   if (m == NULL)
     return 0;
