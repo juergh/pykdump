@@ -17,6 +17,8 @@
 */
 
 #include <Python.h>
+#include <compile.h>        /* for PyCodeObject typedef on older releases */
+#include <eval.h>           /* for PyEval_EvalCode om older released */
 
 #include <unistd.h>
 #include <stdlib.h>

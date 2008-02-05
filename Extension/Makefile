@@ -9,11 +9,6 @@ INSTALL := /usr/bin/install
 DESTDIR := /usr/local/lib
 DIRMODE= 755
 
-ifdef STATICBUILD
-  DEFINES := -DSTATICBUILD
-  buildtype := --static
-endif
-
 DEBUG =  -g
 
 # Check whether we ran configure
@@ -32,19 +27,9 @@ endif
 INCLUDES := -I$(CRASHDIR) $(PYINCLUDE)
 DEFINES += -D$(TARGET)
 
-
 # Older 'make' does not support 'else ifeq'
 
-EXT = mpykdump64.so
-
-
-ifeq ($(TARGET),X86)
-  EXT = mpykdump32.so
-endif
-
-ifeq ($(TARGET),X86_64)
-  EXT = mpykdump64.so
-endif
+EXT = mpykdump.so
 
 
 all: $(EXT)
@@ -79,4 +64,4 @@ clean:
 
 
 distclean:
-	rm -f $(OBJS) $(EXT) *.mk *~
+	rm -f $(OBJS) $(EXT) *.mk *~ *.so

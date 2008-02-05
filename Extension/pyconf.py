@@ -11,10 +11,12 @@ from distutils.sysconfig import *
 
 debug = False
 staticbuild = False
+sourcetree = False
 
 opts, args = getopt.getopt(sys.argv[1:],
-                           'd',
-                           ['static', 'cc', 'cflags', 'includes',
+                           'ds',
+                           ['sourcetree',
+			    'static', 'cc', 'cflags', 'includes',
                             'linkflags', 'libs', 'srcdir', 'stdlib',
                             'compileall']
                            )
@@ -24,6 +26,8 @@ for o, a in opts:
         debug = True
     elif (o == '--static'):
         staticbuild = True
+    elif (o == '-s'):
+	sourcetree = True
 
 # System libraries we need to link with
 testprog = get_config_var('TESTPROG')
@@ -39,7 +43,7 @@ compileall = os.path.join(stdlib, "compileall.py")
 #    stdlib = os.path.split(stdlib)[0]
 
 #for k,v in get_config_vars().items():
-#    print k, v
+#   print k, v
 
 # If compiler is not installed (i.e. compiled but no 'make install'),
 # we have config_h equal to './pyconfig.h'
@@ -50,7 +54,7 @@ if (debug):
 
 srcdir = ''
 
-if (testprog[:2] != '..'):
+if (sourcetree):
     # We did not run 'make install' and are using the sourcetree
     sourcetree = os.path.dirname(get_makefile_filename())
     if (debug):

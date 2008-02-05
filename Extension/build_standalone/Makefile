@@ -4,7 +4,7 @@
 
 
 # Programs from prog/ ro include
-PROGS := crashinfo.py xportshow.py task.py itest.py
+PROGS := crashinfo.py xportshow.py task.py #itest.py
 ZIPPROGS := $(addprefix progs/, $(PROGS))
 FULLPROGS =  $(addprefix ../../progs/, $(PROGS))
 
@@ -25,12 +25,15 @@ EXT_C := pykdump_c.so
 EXT_CPY = mpykdump.so
 
 .PHONY: clean pycompile distclean
+.DELETE_ON_ERROR:
 
 all: $(EXT_CPY)
 
 INCLUDES := -I$(CRASHDIR) $(PYINCLUDE)
 DEFINES = -D$(TARGET)  -DSTATICBUILD
 DEBUG =  -g
+
+PYCOMPILE = pycompile
 
 vpath %.c ..
 
@@ -73,7 +76,7 @@ $(PYLIB): minpylib.lst pyparsing.pyo $(PYTHONDIR)/python
 
 FIND = find $(1) -name \*.pyc -o -type d -not \( -name .svn\* -prune \)
 
-$(PYFULL):  $(PYLIB) $(FULLPROGS)
+$(PYFULL):  $(PYLIB) $(FULLPROGS) $(PYCOMPILE)
 	cp $(PYLIB) $(PYFULL)
 	cd ../..; $(call FIND, pykdump)  |  zip  $(PYFULLPATH) -@
 	cd ../..; $(call FIND, LinuxDump)  |  zip $(PYFULLPATH) -@

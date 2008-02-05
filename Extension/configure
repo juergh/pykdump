@@ -66,9 +66,9 @@ TARGET=`grep '^TARGET=' ${CRASHDIR}/Makefile | sed -e s/TARGET=//`
 echo "# Configuration options for 'crash' tree\n" > $cmk
 echo "CRASHDIR := ${CRASHDIR}" >> $cmk
 echo "GDBDIR := ${CRASHDIR}/gdb-6.1/gdb" >>$cmk
-echo 'GDBINCL =  -I$(GDBDIR)  -I$(GDBDIR)/config  -I$(GDBDIR)/../bfd \\'>>$cmk 
-echo '  -I$(GDBDIR)/../include -I$(GDBDIR)/../intl' >>$cmk
-echo "TARGET := ${TARGET}\n" >>$cmk
+echo -e 'GDBINCL =  -I$(GDBDIR)  -I$(GDBDIR)/config  -I$(GDBDIR)/../bfd \\'>>$cmk 
+echo -e '  -I$(GDBDIR)/../include -I$(GDBDIR)/../intl' >>$cmk
+echo "TARGET := ${TARGET}" >>$cmk
 
 # Now find all other directories and compilation flags using pyconf
 # If Python is already installed on this host, we can use it for
@@ -113,13 +113,13 @@ echo "# Configuration options for static-build\n" > $slmk
 
 echo "PYTHONDIR := ${PYTHONDIR}" >>$slmk
 echo "PYTHON := env LD_LIBRARY_PATH=${PYTHONDIR} ${PYTHONDIR}/python" >>$slmk
-echo "PYINCLUDE := `${PYTHON} pyconf.py --includes`" >>$slmk
-echo "CC := `${PYTHON}  pyconf.py --cc`" >>$slmk
-echo "CFLAGS := `${PYTHON}  pyconf.py --cflags`"  >>$slmk
-echo "LIBS := `${PYTHON}  pyconf.py --libs`"  >>$slmk
-echo "LINKFLAGS := `${PYTHON}  pyconf.py --linkflags`" >>$slmk 
+echo "PYINCLUDE := `${PYTHON} pyconf.py -s --includes`" >>$slmk
+echo "CC := `${PYTHON}  pyconf.py -s --cc`" >>$slmk
+echo "CFLAGS := `${PYTHON}  pyconf.py -s --cflags`"  >>$slmk
+echo "LIBS := `${PYTHON}  pyconf.py -s --libs`"  >>$slmk
+echo "LINKFLAGS := `${PYTHON}  pyconf.py -s --linkflags`" >>$slmk 
    
 # Extras for static build
-echo "STDLIBP :=  `${PYTHON} pyconf.py --stdlib`" >>$slmk
-echo "COMPALL :=  `${PYTHON}  pyconf.py --compileall`" >>$slmk
+echo "STDLIBP :=  `${PYTHON} pyconf.py -s --stdlib`" >>$slmk
+echo "COMPALL :=  `${PYTHON}  pyconf.py -s --compileall`" >>$slmk
 
