@@ -1,4 +1,4 @@
-#! /bin/sh
+#! /bin/bash
 
 # This is not a GNU-autoconf configure but rather a small utility
 # to create the local.mk to be included in makefiles
