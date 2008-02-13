@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <08/01/04 11:38:29 alexs>
+  Time-stamp: <08/02/13 16:29:27 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -884,6 +884,124 @@ py_cpu_to_le32(PyObject *self, PyObject *args) {
   return PyLong_FromUnsignedLong(__cpu_to_le32(val));
 }
 
+/*
+  Register epython program as crash extension. Both arguments are strings
+  register_epython_prog(cmd, help)
+*/
+
+static void
+epython_subcommand() {
+  extern int epython_execute_prog(int argc, char *argv[]);
+  epython_execute_prog(argcnt, args);
+}
+
+
+static PyObject *
+py_register_epython_prog(PyObject *self, PyObject *args) {
+  //char *cmd, *short_description, *synopsis, *help;
+  char *help_data[4];
+  char *cmd;
+  long val;
+  int i;
+  int totlen;
+  struct command_table_entry *cp;
+
+  int nentries;
+
+  extern struct extension_table *epython_curext;
+  struct command_table_entry *ct = epython_curext->command_table;
+  struct command_table_entry *ce, *newce;
+
+     
+  if (!PyArg_ParseTuple(args, "ssss", &help_data[0],
+			&help_data[1],  &help_data[2],
+			&help_data[3])) {
+    PyErr_SetString(crashError, "invalid parameter(s) type"); \
+    return NULL;
+  }
+
+  cmd = help_data[0];
+  if (debug > 1)
+    printf("Registering %s\n", cmd);
+
+  /* Check for name clash */
+  if (get_command_table_entry(cmd)) {
+    error(INFO, "%s: \"%s\" is a duplicate of a currently-existing command\n",
+	  pc->curext->filename, cmd);
+    Py_RETURN_FALSE;
+  }
+
+  if (is_alias(cmd)) {
+    error(INFO,  "alias \"%s\" deleted: name clash with extension command\n",
+	  cmd);
+    deallocate_alias(cmd);
+  }
+
+
+  /* Epython's command_table is already registered. Instead of using
+     a static table of predefined big size, we use realloc as needed
+  */
+
+  for(ce=ct, nentries = 0; ce->name; ce++, nentries++);
+
+  if (debug > 1)
+    printf("nentries=%d\n", nentries);
+  
+  ct = realloc(ct, sizeof(struct command_table_entry)*(nentries+2));
+  if (!ct) {
+    printf("Cannot realloc while registering epython/%d\n", cmd);
+  } else {
+    // Add a new entry
+    ce = ct + nentries;
+    // Alloc memory for name
+    ce->name = (char *) malloc(strlen(cmd) + 1);
+    if (ce->name)
+      strcpy(ce->name, cmd);
+    else {
+      printf("malloc() failed in py_register_epython_prog\n");
+      free(ct);
+      return;
+    }
+    ce->func = epython_subcommand;
+
+    totlen = 5 * sizeof(char *);
+    for (i=0; i < 4; i++)
+      totlen += strlen(help_data[i]);
+    ce->help_data = (char **) malloc(totlen);
+    if (!ce->help_data) {
+      printf("malloc() failed for help_data in py_register_epython_prog\n");
+    } else {
+      char **aptr = ce->help_data;
+      char *sptr = (char *) (aptr + 5);
+      for (i=0; i < 4; i++) {
+	int l = strlen(help_data[i]);
+	*aptr++ = sptr;
+	strcpy(sptr, help_data[i]);
+	sptr += strlen(help_data[i]) + 1;
+      }
+      *aptr = NULL;
+    }
+    ce->flags = 0;
+
+    // Put the new EOT marker
+    (ce+1)->name = NULL;
+
+    // Update the table in crash
+    epython_curext->command_table = ct;
+  }
+  
+  // Print cmd table for debugging
+  if (debug > 1) {
+    printf("--- Current command table ---\n");
+    for (ce = epython_curext->command_table; ce->name; ce++) {
+      printf("name=%s\n", ce->name);
+    }
+  }
+
+  Py_RETURN_TRUE;
+}
+
+
 PyObject * py_gdb_typeinfo(PyObject *self, PyObject *args);
 PyObject * py_gdb_whatis(PyObject *self, PyObject *args);
 
@@ -915,7 +1033,8 @@ static PyMethodDef crashMethods[] = {
   {"gdb_whatis", py_gdb_whatis, METH_VARARGS},
   {"gdb_typeinfo", py_gdb_typeinfo, METH_VARARGS},
   {"set_readmem_task", py_readmem_task, METH_VARARGS},
-  {"get_NR_syscalls", py_get_NR_syscalls, METH_VARARGS},  
+  {"get_NR_syscalls", py_get_NR_syscalls, METH_VARARGS},
+  {"register_epython_prog", py_register_epython_prog, METH_VARARGS},
   {NULL,      NULL}        /* Sentinel */
 };
 

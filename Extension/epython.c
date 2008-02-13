@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <08/02/04 16:15:09 alexs>
+  Time-stamp: <08/02/13 16:28:02 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -29,7 +29,7 @@
 
 int debug = 0;
 
-static const char *crash_version = "0.5";
+static const char *crash_version = "0.6";
 static char *ext_filename = NULL;
 #define BUFLEN 1024
 
@@ -115,7 +115,7 @@ static struct command_table_entry command_table[] = {
         NULL,                                     /* terminated by NULL, */
 };
 
-
+struct extension_table *epython_curext;
 
 static int py_fclose(FILE *fp) {
   return 0;
@@ -135,6 +135,8 @@ void _init(void)  {
   char buffer[BUFLEN];
   PyObject *s;
 
+  struct command_table_entry *ct_copy;
+    
   /*
     WARNING:
     dlopen() manpage says that _init() is not very reliable and can be called
@@ -149,7 +151,10 @@ void _init(void)  {
   strcpy(ext_filename,  pc->curext->filename);
   if (debug)
     printf("extname=%s\n", ext_filename);
-  
+
+  // Store our extension table for registering subcommands
+  epython_curext = pc->curext;
+
   if (!Py_IsInitialized()) {
 #if defined(STATICBUILD)
     Py_NoSiteFlag = 1;
@@ -183,7 +188,18 @@ void _init(void)  {
       printf("Trying to Py_Initialize() twice\n");
   }
 
-  register_extension(command_table);
+  /* Make a copy of the initial command table on heap, so we'll be able to
+     modify it if needed
+  */
+
+  ct_copy = (struct command_table_entry *) malloc(sizeof(command_table));
+  if (!ct_copy) {
+    printf("Cannot allocate ct_copy\n");
+    exit(1);
+  }
+  memcpy(ct_copy, command_table, sizeof(command_table));
+  register_extension(ct_copy);
+  
   if (debug) {
     printf("Epython extension registered\n");
     PyRun_SimpleString("import sys; print sys.path");
@@ -193,11 +209,24 @@ void _init(void)  {
  
 void _fini(void) {
   //void __attribute__((destructor)) n_fini(void) {
+  struct command_table_entry *ce;
+
   if (debug)
     printf("Unloading epython\n");
   free(ext_filename);
   ext_filename = NULL;
   Py_Finalize();
+
+  // Free name and help pointers for added entries
+  for (ce = epython_curext->command_table, ce++; ce->name; ce++) {
+    if (debug)
+      printf("freeing ce->name and ce->help_data for %s\n", ce->name);
+    free(ce->name);
+    if (ce->help_data)
+      free(ce->help_data);
+  }
+
+  free(epython_curext->command_table);
 }
 
 
@@ -225,12 +254,15 @@ run_fromzip(const char *progname) {
   Py_DECREF(importer);
   if (!code) {
     printf("Cannot getcode for <%s>\n", progname);
+    PyErr_Clear();
     return 0;
   }
 
   m = PyImport_AddModule("__main__");
-  if (m == NULL)
+  if (m == NULL) {
+    PyErr_Print();
     return 0;
+  }
 
   d = PyModule_GetDict(m);
   v =  PyString_FromString(progname);
@@ -311,9 +343,11 @@ const char *find_pyprog(const char *prog) {
     return NULL;
 }
 
-void
-cmd_epython()
-{
+/* This subroutine executes a Python program in crash environment.
+   We pass to it argc and argv */
+
+int
+epython_execute_prog(int argc, char *argv[]) {
   FILE *scriptfp = NULL;
   PyObject *crashfp;
   PyObject *sysm;
@@ -325,16 +359,16 @@ cmd_epython()
   
   // Search in PATH. If there is no '.py' suffix try to append it
   path = getenv("PATH");
-  if (argcnt < 2) {
+  if (argc < 1) {
     fprintf(fp, " You need to specify a program file\n");
     // No arguments passed
     return;
   }
 
   
-  prog = find_pyprog(args[1]);
+  prog = find_pyprog(argv[0]);
   if (prog) {
-    args[1] = (char *) prog;		/* Is hopefully OK */
+    argv[0] = (char *) prog;		/* Is hopefully OK */
     scriptfp = fopen(prog, "r");
     /* No need to do anything if the file does not exist */
     if (scriptfp == NULL) {
@@ -349,9 +383,9 @@ cmd_epython()
   crashfp = PyFile_FromFile(fp, "<crash fp>", "w", py_fclose);
 
   // We should add handling exceptions here to prevent 'crash' from exiting
-  if (argcnt > 1) {
+  if (argc > 0) {
     /* PySys_SetArgv prepends to sys.path, don't forget to remove it later */
-    PySys_SetArgv(argcnt-1, args+1);
+    PySys_SetArgv(argc, argv);
     PyModule_AddObject(sysm, "stdout", crashfp);
 
     /* The function will be available only on the 2nd and further invocations
@@ -360,17 +394,17 @@ cmd_epython()
     /* This is where we run the real user-provided script */
 
     if (scriptfp) {
-      PyRun_SimpleFile(scriptfp, args[1]);
+      PyRun_SimpleFile(scriptfp, argv[0]);
     
     } else {
       /* Try to load code from ZIP */
       int rc = 0;
 #if defined(STATICBUILD)
       strcpy(buffer, "progs/");
-      rc = run_fromzip(strncat(buffer, args[1], BUFLEN - 60));
+      rc = run_fromzip(strncat(buffer, argv[0], BUFLEN - 60));
 #endif
       if (!rc)
-	fprintf(fp, " Cannot find the program <%s>\n", args[1]);
+	fprintf(fp, " Cannot find the program <%s>\n", argv[0]);
     }
 
     // Remove frim sys.path the 1st element, inserted by PySys_SetArgv
@@ -380,6 +414,12 @@ cmd_epython()
   // Run epython exitfuncs (if registered)
   call_sys_exitepython();
   fflush(fp);
+}
+
+void
+cmd_epython() {
+  // We just strip 'epython' from argument list
+  epython_execute_prog(argcnt - 1, args + 1);
 }
 
  
