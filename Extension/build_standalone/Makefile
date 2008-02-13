@@ -62,6 +62,7 @@ PYLIBPREF = pylib
 
 # Full library: std Python + Pykdump + LinuxDump + Progs
 PYFULL = pyfull.zip
+PWD = $(shell pwd)
 PYFULLPATH = $(PWD)/$(PYFULL)
 
 pyparsing.pyo: pyparsing.py
@@ -90,6 +91,7 @@ pycompile:
 $(EXT_CPY): $(EXT_C) $(PYFULL)
 	cat  $(EXT_C) $(PYFULL) >$(EXT_CPY)
 	zip -A $(EXT_CPY)
+	chmod +x $(EXT_CPY)
 
 
 
