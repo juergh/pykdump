@@ -14,6 +14,7 @@ from LinuxDump.BTstack import exec_bt, bt_summarize, bt_mergestacks
 from LinuxDump.kmem import parse_kmemf, print_Zone
 
 import sys
+from stat import *
 from StringIO import StringIO
 from optparse import OptionParser
 
@@ -41,9 +42,26 @@ def printHeader(format, *args):
 def print_basics():
     print "         *** Crashinfo v0.1 ***"
     print ""
+    if (not sys_info.livedump):
+	# Check whether this is a partial dump and if yes,
+	# compare the size of vmcore and RAM
+	# If sizeof(vmcore) < 25% sizeof(RAM), print a warning
+	dfile = sys_info.DUMPFILE
+	if (dfile.find("PARTIAL DUMP") != -1):
+	    dfile = dfile.split()[0]
+	    # Convert memory to Mb
+	    (im, sm) = sys_info.MEMORY.split()
+	    ram = float(im)
+	    if (sm == "GB"):
+		ram *= 1024
+	    # Get vmcore size
+	    sz = os.stat(dfile)[ST_SIZE]/1024/1024
+	    if (ram > sz *4):
+	       print WARNING,
+	       print "PARTIAL DUMP with size(vmcore) < 25% size(RAM)"
     if (quiet):
         return
-    
+
     print exec_crash_command("sys")
     print ""
     for cpu, stack in enumerate(bta):
@@ -350,7 +368,7 @@ op.add_option("--filelock", dest="filelock", default = 0,
 
 op.add_option("--stacksummary", dest="stacksummary", default = 0,
 		action="store_true",
-		help="Print sysctl info.")
+		help="Print stacks (bt) categorized summary.")
 
 op.add_option("--decodesyscalls", dest="decodesyscalls", default = "",
 		action="store",

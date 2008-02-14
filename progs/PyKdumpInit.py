@@ -26,5 +26,27 @@ options:
 
 rprog("xportshow",
       "Networking stuff",
-      "-h   - list options available",
+      "-h   - list available options",
+      help)
+
+
+help = '''
+The detailed documentation is available on the WEB. Here are most useful
+options:
+
+-q
+    Run quietly printing WARNINGS if anything
+
+-v
+    Increase verbosity
+
+--stacksummary
+    print a categorized stack summary
+     
+--sysctl
+    emulates 'sysctl -a' output
+'''
+ 
+rprog("crashinfo", "1st-pass analysis",
+      "-h   - list available options",
       help)
