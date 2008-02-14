@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <08/02/13 16:28:02 alexs>
+  Time-stamp: <08/02/14 11:31:27 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -204,6 +204,13 @@ void _init(void)  {
     printf("Epython extension registered\n");
     PyRun_SimpleString("import sys; print sys.path");
   }
+
+  // Run the initialization Python script if it is available
+  {
+    char *argv[]= {"PyKdumpInit", NULL};
+    epython_execute_prog(1, argv, 1);
+  }
+  
   return;
 }
  
@@ -279,7 +286,16 @@ run_fromzip(const char *progname) {
   if (v == NULL) {
     // Even though we have been able to run the program, it has ended
     // raising an exception
-    PyErr_Print();
+    if (PyErr_ExceptionMatches(PyExc_IOError)) {
+      // We don't want to print error messages for Broken pipe
+      // as they occur when we use a scroller and press 'q'
+      // before reaching the end of output
+      if (errno != EPIPE)
+	PyErr_Print();
+      else
+	PyErr_Clear();
+    } else 
+      PyErr_Print();
     return 1;
   }
   Py_DECREF(v);
@@ -343,11 +359,15 @@ const char *find_pyprog(const char *prog) {
     return NULL;
 }
 
-/* This subroutine executes a Python program in crash environment.
-   We pass to it argc and argv */
+/*
+  This subroutine executes a Python program in crash environment.
+  We pass to it argc and argv.
+  If 'quiet' is 1, we do not report errors and do not print stats.
+  This is used for one-time initialiation script
+*/
 
 int
-epython_execute_prog(int argc, char *argv[]) {
+epython_execute_prog(int argc, char *argv[], int quiet) {
   FILE *scriptfp = NULL;
   PyObject *crashfp;
   PyObject *sysm;
@@ -390,7 +410,8 @@ epython_execute_prog(int argc, char *argv[]) {
 
     /* The function will be available only on the 2nd and further invocations
      of epython as it is normally defined in API.py which is not loaded yet */
-    call_sys_enterepython();
+    if (!quiet)
+      call_sys_enterepython();
     /* This is where we run the real user-provided script */
 
     if (scriptfp) {
@@ -400,10 +421,13 @@ epython_execute_prog(int argc, char *argv[]) {
       /* Try to load code from ZIP */
       int rc = 0;
 #if defined(STATICBUILD)
-      strcpy(buffer, "progs/");
+      if (quiet)
+	strcpy(buffer, "");	/* Initprog is in top dir */
+      else
+	strcpy(buffer, "progs/");
       rc = run_fromzip(strncat(buffer, argv[0], BUFLEN - 60));
 #endif
-      if (!rc)
+      if (!rc && !quiet)
 	fprintf(fp, " Cannot find the program <%s>\n", argv[0]);
     }
 
@@ -412,14 +436,15 @@ epython_execute_prog(int argc, char *argv[]) {
 
   } 
   // Run epython exitfuncs (if registered)
-  call_sys_exitepython();
+  if (!quiet)
+    call_sys_exitepython();
   fflush(fp);
 }
 
 void
 cmd_epython() {
   // We just strip 'epython' from argument list
-  epython_execute_prog(argcnt - 1, args + 1);
+  epython_execute_prog(argcnt - 1, args + 1, 0);
 }
 
  

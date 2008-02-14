@@ -7,6 +7,7 @@
 PROGS := crashinfo.py xportshow.py task.py #itest.py
 ZIPPROGS := $(addprefix progs/, $(PROGS))
 FULLPROGS =  $(addprefix ../../progs/, $(PROGS))
+INITPROG := PyKdumpInit.py
 
 # Check whether we ran configure
 
@@ -82,6 +83,7 @@ $(PYFULL):  $(PYLIB) $(FULLPROGS) $(PYCOMPILE)
 	cd ../..; $(call FIND, pykdump)  |  zip  $(PYFULLPATH) -@
 	cd ../..; $(call FIND, LinuxDump)  |  zip $(PYFULLPATH) -@
 	cd ../..; zip  $(PYFULLPATH) $(ZIPPROGS)
+	cd ../../progs;  zip  $(PYFULLPATH) $(INITPROG)
 
 
 pycompile:

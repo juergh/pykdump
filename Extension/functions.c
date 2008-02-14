@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <08/02/13 16:29:27 alexs>
+  Time-stamp: <08/02/14 11:28:25 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -891,8 +891,8 @@ py_cpu_to_le32(PyObject *self, PyObject *args) {
 
 static void
 epython_subcommand() {
-  extern int epython_execute_prog(int argc, char *argv[]);
-  epython_execute_prog(argcnt, args);
+  extern int epython_execute_prog(int argc, char *argv[], int);
+  epython_execute_prog(argcnt, args, 0);
 }
 
 
@@ -966,7 +966,7 @@ py_register_epython_prog(PyObject *self, PyObject *args) {
 
     totlen = 5 * sizeof(char *);
     for (i=0; i < 4; i++)
-      totlen += strlen(help_data[i]);
+      totlen += (strlen(help_data[i]) + 1);
     ce->help_data = (char **) malloc(totlen);
     if (!ce->help_data) {
       printf("malloc() failed for help_data in py_register_epython_prog\n");
