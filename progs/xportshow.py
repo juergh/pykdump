@@ -20,7 +20,8 @@ from LinuxDump.inet.proto import tcpState, sockTypes, \
 
 from LinuxDump.Tasks import TaskTable
 
-ptrsize = sys_info.pointersize
+longsize = ptrsize = sys_info.pointersize
+intsize = 4
 
 import string
 from StringIO import StringIO
@@ -82,13 +83,13 @@ def print_TCP_sock(o):
         # For special sockets only
         # e.g. for NFS this is "struct svc_sock"
         # for RPC this is "struct rpc_xprt *"
-        udaddr = pstr.sk_user_data
+        udaddr = pstr.user_data
         if (udaddr):
-            print "\t ~~~sk_user_data", hexl(udaddr)
-            decode_sk_user_data(udaddr, long(o))
+            print "\t ~~~user_data", hexl(udaddr)
+            decode_user_data(udaddr, long(o))
 
 
-# Try to decode sk_user_data
+# Try to decode user_data
 
 # struct svc_sock {
 # 	struct list_head	sk_ready;	/* list of ready sockets */
@@ -122,30 +123,32 @@ def print_TCP_sock(o):
 # }
 
 
-# The 1st arg is sk_user_data, the 2nd one 'struct sock *' pointer
+# The 1st arg is user_data, the 2nd one 'struct sock *' pointer
 #
 # The best way to decode is to load symbolic modules info...but we are
 # trying to do our best without it
-def decode_sk_user_data(addr, saddr):
+def decode_user_data(addr, saddr):
     # Check whether this looks like svc_sock
     ptrsock = readPtr(addr + 4 * ptrsize)
     ptrsk = readPtr(addr + 5 * ptrsize)
-    print hexl(ptrsock), hexl(ptrsk)
+    #print hexl(ptrsock), hexl(ptrsk)
     if (ptrsk == saddr):
         # This is svc_sock
-        print "This is 'struct svc_sock'"
+        print "\t This is 'struct svc_sock'"
         return
 
     # Check whether this looks like 2.6.9 rpc_xprt
     ptrsk = readPtr(addr + ptrsize)
     if (ptrsk == saddr):
         # This is 2.6.9 rpc_xptr
-        print "This is old-style 'struct rpc_xptr'"
+        print "\t This is old-style 'struct rpc_xprt'"
         return
 
     # On recent 2.6 kernels, we try to find the offset of sockaddr_storage
 
-    offset = ptrsize *2 + ptrsize * 5
+    
+    offset = longsize *2 + longsize * 3 + intsize*2
+    #print "offset=", offset
     saname = None
     for sname in ("struct __kernel_sockaddr_storage",
                   "struct sockaddr_storage"):
@@ -155,13 +158,12 @@ def decode_sk_user_data(addr, saddr):
     sas = readSU(saname, addr + offset)
     addrlen = readLong(addr + offset + struct_size(sname))
     prot = readInt(addr + offset + struct_size(sname) + ptrsize)
-    print sas.ss_family, addrlen, prot
-    
-    
-    # If this is not svc_sock, try to find an 'int' field that contains
-    # 6 or 17 (TCP/UDP protocol)
-    
-    
+    #print sas.ss_family, addrlen, prot
+    if (prot in (6, 17) and sas.ss_family in (2,10)):
+        print "\t This is new-style 'struct rpc_xprt'"
+        return
+	
+
 
 # Print TCP info from TIMEWAIT buckets
 

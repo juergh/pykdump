@@ -342,6 +342,42 @@ def decode_syscalls(arg):
     sys.exit(0)
     
 
+# Decode keventd_wq
+
+def decode_eventwq():
+    keventd_wq = readSymbol("keventd_wq")
+    # CPU-specific 
+    for cpu in range(0, sys_info.CPUS):
+	print " ----- CPU ", cpu
+	cpu_wq = keventd_wq.cpu_wq[cpu]
+	# worklist is embedded in struct work_struct
+	# as 'struct list_head entry'
+	worklist = cpu_wq.worklist
+	print "\tworklist:"
+	for e in readSUListFromHead(Addr(worklist), "entry",
+	    "struct work_struct"):
+	    print e
+    # print singleevent
+    singleevent = readSymbol("singleevent")
+    print ' --- singleevent', singleevent
+    for e in readSUListFromHead(Addr(singleevent), "list",
+	"struct lw_event"):
+	try:
+	    name = e.dev.name
+	except crash.error:
+	    name = "++BAD DEV++"
+	print e, e.dev, name
+	
+    # print lweventlist
+    lweventlist = readSymbol("lweventlist")
+    print ' --- lweventlist', lweventlist
+    for e in readSUListFromHead(Addr(lweventlist), "list",
+	"struct lw_event"):
+	print e, e.dev, e.dev.name
+   
+	
+	
+
 
 op =  OptionParser()
 
@@ -373,7 +409,10 @@ op.add_option("--stacksummary", dest="stacksummary", default = 0,
 op.add_option("--decodesyscalls", dest="decodesyscalls", default = "",
 		action="store",
 		help="Decode Syscalls on the Stack")
-		
+
+op.add_option("--keventd_wq", dest="eventwq", default = "",
+		action="store_true",
+		help="Decode keventd_wq")
 (o, args) = op.parse_args()
 
 
@@ -394,6 +433,10 @@ t1 = os.times()[0]
 
 if (o.sysctl):
     check_sysctl()
+    sys.exit(0)
+
+if (o.eventwq):
+    decode_eventwq()
     sys.exit(0)
 
 if (o.decodesyscalls):
