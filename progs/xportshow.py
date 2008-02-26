@@ -85,7 +85,7 @@ def print_TCP_sock(o):
         # for RPC this is "struct rpc_xprt *"
         udaddr = pstr.user_data
         if (udaddr):
-            print "\t ~~~user_data", hexl(udaddr)
+            print "\t ~~~user_data", hexl(udaddr),
             decode_user_data(udaddr, long(o))
 
 
@@ -134,14 +134,14 @@ def decode_user_data(addr, saddr):
     #print hexl(ptrsock), hexl(ptrsk)
     if (ptrsk == saddr):
         # This is svc_sock
-        print "\t This is 'struct svc_sock'"
+        print " -> 'struct svc_sock'"
         return
 
     # Check whether this looks like 2.6.9 rpc_xprt
     ptrsk = readPtr(addr + ptrsize)
     if (ptrsk == saddr):
         # This is 2.6.9 rpc_xptr
-        print "\t This is old-style 'struct rpc_xprt'"
+        print "-> 'struct rpc_xprt'  (old-style)"
         return
 
     # On recent 2.6 kernels, we try to find the offset of sockaddr_storage
@@ -160,9 +160,9 @@ def decode_user_data(addr, saddr):
     prot = readInt(addr + offset + struct_size(sname) + ptrsize)
     #print sas.ss_family, addrlen, prot
     if (prot in (6, 17) and sas.ss_family in (2,10)):
-        print "\t This is new-style 'struct rpc_xprt'"
+        print "-> 'struct rpc_xprt' (new-style)"
         return
-	
+    print ''
 
 
 # Print TCP info from TIMEWAIT buckets
@@ -252,6 +252,14 @@ def print_UDP():
             ulen = pstr.uopt.len
             print "\tpending=%d, corkflag=%d, len=%d" % (pending,
                                                          corkflag, ulen)
+	    # For special sockets only
+	    # e.g. for NFS this is "struct svc_sock"
+	    # for RPC this is "struct rpc_xprt *"
+	    udaddr = pstr.user_data
+	    if (udaddr):
+		print "\t ~~~user_data", hexl(udaddr),
+		decode_user_data(udaddr, long(o))
+							 
 
 # print AF_UNIX
 
