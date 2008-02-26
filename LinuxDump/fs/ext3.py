@@ -308,9 +308,12 @@ def showExt3():
 	print "%10d    free inodes" % s.f_ffree
 
 # Tests to understand what is the kernel we are running on
-if (not struct_exists("struct ext3_super_block") and \
-        not loadModule("ext3")):
-    print "Cannot load a debuggable ext3.ko"
+if (not struct_exists("struct ext3_super_block")):
+    # Try to load the module and then check for struct again
+    loadModule("ext3")
+    if (not struct_exists("struct ext3_super_block")):
+        print "Cannot load a debuggable ext3.ko"
+        sys.exit(1)
 
 if (member_size("struct super_block", "s_fs_info") == -1):
     # 2.4 kernels

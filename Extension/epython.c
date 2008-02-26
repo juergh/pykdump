@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <08/02/14 11:31:27 alexs>
+  Time-stamp: <08/02/15 15:09:11 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -218,16 +218,17 @@ void _fini(void) {
   //void __attribute__((destructor)) n_fini(void) {
   struct command_table_entry *ce;
 
-  if (debug)
-    printf("Unloading epython\n");
+  if (!debug)
+    return;
+    
+  printf("Unloading epython\n");
   free(ext_filename);
   ext_filename = NULL;
   Py_Finalize();
 
   // Free name and help pointers for added entries
   for (ce = epython_curext->command_table, ce++; ce->name; ce++) {
-    if (debug)
-      printf("freeing ce->name and ce->help_data for %s\n", ce->name);
+    printf("freeing ce->name and ce->help_data for %s\n", ce->name);
     free(ce->name);
     if (ce->help_data)
       free(ce->help_data);
@@ -339,18 +340,18 @@ const char *find_pyprog(const char *prog) {
     tok = strtok(buf2, ":");
     while (tok) {
         sprintf(buf1, "%s/%s", tok, prog);
-        if (debug)
+        if (debug > 2)
            printf("Checking %s\n", buf1);
         if (file_exists(buf1, NULL)) {
-          if (debug)
+          if (debug > 1)
             printf("Found: %s\n",  buf1);
           return buf1;
         }
         sprintf(buf1, "%s/%s.py", tok, prog);
-        if (debug)
+        if (debug > 2)
            printf("Checking %s\n", buf1);
         if (file_exists(buf1, NULL)) {
-          if (debug)
+          if (debug > 2)
             printf("Found: %s\n",  buf1);
           return buf1;
         }

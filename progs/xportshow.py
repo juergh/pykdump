@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <08/01/03 15:22:04 alexs>
+# Time-stamp: <08/02/26 14:06:12 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -19,6 +19,8 @@ from LinuxDump.inet.proto import tcpState, sockTypes, \
      decode_skbuf, decode_IP_header, decode_TCP_header
 
 from LinuxDump.Tasks import TaskTable
+
+ptrsize = sys_info.pointersize
 
 import string
 from StringIO import StringIO
@@ -77,14 +79,104 @@ def print_TCP_sock(o):
 	    #printObject(l_opt)
             if (pstr.sk_ack_backlog):
                 print_accept_queue(pstr)
+        # For special sockets only
+        # e.g. for NFS this is "struct svc_sock"
+        # for RPC this is "struct rpc_xprt *"
+        udaddr = pstr.sk_user_data
+        if (udaddr):
+            print "\t ~~~sk_user_data", hexl(udaddr)
+            decode_sk_user_data(udaddr, long(o))
 
 
+# Try to decode sk_user_data
+
+# struct svc_sock {
+# 	struct list_head	sk_ready;	/* list of ready sockets */
+# 	struct list_head	sk_list;	/* list of all sockets */
+# 	struct socket *		sk_sock;	/* berkeley socket layer */
+# 	struct sock *		sk_sk;		/* INET layer */
+#         ...
+# }
+
+# On 2.6.9 and 2.4
+# struct rpc_xprt {
+# 	struct socket *		sock;		/* BSD socket layer */
+# 	struct sock *		inet;		/* INET layer */
+
+# 	struct rpc_timeout	timeout;	/* timeout parms */
+# 	struct sockaddr_in	addr;		/* server address */
+# 	int			prot;		/* IP protocol */
+#         ...
+# }
+
+# On 2.6.22
+# struct rpc_xprt {
+# 	struct kref		kref;		/* Reference count */
+# 	struct rpc_xprt_ops *	ops;		/* transport methods */
+
+# 	struct rpc_timeout	timeout;	/* timeout parms */
+# 	struct sockaddr_storage	addr;		/* server address */
+# 	size_t			addrlen;	/* size of server address */
+# 	int			prot;		/* IP protocol */
+#         ...
+# }
+
+
+# The 1st arg is sk_user_data, the 2nd one 'struct sock *' pointer
+#
+# The best way to decode is to load symbolic modules info...but we are
+# trying to do our best without it
+def decode_sk_user_data(addr, saddr):
+    # Check whether this looks like svc_sock
+    ptrsock = readPtr(addr + 4 * ptrsize)
+    ptrsk = readPtr(addr + 5 * ptrsize)
+    print hexl(ptrsock), hexl(ptrsk)
+    if (ptrsk == saddr):
+        # This is svc_sock
+        print "This is 'struct svc_sock'"
+        return
+
+    # Check whether this looks like 2.6.9 rpc_xprt
+    ptrsk = readPtr(addr + ptrsize)
+    if (ptrsk == saddr):
+        # This is 2.6.9 rpc_xptr
+        print "This is old-style 'struct rpc_xptr'"
+        return
+
+    # On recent 2.6 kernels, we try to find the offset of sockaddr_storage
+
+    offset = ptrsize *2 + ptrsize * 5
+    saname = None
+    for sname in ("struct __kernel_sockaddr_storage",
+                  "struct sockaddr_storage"):
+        if (struct_exists(sname)):
+            saname = sname
+            break
+    sas = readSU(saname, addr + offset)
+    addrlen = readLong(addr + offset + struct_size(sname))
+    prot = readInt(addr + offset + struct_size(sname) + ptrsize)
+    print sas.ss_family, addrlen, prot
+    
+    
+    # If this is not svc_sock, try to find an 'int' field that contains
+    # 6 or 17 (TCP/UDP protocol)
+    
+    
 
 # Print TCP info from TIMEWAIT buckets
 
 # Print TCP info from TIMEWAIT buckets
 def print_TCP_tw(tw):
     pstr = proto.IP_conn_tw(tw, details)
+
+    if (port_filter):
+	if (pstr.sport != port_filter and pstr.dport != port_filter):
+	    return
+    if (details):
+        print '-' * 78
+        print tw, '\t\tTCP'
+    
+    
     print pstr
     if (details):
         print "\ttw_timeout=%d, ttd=%d" % (pstr.tw_timeout, pstr.ttd)
@@ -130,10 +222,6 @@ def print_TCP():
     # Print TIME_WAIT
     jiffies = readSymbol("jiffies")
     for tw in proto.get_TCP_TIMEWAIT():
-        if (details):
-            print '-' * 78
-            print o, '\t\tTCP'
-    
         print_TCP_tw(tw)
 
 # print UDP
@@ -567,6 +655,7 @@ if ( __name__ == '__main__'):
     from optparse import OptionParser
 
     op =  OptionParser()
+    
 
     op.add_option("-a", dest="All", default = 0,
                   action="store_true",
@@ -590,7 +679,7 @@ if ( __name__ == '__main__'):
 
     op.add_option("--new", dest="New", default = 0,
                   action="store_true",
-                  help="Test new Routines")
+                  help="Test new Routines (experimental)")
 
     op.add_option("--netfilter", dest="Netfilter", default = 0,
                   action="store_true",
@@ -622,15 +711,15 @@ if ( __name__ == '__main__'):
 
     op.add_option("--sport", dest="sport", default = -1,
                   action="store", type="int",
-                  help="Limit output to the specified sport")
+                  help="Limit output to the specified sport (experimental)")
 
     op.add_option("--dport", dest="dport", default = -1,
                   action="store", type="int",
-                  help="Limit output to the specified dport")
+                  help="Limit output to the specified dport (experimental)")
     
     op.add_option("--port", dest="port", default = -1,
                   action="store", type="int",
-                  help="Limit output to the specified port (src or dst)")
+                  help="Limit output to the specified port (src or dst) (experimental)")
 
     op.add_option("-l", "--listening", dest="Listen", default = 0,
                   action="store_true",
@@ -670,11 +759,11 @@ if ( __name__ == '__main__'):
 
     op.add_option("--ipsec", dest="ipsec", default = 0,
                   action="store_true",
-                  help="Print IPSEC stuff")
+                  help="Print IPSEC stuff (experimental)")
 
     op.add_option("--everything", dest="Everything", default = 0,
                   action="store_true",
-                  help="Run all functions available - for developers")
+                  help="Run all functions available")
 
     op.add_option("--profile", dest="Profile", default = 0,
                   action="store_true",

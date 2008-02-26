@@ -1,7 +1,7 @@
 
 # module LinuxDump.inet.proto
 #
-# Time-stamp: <08/01/03 15:19:56 alexs>
+# Time-stamp: <08/02/26 11:12:33 alexs>
 #
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -97,6 +97,7 @@ class IP_sock(object):
         self.family = family = s.family
         self.protocol = s.protocol
         self.sktype = s.type
+        self.sk_user_data = s.sk_user_data
         self.state =  s.state   # Makes sense mainly for TCP
         
 	if (family == P_FAMILIES.PF_INET):
@@ -382,6 +383,7 @@ def init_PseudoAttrs():
     structSetAttr(sn, "Dst", "daddr")
     structSetAttr(sn, "rmem_alloc_counter", "rmem_alloc.counter")
     structSetAttr(sn, "wmem_alloc_counter", "wmem_alloc.counter")
+    structSetAttr(sn, "sk_user_data", "sk_user_data")
 
     structSetAttr(sn, "rx_opt", "tp_pinfo.af_tcp")
     structSetAttr(sn, "topt", "tp_pinfo.af_tcp")
@@ -409,6 +411,8 @@ def init_PseudoAttrs():
     structSetAttr(sn, "rmem_alloc_counter", "sk.sk_rmem_alloc.counter",
                   extra)
     structSetAttr(sn, "wmem_alloc_counter", "sk.sk_wmem_alloc.counter",
+                  extra)
+    structSetAttr(sn, "sk_user_data", "sk.sk_user_data",
                   extra)
 
     # TCP-specific

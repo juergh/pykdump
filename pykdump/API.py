@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <07/11/15 15:51:39 alexs>
+# Time-stamp: <08/02/15 15:05:37 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -108,7 +108,9 @@ def enter_epython():
     dumpfile = os.path.abspath(dumpfile)
     text = "%s  (%s)" % (dumpfile, sys_info.RELEASE)
     lpad = (77-len(text))/2
-    print "\n", '~' * lpad, text, '~' * lpad
+    # Print vmcore name/path when not on tty
+    if (not sys.stdout.isatty()):
+        print "\n", '~' * lpad, text, '~' * lpad
 
 
 # We call this when exiting epython
