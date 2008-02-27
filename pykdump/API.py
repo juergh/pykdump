@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <08/02/15 15:05:37 alexs>
+# Time-stamp: <08/02/27 10:58:01 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -795,7 +795,8 @@ if (pointersize == 4):
     readInt = readS32
     readUInt = readU32
     INT_MASK = LONG_MASK = 0xffffffff
-    LONG_MAX = ~0L&(LONG_MASK)>>1
+    INT_SIZE = 4
+    PTR_SIZE = LONG_SIZE = 4
 elif (pointersize == 8):
     readInt = readS32
     readUInt = readU32
@@ -803,7 +804,11 @@ elif (pointersize == 8):
     readULong = readU64
     INT_MASK = 0xffffffff
     LONG_MASK = 0xffffffffffffffff
-    LONG_MAX = ~0L&(LONG_MASK)>>1
+    INT_SIZE = 4
+    PTR_SIZE = LONG_SIZE = 8
+
+INT_MAX = ~0L&(INT_MASK)>>1
+LONG_MAX = ~0L&(LONG_MASK)>>1
 
 enter_epython()
 debug = API_options.debug

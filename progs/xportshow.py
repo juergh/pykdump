@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <08/02/26 14:06:12 alexs>
+# Time-stamp: <08/02/27 14:00:08 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -19,9 +19,9 @@ from LinuxDump.inet.proto import tcpState, sockTypes, \
      decode_skbuf, decode_IP_header, decode_TCP_header
 
 from LinuxDump.Tasks import TaskTable
+from LinuxDump.inet import summary
 
-longsize = ptrsize = sys_info.pointersize
-intsize = 4
+
 
 import string
 from StringIO import StringIO
@@ -129,8 +129,8 @@ def print_TCP_sock(o):
 # trying to do our best without it
 def decode_user_data(addr, saddr):
     # Check whether this looks like svc_sock
-    ptrsock = readPtr(addr + 4 * ptrsize)
-    ptrsk = readPtr(addr + 5 * ptrsize)
+    ptrsock = readPtr(addr + 4 * PTR_SIZE)
+    ptrsk = readPtr(addr + 5 * PTR_SIZE)
     #print hexl(ptrsock), hexl(ptrsk)
     if (ptrsk == saddr):
         # This is svc_sock
@@ -138,7 +138,7 @@ def decode_user_data(addr, saddr):
         return
 
     # Check whether this looks like 2.6.9 rpc_xprt
-    ptrsk = readPtr(addr + ptrsize)
+    ptrsk = readPtr(addr + PTR_SIZE)
     if (ptrsk == saddr):
         # This is 2.6.9 rpc_xptr
         print "-> 'struct rpc_xprt'  (old-style)"
@@ -147,7 +147,7 @@ def decode_user_data(addr, saddr):
     # On recent 2.6 kernels, we try to find the offset of sockaddr_storage
 
     
-    offset = longsize *2 + longsize * 3 + intsize*2
+    offset = LONG_SIZE *2 + LONG_SIZE * 3 + INT_SIZE*2
     #print "offset=", offset
     saname = None
     for sname in ("struct __kernel_sockaddr_storage",
@@ -157,7 +157,7 @@ def decode_user_data(addr, saddr):
             break
     sas = readSU(saname, addr + offset)
     addrlen = readLong(addr + offset + struct_size(sname))
-    prot = readInt(addr + offset + struct_size(sname) + ptrsize)
+    prot = readInt(addr + offset + struct_size(sname) + PTR_SIZE)
     #print sas.ss_family, addrlen, prot
     if (prot in (6, 17) and sas.ss_family in (2,10)):
         print "-> 'struct rpc_xprt' (new-style)"
@@ -296,126 +296,6 @@ def print_RAW():
                                                   pstr.wmem_alloc)
 	    print "\trcvbuf=%d, sndbuf=%d" % (pstr.rcvbuf, pstr.sndbuf)
 
-
-# Print a summary of connections
-def Summarize():
-
-    print "TCP Connection Info"
-    print "-------------------"
-    counts = {}
-
-    # LISTEN
-    lqfull = 0                          # Listen Queue Full
-    lqne = 0                            # Listen Queue Non-Empty
-    for o in proto.get_TCP_LISTEN():
-        pstr = IP_sock(o, True)
-        counts[pstr.state] = counts.setdefault(pstr.state, 0) + 1
-        if (pstr.sk_ack_backlog):
-            lqne += 1
-            if (pstr.sk_ack_backlog == pstr.sk_max_ack_backlog):
-                lqfull += 1
-    
-    # ESTABLISHED TCP
-
-    # How 'nonagle' is used on Linux: TCP_NODELAY sets 1
-    #define TCP_NAGLE_OFF  1  /* Nagle's algo is disabled */
-    #define TCP_NAGLE_CORK 2  /* Socket is corked	    */
-    #define TCP_NAGLE_PUSH 4  /* Cork is overridden for already queued data */
-
-    nodelay = 0
-    w_rcv_closed = 0
-    w_snd_closed = 0
-    for o in proto.get_TCP_ESTABLISHED():
-        pstr = IP_sock(o, True)
-	if (pstr.protocol != 6):
-	    print WARNING, "non-TCP socket in TCP-hash", o, pstr.protocol
-	    continue
-        counts[pstr.state] = counts.setdefault(pstr.state, 0) + 1
-        #nonagle=pstr.Tcp.nonagle
-        nonagle = pstr.topt.nonagle
-        if (nonagle == 1):
-            nodelay += 1
-        snd_wnd = pstr.topt.snd_wnd
-        rcv_wnd = pstr.topt.rcv_wnd
-        if (rcv_wnd == 0):
-            w_rcv_closed += 1
-        if (snd_wnd == 0):
-            w_snd_closed += 1
-
-
-	
-   
-    # TIME_WAIT
-    jiffies = readSymbol("jiffies")
-    for tw in proto.get_TCP_TIMEWAIT():
-        pstr = proto.IP_conn_tw(tw, True)
-        counts[pstr.state] = counts.setdefault(pstr.state, 0) + 1
-
-    states = counts.keys()
-    states.sort()
-    for s in states:
-        print "    %15s  %5d" % (tcpState[s][4:], counts[s])
-    if (nodelay):
-        print "\n\t\t\tNAGLE disabled (TCP_NODELAY): %5d" % nodelay
-
-    if  (lqne or lqfull or w_rcv_closed or w_rcv_closed):
-        print ""
-        print "  Unusual Situations:"
-    if (lqne):
-        print "    Listen Queue Non-Empty:       %5d" % lqne
-    if (lqfull):
-        print "    Listen Queue Full:            %5d" % lqfull
-    if (w_rcv_closed):
-        print "    Receive Window Closed:        %5d" % w_rcv_closed
-    if (w_snd_closed):
-        print "    Send Window Closed:           %5d" % w_snd_closed
-
-
-    print "\n\nUDP Connection Info"
-    print "-------------------"
-    count = rcvfull = sndfull = established = 0
-    for o in proto.get_UDP():
-        pstr = IP_sock(o, True)
-        count += 1
-        if (pstr.state == tcpState.TCP_ESTABLISHED):
-            established += 1
-        # Check whether buffers are full more than 50%
-        if (pstr.rmem_alloc *100 >= pstr.rcvbuf * 75):
-            rcvfull += 1
-        if (pstr.wmem_alloc *100 >= pstr.sndbuf * 75):
-            sndfull += 1
-    print "  %d UDP sockets, %d in ESTABLISHED" % (count, established)
-    if (rcvfull or sndfull):
-        print "\tNote: buffer fill >=75%%  rcv=%d snd=%d" % (rcvfull, sndfull)
-
-
-    print "\n\nUnix Connection Info"
-    print "------------------------"
-
-    counts = {}
-    count = 0
-    for s, state, ino, path in proto.get_AF_UNIX(True):
-        counts[state] = counts.setdefault(state, 0) + 1
-        count += 1
-        
-    states = counts.keys()
-    states.sort()
-    for s in states:
-        print "    %15s  %5d" % (tcpState[s][4:], counts[s])
-
-    print "\n\nRaw sockets info"
-    print "--------------------"
-
-    counts = {}
-    for o in list(proto.get_RAW()) + list(proto.get_RAW6()):
-         pstr = IP_sock(o, True)
-         counts[state] = counts.setdefault(state, 0) + 1
-
-    states = counts.keys()
-    states.sort()
-
-    for s in states:
-        print "    %15s  %5d" % (tcpState[s][4:], counts[s])
 
     
 
@@ -652,7 +532,7 @@ def print_Everything():
     print_fib()
     print_rt_hash()
     print_iface(o.If1, details)
-    Summarize()
+    summary.TCPIP_Summarize()
     print_Stats()
     print_TCP()
     print_UDP()
@@ -662,7 +542,16 @@ def print_Everything():
 
 if ( __name__ == '__main__'):
     import sys
-    from optparse import OptionParser
+
+    experimental = os.environ.has_key('PYKDUMPDEV')
+    
+    from optparse import OptionParser, SUPPRESS_HELP
+
+    def e_help(help):
+        if (experimental):
+            return help + " (experimental)"
+        else:
+            return SUPPRESS_HELP
 
     op =  OptionParser()
     
@@ -687,9 +576,6 @@ if ( __name__ == '__main__'):
                   action="store", type="int",
                   help="print sockets for PID")
 
-    op.add_option("--new", dest="New", default = 0,
-                  action="store_true",
-                  help="Test new Routines (experimental)")
 
     op.add_option("--netfilter", dest="Netfilter", default = 0,
                   action="store_true",
@@ -719,17 +605,10 @@ if ( __name__ == '__main__'):
                   action="store",
                   help="Decode iph/th/uh")
 
-    op.add_option("--sport", dest="sport", default = -1,
-                  action="store", type="int",
-                  help="Limit output to the specified sport (experimental)")
-
-    op.add_option("--dport", dest="dport", default = -1,
-                  action="store", type="int",
-                  help="Limit output to the specified dport (experimental)")
     
     op.add_option("--port", dest="port", default = -1,
                   action="store", type="int",
-                  help="Limit output to the specified port (src or dst) (experimental)")
+                  help="Limit output to the specified port (src or dst)")
 
     op.add_option("-l", "--listening", dest="Listen", default = 0,
                   action="store_true",
@@ -767,17 +646,30 @@ if ( __name__ == '__main__'):
                   action="store_true",
                   help="Print the routing cache")
 
-    op.add_option("--ipsec", dest="ipsec", default = 0,
-                  action="store_true",
-                  help="Print IPSEC stuff (experimental)")
 
     op.add_option("--everything", dest="Everything", default = 0,
                   action="store_true",
                   help="Run all functions available")
 
+
+    op.add_option("--new", dest="New", default = 0,
+                  action="store_true",
+                  help=e_help("Test new Routines"))
+    op.add_option("--sport", dest="sport", default = -1,
+                  action="store", type="int",
+                  help=e_help("Limit output to the specified sport"))
+
+    op.add_option("--dport", dest="dport", default = -1,
+                  action="store", type="int",
+                  help=e_help("Limit output to the specified dport"))
+
+    op.add_option("--ipsec", dest="ipsec", default = 0,
+                  action="store_true",
+                  help=e_help("Print IPSEC stuff"))
+
     op.add_option("--profile", dest="Profile", default = 0,
                   action="store_true",
-                  help="Run with profiler (for developers)")
+                  help=e_help("Run with profiler"))
 
 
     (o, args) = op.parse_args()
@@ -866,7 +758,8 @@ if ( __name__ == '__main__'):
         sys.exit(0)
 
     if (o.Summary):
-        Summarize()
+        summary.TCPIP_Summarize()
+        summary.IF_Summarize()
         sys.exit(0)
 
     if (o.Stats):

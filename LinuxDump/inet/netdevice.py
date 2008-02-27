@@ -1,6 +1,6 @@
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <07/11/15 15:17:37 alexs>
+# Time-stamp: <08/02/27 10:38:43 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -508,7 +508,7 @@ def snetmask(u32):
         n >>= 1
     return 0
 
-def print_If(dev, details):
+def print_If(dev, details = 0):
     # Get the list of inet6-devices and put into a dict
     if6devs = {}
     for ifa in get_inet6_ifaddr():

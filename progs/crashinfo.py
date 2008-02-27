@@ -2,10 +2,10 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <08/01/09 15:25:02 alexs>
+# Time-stamp: <08/02/27 14:41:54 alexs>
 
-# Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2007-2008 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2007-2008 Hewlett-Packard Co., All rights reserved.
 
 # 1st-pass dumpanalysis
 
@@ -273,7 +273,7 @@ def check_spinlocks():
 	    lv = readSymbol(ln).slock
 	    if (lv != 1):
 		print WARNING, "Lock %s is held, lock=%d" % (ln, lv)
-	except KeyError:
+	except:
 	    pass
 
 
@@ -472,6 +472,13 @@ if (not sys_info.livedump):
     bta = exec_bt('bt -a')
 else:
     bta = []
+
+# If we reached this place, this means that no 'special' options are set
+#
+# There are 3 cases:
+# 1. no options (delault). Print a compact summary suitable for quick triage
+# 2. -q option. Print warnings only
+# 3. -v option. Print a more detailed summary suitable for sending by email
 
 print_basics()
 dump_reason(dmesg)
