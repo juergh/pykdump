@@ -12,6 +12,9 @@
 from pykdump.API import *
 from LinuxDump.BTstack import exec_bt, bt_summarize, bt_mergestacks
 from LinuxDump.kmem import parse_kmemf, print_Zone
+from LinuxDump.Tasks import TaskTable, Task, tasksSummary, getRunQueues
+from LinuxDump.inet import summary
+
 
 import sys
 from stat import *
@@ -26,8 +29,23 @@ WARNING = "+++WARNING+++"
 
 Panic = True
 
+
 # Parsed output of 'foreach bt' (this is rather time-consuming)
 btsl = None
+def get_btsl():
+    global btsl
+    if (not btsl):
+        btsl = exec_bt('foreach bt')
+    return btsl
+
+Fast = False
+
+tt = None
+def get_tt():
+    global tt
+    if (not tt):
+        tt = TaskTable()
+    return tt
 
 #print "%7.2f s to parse, %d entries" % (t1 - t0, len(btsl))
 
@@ -36,8 +54,14 @@ def printHeader(format, *args):
 	text = format % args
     else:
 	text = format
-    lpad = (77-len(text))/2
-    print "\n", '-' * lpad, text, '-' * lpad
+    tlen = len(text)
+    lpad = (73-tlen)/2
+    print ""
+    uh = ' ' + ' '*lpad + '+' + '-'*(tlen+2) + '+'
+    print uh
+    print '>' + '-' * lpad + '| ' + text + ' |' +  '-' * lpad + '<'
+    print uh
+    print ""
 
 def print_basics():
     print "         *** Crashinfo v0.1 ***"
@@ -63,10 +87,20 @@ def print_basics():
         return
 
     print exec_crash_command("sys")
-    print ""
-    for cpu, stack in enumerate(bta):
-        print "      -- CPU#%d --" % cpu, stack
-        print ""
+    if (len(bta) > 0):
+	printHeader("Per-cpu Stacks ('bt -a')")
+    
+	for cpu, stack in enumerate(bta):
+	    print "      -- CPU#%d --" % cpu, stack
+	    print ""
+
+def print_dmesg():
+    if (verbose):
+        printHeader("dmesg buffer")
+        print dmesg
+    else:
+        printHeader("Last 40 lines of dmesg buffer")
+        print "\n".join(dmesg.splitlines()[-40:])
     
 def check_mem():
     if (not quiet):
@@ -171,6 +205,12 @@ def dump_reason(dmesg):
             if (test(res, "general_protection")):
                 print "\t- General Protection Fault"
 	
+def stackSummary():
+    btsl = get_btsl()
+    tt = get_tt()
+    #bt_summarize(btsl)
+    bt_mergestacks(btsl, reverse=True, tt=tt)
+    
 # Check Load Averages
 def check_loadavg():
     avgf = []
@@ -182,9 +222,7 @@ def check_loadavg():
 	print WARNING, "High Load Averages:", avgstr
     
 def check_auditf():
-    global btsl
-    if (not btsl):
-        btsl = exec_bt('foreach bt')
+    btsl = get_btsl()
     func1 = 'auditf'
     func2 = 'rwsem_down'
     res = [bts for bts in btsl
@@ -224,8 +262,8 @@ def check_network():
 # Check whether active (bt -a) tasks are looping
 def check_activetasks():
     from LinuxDump import percpu
-    from LinuxDump.Tasks import TaskTable, Task, getRunQueues
-    tt = TaskTable()
+
+    tt = get_tt()
     basems = tt.basems
     for cpu, stack in enumerate(bta):
 	pid = stack.pid
@@ -279,7 +317,6 @@ def check_spinlocks():
 
 def check_runqueues():
     from LinuxDump import percpu
-    from LinuxDump.Tasks import TaskTable, Task, getRunQueues
 
     if (not quiet):
         printHeader("Scheduler Runqueues (per CPU)")
@@ -316,10 +353,15 @@ def check_runqueues():
 	print WARNING, "all CPUs are busy running Real-Time processes"
 	
 
+# Do some basic network subsystem check
+def check_network():
+    printHeader("Network Status Summary")
+    summary.TCPIP_Summarize()
+    summary.IF_Summarize()
+
 # The argument can be 'all' (all threads), integer (pid or tid) or
 # syscall name 'e.g. select'
 def decode_syscalls(arg):
-    from LinuxDump.Tasks import TaskTable
     from LinuxDump.syscall import decode_Stacks
     # Check argumenttype and decide what to do
     try:
@@ -388,6 +430,10 @@ op.add_option("-v", dest="Verbose", default = 0,
 op.add_option("-q", dest="Quiet", default = 0,
 		action="store_true",
 		help="quiet mode - print warnings only")
+		
+op.add_option("--fast", dest="Fast", default = 0,
+		action="store_true",
+		help="Fast mode - do not run potentially slow tests")
 
 
 op.add_option("--sysctl", dest="sysctl", default = 0,
@@ -426,6 +472,8 @@ if (o.Quiet):
 else:
     quiet =0
 
+if (o.Fast):
+    Fast = True
 
 t1 = os.times()[0]
 
@@ -456,13 +504,7 @@ if (o.filelock):
     sys.exit(0)
     
 if (o.stacksummary):
-    from LinuxDump.Tasks import TaskTable
-    if (not btsl):
-        btsl = exec_bt('foreach bt')
-	tt = TaskTable()
-    #bt_summarize(btsl)
-    bt_mergestacks(btsl, reverse=True, tt=tt)
-    sys.exit(0)
+    stackSummary()
     
 HZ = sys_info.HZ
 
@@ -483,9 +525,21 @@ else:
 print_basics()
 dump_reason(dmesg)
 check_loadavg()
+printHeader("Tasks Summary")
+threadcount = tasksSummary()
 #check_activetasks()
 check_spinlocks()
 check_mem()
-check_auditf()
+
+if (not Fast):
+    check_auditf()
 check_runqueues()
-#check_network()
+check_network()
+
+# After this line we put all routines that can produce significant output
+# We don't want to see hundreds of lines in the beginning!
+print_dmesg()
+if (verbose):
+    printHeader("A Summary Of Threads Stacks")
+    stackSummary()
+

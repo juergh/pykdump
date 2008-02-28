@@ -3,36 +3,10 @@
 from pykdump.API import *
 
 from LinuxDump import percpu
-from LinuxDump.Tasks import TaskTable, Task
+from LinuxDump.Tasks import TaskTable, Task, tasksSummary
 
 debug = API_options.debug
 
-def tasksSummary():
-    tt = TaskTable()
-    counts = {}
-    d_counts = {}
-    for mt in tt.allTasks():
-	#print mt.pid, mt.comm, mt.state
-	state = mt.state
-	comm = mt.comm
-	counts[state] = counts.setdefault(state, 0) + 1
-	d_counts[(comm, state)] = d_counts.setdefault((comm, state), 0) + 1
-	for t in mt.threads:
-	    #print "\t", t.pid, t.state
-	    state = t.state
-	    counts[state] = counts.setdefault(state, 0) + 1
-	    d_counts[(comm, state)] = d_counts.setdefault((comm, state), 0)+1
-    print " ---- Totals -----"
-    for k,v in counts.items():
-	print "%-20s  %4d" %  (k, v)
-    print ""
-    print " ---- Per Command -----"
-    keys = d_counts.keys()
-    keys.sort()
-    for k in keys:
-	v = d_counts[k]
-	comm, state = k
-	print "%-15s %-20s  %4d" % (comm, state, v)
 
 
 

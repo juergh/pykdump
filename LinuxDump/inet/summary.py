@@ -173,6 +173,8 @@ def __j_delay(ts, jiffies):
     v = (jiffies - ts) & INT_MASK
     if (v > INT_MAX):
         v = "     n/a"
+    elif (v > HZ*3600*10):
+	v = ">10hours"
     else:
         v = "%8.1f" % (float(v)/HZ)
     return v

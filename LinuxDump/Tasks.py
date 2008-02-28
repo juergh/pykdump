@@ -395,7 +395,7 @@ def tsc_clock_base():
 def jiffie_clock_base():
     try:
         jiffies =  readSymbol("jiffies_64")
-        print "jiffies_64=", jiffies
+        #print "jiffies_64=", jiffies
     except TypeError:
         jiffies = readSymbol("jiffies")
     return jiffies2ms(jiffies)
@@ -442,6 +442,59 @@ sys_info.runqueues_addrs = runqueues_addrs
 # Older 2.6 use 'struct runqueue', newer ones 'struct rq'
 rqtype = percpu.get_cpu_var_type('runqueues')
 
+# Print tasks summary and return the total number of threads
+
+def tasksSummary():
+    tt = TaskTable()
+    threadcount = 0
+    basems = tt.basems
+    counts = {}
+    d_counts = {}
+    acounts = [0, 0, 0]
+    def update_acounts(v):
+	if (v <= 1):
+	    acounts[0] += 1
+	if (v <= 5):
+	    acounts[1] += 1
+	if (v <= 60):
+	    acounts[2] += 1
+	   
+    for mt in tt.allTasks():
+	#print mt.pid, mt.comm, mt.state
+	state = mt.state
+	comm = mt.comm
+	counts[state] = counts.setdefault(state, 0) + 1
+	d_counts[(comm, state)] = d_counts.setdefault((comm, state), 0) + 1
+	update_acounts((basems - mt.last_ran)/1000)
+	threadcount += 1
+	for t in mt.threads:
+	    #print "\t", t.pid, t.state
+	    state = t.state
+	    counts[state] = counts.setdefault(state, 0) + 1
+	    d_counts[(comm, state)] = d_counts.setdefault((comm, state), 0)+1
+	    update_acounts((basems - t.last_ran)/1000)
+	    threadcount += 1
+    print "Number of Threads That Ran Recently"
+    print "-----------------------------------"
+    print "   last second   %5d" % acounts[0]
+    print "   last     5s   %5d" % acounts[1]
+    print "   last    60s   %5d" % acounts[2]
+    print ""
+    print " ----- Total Numbers of Threads per State ------"
+    for k,v in counts.items():
+	print "  %-40s  %4d" %  (k, v)
+    print ""
+    return threadcount
+    print "       === # of Threads Sorted by CMD+State ==="
+    print "CMD               State                                 Threads"
+    print "--------------- ------------------                      -------"
+    keys = d_counts.keys()
+    keys.sort()
+    for k in keys:
+	v = d_counts[k]
+	comm, state = k
+	print "%-15s %-40s  %4d" % (comm, state, v)
+    return threadcount
 
 if ( __name__ == '__main__'):
     tt = TaskTable()

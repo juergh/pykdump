@@ -8,8 +8,8 @@
 # end-user. In particular, this module decides what backends to use
 # depending on availability of low-level shared library dlopened from crash
 #
-# Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -83,6 +83,14 @@ print2columns = gen.print2columns
 shelf = None
 PersistentCache = True
 
+# Check whether we output to a real file.
+
+def isfileoutput():
+    if (sys.stdout.isatty()):
+	return False
+    mode = os.fstat(sys.stdout.fileno())[stat.ST_MODE]
+    return stat.S_ISREG(mode)
+    
 
 # A function called when we use start the real script processing
 # This is done by 'epython' command. When I just started to work on this
@@ -109,7 +117,7 @@ def enter_epython():
     text = "%s  (%s)" % (dumpfile, sys_info.RELEASE)
     lpad = (77-len(text))/2
     # Print vmcore name/path when not on tty
-    if (not sys.stdout.isatty()):
+    if (isfileoutput()):
         print "\n", '~' * lpad, text, '~' * lpad
 
 
