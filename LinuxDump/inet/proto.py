@@ -90,8 +90,18 @@ class IP_sock(object):
 	    s = o
 	elif (o.isNamed("struct sock")):
             s = o.castTo("struct inet_sock")
+	elif (o.isNamed("struct tcp_sock")):
+	    s = o
+	    if (s.protocol != 6):
+		raise KeyError,str(o)+' incorrect protocol=%d' %  s.protocol
+	elif (o.isNamed("struct udp_sock")):
+	    s = o
+	    if (s.protocol != 17):
+		raise KeyError,str(o)+' incorrect protocol=%d' %  s.protocol
+	    
         else:
             s = o
+	self.__casted_sock = s
         #print o, s
         self.left = self.right = ''
         self.family = family = s.family
@@ -145,6 +155,10 @@ class IP_sock(object):
 
 	if (not details):
 	    return
+	
+    # For all unknown attrs, proxy to s
+    def __getattr__(self, fname):
+	return getattr(self.__casted_sock, fname)
 
 
     def __str__(self):
@@ -390,6 +404,8 @@ def init_PseudoAttrs():
     structSetAttr(sn, "l_opt", "tp_pinfo.af_tcp.listen_opt")
     structSetAttr(sn, "accept_queue", "tp_pinfo.af_tcp.accept_queue")
     structSetAttr(sn, "uopt", "tp_pinfo.af_udp")
+    structSetAttr(sn, "rcv_tstamp", "tp_pinfo.af_tcp.rcv_tstamp")
+    structSetAttr(sn, "lsndtime", "tp_pinfo.af_tcp.lsndtime")
 
     sn = "struct inet_sock"
     extra = ["struct tcp_sock", "struct udp_sock", "struct raw_sock"]
@@ -434,9 +450,17 @@ def init_PseudoAttrs():
 
     structSetAttr(sn, "rx_opt",
                   ["tcp", "rx_opt"], extra)
+    structSetAttr(sn, "rcv_tstamp", 
+                  ["tcp.rcv_tstamp", "rx_opt.rcv_tstamp"],
+                    extra)
+    structSetAttr(sn, "lsndtime", 
+                  ["tcp.lsndtime", "rx_opt.lsndtime"],
+                    extra)
+
+
 
     structSetAttr(sn, "Nonagle", "nonagle")
-
+    #structSetAttr(sn, "rcv_tstamp", "rcv_tstamp")
     # This is used to access snd_wnd. mss and so on. Should be replaced
     # by separate pseudoattrs
     structSetAttr(sn, "topt", ["tcp", ""], extra)

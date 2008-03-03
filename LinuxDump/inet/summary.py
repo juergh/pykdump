@@ -62,7 +62,11 @@ def TCPIP_Summarize():
     w_rcv_closed = 0
     w_snd_closed = 0
     for o in proto.get_TCP_ESTABLISHED():
-        pstr = IP_sock(o, True)
+	try:
+            pstr = IP_sock(o, True)
+	except KeyError, msg:
+	    print ERROR, msg
+	    continue
 	if (pstr.protocol != 6):
 	    print WARNING, "non-TCP socket in TCP-hash", o, pstr.protocol
 	    continue

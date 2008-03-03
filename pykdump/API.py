@@ -30,6 +30,7 @@ import pykdump                          # For version check
 
 
 WARNING = "+++WARNING+++"
+ERROR =   "+++ERROR+++"
 
 # sys is a builtin and does not depend on sys.path. But we cannot load 'os' yet
 # if we are running a binary distribution with Python libraries at
@@ -817,6 +818,7 @@ elif (pointersize == 8):
 
 INT_MAX = ~0L&(INT_MASK)>>1
 LONG_MAX = ~0L&(LONG_MASK)>>1
+HZ = sys_info.HZ
 
 enter_epython()
 debug = API_options.debug

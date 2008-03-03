@@ -43,7 +43,12 @@ port_filter = False
 
 
 def print_TCP_sock(o):
-    pstr = IP_sock(o, details)
+    try:
+        pstr = IP_sock(o, details)
+    except KeyError, msg:
+	print WARNING, msg
+	return
+    jiffies = readSymbol("jiffies")
     if (port_filter):
 	if (pstr.sport != port_filter and pstr.dport != port_filter):
 	    return
@@ -70,6 +75,11 @@ def print_TCP_sock(o):
 	    print "\trx_queue=%d, tx_queue=%d" % (pstr.rmem_alloc,
                                                   pstr.wmem_alloc)
             print "\trcvbuf=%d, sndbuf=%d" % (pstr.rcvbuf, pstr.sndbuf)
+	    #print pstr.rcv_tstamp, pstr.lsndtime
+	    print "\trcv_tstamp=%s, lsndtime=%s  ago" %\
+	                               (j_delay(pstr.rcv_tstamp, jiffies),  j_delay(pstr.lsndtime, jiffies))
+
+
         elif (tcp_state == tcpState.TCP_LISTEN):
             print "\t family=%s" % sfamily
 	    print "\t backlog=%d(%d)" % (pstr.sk_ack_backlog,
@@ -539,6 +549,23 @@ def print_Everything():
     print_RAW()
     print_UNIX()
     
+
+# Printing TCP delays relative to jiffies
+# Compute delay between a given timestamp and jiffies
+# Even though on 64-bit hosts jiffies is
+# volatile long unsigned int jiffies;
+# TCP code uses
+# #define tcp_time_stamp		((__u32)(jiffies))
+
+def j_delay(ts, jiffies):
+    v = (jiffies - ts) & INT_MASK
+    if (v > INT_MAX):
+        v = "n/a"
+    elif (v > HZ*3600*10):
+	v = "%d hours" % (v/HZ/3600)
+    else:
+        v = "%1.1f s" % (float(v)/HZ)
+    return v
 
 if ( __name__ == '__main__'):
     import sys

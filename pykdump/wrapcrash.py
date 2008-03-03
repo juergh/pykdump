@@ -878,8 +878,10 @@ def readSUListFromHead(headaddr, listfieldname, mystruct, maxel=_MAXEL,
 
 def readStructNext(shead, nextname, inchead = True):
     if (not isinstance(shead, StructResult)):
+	# This should be tPtr
         if (shead == 0):
             return []
+	shead = Deref(shead)
     stype = shead.PYT_symbol
     offset = shead.PYT_sinfo[nextname].offset
     out = []
