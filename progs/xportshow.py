@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-# Time-stamp: <08/02/27 14:00:08 alexs>
+# Time-stamp: <08/03/03 16:30:33 alexs>
 
-# Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
 
 # Print info about connections and sockets 
 
@@ -26,7 +26,7 @@ from LinuxDump.inet import summary
 import string
 from StringIO import StringIO
 
-WARNING = "+++WARNING+++"
+__version__ = 0.5
 
 debug = API_options.debug
 
@@ -678,6 +678,9 @@ if ( __name__ == '__main__'):
                   action="store_true",
                   help="Run all functions available")
 
+    op.add_option("--version", dest="Version", default = 0,
+                  action="store_true",
+                  help="Print 'xportshow' version and exit")
 
     op.add_option("--new", dest="New", default = 0,
                   action="store_true",
@@ -703,6 +706,9 @@ if ( __name__ == '__main__'):
 
     details = o.Verbose
 
+    if (o.Version):
+        print "XPORTSHOW version %s" % __version__
+        sys.exit(0)
 
     if (o.Everything):
         from LinuxDump.inet.netfilter import nf
