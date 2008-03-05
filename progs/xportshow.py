@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <08/03/03 16:30:33 alexs>
+# Time-stamp: <08/03/05 16:19:17 alexs>
 
 # Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
@@ -62,18 +62,23 @@ def print_TCP_sock(o):
         sfamily = P_FAMILIES.value2key(pstr.family)
         if (tcp_state != tcpState.TCP_LISTEN 
             and tcp_state != tcpState.TCP_TIME_WAIT):
-            snd_wnd = pstr.topt.snd_wnd
-            rcv_wnd = pstr.topt.rcv_wnd
-            advmss = pstr.topt.advmss
+            topt = pstr.topt
+            snd_wnd = topt.snd_wnd
+            rcv_wnd = topt.rcv_wnd
+            advmss = topt.advmss
             #nonagle=pstr.Tcp.nonagle
-            nonagle = pstr.topt.nonagle
+            nonagle = topt.nonagle
+            rx_queue = topt.rcv_nxt - topt.copied_seq
+            tx_queue = topt.write_seq - topt.snd_una
             print "\twindows: rcv=%d, snd=%d  advmss=%d rcv_ws=%d snd_ws=%d" %\
                 (rcv_wnd, snd_wnd, advmss,
                  pstr.rx_opt.rcv_wscale, pstr.rx_opt.snd_wscale)
             print "\tnonagle=%d sack_ok=%d tstamp_ok=%d" %\
                 (nonagle, pstr.rx_opt.sack_ok, pstr.rx_opt.tstamp_ok)
-	    print "\trx_queue=%d, tx_queue=%d" % (pstr.rmem_alloc,
+	    print "\trmem_alloc=%d, wmem_alloc=%d" % (pstr.rmem_alloc,
                                                   pstr.wmem_alloc)
+	    print "\trx_queue=%d, tx_queue=%d" % (rx_queue,
+                                                  tx_queue)
             print "\trcvbuf=%d, sndbuf=%d" % (pstr.rcvbuf, pstr.sndbuf)
 	    #print pstr.rcv_tstamp, pstr.lsndtime
 	    print "\trcv_tstamp=%s, lsndtime=%s  ago" %\
@@ -673,6 +678,10 @@ if ( __name__ == '__main__'):
                   action="store_true",
                   help="Print the routing cache")
 
+    op.add_option("--skbuffhead", dest="Skbuffhead", default = -1,
+                  action="store", type="int",
+                  help="Print sk_buff_head")
+
 
     op.add_option("--everything", dest="Everything", default = 0,
                   action="store_true",
@@ -779,6 +788,11 @@ if ( __name__ == '__main__'):
     if (o.rtcache):
         from LinuxDump.inet.routing import print_rt_hash
         print_rt_hash()
+        sys.exit(0)
+
+    if (o.Skbuffhead != -1):
+        skbhead = readSU("struct sk_buff_head",  o.Skbuffhead)
+        print_skbuff_head(skbhead, details)
         sys.exit(0)
 
     if (o.ipsec):

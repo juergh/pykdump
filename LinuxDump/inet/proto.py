@@ -1,7 +1,7 @@
 
 # module LinuxDump.inet.proto
 #
-# Time-stamp: <08/02/27 10:30:36 alexs>
+# Time-stamp: <08/03/05 15:51:52 alexs>
 #
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -1008,8 +1008,14 @@ def print_skbuff_head(skb, v = 0):
 	else:
 	    print WARNING, 'sk=NULL'
 	    decode_skbuf(skb, v)
-	devs = [skb.dev, skb.input_dev]
-	# real_dev does not exist anymore on newer kernels
+	devs = [skb.dev]
+	# real_dev and input_dev do not exist anymore on newer kernels
+	try:
+	    inout =  skb.input_dev
+	except KeyError:
+	    input_dev = None
+	devs.append(input_dev)
+            
 	try:
 	    real_dev =  skb.real_dev
 	except KeyError:
