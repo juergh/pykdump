@@ -1,15 +1,13 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <08/01/18 11:35:43 alexs>
+# Time-stamp: <08/03/10 15:49:39 alexs>
 
-# Functions/classes used while driving 'crash' externally via PTY
-# Most of them should be replaced later with low-level API when
-# using Python loaded to crash as shared library
+# High-level API built on top of C-module
 # There are several layers of API. Ideally, the end-users should only call
 # high-level functions that do not depend on internal
 
-# Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -640,34 +638,6 @@ class _GDB:
             
 
 
-# An auxiliary class to be used in StructResult to process dereferences
-
-# Warning: this is obsoleted and will go away sooner or later
-
-#import inspect
-class Dereference:
-    __first = True
-    def __init__(self, sr):
-	#raise AttributeError, "Dereference"
-	if (Dereference.__first):
-	    frame, fn, lineno, subr, stmts, sl = inspect.stack()[-2]
-	    print "!!!Warning: do not use Deref attribute for non-pointers"
-	    print "!!!  trying to use it for", sr
-	    print "!!!  at line %d of %s (%s)" % (lineno, fn, subr)
-	    print "!!!\t", stmts[sl]
-	    Dereference.__first = False
-        self.sr = sr
-    def __getattr__(self, f):
-        # Get address from the struct.
-        #addr = self.sr.__getattr__(f)
-	addr = readPtr(Addr(self.sr, f))
-	if (addr == 0):
-	    msg = "\nNULL pointer %s->%s" % (
-	                                       str(self.sr), f)
-	    raise IndexError, msg
-
-        stype = self.sr.PYT_sinfo[f].basetype
-        return readSU(stype, addr) 
 
 # Wrapper functions to return attributes of StructResult
 

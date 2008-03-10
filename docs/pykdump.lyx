@@ -1,4 +1,4 @@
-#LyX 1.5.1 created this file. For more info see http://www.lyx.org/
+#LyX 1.5.3 created this file. For more info see http://www.lyx.org/
 \lyxformat 276
 \begin_document
 \begin_header
@@ -32,6 +32,7 @@
 \paperpagestyle default
 \tracking_changes false
 \output_changes false
+\author "" 
 \author "" 
 \end_header
 
@@ -76,7 +77,7 @@ asid@hp.com
 
 \begin_layout Abstract
 This is a brief tutorial explaining how to use Pykdump.
- The current version is 0.3 
+ The current version is 0.5
 \end_layout
 
 \begin_layout Section
@@ -426,39 +427,124 @@ Dereferencing Pointers in Structs and Unions (Emulating * and -> Operators)
 \end_layout
 
 \begin_layout Standard
-What if we want to follow the 'next' pointer in the example above? In C
- we can write
+What if we want to follow the 'next' pointer in the example above? The attribute
+ dereference operator '->' in C is really just a syntax sugar that replaces
+ both a pointer dereference and attribute access:
 \end_layout
 
 \begin_layout Code
-svar->next;
+svar->next;              /* The same as (*svar).next          */
 \end_layout
 
 \begin_layout Code
-svar->next->next;
+svar->next->next;        /* The same as (*(*svar).next).next  */
 \end_layout
 
 \begin_layout Standard
-and it will take into account the pointer type automatically (as compiler
- has access to definitions).
- There is no dereference operator in Python but we still can dereference
- using one of the following approaches: 
-\end_layout
-
-\begin_layout Itemize
-load the needed structure from the known address manually 
-\end_layout
-
-\begin_layout Itemize
-use a special 'Deref' attribute which emulates dereference, e.g.
+There is neither '*' no '->' operators in Python but we still can dereference
+ using alternative approaches.
+ For example, for a pointer dereference we can use Deref() function.
+ In C:
 \end_layout
 
 \begin_layout Code
-next = readSU("'struct blk_major_name", s.next) # the 1st approach
+struct blk_major_name *sptr;
 \end_layout
 
 \begin_layout Code
-next = s.Deref.next                             # the 2nd approach
+int major = (*sptr).major;
+\end_layout
+
+\begin_layout Code
+in major1 = sptr->major;
+\end_layout
+
+\begin_layout Standard
+In Python (assuming that 
+\emph on
+sptr
+\emph default
+ is an object representing a pointer to structure):
+\end_layout
+
+\begin_layout Code
+major = Deref(sptr).major       # Approach 1
+\end_layout
+
+\begin_layout Code
+major1 = sptr.major             # Approach 2
+\end_layout
+
+\begin_layout Standard
+Please note the second approach.
+ The framework finds that an object is a pointer to a structure, so obviously
+ the dot operator is not a simple field dereference.
+ So it inteprets it as '->'.
+ That is, you can use the dot operator in both cases and it will be used
+ in a needed way.
+ For example:
+\end_layout
+
+\begin_layout Code
+/* in C */
+\end_layout
+
+\begin_layout Code
+s->f1.f2->f3.f4-f5
+\end_layout
+
+\begin_layout Code
+# In Python
+\end_layout
+
+\begin_layout Code
+s.f1.f2.f3.f4.f5
+\end_layout
+
+\begin_layout Standard
+More than that, in PyKdump pointers to structures and structures themselves
+ have the same object type.
+ It is similar to Java's approach where we have just references and no pointers.
+ 
+\end_layout
+
+\begin_layout Standard
+Please note, that the description above is correct only for pointers to
+ structures.
+ Pointers to any other types are represented with a different object class.
+ In particular:
+\end_layout
+
+\begin_layout Code
+/* in C */
+\end_layout
+
+\begin_layout Code
+struct test *sptr;
+\end_layout
+
+\begin_layout Code
+struct test **pptr;
+\end_layout
+
+\begin_layout Code
+# in Python
+\end_layout
+
+\begin_layout Code
+# sptr is the same as Deref(sptr) (the same type), so you can write
+\end_layout
+
+\begin_layout Code
+sptr.f1
+\end_layout
+
+\begin_layout Code
+# pptr is completely different, Deref(pptr) is not the same as pptr
+\end_layout
+
+\begin_layout Code
+Deref(pptr).f1
 \end_layout
 
 \begin_layout Standard
@@ -547,8 +633,8 @@ addr_next = Addr(dev_base) + offset
 \end_layout
 
 \begin_layout Standard
-In the future we might add a special attribute similar to 'Deref' doing
- the needed work for us - but this is not implemented yet.
+In the future we might add a special attribute or fucntion similar to 'Deref'
+ doing the needed work for us - but this is not implemented yet.
 \end_layout
 
 \begin_layout Subsection
@@ -597,7 +683,11 @@ StructResult
 \end_layout
 
 \begin_layout Standard
-This type represents struct/union.
+This type represents struct/union 
+\emph on
+and
+\emph default
+ a pointer to struct/union.
  Operations that we can use:
 \end_layout
 
@@ -644,105 +734,20 @@ to a plain long by doing conversion explictly,
 \end_layout
 
 \begin_layout Code
-t = tPtr(123, "struct task_struct")
-\end_layout
-
-\begin_layout Code
-i = long(t)
+i = long(tptr)
 \end_layout
 
 \begin_layout Standard
-We return this type when a global variable or struct member is defined as
- a pointer to struct.
- It contains internally both address and pointer type.
- You can dereference it using Deref function atribute.
- For example:
-\end_layout
-
-\begin_layout Code
-s = readSU("struct sock", addr)
-\end_layout
-
-\begin_layout Code
-#s.socket->inode->i_ino
-\end_layout
-
-\begin_layout Code
-ino = s.socket.Deref.inode.Deref.i_ino
-\end_layout
-
-\begin_layout Standard
-A few words about mapping between C-code as present in kernel and Python
- code.
- In C, we use pointers extensively.
- While rewriting the same algorithm in Python, we can use both struct/unions
- object (class StructResult) and pointers to them.
- For example:
-\end_layout
-
-\begin_layout Code
-/* in C */
-\end_layout
-
-\begin_layout Code
-struct AAA *a;
-\end_layout
-
-\begin_layout Code
-int b = a->field1;
-\end_layout
-
-\begin_layout Code
-# In Python:
-\end_layout
-
-\begin_layout Code
-a = readSymbol(a)     # this returns tPtr
-\end_layout
-
-\begin_layout Code
-sa = Deref(a)         # this reads the structure itself
-\end_layout
-
-\begin_layout Code
-b = sa.b
-\end_layout
-
-\begin_layout Code
-#
-\end_layout
-
-\begin_layout Code
-# Or we can do like that
-\end_layout
-
-\begin_layout Code
-b = sa.Deref.b
-\end_layout
-
-\begin_layout Standard
-So we use 
-\emph on
-Deref(p)
-\emph default
- to emulate 
-\emph on
-*p
-\emph default
- operation, 
-\emph on
-p.Deref.attr
-\emph default
- to emulate 
-\emph on
-p->attr
-\emph default
- operation.
+Please note that at this moment this class is intended for internal usage
+ mainly.
+ Objects of this type are returned as needed, but you should not try to
+ create them from scratch yourself.
+ 
 \end_layout
 
 \begin_layout Standard
 The main reason why this special type is needed is to preserve information
- while reading global pointers to structs using 
+ while reading global variables using 
 \series bold
 \emph on
 readSymbol
@@ -859,7 +864,7 @@ extend
 \begin_layout Code
 
 \family typewriter
-crash> extend /path/to/extension/python32.so
+crash> extend /path/to/extension/mpython32.so
 \family default
  
 \end_layout
@@ -927,7 +932,7 @@ The initialization files are first searched in your current directory, then
 \begin_layout Code
 
 \family typewriter
-extend /path/to/extension/python32.so
+extend /path/to/extension/mpython32.so
 \family default
  
 \end_layout
@@ -969,10 +974,6 @@ You can pass a number of options that are consumed by API itself; if you
 \end_layout
 
 \begin_layout Itemize
---ext=0/1
-\end_layout
-
-\begin_layout Itemize
 --crash=crashcommandpath
 \end_layout
 
@@ -986,14 +987,6 @@ You can pass a number of options that are consumed by API itself; if you
 
 \begin_layout Itemize
 --sysmap sysmapfile
-\end_layout
-
-\begin_layout Itemize
---nopysco
-\end_layout
-
-\begin_layout Itemize
---experimental
 \end_layout
 
 \begin_layout Standard
@@ -1026,149 +1019,6 @@ Environment
 
 \begin_layout Itemize
 PYKDYMPDEBUG=1 enables debugging messages of C-extension
-\end_layout
-
-\begin_layout Itemize
-PYTHONPATH can be used in mixed 64 bit environment to specify where 32-bit
- Python libraries are located.
- This is not ready for general usage yet.
-\end_layout
-
-\begin_layout Subsection
-Starting Python Scripts Outside Crash
-\end_layout
-
-\begin_layout Standard
-Using Python programs in Crash environment consists of three steps:
-\end_layout
-
-\begin_layout Enumerate
-Start 
-\series bold
-\emph on
-crash
-\series default
-\emph default
- specifying the needed dump files and options
-\end_layout
-
-\begin_layout Enumerate
-Load the 
-\series bold
-\emph on
-pykdump
-\series default
-\emph default
- extension
-\end_layout
-
-\begin_layout Enumerate
-Start you program using 
-\series bold
-\emph on
-epython
-\series default
-\emph default
- command
-\end_layout
-
-\begin_layout Standard
-For example:
-\end_layout
-
-\begin_layout Code
-{asid 13:46:46} crash32  /data/Dumps/Fermi/vmlinux-2.4.21-47.ELsmp 
-\backslash
-          
-\end_layout
-
-\begin_layout Code
-    /data/Dumps/Fermi/vmcore 
-\end_layout
-
-\begin_layout Code
-...
-\end_layout
-
-\begin_layout Code
-crash32> extend /uuu/users/sid/tools/pykdump/Extension/pykdump32.so /uuu/users/si
-d/tools/pykdump/Extension/pykdump32.so: shared object loaded 
-\end_layout
-
-\begin_layout Code
-crash32> epython progs/netdev.py 
-\end_layout
-
-\begin_layout Standard
-If 'netdev.py' is a highly untrivial program doing automated dump-analysis,
- you may want to run it on several dumps without doing anything else.
- So it would be nice to be able to automate the three steps above (well,
- loading the extension can be automated by doing it in crash initialization
- file).
- The following should work, started from normal shell prompt:
-\end_layout
-
-\begin_layout Code
-{asid 14:00:27} progs/netdev.py /data/Dumps/Fermi
-\end_layout
-
-\begin_layout Standard
-This command does the following:
-\end_layout
-
-\begin_layout Itemize
-searches for needed files in /data/Dumps/Fermi directory (see below for
- how this is done)
-\end_layout
-
-\begin_layout Itemize
-creates a temporary file putting there commands to run, including loading
- the extension and executing 'epython' with needed arguments
-\end_layout
-
-\begin_layout Itemize
-starts 
-\series bold
-\emph on
-crash 
-\series default
-\emph default
-passing to it the name of that script file
-\end_layout
-
-\begin_layout Subsubsection
-Searching For Needed Files
-\end_layout
-
-\begin_layout Standard
-To pass the dump location on the command line, you specify the base dump
- directory.
- The program will search this directory for files needed to be passed to
- crash as arguments.
- If you do not specify any directory at all, it will try to use the files
- in the current directory.
- If no dump/vmlinux files are available in the current directory, the program
- will try to use the live kernel and /dev/crash (or /dev/mem).
- Here is how files are searched (using * wildcard in usual sense):
-\end_layout
-
-\begin_layout Itemize
-if there is 'System.map*' file, it will be used (the 1st one if there are
- several of them) 
-\end_layout
-
-\begin_layout Itemize
-if there is 'vmlinux*' file and it is has a reasonable full name (at this
- moment this means that it does not have .gz, .bz2, .tgz or .debug extension)
- it will be used 
-\end_layout
-
-\begin_layout Itemize
-if there is 'vmcore*' file and it has a reasonable name, it will be used
-\end_layout
-
-\begin_layout Standard
-This works in most cases, but still needs improvements
 \end_layout
 
 \begin_layout Section
@@ -1877,14 +1727,12 @@ readmem - read the needed number of bytes from memory
 \end_layout
 
 \begin_layout Code
-stringvalue = readmem(addr, size, memtype = 'KVADDR')
+stringvalue = readmem(addr, size, memtype = crash.KVADDR)
 \end_layout
 
 \begin_layout Standard
 Returns a String object (may contain any bytes including NULLs).
- If you use this without C-extension loaded, you can read only 'KVADDR'
- memory (this is what is needed in 99% of all cases).
- If C-extension is loaded, you can specify UVADDR and PHYSADR too
+ By default, we read KVADDR.
 \end_layout
 
 \begin_layout Description
