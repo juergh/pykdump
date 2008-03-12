@@ -1021,6 +1021,11 @@ Environment
 PYKDYMPDEBUG=1 enables debugging messages of C-extension
 \end_layout
 
+\begin_layout Itemize
+PYKDUMPPATH a colon-separated list of directories where we search for programs.
+ The current directory is always searched first
+\end_layout
+
 \begin_layout Section
 Reference
 \end_layout

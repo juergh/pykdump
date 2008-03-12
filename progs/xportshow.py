@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <08/03/05 16:19:17 alexs>
+# Time-stamp: <08/03/11 11:09:12 alexs>
 
 # Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
@@ -100,7 +100,7 @@ def print_TCP_sock(o):
         # for RPC this is "struct rpc_xprt *"
         udaddr = pstr.user_data
         if (udaddr):
-            print "\t ~~~user_data", hexl(udaddr),
+            print "\t   |user_data|", hexl(udaddr),
             decode_user_data(udaddr, long(o))
 
 
@@ -156,7 +156,7 @@ def decode_user_data(addr, saddr):
     ptrsk = readPtr(addr + PTR_SIZE)
     if (ptrsk == saddr):
         # This is 2.6.9 rpc_xptr
-        print "-> 'struct rpc_xprt'  (old-style)"
+        print "-> 'struct rpc_xprt'"
         return
 
     # On recent 2.6 kernels, we try to find the offset of sockaddr_storage
@@ -175,7 +175,7 @@ def decode_user_data(addr, saddr):
     prot = readInt(addr + offset + struct_size(sname) + PTR_SIZE)
     #print sas.ss_family, addrlen, prot
     if (prot in (6, 17) and sas.ss_family in (2,10)):
-        print "-> 'struct rpc_xprt' (new-style)"
+        print "-> 'struct rpc_xprt'"
         return
     print ''
 
@@ -272,7 +272,7 @@ def print_UDP():
 	    # for RPC this is "struct rpc_xprt *"
 	    udaddr = pstr.user_data
 	    if (udaddr):
-		print "\t ~~~user_data", hexl(udaddr),
+		print "\t   |user_data|", hexl(udaddr),
 		decode_user_data(udaddr, long(o))
 							 
 

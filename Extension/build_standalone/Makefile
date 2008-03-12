@@ -86,7 +86,11 @@ $(PYFULL):  $(PYLIB) $(FULLPROGS) $(PYCOMPILE)
 	cd ../../progs;  zip  $(PYFULLPATH) $(INITPROG)
 
 
+# Before compiling, remove all .pyc files. This might be needed
+# if we ran as crash as root (then .pyc are owned by root)
 pycompile:
+	find ../../pykdump -name \*.pyc | xargs rm -f
+	find ../../LinuxDump -name \*.pyc | xargs rm -f
 	$(PYTHON) $(COMPALL) -f ../../pykdump
 	$(PYTHON) $(COMPALL) -f ../../LinuxDump
 

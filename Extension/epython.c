@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <08/02/15 15:09:11 alexs>
+  Time-stamp: <08/03/11 10:55:51 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -279,7 +279,7 @@ run_fromzip(const char *progname) {
 
   /* Execute code in __main__ context */
   if (debug)
-    printf("Executing code from ZIP\n");
+    printf("Executing code from ZIP\n\n");
   v = PyEval_EvalCode(code, d, d);
 
   Py_DECREF(code);
@@ -378,8 +378,8 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
   char buffer[BUFLEN];
 
   
-  // Search in PATH. If there is no '.py' suffix try to append it
-  path = getenv("PATH");
+  // Search in PYKDUMPPATH. If there is no '.py' suffix try to append it
+  path = getenv("PYKDUMPPATH");
   if (argc < 1) {
     fprintf(fp, " You need to specify a program file\n");
     // No arguments passed

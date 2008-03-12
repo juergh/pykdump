@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/10/11 12:16:51 alexs>
+# Time-stamp: <08/03/10 16:30:38 alexs>
 
 # Per-cpu functions
 
@@ -43,11 +43,16 @@ def __percpu_disguise(pdata):
 #        (__typeof__(ptr))__p->ptrs[(cpu)];	          \
 #})
 
+# Until we unify tPtr and StructResult
+
 def get_percpu_ptr_26(ptr, cpu):
     p =  __percpu_disguise(ptr)
     #print " disguised = 0x%x" % p
     dp = readSU("struct percpu_data", p)
-    optr = tPtr(dp.ptrs[cpu], ptr.ptype)
+    if (isinstance(ptr, pykdump.wrapcrash.StructResult)):
+        optr = readSU(ptr.PYT_symbol, dp.ptrs[cpu])
+    else:
+        optr = tPtr(dp.ptrs[cpu], ptr.ptype)
     return optr
 
 def percpu_counter_sum(fbc):

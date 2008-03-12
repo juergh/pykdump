@@ -1,7 +1,7 @@
 
 # module LinuxDump.inet.summary
 #
-# Time-stamp: <08/02/27 14:23:24 alexs>
+# Time-stamp: <08/03/12 14:22:40 alexs>
 #
 # Copyright (C) 2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2008 Hewlett-Packard Co., All rights reserved.
@@ -31,10 +31,10 @@ from LinuxDump.inet.proto import tcpState, sockTypes, \
 
 
 # Print a summary of TCP/IP subsystem
-def TCPIP_Summarize():
-
-    print "TCP Connection Info"
-    print "-------------------"
+def TCPIP_Summarize(quiet):
+    if (not quiet):
+        print "TCP Connection Info"
+        print "-------------------"
     counts = {}
 
     # LISTEN
@@ -95,12 +95,13 @@ def TCPIP_Summarize():
 
     states = counts.keys()
     states.sort()
-    for s in states:
-        print "    %15s  %5d" % (tcpState[s][4:], counts[s])
-    if (nodelay):
-        print "\t\t\tNAGLE disabled (TCP_NODELAY): %5d" % nodelay
-    if (udata):
-        print "\t\t\tuser_data set (NFS etc.):     %5d" % udata
+    if (not quiet):
+        for s in states:
+            print "    %15s  %5d" % (tcpState[s][4:], counts[s])
+        if (nodelay):
+            print "\t\t\tNAGLE disabled (TCP_NODELAY): %5d" % nodelay
+        if (udata):
+            print "\t\t\tuser_data set (NFS etc.):     %5d" % udata
         
     if  (lqne or lqfull or w_rcv_closed or w_rcv_closed):
         print ""
@@ -114,9 +115,9 @@ def TCPIP_Summarize():
     if (w_snd_closed):
         print "    Send Window Closed:           %5d" % w_snd_closed
 
-
-    print "\n\nUDP Connection Info"
-    print "-------------------"
+    if (not quiet):
+        print "\n\nUDP Connection Info"
+        print "-------------------"
     count = rcvfull = sndfull = established = 0
     udata = 0
     for o in proto.get_UDP():
@@ -131,12 +132,15 @@ def TCPIP_Summarize():
             rcvfull += 1
         if (pstr.wmem_alloc *100 >= pstr.sndbuf * 75):
             sndfull += 1
-    print "  %d UDP sockets, %d in ESTABLISHED" % (count, established)
-    if (udata):
+    if (not quiet):
+        print "  %d UDP sockets, %d in ESTABLISHED" % (count, established)
+    if (not quiet and udata):
         print "\t\t\tuser_data set (NFS etc.):     %5d" % udata
     if (rcvfull or sndfull):
-        print "\tNote: buffer fill >=75%%  rcv=%d snd=%d" % (rcvfull, sndfull)
+        print WARNING,"UDP buffer fill >=75%%  rcv=%d snd=%d" % (rcvfull, sndfull)
 
+    if (quiet):
+        return
 
     print "\n\nUnix Connection Info"
     print "------------------------"
@@ -187,8 +191,10 @@ def __j_delay(ts, jiffies):
 
 HZ = sys_info.HZ
 
-def IF_Summarize():
-    
+def IF_Summarize(quiet):
+
+    if (quiet):
+        return
     print "Interfaces Info"
     print "---------------"
     dev_base_list = netdevice.dev_base_list()

@@ -2,7 +2,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <08/03/03 16:28:07 alexs>
+# Time-stamp: <08/03/12 14:49:02 alexs>
 
 # Copyright (C) 2007-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007-2008 Hewlett-Packard Co., All rights reserved.
@@ -14,6 +14,12 @@ from LinuxDump.BTstack import exec_bt, bt_summarize, bt_mergestacks
 from LinuxDump.kmem import parse_kmemf, print_Zone
 from LinuxDump.Tasks import TaskTable, Task, tasksSummary, getRunQueues
 from LinuxDump.inet import summary
+import LinuxDump.inet.netdevice as netdevice
+from LinuxDump import percpu
+
+
+
+from LinuxDump import percpu
 
 
 import sys
@@ -235,7 +241,6 @@ def check_auditf():
 	    print bts
 
 def check_sysctl():
-    from LinuxDump import sysctl
     ctbl = sysctl.getCtlTables()
     names = ctbl.keys()
     names.sort()
@@ -244,24 +249,9 @@ def check_sysctl():
         dall = sysctl.getCtlData(ctbl[n])
         print n.ljust(45), dall
 
-def check_network():
-    import LinuxDump.inet.netdevice as netdevice
-    offset = member_offset("struct net_device", "next")
-    dev_base = readSymbol("dev_base")
-    jiffies = readSymbol("jiffies")
-    for a in readList(dev_base, offset):
-        dev = readSU("struct net_device", a)
-	if_up = dev.flags & netdevice.IFF_FLAGS.IFF_UP
-	if (not if_up):  continue
-	# Last RX and TX times in jiffies. Check this only for devices
-	# that are UP
-	last_rx = (jiffies - dev.last_rx)/HZ
-        trans_start = (jiffies - dev.trans_start)/HZ
-	print dev.name, last_rx, trans_start
  
 # Check whether active (bt -a) tasks are looping
 def check_activetasks():
-    from LinuxDump import percpu
 
     tt = get_tt()
     basems = tt.basems
@@ -316,7 +306,6 @@ def check_spinlocks():
 
 
 def check_runqueues():
-    from LinuxDump import percpu
 
     if (not quiet):
         printHeader("Scheduler Runqueues (per CPU)")
@@ -355,9 +344,10 @@ def check_runqueues():
 
 # Do some basic network subsystem check
 def check_network():
-    printHeader("Network Status Summary")
-    summary.TCPIP_Summarize()
-    summary.IF_Summarize()
+    if (not quiet):
+        printHeader("Network Status Summary")
+    summary.TCPIP_Summarize(quiet)
+    summary.IF_Summarize(quiet)
 
 # The argument can be 'all' (all threads), integer (pid or tid) or
 # syscall name 'e.g. select'
@@ -388,17 +378,29 @@ def decode_syscalls(arg):
 
 def decode_eventwq():
     keventd_wq = readSymbol("keventd_wq")
+
+    # On older (e.g. 2.6.9) kernels we use
+    # cwq = keventd_wq->cpu_wq + cpu;
+    # On newer ones,
+    # cwq = per_cpu_ptr(keventd_wq->cpu_wq, cpu);
+
+    cpu_wq = keventd_wq.cpu_wq
+    per_cpu = keventd_wq.hasField("freezeable")
     # CPU-specific 
     for cpu in range(0, sys_info.CPUS):
-	print " ----- CPU ", cpu
-	cpu_wq = keventd_wq.cpu_wq[cpu]
+        if (per_cpu):
+            cwq = percpu.percpu_ptr(cpu_wq, cpu)
+        else:
+            cwq = keventd_wq.cpu_wq[cpu]
+	print " ----- CPU ", cpu, cwq
 	# worklist is embedded in struct work_struct
 	# as 'struct list_head entry'
-	worklist = cpu_wq.worklist
+	worklist = cwq.worklist
 	print "\tworklist:"
 	for e in readSUListFromHead(Addr(worklist), "entry",
 	    "struct work_struct"):
 	    print e
+    return
     # print singleevent
     singleevent = readSymbol("singleevent")
     print ' --- singleevent', singleevent
@@ -418,7 +420,25 @@ def decode_eventwq():
 	print e, e.dev, e.dev.name
    
 	
-	
+# Print args of most recent processes
+def print_args5():
+    tt = get_tt()
+    # Most recent first
+    out = []
+    for t in tt.allThreads():
+        out.append((- t.last_ran, t.pid, t))
+        out.sort()
+    for l, pid, t in out[:5]:
+        mm = t.mm
+        try:
+            arg_start = mm.arg_start
+            arg_end = mm.arg_end
+        except crash.error:
+            print pid, t.comm, "no user stack"
+            continue
+        s = readProcessMem(long(t.ts), arg_start, (arg_end - arg_start))
+        print pid, t.comm, s
+
 
 
 op =  OptionParser()
@@ -505,6 +525,7 @@ if (o.filelock):
     
 if (o.stacksummary):
     stackSummary()
+    sys.exit(0)
     
 HZ = sys_info.HZ
 
@@ -525,8 +546,11 @@ else:
 print_basics()
 dump_reason(dmesg)
 check_loadavg()
-printHeader("Tasks Summary")
-threadcount = tasksSummary()
+if (not quiet):
+    printHeader("Tasks Summary")
+    threadcount = tasksSummary()
+
+print_args5()
 #check_activetasks()
 check_spinlocks()
 check_mem()
@@ -538,7 +562,8 @@ check_network()
 
 # After this line we put all routines that can produce significant output
 # We don't want to see hundreds of lines in the beginning!
-print_dmesg()
+if (not quiet):
+    print_dmesg()
 if (verbose):
     printHeader("A Summary Of Threads Stacks")
     stackSummary()
