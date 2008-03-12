@@ -50,12 +50,15 @@ class Task:
         self.ts = ts
 	self.ttable = ttable
     # -- Get the timestamp when last ran by scheduler, converted to ms --
+    # We use the same algorithm as 'crash' does
     def __get_last_ran(self):
         ts = self.ts
-        if (ts.hasField('last_ran')):
-            return sched_clock2ms(ts.last_ran)
-        elif (ts.hasField('last_run')):
+        if (ts.hasField('last_run')):
             return sched_clock2ms(ts.last_run)
+	elif (ts.hasField('timestamp')):
+	    return sched_clock2ms(ts.timestamp)
+        elif (ts.hasField('last_ran')):
+            return sched_clock2ms(ts.last_ran)
         else:
             return None
     last_ran = property(__get_last_ran)
@@ -347,16 +350,16 @@ def jiffies2ms(jiffies):
 
 # This is 2.6 clock using jiffies instead of TSC
 def sched_clock2ms_26_jiffies(val):
-    return jiffies2ms(val * HZ/1000000000)
+    return jiffies2ms(val * HZ/1000000000.)
 
 # If we are using TSC, the timestamps are already in ns
 def sched_clock2ms_26_tsc(val):
-    return val/1000000
+    return val/1000000.
 
 # 2.4.X - no special sched_clock, we use just 'jiffies'
 def sched_clock2ms_24(val):
     # We use plain jiffies
-    return val*1000/HZ
+    return val*1000./HZ
 
 def ms2uptime(ms):
     total = ms/1000

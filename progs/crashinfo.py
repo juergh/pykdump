@@ -55,7 +55,7 @@ def get_tt():
 
 #print "%7.2f s to parse, %d entries" % (t1 - t0, len(btsl))
 
-def printHeader(format, *args):
+def printHeader(format, *args, **kwargs):
     if (len(args) > 0):
 	text = format % args
     else:
@@ -63,14 +63,20 @@ def printHeader(format, *args):
     tlen = len(text)
     lpad = (73-tlen)/2
     print ""
-    uh = ' ' + ' '*lpad + '+' + '-'*(tlen+2) + '+'
-    print uh
-    print '>' + '-' * lpad + '| ' + text + ' |' +  '-' * lpad + '<'
-    print uh
+    if (kwargs.has_key("frame")):
+	uh = ' ' + ' '*lpad + '+' + '='*(tlen+2) + '+'
+	print uh
+	print ' ' + ' ' * lpad + '| ' + text + ' |'
+	print uh
+    else:	
+	uh = ' ' + ' '*lpad + '+' + '-'*(tlen+2) + '+'
+	print uh
+	print '>' + '-' * lpad + '| ' + text + ' |' +  '-' * lpad + '<'
+	print uh
     print ""
 
 def print_basics():
-    print "         *** Crashinfo v0.2 ***"
+    printHeader("*** Crashinfo v0.2 ***", frame=1)
     print ""
     if (not sys_info.livedump):
 	# Check whether this is a partial dump and if yes,
@@ -99,6 +105,11 @@ def print_basics():
 	for cpu, stack in enumerate(bta):
 	    print "      -- CPU#%d --" % cpu, stack
 	    print ""
+
+
+def print_mount():
+    printHeader("Mounted FS")
+    print exec_crash_command("mount")
 
 def print_dmesg():
     if (verbose):
@@ -165,7 +176,7 @@ def dump_reason(dmesg):
 	else:
 	    return False
     def ifnetdump(dmesg):
-	re_netdump = re.compile('netdump activated', re.M)
+	re_netdump = re.compile('netdump', re.M)
 	if (re_netdump.search(dmesg)):
 	    return True
 	else:
@@ -422,22 +433,31 @@ def decode_eventwq():
 	
 # Print args of most recent processes
 def print_args5():
+    printHeader("5 Most Recent Threads")
+    print "  PID  CMD                Age    ARGS"
+    print "-----  --------------   ------  ----------------------------"
     tt = get_tt()
+    basems = tt.basems
     # Most recent first
     out = []
     for t in tt.allThreads():
-        out.append((- t.last_ran, t.pid, t))
-        out.sort()
+        out.append((basems - t.last_ran, t.pid, t))
+	#print t.pid, t.last_ran
+    out.sort()
     for l, pid, t in out[:5]:
         mm = t.mm
         try:
             arg_start = mm.arg_start
             arg_end = mm.arg_end
+	    s = readProcessMem(long(t.ts), arg_start, (arg_end - arg_start))
+            # Replace nulls with spaces
+	    s = s.replace('\0', ' ')
         except crash.error:
-            print pid, t.comm, "no user stack"
-            continue
-        s = readProcessMem(long(t.ts), arg_start, (arg_end - arg_start))
-        print pid, t.comm, s
+            s = "(no user stack)"
+	spr = "%5d %-14s  %5d ms  %s" % (pid, t.comm, l, s)
+	print spr
+	if (len(spr) > 79):
+	    print ""
 
 
 
@@ -550,7 +570,8 @@ if (not quiet):
     printHeader("Tasks Summary")
     threadcount = tasksSummary()
 
-print_args5()
+if (not quiet):
+    print_args5()
 #check_activetasks()
 check_spinlocks()
 check_mem()
@@ -563,6 +584,7 @@ check_network()
 # After this line we put all routines that can produce significant output
 # We don't want to see hundreds of lines in the beginning!
 if (not quiet):
+    print_mount()
     print_dmesg()
 if (verbose):
     printHeader("A Summary Of Threads Stacks")
