@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/10/11 15:28:58 alexs>
+# Time-stamp: <08/03/12 16:40:22 alexs>
 
 # Tasks and Pids
 
@@ -198,6 +198,11 @@ class TaskTable:
  
         self.filepids = {}
         self.toffset = member_offset("struct task_struct", "thread_group")
+
+        # On a live kernel we need to get jiffies after getting threads info
+        if (sys_info.livedump):
+            self.__init_tids()
+
         self.basems = get_schedclockbase()
 	
 	# File objects cache
