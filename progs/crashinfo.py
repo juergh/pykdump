@@ -2,7 +2,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <08/03/12 14:49:02 alexs>
+# Time-stamp: <08/03/13 13:30:49 alexs>
 
 # Copyright (C) 2007-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007-2008 Hewlett-Packard Co., All rights reserved.
@@ -15,7 +15,7 @@ from LinuxDump.kmem import parse_kmemf, print_Zone
 from LinuxDump.Tasks import TaskTable, Task, tasksSummary, getRunQueues
 from LinuxDump.inet import summary
 import LinuxDump.inet.netdevice as netdevice
-from LinuxDump import percpu
+from LinuxDump import percpu, sysctl
 
 
 
