@@ -1,7 +1,7 @@
 
 # module LinuxDump.inet.summary
 #
-# Time-stamp: <08/03/12 14:22:40 alexs>
+# Time-stamp: <08/03/14 09:52:58 alexs>
 #
 # Copyright (C) 2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2008 Hewlett-Packard Co., All rights reserved.
@@ -31,7 +31,7 @@ from LinuxDump.inet.proto import tcpState, sockTypes, \
 
 
 # Print a summary of TCP/IP subsystem
-def TCPIP_Summarize(quiet):
+def TCPIP_Summarize(quiet = False):
     if (not quiet):
         print "TCP Connection Info"
         print "-------------------"
@@ -191,7 +191,7 @@ def __j_delay(ts, jiffies):
 
 HZ = sys_info.HZ
 
-def IF_Summarize(quiet):
+def IF_Summarize(quiet = False):
 
     if (quiet):
         return
