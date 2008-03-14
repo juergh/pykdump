@@ -664,6 +664,9 @@ def get_RAW6():
         # definition (it's in ipv6 DLKM...). And we don't have
         # 'struct raw6_sock' either...
         addr = sym2addr("raw_v6_htable")
+	# If addr ==0, there is no v6 support enabled
+	if (addr == 0):
+	    return
         # struct hlist_head raw_v6_htable[RAWV6_HTABLE_SIZE];
         # RAWV6_HTABLE_SIZE = 256, but try to obtain this programmatically
         si = whatis("inet_protos")
