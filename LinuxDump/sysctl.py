@@ -55,7 +55,7 @@ def readCtlTable(root, parent = ''):
     #print "root=", root
     for ct in root:
         #print ct
-        if (ct.ctl_name == 0): break
+        if (long(ct) == 0 or ct.ctl_name == 0): break
         if (ct.child):
             # This is a pointer to another table
             newroot = readSUArray(stype, ct.child)
@@ -77,7 +77,7 @@ def getCtlTables():
         #print ct, hexl(ctp), ct.Deref.ctl_table.procname
         ctl_table = readSUArray(stype, ctp)
         #print '-' * 70
-        readCtlTable(ctl_table)
+	readCtlTable(ctl_table)
     return __entries
     
 

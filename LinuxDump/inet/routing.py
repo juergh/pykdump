@@ -63,6 +63,9 @@ from LinuxDump.inet import *
 def print_rt_hash():
     rt_hash_mask = readSymbol("rt_hash_mask")
     rt_hash_table_addr = readSymbol("rt_hash_table")
+    if (rt_hash_table_addr == 0):
+	print WARNING, "rt_hash_table is NULL"
+	return
     rthb = getStructInfo("struct rt_hash_bucket")
     rthb_sz = rthb.size
 

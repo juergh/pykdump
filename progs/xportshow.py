@@ -244,7 +244,9 @@ def print_TCP():
 # print UDP
 
 def print_UDP():
+    count = 0
     for o in proto.get_UDP():
+	count += 1
         pstr = IP_sock(o, details)
         # If we do not want LISTEN sockets only, ignore everything but
         # ESTABLISHED (there is no real LISTEN state for UDP)
@@ -274,7 +276,8 @@ def print_UDP():
 	    if (udaddr):
 		print "\t   |user_data|", hexl(udaddr),
 		decode_user_data(udaddr, long(o))
-							 
+    if (count == 0):
+	print WARNING, "Empty UDP-hash - dump is probably incomplete"						 
 
 # print AF_UNIX
 
@@ -291,7 +294,12 @@ def print_UNIX():
             print '-' * 78
             print s, '\t\tUnix'
            
-        print "unix   %-12s   %-6d  %s" % (tcpState[state][4:],
+	# If the structure is corrupted, state will be bogus
+	try:
+	    statename = tcpState[state][4:]
+	except KeyError:
+	    statename = "|%d|" % state
+        print "unix   %-12s   %-6d  %s" % (statename,
                                            ino, path)
 
   

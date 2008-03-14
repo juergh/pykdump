@@ -607,12 +607,6 @@ def get_TCP_TIMEWAIT():
 
 # ----------------- UDP ----------------------------
 
-def UDP():
-    print '-------- UDP ----------'
-    if (struct_size("struct sock_common") == -1):
-        UDP_k24()
-    else:
-        UDP_k26()
 
 def get_UDP():
     if (INET_Stuff.Kernel24):
@@ -767,6 +761,7 @@ def get_AF_UNIX(details=False):
         for b in unix_socket_table:
             next = b
             while (next):
+		#print hexl(next)
                 s = readSU('struct sock', next)
                 next = s.next
                 if (details):
@@ -774,9 +769,9 @@ def get_AF_UNIX(details=False):
                     state = s.state
                     path = ''
                     sk_socket = s.socket
-                    if (socket):
+                    if (sk_socket):
                         #sk->socket->inode->i_ino
-                        ino = s.socket.Deref.inode.Deref.i_ino
+                        ino = sk_socket.Deref.inode.Deref.i_ino
                     else:
                         ino = 0
                     addr = s.protinfo.af_unix.addr

@@ -154,7 +154,12 @@ def TCPIP_Summarize(quiet = False):
     states = counts.keys()
     states.sort()
     for s in states:
-        print "    %15s  %5d" % (tcpState[s][4:], counts[s])
+	try:
+	    statename = tcpState[s][4:]
+	except KeyError:
+	    statename = "|%d|" % s
+	    print WARNING, "bogus TCP state", s
+        print "    %15s  %5d" % (statename, counts[s])
 
     print "\n\nRaw sockets info"
     print "--------------------"
