@@ -549,6 +549,7 @@ def print_softnet_data(details):
 	print_skbuff_head(sd.completion_queue)
 	
 def print_Everything():
+    print_listen = True
     nf()
     print_sysctl()
     print_dev_pack()
@@ -732,7 +733,7 @@ if ( __name__ == '__main__'):
         from LinuxDump.inet import neighbour
         from LinuxDump.inet.routing import print_fib, print_rt_hash
 
-        details = True
+        details = 2
 
         print_Everything()
         sys.exit(0)

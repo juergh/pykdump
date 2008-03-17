@@ -3,12 +3,9 @@
 from pykdump.API import *
 
 from LinuxDump import percpu
-from LinuxDump.Tasks import TaskTable, Task, tasksSummary
+from LinuxDump.Tasks import TaskTable, Task, tasksSummary, ms2uptime
 
 debug = API_options.debug
-
-
-
 
 def printTasks(reverse = False):
     basems = None

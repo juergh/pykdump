@@ -456,7 +456,7 @@ def intReader(vi):
         return val
 
     def charArray(addr):
-        s = readmem(addr, dim1)
+	s = readmem(addr, dim1)
         val = SmartString(s, addr, None)
         return val
 
@@ -500,7 +500,16 @@ def intReader(vi):
     if (dims != None and len(dims) == 1 and ti.stype == 'char'):
         # CharArray
         dim1 = dims[0]
-        return charArray
+	# If dimension is zero, return the address. Some structs
+	# have this at the end, e.g. 
+	# struct Qdisc {
+	# ...
+	#     char data[0];
+	# };
+	if (dim1 == 0):
+	    return zeroArrayReader
+        else:
+            return charArray
     elif (dims != None and  len(dims) == 1 and dims[0] == 0):
         return zeroArrayReader
     elif (unsigned):
@@ -875,6 +884,9 @@ class intDimensionlessArray(long):
     def __getitem__(self, i):
         addr = long(self) + i * self.isize
         return readIntN(addr, self.isize, self.signed)
+    def __repr__(self):
+	return "<intDimensionlessArray addr=0x%x, sz=%d, signed=%d>" %\
+            (long(self), self.isize, self.signed)
 
 
 class tPtrDimensionlessArray(object):

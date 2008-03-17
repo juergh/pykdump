@@ -137,7 +137,11 @@ def get_inet6_ifaddr():
     tableaddr = sym2addr('inet6_addr_lst')
     if (tableaddr == 0):
         return
-    offset = member_offset("struct inet6_ifaddr", "lst_next")
+    sn = "struct inet6_ifaddr"
+    if (not struct_exists(sn)):
+	print WARNING, "IPv6 structures definitions missing"
+	return
+    offset = member_offset(sn, "lst_next")
     for i in range(__IN6_ADDR_HSIZE):
         sa = readPtr(tableaddr + i * ptrsz)
         if (sa == 0):
@@ -228,9 +232,11 @@ def printQdisc(qdisc, verbosity):
     if (enqueuename == "pfifo_fast_enqueue"):
 	#print "\tqdisc.rate_est.bps", qdisc.rate_est.bps	
         # Should be aligned to 32 bytes
-        privaddr = (qdiscaddr + qdiscsz + qdiscalign-1) & (~(qdiscalign-1))
-	# On 2.4 privaddr is computed as qdisc.data, which is really the next
-	# addr after qdisc. 2.6 computation works fine on 2.4 either
+        if (qdisc.hasField("data")):
+	    privaddr = long(qdisc.data)
+	else:
+            privaddr = (qdiscaddr + qdiscsz + qdiscalign-1)&(~(qdiscalign-1))
+	# On 2.4 privaddr is computed as qdisc.data, 
 	print "\t== Bands =="
         for band in range(3):
             addr = privaddr + skbsz * band

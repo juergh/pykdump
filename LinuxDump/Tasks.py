@@ -29,6 +29,7 @@ from pykdump.API import *
 
 from LinuxDump import percpu
 
+debug = API_options.debug
 
 PIDTYPE_c = '''
 enum pid_type
@@ -380,7 +381,7 @@ def jiffies2ms(jiffies):
 
 # This is 2.6 clock using jiffies instead of TSC
 def sched_clock2ms_26_jiffies(val):
-    return jiffies2ms(val * HZ/1000000000.)
+    return jiffies2ms(val * HZ/1000000000)
 
 # If we are using TSC, the timestamps are already in ns
 def sched_clock2ms_26_tsc(val):
@@ -417,8 +418,11 @@ def get_uptime():
 def tsc_clock_base():
     #vx = readSymbol("__vxtime")
     #return cycles_2_ns(vx.last_tsc)/1000000
-    rq_cpu0 = readSU(rqtype, sys_info.runqueues_addrs[0])
-    recent = rq_cpu0.Timestamp
+    recent = 0
+    for cpu in range(sys_info.CPUS):
+	rq = readSU(rqtype, sys_info.runqueues_addrs[cpu])
+	if (rq.Timestamp > recent):
+	    recent = rq.Timestamp
 #     try:
 #         recent = rq_cpu0.timestamp_last_tick
 #     except KeyError:
@@ -479,6 +483,7 @@ rqtype = percpu.get_cpu_var_type('runqueues')
 structSetAttr(rqtype, "Timestamp",
               ["timestamp_last_tick", "most_recent_timestamp",
                "tick_timestamp"])
+structSetAttr(rqtype, "Active", ["active", "dflt_lrq.active"])
 
 # Print tasks summary and return the total number of threads
 

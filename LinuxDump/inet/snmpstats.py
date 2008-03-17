@@ -120,6 +120,10 @@ def __getSnmpEntry(mib2, entry):
 
 def __getSnmpTable_24(tname):
     table = readSymbol(tname)
+    # On SLES9 this is an array of tPtr, and they are really percpu_ptr.
+    # Is not implemented yet
+    if (isinstance(table[0], tPtr)):
+        return None
     sinfo = table[0].PYT_sinfo
     #fnames = [e['fname'] for e in sinfo.body][:-1]
     fnames = sinfo.PYT_body[:-1]
