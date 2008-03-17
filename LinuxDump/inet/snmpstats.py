@@ -1,6 +1,6 @@
 # module LinuxDump.inet.snmpstats
 #
-# Time-stamp: <07/10/11 12:25:18 alexs>
+# Time-stamp: <08/03/17 11:52:50 alexs>
 #
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -72,8 +72,11 @@ class SnmpTable(dict):
     def __str__(self):
 	prn = StringIO()
         print >>prn, "\n", '-'*20, self.name, '-'*20, "\n"
-	for f, sum in self.body:
-	   print >>prn, "   %25s %20d" % (f, sum)
+        if (self.body):
+            for f, sum in self.body:
+                print >>prn, "   %25s %20d" % (f, sum)
+        else:
+            print >>prn, "  not implemented yet"
 	out = prn.getvalue()
 	prn.close()
 	return out
@@ -82,6 +85,8 @@ def __getSnmpTable_26(tname):
     table = readSymbol(tname)
     snmpname = tabnames[tname]
     out = []
+    if (not symbol_exists(snmpname)):
+        return None
     for sn in readSymbol(snmpname):
 	entry = sn.entry
         if (entry == 0): break

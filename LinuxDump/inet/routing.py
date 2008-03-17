@@ -1,6 +1,6 @@
 # module LinuxDump.inet.routing
 #
-# Time-stamp: <07/11/12 14:13:32 alexs>
+# Time-stamp: <08/03/17 11:05:55 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -148,7 +148,10 @@ def get_fib_v26():
         fib_tables = readSymbol("fib_tables")
         table_main = readSU("struct fib_table", fib_tables[RT_TABLE_MAIN])
     else:
-        RT_TABLE_MAIN = readSymbol("main_rule").common.table
+        if (symbol_exists("main_rule")):   # < 2.6.24
+            RT_TABLE_MAIN = readSymbol("main_rule").common.table
+        else:
+            RT_TABLE_MAIN = 254
         #print "RT_TABLE_MAIN=",RT_TABLE_MAIN
 
         #static struct hlist_head fib_table_hash[FIB_TABLE_HASHSZ];

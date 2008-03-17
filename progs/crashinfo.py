@@ -2,7 +2,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <08/03/13 13:30:49 alexs>
+# Time-stamp: <08/03/17 11:42:36 alexs>
 
 # Copyright (C) 2007-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007-2008 Hewlett-Packard Co., All rights reserved.
@@ -269,7 +269,7 @@ def check_activetasks():
     for cpu, stack in enumerate(bta):
 	pid = stack.pid
 	mt = tt.getByTid(pid)
-	ran_ms_ago = basems - mt.last_ran
+	ran_ms_ago = basems - mt.Last_ran
 	if (ran_ms_ago > 10 * 1000):
 	    print ""
 	    print WARNING, "possible looping, CPU=%d ran_ago=%d ms" \
@@ -441,8 +441,8 @@ def print_args5():
     # Most recent first
     out = []
     for t in tt.allThreads():
-        out.append((basems - t.last_ran, t.pid, t))
-	#print t.pid, t.last_ran
+        out.append((basems - t.Last_ran, t.pid, t))
+	#print t.pid, t.Last_ran
     out.sort()
     for l, pid, t in out[:5]:
         mm = t.mm

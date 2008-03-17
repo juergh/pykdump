@@ -1,9 +1,9 @@
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <08/02/27 10:38:43 alexs>
+# Time-stamp: <08/03/17 11:57:41 alexs>
 #
-# Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -276,30 +276,39 @@ tx_window_errors
 # On 2.6.20 they have changed the algorithm again
 
 def lb_get_stats(priv):
-    try:
-        # Per-cpu
-        if (symbol_exists("per_cpu__pcpu_lstats")):
-            # 2.6.20
-            addrs = percpu.get_cpu_var("pcpu_lstats")
-            out = []
-            for a in addrs:
-                lb_stats = readSU("struct pcpu_lstats", a)
-                stats = Bunch()
-                stats.tx_packets = stats.rx_packets = lb_stats.packets
-                stats.tx_bytes = stats.rx_bytes = lb_stats.bytes
-                out.append(stats)
-            return out
-            
-        else:
-            addrs = percpu.get_cpu_var("loopback_stats")
-            out = []
-            for a in addrs:
-                stats = readSU("struct net_device_stats", a)
-                out.append(stats)
-            return out
-    except TypeError:
-        stats = readSU("struct net_device_stats", priv)
-        return stats
+    # Per-cpu
+    if (symbol_exists("per_cpu__pcpu_lstats")):
+        # 2.6.20
+        addrs = percpu.get_cpu_var("pcpu_lstats")
+        out = []
+        for a in addrs:
+            lb_stats = readSU("struct pcpu_lstats", a)
+            stats = Bunch()
+            stats.tx_packets = stats.rx_packets = lb_stats.packets
+            stats.tx_bytes = stats.rx_bytes = lb_stats.bytes
+            out.append(stats)
+        return out
+
+    elif (symbol_exists("per_cpu__loopback_stats")):
+        addrs = percpu.get_cpu_var("loopback_stats")
+        out = []
+        for a in addrs:
+            stats = readSU("struct net_device_stats", a)
+            out.append(stats)
+        return out
+    elif (symbol_exists("init_net")): # 2.6.24
+        out = []
+        for cpu in range(sys_info.CPUS):
+            a =  percpu.percpu_ptr(priv, cpu)
+            lb_stats = readSU("struct pcpu_lstats", a)
+            stats = Bunch()
+            stats.tx_packets = stats.rx_packets = lb_stats.packets
+            stats.tx_bytes = stats.rx_bytes = lb_stats.bytes
+            out.append(stats)
+        return out
+
+    stats = readSU("struct net_device_stats", priv)
+    return stats
          
 
 # tg3-specific
@@ -403,6 +412,7 @@ def getStats(dev):
     # containing definitions. But for some simple cases we can try to
     # make a good guess
     if (func == 'nv_get_stats'):
+        return
         # struct fe_priv - 'forcedeth' module
         off = struct_size("spinlock_t")
         # Pad to a pointer size
@@ -427,6 +437,7 @@ def getStats(dev):
             print >>rx, "   --CPU", cpu
             print >>tx, ""
             cpu += 1
+            print dev, s
             for f in __genstats[:4]:
                 if (f[0] == 'r' or f[0] == 'm'):
                     # RX
@@ -466,6 +477,7 @@ def getStats(dev):
     
 
 
+# Very new kernels (e.g. 2.6.24): init_net.dev_base_head
 # New style: dev_base_head is 'struct list_head	dev_base_head;' and this is
 # embedded in 'struct net_device' as
 # 	struct list_head	dev_list;
@@ -483,7 +495,10 @@ try:
                 for a in readList(__dev_base, __offset)]
 except TypeError:
     # 2.6.22 and later
-    __dev_base_head = readSymbol("dev_base_head")
+    if (symbol_exists("init_net")):
+        __dev_base_head = readSymbol("init_net").dev_base_head
+    else:
+        __dev_base_head = readSymbol("dev_base_head")
     def dev_base_list():
         return readSUListFromHead(Addr(__dev_base_head), "dev_list",
                                   "struct net_device")
@@ -518,7 +533,7 @@ def print_If(dev, details = 0):
     devname = dev.name
     jiffies = readSymbol("jiffies")
     ipwithmask = ''
-    print ('=' * 32 + " " +  devname + " " + '=' *46)[:78]
+    print ('=' * 22 + " " +  devname + " " + str(dev) + "  " + '=' *46)[:78]
     #print ""
     ipm_list = []
     if (dev.ip_ptr):

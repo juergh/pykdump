@@ -24,14 +24,14 @@ def printTasks(reverse = False):
     if (not reverse):
 	# Natural order (task followed by its threads)
 	for mt in tt.allTasks():
-	    out.append((basems - mt.last_ran, mt.pid, mt))
+	    out.append((basems - mt.Last_ran, mt.pid, mt))
 	    for t in mt.threads:
 		out.append((basems - t.last_ran, t.pid, t))
 	print '==== Tasks in PID order, grouped by Thread Group leader =='
     else:
     # Most recent first
 	for t in tt.allThreads():
-	    out.append((basems - t.last_ran, t.pid, t))
+	    out.append((basems - t.Last_ran, t.pid, t))
 	out.sort()
 	print '==== Tasks in reverse order, scheduled recently first   =='
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
-# Time-stamp: <08/03/12 16:40:22 alexs>
+# Time-stamp: <08/03/17 11:38:36 alexs>
 
 # Tasks and Pids
 
@@ -44,6 +44,9 @@ except:
     init_task = readSymbol("init_task_union") #c03f2000
     init_task_saddr = Addr(init_task.task.tasks)
 
+structSetAttr("struct task_struct", "Last_ran",
+              ["last_run", "timestamp", "last_ran",
+               "sched_info.last_arrival"])
 class Task:
     # We start from 'struct task_struct'
     def __init__(self, ts, ttable):
@@ -61,7 +64,7 @@ class Task:
             return sched_clock2ms(ts.last_ran)
         else:
             return None
-    last_ran = property(__get_last_ran)
+    #last_ran = property(__get_last_ran)
 
     # -- Get CPU --
     def __get_cpu(self):
@@ -388,14 +391,16 @@ def get_uptime():
 
 # Find the current TSC value (we cannot really obtain the current one, just
 # the last value saved recently). We convert it to milliseconds
+
 def tsc_clock_base():
     #vx = readSymbol("__vxtime")
     #return cycles_2_ns(vx.last_tsc)/1000000
     rq_cpu0 = readSU(rqtype, sys_info.runqueues_addrs[0])
-    try:
-        recent = rq_cpu0.timestamp_last_tick
-    except KeyError:
-        recent = rq_cpu0.most_recent_timestamp
+    recent = rq_cpu0.Timestamp
+#     try:
+#         recent = rq_cpu0.timestamp_last_tick
+#     except KeyError:
+#         recent = rq_cpu0.most_recent_timestamp
     return  sched_clock2ms(recent)
 
 
@@ -449,6 +454,9 @@ sys_info.runqueues_addrs = runqueues_addrs
 
 # Older 2.6 use 'struct runqueue', newer ones 'struct rq'
 rqtype = percpu.get_cpu_var_type('runqueues')
+structSetAttr(rqtype, "Timestamp",
+              ["timestamp_last_tick", "most_recent_timestamp",
+               "tick_timestamp"])
 
 # Print tasks summary and return the total number of threads
 
@@ -473,14 +481,14 @@ def tasksSummary():
 	comm = mt.comm
 	counts[state] = counts.setdefault(state, 0) + 1
 	d_counts[(comm, state)] = d_counts.setdefault((comm, state), 0) + 1
-	update_acounts((basems - mt.last_ran)/1000)
+	update_acounts((basems - mt.Last_ran)/1000)
 	threadcount += 1
 	for t in mt.threads:
 	    #print "\t", t.pid, t.state
 	    state = t.state
 	    counts[state] = counts.setdefault(state, 0) + 1
 	    d_counts[(comm, state)] = d_counts.setdefault((comm, state), 0)+1
-	    update_acounts((basems - t.last_ran)/1000)
+	    update_acounts((basems - t.Last_ran)/1000)
 	    threadcount += 1
     print "Number of Threads That Ran Recently"
     print "-----------------------------------"
