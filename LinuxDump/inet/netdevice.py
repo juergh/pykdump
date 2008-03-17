@@ -1,6 +1,6 @@
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <08/03/17 11:57:41 alexs>
+# Time-stamp: <08/03/17 12:26:57 alexs>
 #
 # Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
@@ -437,7 +437,7 @@ def getStats(dev):
             print >>rx, "   --CPU", cpu
             print >>tx, ""
             cpu += 1
-            print dev, s
+            #print dev, s
             for f in __genstats[:4]:
                 if (f[0] == 'r' or f[0] == 'm'):
                     # RX
