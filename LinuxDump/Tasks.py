@@ -1,6 +1,27 @@
 #!/usr/bin/env python
 # -*- coding: latin-1 -*-
-# Time-stamp: <08/03/17 11:38:36 alexs>
+# Time-stamp: <08/03/17 12:24:33 alexs>
+# module LinuxDump.Tasks
+#
+# Time-stamp: <08/03/05 15:51:52 alexs>
+#
+# Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+__doc__ = '''
+This is a package providing generic access to 'struct task_struct'
+and scheduler.
+'''
 
 # Tasks and Pids
 
@@ -44,7 +65,7 @@ except:
     init_task = readSymbol("init_task_union") #c03f2000
     init_task_saddr = Addr(init_task.task.tasks)
 
-structSetAttr("struct task_struct", "Last_ran",
+structSetAttr("struct task_struct", "_Last_ran",
               ["last_run", "timestamp", "last_ran",
                "sched_info.last_arrival"])
 class Task:
@@ -55,6 +76,7 @@ class Task:
     # -- Get the timestamp when last ran by scheduler, converted to ms --
     # We use the same algorithm as 'crash' does
     def __get_last_ran(self):
+        return sched_clock2ms(self.ts._Last_ran)
         ts = self.ts
         if (ts.hasField('last_run')):
             return sched_clock2ms(ts.last_run)
@@ -64,7 +86,7 @@ class Task:
             return sched_clock2ms(ts.last_ran)
         else:
             return None
-    #last_ran = property(__get_last_ran)
+    Last_ran = property(__get_last_ran)
 
     # -- Get CPU --
     def __get_cpu(self):
@@ -111,7 +133,7 @@ class Task:
 
     # Delegate all unknown attributes access to self.ts
     def __getattr__(self, attr):
-        return self.ts.__getattr__(attr)
+        return getattr(self.ts, attr)
     
     def __repr__(self):
 	return "PID=%d <struct task_struct 0x%x> CMD=%s" % (self.ts.pid,

@@ -26,7 +26,7 @@ def printTasks(reverse = False):
 	for mt in tt.allTasks():
 	    out.append((basems - mt.Last_ran, mt.pid, mt))
 	    for t in mt.threads:
-		out.append((basems - t.last_ran, t.pid, t))
+		out.append((basems - t.Last_ran, t.pid, t))
 	print '==== Tasks in PID order, grouped by Thread Group leader =='
     else:
     # Most recent first
