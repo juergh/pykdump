@@ -142,7 +142,11 @@ def decode_Stacks(stacks):
 	nscall, args = getSyscallArgs(stack)
         if (nscall == -1):
             return
-	sc = sct[nscall]
+	try:
+	   sc = sct[nscall]
+	except IndexError:
+	    print "     ", WARNING, "Bad system call number=%d" % nscall
+	    continue
 	
 	# On 2.4 socket calls are implemented via sys_socketcall
 
