@@ -12,7 +12,7 @@ Copyright (c) 2006,2007 Alex Sidorenko; mailto:asid@lhp.com
 
 #__all__ = ["proto", "routing"]
 
-import socket, struct
+import socket, struct, re
 from socket import ntohs
 
 # Generic stuff, used both by all INET packages
@@ -26,12 +26,30 @@ def ntodots(n, printzeroes=True):
     # 'I' is 'unsigned int' which is 4 bytes both on i386 and AMD64
     return socket.inet_ntoa(struct.pack("I", n))
 
+# If we build the tool on RHEL3, inet_ntop does not support AF_INET6
+def __inet_ntopv6(n4):
+    out = []
+    for i in range(8):
+        v = ord(n4[i*2])*256+ord(n4[i*2+1])
+        out.append('%x' % v)
+
+    s = ":".join(out)
+    if (s == "0:0:0:0:0:0:0:0"):
+        return '::'
+    s =  re.sub('(:0){2,}', ':', s, 1)
+    if (s[:2] == '0:'):
+        return s[1:]
+    else:
+        return s
+
 # IPv6 version. We accept both 'struct in6_addr' and .in6u_u6_addr32
 def ntodots6(n4, printzeroes=True):
     # 'I' is 'unsigned int' which is 4 bytes both on i386 and AMD64
     if (type(n4) != type([])):
         n4 = n4.in6_u.u6_addr32
-    return socket.inet_ntop(socket.AF_INET6,
-                            struct.pack("IIII",
-                                        n4[0], n4[1], n4[2], n4[3]))
+    saddr =  struct.pack("IIII", n4[0], n4[1], n4[2], n4[3])
+    try:
+        return socket.inet_ntop(socket.AF_INET6, saddr)
+    except ValueError:
+        return __inet_ntopv6(saddr)
 
