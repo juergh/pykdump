@@ -339,6 +339,11 @@ if (o.Cmd):
 else:
     script = os.path.basename(sys.argv[0])
 
+if (script == "startcrash"):
+    # Avoid infinite recursion
+    print "You should not use %s directly" % sys.argv[0]
+    sys.exit(1)
+
 crashex = o.crashex                 # Use crash32/crash64 as needed
 
 debug = True
