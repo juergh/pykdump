@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <08/03/11 11:01:11 alexs>
+# Time-stamp: <08/03/24 15:02:41 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -26,53 +26,27 @@ This is the toplevel API for Python/crash framework. Most programs should
 not call low-level functions directly but use this module instead.
 '''
 
-import pykdump                          # For version check
-
-
+# Messages to be used for warnings and errors
 WARNING = "+++WARNING+++"
 ERROR =   "+++ERROR+++"
 
-# sys is a builtin and does not depend on sys.path. But we cannot load 'os' yet
-# if we are running a binary distribution with Python libraries at
-# non-standard location
+
 import sys, os, os.path
-
-# On Ubuntu the debug kernel has name /boot/vmlinux-dbg-<uname>
-# On Ubuntu/Gutsy it is /boot/vmlinux-debug-<uname>
-# On CG it is /usr/lib/kernel-image-<uname>-dbg/vmlinux
-kerntemplates = ("/boot/vmlinux-%s",
-                 "/boot/vmlinux-dbg-%s", "/boot/vmlinux-debug-%s", 
-                 "/usr/lib/kernel-image-%s-dbg/vmlinux")
-
-
-
-from optparse import OptionParser, Option
-
-# Check the version of Python interpreter we are using
-if (sys.maxint < 2**32):
-    python_64 = False
-else:
-    python_64 = True
-
-
-#print sys.path
-# At this point we should be able to load external modules dynamically
-# and import modules from non-standard (e.g. PYTHON32LIB) places
-
-import pprint
-pp = pprint.PrettyPrinter(indent=4)
-
-import string, re
+import re, string
 import time
 import stat
 import atexit
 
-import os, os.path
+import pprint
+pp = pprint.PrettyPrinter(indent=4)
+
+import pykdump                          # For version check
+
+# Here we make some pieces of other modules classes/functions/varibles
+# visible to API
 
 import Generic as gen
-from Generic import Bunch, PYT_tmpfiles, ArtStructInfo
-
-
+from Generic import Bunch
 
 hexl = gen.hexl
 unsigned16 = gen.unsigned16
@@ -81,8 +55,37 @@ unsigned32 = gen.unsigned32
 dbits2str = gen.dbits2str
 print2columns = gen.print2columns
 
-shelf = None
-PersistentCache = True
+
+
+import crash
+HZ =crash.HZ
+
+import wrapcrash
+
+from wrapcrash import readU8, readU16, readU32, readS32, \
+     readU64, readS64, readInt, readPtr, \
+     readSymbol, readSU, \
+     sLong, le32_to_cpu, cpu_to_le32, le16_to_cpu, \
+     readList, getListSize, readListByHead,  list_for_each_entry, \
+     hlist_for_each_entry, \
+     readSUArray, readSUListFromHead, readStructNext, \
+     getStructInfo, getFullBuckets, FD_ISSET, \
+     struct_exists, symbol_exists,\
+     Addr, Deref, SmartString, tPtr, \
+     sym2addr, addr2sym, \
+     readmem, uvtop, readProcessMem, set_readmem_task, \
+     struct_size, union_size, member_offset, member_size, \
+     getSizeOf, whatis, printObject,\
+     exec_gdb_command, exec_crash_command, \
+     flushCache, structSetAttr, structSetProcAttr
+
+gen.d = wrapcrash
+
+from tparser import CEnum, CDefine
+
+# API module globals
+sys_info = Bunch()
+API_options = Bunch()
 
 # Check whether we output to a real file.
 
@@ -93,23 +96,113 @@ def isfileoutput():
     return stat.S_ISREG(mode)
     
 
-# A function called when we use start the real script processing
-# This is done by 'epython' command. When I just started to work on this
-# project, I implemented some functions to work with PTY-driver without
-# any extension at all. Now they are not supported anymore (but still
-# mostly work).
-# This function is a good place to print information messages 
-# and initialize statistics
+# Process common (i.e. common for all pykdump scripts) options.
+from optparse import OptionParser, Option
+def __epythonOptions():
+    """Process epython common options and filter them out"""
 
+    op = OptionParser(add_help_option=False, option_class=Option)
+    op.add_option("--experimental", dest="experimental", default=0,
+              action="store_true",
+              help="enable experimental features (for developers only)")
+
+    op.add_option("--debug", dest="debug", default=0,
+              action="store", type="int",
+              help="enable debugging output")
+
+    op.add_option("--reload", dest="reload", default=0,
+              action="store_true",
+              help="reload already imported modules from Linuxdump")
+
+    op.add_option("--dumpcache", dest="dumpcache", default=0,
+              action="store_true",
+              help="dump API caches info")
+
+    op.add_option("--ofile", dest="filename",
+                  help="write report to FILE", metavar="FILE")
+
+
+    if (len(sys.argv) > 1):
+        (aargs, uargs) = __preprocess(sys.argv[1:], op)
+    else:
+        aargs = uargs = []
+ 
+    (o, args) = op.parse_args(aargs)
+    wrapcrash.experimental = API_options.experimental = o.experimental
+    debug = API_options.debug = o.debug
+
+    if (o.reload):
+        for k, m in sys.modules.items()[:]:
+            if(k.split('.')[0] == 'LinuxDump' and m):
+                del sys.modules[k]
+                print "--reloading", k
+        
+    if (o.filename):
+        sys.stdout = open(o.filename, "w")
+
+    sys.argv[1:] = uargs
+    #print "EPYTHON sys.argv=", sys.argv
+
+    API_options.dumpcache = o.dumpcache
+
+# Preprocess options, splitting them into these for API_wide and those
+# userscript-specific
+def __preprocess(iargv,op):
+    """Preprocess options separating these controlling API
+    from those passed to program as arguments
+    """
+    # Split the arguments into API/app
+
+    aargv = []                              # API args
+    uargv = []                              # Application args
+
+    #print "iargv=", iargv
+
+    while(iargv):
+        el = iargv.pop(0)
+        # All elements starting from '.' and '/' go to aargv - but only
+        # they match the existing directories. We can specify directories
+        # from command-line to make pykdump to search for vmcore/vmlinux
+        # files in them. But some options (e.g. output to a file) may
+        # use arguments like /tmp/t.out
+        
+        if (el[0] in ('/', '.') and os.path.isdir(el)):
+            aargv.append(el)
+        elif (el[:2] == '--' or el[0] == '-'):
+            # Check whether this option is present in optparser's op
+            optstr = el.split('=')[0]
+            opt =  op.get_option(optstr)
+            #print "el, opt", el, opt
+            if (opt):
+                nargs = opt.nargs
+                aargv.append(el)
+                # If we don't have '=', grab the next element too
+                if (el.find('=') == -1 and nargs):
+                    aargv.append(iargv.pop(0))
+            else:
+                uargv.append(el)
+        else:
+            uargv.append(el)
+    #print "aargv=", aargv
+    #print "uargv", uargv
+    return (aargv, uargv)
+
+# This function is called on every 'epython' invocation
+# It is called _before_ we  start the real script
+# This is done by 'epython' command.
+# Here we can print information messages  and initialize statistics
+
+re_apidebug=re.compile(r'^--apidebug=(\d+)$')
 def enter_epython():
     global t_start, t_starta
     t_start = os.times()[0]
     t_starta = time.time()
     #print "Entering Epython"
+
+    # Process hidden '--apidebug=level' and '--reload' options
+    # filtering them out from sys.argv
     __epythonOptions()
- 
-    # The dump has been opened, let us print some vitals
-    
+
     # The dumpfile name can optionally have extra info appended, e.g.
     # /Dumps/Linux/test/vmcore-netdump-2.6.9-22.ELsmp  [PARTIAL DUMP]
     dumpfile = sys_info.DUMPFILE.split()[0]
@@ -130,14 +223,8 @@ def exit_epython():
         pass
     cleanup()
 
-# Similar to sys.exit() but does not call the os._exit()
 
 def cleanup():
-    global shelf
-    if (shelf != None):
-        print "++Saving Cache++"
-        shelf[getDumpstring()] = gen.PYT__sinfo_cache
-        shelf.close()
     set_readmem_task(0)
     try:
         print "\n ** Execution took %6.2fs (real) %6.2fs (CPU)" % \
@@ -147,45 +234,7 @@ def cleanup():
 	pass
 
 
-# Module globals
-sys_info = Bunch()
-API_options = Bunch()
 
-dumpstring = None
-
-# Most functions implemented in 'wrapcrash' are available only if
-# 'crash' is already imported
-
-crashloaded = False
-try:
-    import crash
-    crashloaded = True
-except ImportError:
-    pass
-
-if (crashloaded):
-    import wrapcrash
-
-    from wrapcrash import readU8, readU16, readU32, readS32, \
-         readU64, readS64, readInt, readPtr, \
-         readSymbol, readSU, \
-         sLong, le32_to_cpu, cpu_to_le32, le16_to_cpu, \
-         readList, getListSize, readListByHead,  list_for_each_entry, \
-         hlist_for_each_entry, \
-         readSUArray, readSUListFromHead, readStructNext, \
-         getStructInfo, getFullBuckets, FD_ISSET, \
-         struct_exists, symbol_exists,\
-         Addr, Deref, SmartString, tPtr, \
-         sym2addr, addr2sym, \
-	 readmem, uvtop, readProcessMem, set_readmem_task, \
-         struct_size, union_size, member_offset, member_size, \
-         getSizeOf, whatis, printObject,\
-         exec_gdb_command, exec_crash_command, \
-         flushCache, structSetAttr, structSetProcAttr
-
-    #print "Imported wrapcrash"
-
-from tparser import CEnum, CDefine
     
 # The following function is used to do some black magic - adding methods
 # to classes dynmaically after dump is open.
@@ -198,179 +247,7 @@ def funcToMethod(func,clas,method_name=None):
     if not method_name: method_name=func.__name__
     setattr(clas, method_name, method)
 
-    
 
-def addLazyMethods():
-    """Add methods for lazy evaluation"""
-    # Methods to be added dynamically to FieldInfo
-#     def _getSizeOf(self):
-#         return gen.fieldsize(self)
-#     gen.FieldInfo.size = gen.LazyEval("size", _getSizeOf)
-
-#     def _getOffset(self):
-#         offset = wrapcrash.GDBmember_offset(self.parentstype, self.fname)
-#         return offset
-#     gen.FieldInfo.offset = gen.LazyEval("offset", _getOffset)
-    
-
-
-# Run this after dump is open. During 'crash' session information about
-# kernel does not change, so we need to call this only once - no need
-# to do this every time we use 'epython'
-
-def initAfterDumpIsOpen():
-    """Do needed initializations after dump is successfully opened"""
-    global __dump_is_accessible
-    __dump_is_accessible = True
-    # Make some of our methods available for other modules
-    gen.d = wrapcrash
-
-    pointersize = getSizeOf("void *")
-    sys_info.pointersize = wrapcrash.pointersize = pointersize
-    sys_info.pointermask = 2**(pointersize*8)-1
-    _doSys()
-
-    # Check whether this is a live dump
-    if (sys_info.DUMPFILE.find("/dev/") == 0):
-        sys_info.livedump = True
-    else:
-        sys_info.livedump = False
-
-
-
-    # It's OK to cache struct info on live kernels, but we shouldn't
-    # cache memory access and results (if we want to watch non-static
-    # picture)
-    
-    addLazyMethods()
-    #  Set scroll width to avoid splitting lines
-    exec_gdb_command("set width 300")
-
-    # Check the kernel version and set HZ
-    kernel = re.search(r'^(\d+\.\d+\.\d+)', sys_info.RELEASE).group(1)
-    sys_info.kernel = gen.KernelRev(kernel)
-    sys_info.HZ = crash.HZ;
-
-    # Convert CPUS to integer
-    sys_info.CPUS = int(sys_info.CPUS)
-    
-    # Extract hardware from MACHINE
-    sys_info.machine = wrapcrash.machine = sys_info["MACHINE"].split()[0]
-    
-    # This is where debug kernel resides
-    try:
-        sys_info.DebugDir = os.path.dirname(sys_info["DEBUG KERNEL"])
-    except KeyError:
-	sys_info.DebugDir = os.path.dirname(sys_info["KERNEL"])
-    
-    # A list of top directories where we will search for debuginfo
-    kname = sys_info.RELEASE
-    RHDIR = "/usr/lib/debug/lib/modules/" + kname
-    CGDIR = "/usr/lib/kernel-image-%s-dbg/lib/modules/%s/" %(kname, kname)
-    debuginfo = [RHDIR, CGDIR]
-    if (not  sys_info.livedump):
-        # Append the directory of where the dump is located
-        debuginfo.append(getDebugDir())
-    else:
-        # Append the current directory (useful for development)
-        debuginfo.insert(0, '.')
-    # Finally, there's always a chance that this kernel is compiled
-    # with debuginfo
-    debuginfo.append("/lib/modules/" + kname)
-    sys_info.debuginfo = debuginfo
-
-
-def getDumpstring():
-    """Return DUMPFILE as was reported by crash"""
-    return sys_info.DUMPFILE
-
-# Detect the type of vmlinux file
-# {alexs 14:15:00} file /usr/src/linux-source-2.6.12/vmlinux
-#/usr/src/linux-source-2.6.12/vmlinux: ELF 64-bit LSB executable, AMD x86-64, version 1 #
-#(SYSV), statically linked, not stripped
-
-# ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), statically linked, not stripped
-def guessDumptype(cmd):
-    """Guess dump type based on vmlinux"""
-    re_vmlinux = re.compile(r'(\s|^)(\S*vmlinux\S*)\b')
-    m = re_vmlinux.search(cmd)
-    if (not m):
-	return None
-    fn = m.group(2)
-    #print fn
-    p = os.popen("file -L " + fn, "r")
-    s = p.read().split(':', 1)[1]
-    p.close()
-    if (s.find('32-bit') != -1):
-	return "32"
-    elif (s.find('64-bit') != -1):
-	return "64"
-    else:
-	return None
-
-# Try to guess what dump files can be used in a given directory
-# We expect to find vmcore*, vmlinux* and maybe System.map*. Ideally they should
-# all have matching version, e.g.
-#
-# System.map-2.6.9-22.ELsmp      vmlinux-2.6.9-22.ELsmp vmcore-netdump-2.6.9-22.ELsmp
-#
-# But in reality vmcore quite often has a different name
-
-def findDumpFiles(dir):
-    """Find files related to dump in a given directory"""
-    # Obtain the list of files
-    # If 'dir' passed is empty, try to use '.'
-    if (dir):
-        dirlist = os.listdir(dir)
-    else:
-        dirlist = os.listdir('.')
-    mapfile = ""
-    namelist = ""
-    dumpfile = ""
-
-    # Check whether name seems to be that of compressed file or .debug file
-    def isReasonable(s1):
-	for s2 in (".gz", ".tgz", ".bz2", ".debug"):
-	    if (s1[-len(s2):] == s2):
-		return False
-	return True
-
-    for f in dirlist:
-        if (f.find("System.map") == 0):
-            mapfile = os.path.join(dir, f)
-        # In case there are both vmlinux-rel and vmlinux-rel.debug we need
-        # the 1st one
-        elif (f.find("vmlinux") == 0 and isReasonable(f)):
-            namelist = os.path.join(dir, f)
-        elif (f.find("vmcore") == 0 and isReasonable(f)):
-            dumpfile = os.path.join(dir, f)
-
-
-    # If nothing suitable is found and we passed an empty dir, try to
-    # run on a live kernel
-    if (not dir and not dumpfile):
-	mapfile = namelist = dumpfile = ""
-        uname = os.uname()[2]
-        # Now try to find in /boot System.map-<uname> and vmlinux-<uname>
-        testmap =  "/boot/System.map-"+uname
-        testkern = None
-        for t in kerntemplates:
-            tfile = t % uname
-            if (os.access(tfile, os.R_OK)):
-                testkern = tfile
-                break
-
-	if (testkern == None):
-	    print "Cannot find the debug kernel"
-	    sys.exit(1)
-        if (os.access(testmap, os.R_OK) and os.access(testkern, os.R_OK)):
-            mapfile = testmap
-            namelist = testkern
-            dumpfile = "--memory_module=crash"
-	    # We don't need this for IA64
-	    if (os.uname()[-1] == 'ia64'):
-		dumpfile = ''
-    return [mapfile, namelist, dumpfile]
 
 # For fbase specified as 'nfsd' find all files like nfds.o, nfsd.ko,
 # nfsd.o.debug and nfsd.ko.debug that are present in a given directory
@@ -393,13 +270,6 @@ def possibleModuleNames(topdir, fbase):
                     return os.path.join(d, fbase + e)
     return None
         
-    
-        
-def getDebugDir():
-    """Return the directory that contains the debug kernel"""
-    # We assume that this is where debug kernel is located
-    return sys_info.DebugDir
-
 
 # Loading extra modules. Some defauls locations for debuginfo:
 
@@ -457,333 +327,7 @@ def _doSys():
             sys_info.__setattr__(spl[0].strip(), spl[1].strip())
 
 
-# Preprocess options, splitting them into these for API_wide and those
-# userscript-specific
-def __preprocess(iargv,op):
-    """Preprocess options separating these controlling API
-    from those passed to program as arguments
-    """
-    # Split the arguments into API/app
-
-    aargv = []                              # API args
-    uargv = []                              # Application args
-
-    #print "iargv=", iargv
-
-    while(iargv):
-        el = iargv.pop(0)
-        # All elements starting from '.' and '/' go to aargv - but only
-        # they match the existing directories. We can specify directories
-        # from command-line to make pykdump to search for vmcore/vmlinux
-        # files in them. But some options (e.g. output to a file) may
-        # use arguments like /tmp/t.out
-        
-        if (el[0] in ('/', '.') and os.path.isdir(el)):
-            aargv.append(el)
-        elif (el[:2] == '--' or el[0] == '-'):
-            # Check whether this option is present in optparser's op
-            optstr = el.split('=')[0]
-            opt =  op.get_option(optstr)
-            #print "el, opt", el, opt
-            if (opt):
-                nargs = opt.nargs
-                aargv.append(el)
-                # If we don't have '=', grab the next element too
-                if (el.find('=') == -1 and nargs):
-                    aargv.append(iargv.pop(0))
-            else:
-                uargv.append(el)
-        else:
-            uargv.append(el)
-    #print "aargv=", aargv
-    #print "uargv", uargv
-    return (aargv, uargv)
-
-# Search for a given file in a list of directories
-def __findFile(dirlist, fname):
-    """Search sys.path for a given file"""
-    for d in dirlist:
-        pathname = os.path.join(d, fname)
-        if (os.access(pathname, os.R_OK | os.X_OK)):
-            return pathname
-    return None
-
-class SOption(Option):
-    def take_action(self, action, dest, opt, value, values, parser):
-        if (action == "help"):
-            parser.print_help()
-        else:
-            Option.take_action(self, action, dest, opt, value, values, parser)
-        return 1
-
-
-# Process common (i.e. common for all pykdump scripts) options. There are two
-# sets of common options: those passed to control crash when executed
-# implicitly from command-line script invocation, and those passed
-# to 'epython' command
-
-# This function is called on every 'epython' invocation
-def __epythonOptions():
-    """Process epython common options and filter them out"""
-
-    op = OptionParser(add_help_option=False, option_class=Option)
-    op.add_option("--experimental", dest="experimental", default=0,
-              action="store_true",
-              help="enable experimental features (for developers only)")
-
-    op.add_option("--debug", dest="debug", default=0,
-              action="store", type="int",
-              help="enable debugging output")
-
-    op.add_option("--reload", dest="reload", default=0,
-              action="store_true",
-              help="reload already imported modules from Linuxdump")
-
-    op.add_option("--dumpcache", dest="dumpcache", default=0,
-              action="store_true",
-              help="dump API caches info")
-
-    op.add_option("--ofile", dest="filename",
-                  help="write report to FILE", metavar="FILE")
-
-
-    if (len(sys.argv) > 1):
-        (aargs, uargs) = __preprocess(sys.argv[1:], op)
-    else:
-        aargs = uargs = []
- 
-    (o, args) = op.parse_args(aargs)
-    wrapcrash.experimental = API_options.experimental = o.experimental
-    debug = API_options.debug = o.debug
-
-    if (o.reload):
-        for k, m in sys.modules.items()[:]:
-            if(k.split('.')[0] == 'LinuxDump' and m):
-                del sys.modules[k]
-                print "--reloading", k
-        
-    if (o.filename):
-        sys.stdout = open(o.filename, "w")
-
-    sys.argv[1:] = uargs
-    #print "EPYTHON sys.argv=", sys.argv
-
-    API_options.dumpcache = o.dumpcache
-
-    
-# This function is called only from driving external scripts, never
-# from 'epython' environment
-def __cmdlineOptions():
-    """Process command-line options, execute 'crash',
-    and  execute our script inside it using 'epython' command"""
-
-    op = OptionParser(add_help_option=False, option_class=Option)
-    
-    op.add_option("--crash", dest="crashex",
-              action="store", default=None,
-              help="Specify the name of the 'crash' executable")
-
-    op.add_option("--vmcore", dest="vmcore",
-              action="store", type="string",
-              help="Specify vmcore explicitly")
-
-    op.add_option("--vmlinux", dest="vmlinux",
-              action="store", type="string",
-              help="Specify vmlinux explicitly")
-
-    op.add_option("--sysmap", dest="sysmap",
-              action="store", type="string",
-              help="Specify vmcore explicitly")
-    
-    op.add_option("--pythonso", dest="pythonso",
-              action="store", type="string",
-              help="Specify pythonso pathname")
-
-    op.add_option("--nopsyco", dest="nopsyco", default=0,
-              action="store_true",
-              help="disable Psyco even if it available")
-
-    # This option is special - it can be used both by
-    # PTY-driver and by epython command
-    op.add_option("--debug", dest="debug", default=0,
-              action="store", type="int",
-              help="enable debugging output")
-
-    op.add_option("-h", "--help", dest="help",
-              action="store_true",
-              help="print help")
-
-    # Before real parsing, separate PTY-driver options from
-    # userscript-options
-
-    script = sys.argv[0]
-    if (len(sys.argv) > 1):
-        (aargs, uargs) = __preprocess(sys.argv[1:], op)
-    else:
-        aargs = uargs = []
-    
-    #print 'aargs=', aargs, 'uargs=', uargs
-    # We add this option after preprocessing as it should not
-    # be filtered out
- 
-
-    (o, args) = op.parse_args(aargs)
-    #print "aargs=", aargs, "uargs=", uargs
-    #print 'o=', o
-    
-
-    
-    crashex = o.crashex                 # Use crash32/crash64 as needed
-
-    debug = API_options.debug = o.debug
-    
-
-    filtered_argv = [script]
-    if (uargs):
-        filtered_argv += uargs
-    if (o.help):
-        print "Generic ",
-        op.print_help()
-        filtered_argv.append("--help")
-    if (o.debug):
-	filtered_argv.append("--debug=" + str(o.debug))
-
-    # --------------------------------------------------------------------
-    # If we are here, we are running externally, maybe without extension
-    # --------------------------------------------------------------------
-    
-    #print args
-    # findDumpFiles returns (sysmap, vmlinux, vmcore)
-    # if it is unable to find them, it returns empty strings
-    if (len(args) ==  1):
-        files = findDumpFiles(args[0])
-    else:
-        files = findDumpFiles('')
-    # Check whether we used options to override filenames manually
-    if (o.sysmap):
-	files[0] = o.sysmap
-    if (o.vmlinux):
-	files[1] = o.vmlinux
-    if (o.vmcore):
-	files[2] = o.vmcore
-
-    if (files[1]):
-        cmd = string.join(files)
-    else:
-	
-	print "Cannot find dump in the specified directory"
-        sys.exit(1)
-        
-    if (crashex == None):
-        dtype = guessDumptype(cmd)
-        #print cmd, dtype
-        if (dtype == '32'):
-            crashex = 'crash32'
-        elif (dtype == '64'):
-            crashex = 'crash64'
-        else:
-            crashex = 'crash'
-
-    if (sys.stdout.isatty()):
-        print crashex + " " + cmd
-
-    # Find the extension name. We rely on .crash*rc do define its
-    # location
-
-    crashrc = '.' + os.path.basename(crashex) + 'rc'
-
-    pythonso = None
-    re_extend = re.compile(r'^\s*extend\s+(\S+pykdump[^/]+)$')
-    for f in os.path.expanduser("~/" + crashrc), crashrc:
-        if (os.access(f, os.R_OK)):
-            # Search for "extend path" line
-            for l in open(f, "r"):
-                m = re_extend.match(l)
-                if (m):
-                    pythonso = m.group(1)
-
-    # epython cmd
-    ecmd = "epython " + string.join(filtered_argv)
-    
-    if (o.pythonso):
-	pythonso = o.pythonso
-    if (not pythonso):
-        # Try the default location
-        defaultloc = "/usr/local/lib"
-        pykdumpfn = "pykdump%s.so" % dtype
-        pythonso = os.path.join(defaultloc, pykdumpfn)
-        if (not os.access(pythonso, os.R_OK)):
-            print "Cannot find an extension"
-            sys.exit(1)
-
-    if (sys.stdout.isatty()):
-        print "Starting crash...",
-        sys.stdout.flush()
-
-    pythonso = pythonso.strip()
-    if (debug):
-        print "\nExtension:", pythonso
-
-    executeCrashScriptI(cmd, crashex, ecmd, pythonso)
-
-    # We do not reach this point - executes above call
-    # sys.exit()
-
-# Execute a crash script via -i
-def executeCrashScriptI(cmd, crashex, ecmd, pythonso):
-    if (False):
-        print ""
-        print cmd
-        print crashex
-        print ecmd
-        print pythonso
-
-    tmpgen = PYT_tmpfiles()
-    fd,fname = tmpgen.mkfile()
-    print >>fd, "extend " + pythonso +" >/dev/null"
-    print >>fd , ecmd
-    print >>fd, "quit"
-    fd.close()
-    fcmd = crashex + ' ' + cmd + ' ' + '-s --no_crashrc -i' + fname
-    os.system(fcmd)
-    tmpgen.cleanup()
-    sys.exit(0)
-
-    
-
-    
-# This routine is called automatically when you import API. It analyzes
-# sys.argv to obtain info about dump location when the script is running
-# externally. When running from embedded, it ignores dump location but
-# is still doing options parsing. This can be used to enable debugging
-# or experimental features
-# It is not needed to call this. But if you do, it will process options passed
-# from sys.argv (if any) which can be used for debugging
-#
-# To simplify the processing we use the following approach: all debugging
-# options should be 'long', all app options (if any) should be 'short'
-
-def openDump():
-    """Open dump by executing 'crash' if needed."""
-    
-    # Check whether we can import 'crash' - if yes, we are inside extension
-    # and should not try to open the dump again
-    try:
-        # If we can do this, we are called from crash
-        import crash as crashmod
-        #ll.GDBgetOutput = crashmod.get_GDB_output
-        #sys.argv = filtered_argv
-        #if (API_options.debug):
-        #    print "-------crash module %s--------" % crashmod.version
-        return
-    except ImportError:
-        pass
-
-    __cmdlineOptions()
-    return
-
-
-# ----------- do some initializations ----------------
+# -----------  initializations ----------------
 
 # What happens if we use 'epython' command several times without 
 # leaving 'crash'? The first time import statements really do imports running
@@ -795,9 +339,52 @@ def openDump():
 # But the function enter_python() is called every time - the first time when
 # we do import, next times as it is registered as a hook
 
-openDump()
-initAfterDumpIsOpen()
-pointersize = sys_info.pointersize
+
+pointersize = getSizeOf("void *")
+sys_info.pointersize = wrapcrash.pointersize = pointersize
+sys_info.pointermask = 2**(pointersize*8)-1
+_doSys()
+
+# Check whether this is a live dump
+if (sys_info.DUMPFILE.find("/dev/") == 0):
+    sys_info.livedump = True
+else:
+    sys_info.livedump = False
+
+
+# Check the kernel version and set HZ
+kernel = re.search(r'^(\d+\.\d+\.\d+)', sys_info.RELEASE).group(1)
+sys_info.kernel = gen.KernelRev(kernel)
+sys_info.HZ = HZ
+
+# Convert CPUS to integer
+sys_info.CPUS = int(sys_info.CPUS)
+
+# Extract hardware from MACHINE
+sys_info.machine = wrapcrash.machine = sys_info["MACHINE"].split()[0]
+
+# This is where debug kernel resides
+try:
+    sys_info.DebugDir = os.path.dirname(sys_info["DEBUG KERNEL"])
+except KeyError:
+    sys_info.DebugDir = os.path.dirname(sys_info["KERNEL"])
+
+# A list of top directories where we will search for debuginfo
+kname = sys_info.RELEASE
+RHDIR = "/usr/lib/debug/lib/modules/" + kname
+CGDIR = "/usr/lib/kernel-image-%s-dbg/lib/modules/%s/" %(kname, kname)
+debuginfo = [RHDIR, CGDIR]
+if (not  sys_info.livedump):
+    # Append the directory of where the dump is located
+    debuginfo.append(getDebugDir())
+else:
+    # Append the current directory (useful for development)
+    debuginfo.insert(0, '.')
+# Finally, there's always a chance that this kernel is compiled
+# with debuginfo
+debuginfo.append("/lib/modules/" + kname)
+sys_info.debuginfo = debuginfo
+
 if (pointersize == 4):
     readLong = readS32
     readULong = readU32
