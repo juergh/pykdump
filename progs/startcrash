@@ -1,0 +1,436 @@
+#!/usr/bin/env python
+#
+# Time-stamp: <08/03/24 15:13:16 alexs>
+
+
+# Start crash session and then start epython command. This is convenient
+# if we want to process a number of dumps from the command line
+#
+# Copyright (C) 2008 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2008 Hewlett-Packard Co., All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+__doc__ = '''
+Start crash and execute epython command
+'''
+
+WARNING = "+++WARNING+++"
+ERROR =   "+++ERROR+++"
+
+# sys is a builtin and does not depend on sys.path. But we cannot load 'os' yet
+# if we are running a binary distribution with Python libraries at
+# non-standard location
+import sys, os, os.path
+import tempfile
+
+
+# On Ubuntu the debug kernel has name /boot/vmlinux-dbg-<uname>
+# On Ubuntu/Gutsy it is /boot/vmlinux-debug-<uname>
+# On CG it is /usr/lib/kernel-image-<uname>-dbg/vmlinux
+kerntemplates = ("/boot/vmlinux-%s",
+                 "/boot/vmlinux-dbg-%s", "/boot/vmlinux-debug-%s", 
+                 "/usr/lib/kernel-image-%s-dbg/vmlinux")
+
+
+
+from optparse import OptionParser, Option
+
+# Check the version of Python interpreter we are using
+if (sys.maxint < 2**32):
+    python_64 = False
+else:
+    python_64 = True
+
+
+#print sys.path
+# At this point we should be able to load external modules dynamically
+# and import modules from non-standard (e.g. PYTHON32LIB) places
+
+import pprint
+pp = pprint.PrettyPrinter(indent=4)
+
+import string, re
+import time
+import stat
+import atexit
+
+import os, os.path
+
+
+dumpstring = None
+
+
+
+# Detect the type of vmlinux file
+# {alexs 14:15:00} file /usr/src/linux-source-2.6.12/vmlinux
+#/usr/src/linux-source-2.6.12/vmlinux: ELF 64-bit LSB executable, AMD x86-64, version 1 #
+#(SYSV), statically linked, not stripped
+
+# ELF 32-bit LSB executable, Intel 80386, version 1 (SYSV), statically linked, not stripped
+def guessDumptype(cmd):
+    """Guess dump type based on vmlinux"""
+    re_vmlinux = re.compile(r'(\s|^)(\S*vmlinux\S*)\b')
+    m = re_vmlinux.search(cmd)
+    if (not m):
+	return None
+    fn = m.group(2)
+    #print fn
+    p = os.popen("file -L " + fn, "r")
+    s = p.read().split(':', 1)[1]
+    p.close()
+    if (s.find('32-bit') != -1):
+	return "32"
+    elif (s.find('64-bit') != -1):
+	return "64"
+    else:
+	return None
+
+# Try to guess what dump files can be used in a given directory
+# We expect to find vmcore*, vmlinux* and maybe System.map*. Ideally they should
+# all have matching version, e.g.
+#
+# System.map-2.6.9-22.ELsmp      vmlinux-2.6.9-22.ELsmp vmcore-netdump-2.6.9-22.ELsmp
+#
+# But in reality vmcore quite often has a different name
+
+def findDumpFiles(dir):
+    """Find files related to dump in a given directory"""
+    # Obtain the list of files
+    # If 'dir' passed is empty, try to use '.'
+    if (dir):
+        dirlist = os.listdir(dir)
+    else:
+        dirlist = os.listdir('.')
+    mapfile = ""
+    namelist = ""
+    dumpfile = ""
+
+    # Check whether name seems to be that of compressed file or .debug file
+    def isReasonable(s1):
+	for s2 in (".gz", ".tgz", ".bz2", ".debug"):
+	    if (s1[-len(s2):] == s2):
+		return False
+	return True
+
+    for f in dirlist:
+        if (f.find("System.map") == 0):
+            mapfile = os.path.join(dir, f)
+        # In case there are both vmlinux-rel and vmlinux-rel.debug we need
+        # the 1st one
+        elif (f.find("vmlinux") == 0 and isReasonable(f)):
+            namelist = os.path.join(dir, f)
+        elif (f.find("vmcore") == 0 and isReasonable(f)):
+            dumpfile = os.path.join(dir, f)
+
+
+    # If nothing suitable is found and we passed an empty dir, try to
+    # run on a live kernel
+    if (not dir and not dumpfile):
+	mapfile = namelist = dumpfile = ""
+        uname = os.uname()[2]
+        # Now try to find in /boot System.map-<uname> and vmlinux-<uname>
+        testmap =  "/boot/System.map-"+uname
+        testkern = None
+        for t in kerntemplates:
+            tfile = t % uname
+            if (os.access(tfile, os.R_OK)):
+                testkern = tfile
+                break
+
+	if (testkern == None):
+	    print "Cannot find the debug kernel"
+	    sys.exit(1)
+        if (os.access(testmap, os.R_OK) and os.access(testkern, os.R_OK)):
+            mapfile = testmap
+            namelist = testkern
+            dumpfile = "--memory_module=crash"
+	    # We don't need this for IA64
+	    if (os.uname()[-1] == 'ia64'):
+		dumpfile = ''
+    return [mapfile, namelist, dumpfile]
+
+    
+        
+def getDebugDir():
+    """Return the directory that contains the debug kernel"""
+    # We assume that this is where debug kernel is located
+    return sys_info.DebugDir
+
+
+
+# Preprocess options, splitting them into these for API_wide and those
+# userscript-specific
+def __preprocess(iargv,op):
+    """Preprocess options separating these controlling API
+    from those passed to program as arguments
+    """
+    # Split the arguments into API/app
+
+    aargv = []                              # API args
+    uargv = []                              # Application args
+
+    #print "iargv=", iargv
+
+    while(iargv):
+        el = iargv.pop(0)
+        # All elements starting from '.' and '/' go to aargv - but only
+        # they match the existing directories. We can specify directories
+        # from command-line to make pykdump to search for vmcore/vmlinux
+        # files in them. But some options (e.g. output to a file) may
+        # use arguments like /tmp/t.out
+        
+        if (el[0] in ('/', '.') and os.path.isdir(el)):
+            aargv.append(el)
+        elif (el[:2] == '--' or el[0] == '-'):
+            # Check whether this option is present in optparser's op
+            optstr = el.split('=')[0]
+            opt =  op.get_option(optstr)
+            #print "el, opt", el, opt
+            if (opt):
+                nargs = opt.nargs
+                aargv.append(el)
+                # If we don't have '=', grab the next element too
+                if (el.find('=') == -1 and nargs):
+                    aargv.append(iargv.pop(0))
+            else:
+                uargv.append(el)
+        else:
+            uargv.append(el)
+    #print "aargv=", aargv
+    #print "uargv", uargv
+    return (aargv, uargv)
+
+# Search for a given file in a list of directories
+def __findFile(dirlist, fname):
+    """Search sys.path for a given file"""
+    for d in dirlist:
+        pathname = os.path.join(d, fname)
+        if (os.access(pathname, os.R_OK | os.X_OK)):
+            return pathname
+    return None
+
+
+# Execute a crash script via -i
+def executeCrashScriptI(cmd, crashex, ecmd, pythonso):
+    if (False):
+        print ""
+        print cmd
+        print crashex
+        print ecmd
+        print pythonso
+
+    tmpgen = PYT_tmpfiles()
+    fd,fname = tmpgen.mkfile()
+    print >>fd, "extend " + pythonso +" >/dev/null"
+    print >>fd , ecmd
+    print >>fd, "quit"
+    fd.close()
+    fcmd = crashex + ' ' + cmd + ' ' + '-s --no_crashrc -i' + fname
+    os.system(fcmd)
+    tmpgen.cleanup()
+    sys.exit(0)
+
+class PYT_tmpfiles:
+    def __init__(self):
+        self.tempdir = tempfile.mkdtemp("pycrash")
+        self.flist = []
+    def mkfifo(self):
+        fifoname = self.tempdir + "/" + "PYT_fifo"
+        try:
+            os.mkfifo(fifoname)
+        except OSError, (err, errstr):
+            if (err == errno.EEXIST):
+                # Check whether it's FIFO and writable
+                st_mode = os.stat(fifoname)[0]
+                if (not stat.S_ISFIFO(st_mode)):
+                    print "FATAL: %s is not a FIFO" % fifoname
+                    fifoname = None             # To prevent cleanup
+                    sys.exit(1)
+            else:
+                print "FATAL: cannot mkfifo %s in the current directory" % fifoname
+                sys.exit(1)
+        self.flist.append(fifoname)
+        return fifoname
+    
+    def cleanup(self):
+        for f in self.flist:
+            try:
+                os.unlink(f)
+                #print "unlinking", f
+            except:
+                pass
+        os.rmdir(self.tempdir)
+        #print "rmdir", self.tempdir
+
+    def mkfile(self):
+        fd, fname = tempfile.mkstemp('', '', self.tempdir)
+        self.flist.append(fname)
+        return os.fdopen(fd, "w"), fname
+    
+op = OptionParser(add_help_option=False, option_class=Option)
+
+op.add_option("--crash", dest="crashex",
+          action="store", default=None,
+          help="Specify the name of the 'crash' executable")
+
+op.add_option("--vmcore", dest="vmcore",
+          action="store", type="string",
+          help="Specify vmcore explicitly")
+
+op.add_option("--vmlinux", dest="vmlinux",
+          action="store", type="string",
+          help="Specify vmlinux explicitly")
+
+op.add_option("--sysmap", dest="sysmap",
+          action="store", type="string",
+          help="Specify vmcore explicitly")
+
+op.add_option("--pythonso", dest="pythonso",
+          action="store", type="string",
+          help="Specify pythonso pathname")
+
+op.add_option("--nopsyco", dest="nopsyco", default=0,
+          action="store_true",
+          help="disable Psyco even if it available")
+
+# This option is special - it can be used both by
+# PTY-driver and by epython command
+op.add_option("--debug", dest="debug", default=0,
+          action="store", type="int",
+          help="enable debugging output")
+
+op.add_option("-h", "--help", dest="help",
+          action="store_true",
+          help="print help")
+	  
+op.add_option("--cmd", dest="Cmd",
+          help="Command name")
+
+# Before real parsing, separate PTY-driver options from
+# userscript-options
+
+
+if (len(sys.argv) > 1):
+    (aargs, uargs) = __preprocess(sys.argv[1:], op)
+else:
+    aargs = uargs = []
+
+#print 'aargs=', aargs, 'uargs=', uargs
+# We add this option after preprocessing as it should not
+# be filtered out
+
+
+(o, args) = op.parse_args(aargs)
+#print "aargs=", aargs, "uargs=", uargs
+#print 'o=', o
+
+
+if (o.Cmd):
+    script = o.Cmd
+else:
+    script = os.path.basename(sys.argv[0])
+
+crashex = o.crashex                 # Use crash32/crash64 as needed
+
+debug = True
+
+
+filtered_argv = [script]
+if (uargs):
+    filtered_argv += uargs
+if (o.help):
+    print "Generic ",
+    op.print_help()
+    filtered_argv.append("--help")
+if (o.debug):
+    filtered_argv.append("--debug=" + str(o.debug))
+
+# --------------------------------------------------------------------
+# If we are here, we are running externally, maybe without extension
+# --------------------------------------------------------------------
+
+#print args
+# findDumpFiles returns (sysmap, vmlinux, vmcore)
+# if it is unable to find them, it returns empty strings
+if (len(args) ==  1):
+    files = findDumpFiles(args[0])
+else:
+    files = findDumpFiles('')
+# Check whether we used options to override filenames manually
+if (o.sysmap):
+    files[0] = o.sysmap
+if (o.vmlinux):
+    files[1] = o.vmlinux
+if (o.vmcore):
+    files[2] = o.vmcore
+
+if (files[1]):
+    cmd = string.join(files)
+else:
+
+    print "Cannot find dump in the specified directory"
+    sys.exit(1)
+
+if (crashex == None):
+    dtype = guessDumptype(cmd)
+    #print cmd, dtype
+    if (dtype == '32'):
+        crashex = 'crash32'
+    elif (dtype == '64'):
+        crashex = 'crash64'
+    else:
+        crashex = 'crash'
+
+if (sys.stdout.isatty()):
+    print crashex + " " + cmd
+
+# Find the extension name. We rely on .crash*rc do define its
+# location
+
+crashrc = '.' + os.path.basename(crashex) + 'rc'
+
+pythonso = None
+re_extend = re.compile(r'^\s*extend\s+(\S+pykdump[^/]+)$')
+for f in os.path.expanduser("~/" + crashrc), crashrc:
+    if (os.access(f, os.R_OK)):
+        # Search for "extend path" line
+        for l in open(f, "r"):
+            m = re_extend.match(l)
+            if (m):
+                pythonso = m.group(1)
+
+# epython cmd
+ecmd = "epython " + string.join(filtered_argv)
+
+if (o.pythonso):
+    pythonso = o.pythonso
+if (not pythonso):
+    # Try the default location
+    defaultloc = "/usr/local/lib"
+    pykdumpfn = "mpykdump%s.so" % dtype
+    pythonso = os.path.join(defaultloc, pykdumpfn)
+    if (not os.access(pythonso, os.R_OK)):
+        print "Cannot find an extension"
+        sys.exit(1)
+
+if (sys.stdout.isatty()):
+    print "Starting crash...",
+    sys.stdout.flush()
+
+pythonso = pythonso.strip()
+if (debug):
+    print "\nExtension:", pythonso
+
+executeCrashScriptI(cmd, crashex, ecmd, pythonso)
+
+# We do not reach this point - executes above call
+# sys.exit()

@@ -46,7 +46,7 @@ import pykdump                          # For version check
 # visible to API
 
 import Generic as gen
-from Generic import Bunch
+from Generic import Bunch, ArtStructInfo
 
 hexl = gen.hexl
 unsigned16 = gen.unsigned16
@@ -376,7 +376,7 @@ CGDIR = "/usr/lib/kernel-image-%s-dbg/lib/modules/%s/" %(kname, kname)
 debuginfo = [RHDIR, CGDIR]
 if (not  sys_info.livedump):
     # Append the directory of where the dump is located
-    debuginfo.append(getDebugDir())
+    debuginfo.append(sys_info.DebugDir)
 else:
     # Append the current directory (useful for development)
     debuginfo.insert(0, '.')
