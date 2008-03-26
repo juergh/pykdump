@@ -1076,13 +1076,30 @@ def whatis(symbol):
 # {"get_symbol_type",  py_crash_get_symbol_type, METH_VARARGS},
 
 
-# Return -1 if the struct is unknown
+# Return -1 if the struct is unknown. At this moment this function
+# works for any type, not just for structs
+# We cache the results (even negative ones). The cache should be invalidated
+
+__struct_size_cache = {}
+# when we load/unload modules
 def struct_size(sname):
     try:
+	return __struct_size_cache[sname]
+    except KeyError:
+	pass
+    try:
         si = TypeInfo(sname)
-        return si.size
+        sz = si.size
     except:
-        return -1
+        sz = -1
+    __struct_size_cache[sname]= sz
+    return sz
+
+def invalidate_cache_info(sname = None):
+    if (sname and __struct_size_cache.has_key):
+	del __struct_size_cache[sname]
+    else:
+	__struct_size_cache.clear()
 
 def struct_exists(sname):
     if (struct_size(sname) == -1):

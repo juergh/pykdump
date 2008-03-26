@@ -302,6 +302,8 @@ def loadModule(modname, ofile = None):
     rc = exec_crash_command("mod -s %s %s" % (modname, ofile))
     success = (rc.find("MODULE") != -1)
     __loaded_Mods[modname] = success
+    # Invalidate typeinfo caches
+    wrapcrash.invalidate_cache_info()
     return success
 
 # Unload module

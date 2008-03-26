@@ -113,7 +113,8 @@ class Task:
         for a in readList(saddr, inchead = False):
             threads.append(Task(readSU("struct task_struct", a-Task.tgoffset), self))
         return threads
-    
+    def __get_threads_fast_24(self):
+	return self.ttable.pids[self.pid][1:]
     def __get_threads(self):
         tgoffset = member_offset("struct task_struct", "thread_group")
         if (tgoffset != -1):
@@ -121,7 +122,8 @@ class Task:
             Task.tgoffset = tgoffset
         elif (struct_exists("struct pid_link")):
             # 2.4 - threads are processes
-            return self.ttable.pids[self.pid][1:]
+	    Task.threads = property(Task.__get_threads_fast_24)
+            return self.threads
         else:
             # Older 2.6
             Task.tgoffset = member_offset("struct task_struct", "pids") + \

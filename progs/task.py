@@ -37,6 +37,8 @@ def printTasks(reverse = False):
 
     for ran_ms_ago, pid, t in out:
 	sstate = t.state[5:7]
+	if (taskstates_filter and not (sstate in taskstates_filter)):
+	    continue
         
 	tgid = t.tgid
 	if (pid != tgid):
@@ -48,8 +50,10 @@ def printTasks(reverse = False):
 
 	print " %s %15s %2d %15d  %s %s" \
 		    % (pid_s, t.comm,  t.cpu,
-			ran_ms_ago, sstate, tgid_s)
+			int(ran_ms_ago), sstate, tgid_s)
 
+
+taskstates_filter=None
 
 if ( __name__ == '__main__'):
     from optparse import OptionParser
@@ -62,12 +66,19 @@ if ( __name__ == '__main__'):
     op.add_option("--summary", dest="Summary", default = 0,
 		action="store_true",
 		help="Summary")
+    
+    op.add_option("--taskfilter", dest="Taskfilter", default = None,
+		action="store",
+		help="A list of 2-letter task states to print, e.g. UN")
 
     op.add_option("-r", "--reverse", dest="Reverse", default = 0,
                     action="store_true",
                     help="Reverse order while sorting")
     (o, args) = op.parse_args()
     
+    if (o.Taskfilter):
+        taskstates_filter = re.split("\s*,\s*", o.Taskfilter)
+	
     if (o.Reverse):
 	printTasks(reverse=True)
     elif (o.Summary):
