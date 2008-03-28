@@ -2,7 +2,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <08/03/17 11:42:36 alexs>
+# Time-stamp: <08/03/28 15:35:35 alexs>
 
 # Copyright (C) 2007-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007-2008 Hewlett-Packard Co., All rights reserved.
@@ -514,13 +514,40 @@ def print_args5():
 #define RQ_SCSI_DONE		0xfffe
 #define RQ_SCSI_DISCONNECTING	0xffe0
 
+def print_request_old(rq):
+    if (rq.rq_status != -1):
+        print rq, "status=%s  rq_dev=0x%x" % (rq.rq_status, rq.rq_dev)
+
+
+def print_request_new(rq):
+    rq_disk = rq.rq_disk
+    in_flight = rq.q.in_flight
+    q = rq.q
+    cmd_flags = rq.cmd_flags
+    ref_count = rq.ref_count
+    # Check for bogus values (we can get them easily on live kernel)
+    if (not rq_disk or not q or cmd_flags <0 or ref_count < -10):
+        return
+
+    # I am not sure whether this test makes sense...
+    if (in_flight == 0):
+        return
+    print rq, rq.ref_count, cmd_flags, rq_disk.disk_name, in_flight
+
+if (member_size("struct request", "rq_status") != -1):
+    print_request = print_request_old
+else:
+    print_request = print_request_new
+
 def print_blkreq():
     from LinuxDump.Slab import get_slab_addrs
     (alloc, free) = get_slab_addrs("blkdev_requests")
     for a in alloc:
 	rq = readSU("struct request", a)
-	if (rq.rq_status != -1):
-	    print rq, "status=%s  rq_dev=0x%x" % (rq.rq_status, rq.rq_dev)
+        try:
+            print_request(rq)
+        except crash.error:
+            pass
 	
 
 # ----------------------------------------------------------------------------

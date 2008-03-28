@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-# Time-stamp: <06/12/12 09:15:07 alexs>
+# Time-stamp: <08/03/28 13:59:10 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -28,6 +28,8 @@ def dump_chrdevs():
                 print "%3d       %-11s" % (major, name)
     else:
         for major, s in enumerate(pa):
+            print repr(s)
+            continue
             ops = s.fops
             if (ops == 0):
                 continue
