@@ -315,7 +315,56 @@ def check_spinlocks():
 	except:
 	    pass
 
-
+# Get important global object from the symtable
+re_bestguess = re.compile(r'^\w+\s+\(D\)\s([a-zA-Z]\w+)\s*$', re.I)
+def get_important():
+    results = {}
+    for l in exec_crash_command("sym -l").splitlines():
+	m = re_bestguess.match(l)
+	if (m):
+	    sym = m.group(1)
+	    try:
+		ctype = whatis(sym).ctype
+		results.setdefault(ctype, []).append(sym)
+	    except TypeError:
+		pass
+    
+    print ' -- semaphores with sleepers > 0 --'
+    for n in results["struct semaphore"]:
+	sem = readSymbol(n)
+	sleepers = sem.sleepers
+	if (sleepers):
+	   print n, sem.sleepers
+    
+    print ' -- rw_semaphores with count > 0 --'
+    for n in results["struct rw_semaphore"]:
+	sem = readSymbol(n)
+	try:
+	   count = sem.count
+	except KeyError:
+	    count = sem.activity
+	if (count):
+	   print n, count
+ 	
+    print ' -- Non-empty wait_queue_head --'
+    for n in results["wait_queue_head_t"]:
+	text = exec_crash_command("waitq %s" % n).strip()
+	if (not re.match(r'^.*is empty$', text)):
+	    print "    ", n
+	    for l in text.splitlines():
+		print "\t", l
+	    
+	#print n
+ 
+    return
+    keys = results.keys()
+    keys.sort()
+    for k in keys:
+	print  '-----------', k, '-----------'
+	results[k].sort()
+	for v in results[k]:
+	    print '\t', v
+	     
 def check_runqueues():
 
     if (not quiet):
@@ -459,7 +508,22 @@ def print_args5():
 	if (len(spr) > 79):
 	    print ""
 
+#define RQ_INACTIVE		(-1)
+#define RQ_ACTIVE		1
+#define RQ_SCSI_BUSY		0xffff
+#define RQ_SCSI_DONE		0xfffe
+#define RQ_SCSI_DISCONNECTING	0xffe0
 
+def print_blkreq():
+    from LinuxDump.Slab import get_slab_addrs
+    (alloc, free) = get_slab_addrs("blkdev_requests")
+    for a in alloc:
+	rq = readSU("struct request", a)
+	if (rq.rq_status != -1):
+	    print rq, "status=%s  rq_dev=0x%x" % (rq.rq_status, rq.rq_dev)
+	
+
+# ----------------------------------------------------------------------------
 
 op =  OptionParser()
 
@@ -484,6 +548,10 @@ op.add_option("--ext3", dest="ext3", default = 0,
 		action="store_true",
 		help="Print EXT3 info.")
 
+op.add_option("--blkreq", dest="Blkreq", default = 0,
+		action="store_true",
+		help="Print Block I/O requests")
+
 op.add_option("--filelock", dest="filelock", default = 0,
 		action="store_true",
 		help="Print filelock info.")
@@ -499,6 +567,11 @@ op.add_option("--decodesyscalls", dest="decodesyscalls", default = "",
 op.add_option("--keventd_wq", dest="eventwq", default = "",
 		action="store_true",
 		help="Decode keventd_wq")
+
+op.add_option("--lws", dest="Lws", default = "",
+		action="store_true",
+		help="Print Locks Waitqueues and Semaphores")		
+
 (o, args) = op.parse_args()
 
 
@@ -519,6 +592,10 @@ t1 = os.times()[0]
 
 # Non-standard options (those that stop normal tests)
 
+if (o.Lws):
+    get_important()
+    sys.exit(0)
+    
 if (o.sysctl):
     check_sysctl()
     sys.exit(0)
@@ -527,6 +604,10 @@ if (o.eventwq):
     decode_eventwq()
     sys.exit(0)
 
+if (o.Blkreq):
+    print_blkreq()
+    sys.exit(0)
+    
 if (o.decodesyscalls):
     decode_syscalls(o.decodesyscalls)
     sys.exit(0)
