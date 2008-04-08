@@ -273,6 +273,8 @@ def decodeSock(sock):
 		protoname = sock.sk_prot.Deref.name
 	    except IndexError:
 		protoname= '???'
+	    except crash.error:
+		protoname='???'
 	sktype = sock.sk_type
     if (family == P_FAMILIES.PF_INET or family == P_FAMILIES.PF_INET6):
 	inet = True
