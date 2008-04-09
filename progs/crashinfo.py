@@ -10,6 +10,7 @@
 # 1st-pass dumpanalysis
 
 from pykdump.API import *
+from LinuxDump import BTstack
 from LinuxDump.BTstack import exec_bt, bt_summarize, bt_mergestacks
 from LinuxDump.kmem import parse_kmemf, print_Zone
 from LinuxDump.Tasks import TaskTable, Task, tasksSummary, getRunQueues
@@ -37,11 +38,17 @@ Panic = True
 
 
 # Parsed output of 'foreach bt' (this is rather time-consuming)
-btsl = None
+# If this is not a live kernel, cache it in BTStack module
+# This  will prevent reloading it every time
 def get_btsl():
-    global btsl
-    if (not btsl):
-        btsl = exec_bt('foreach bt')
+    try:
+	return BTstack.btsl
+    except AttributeError:
+	pass
+    print " getting BTstack.btsl"
+    btsl = exec_bt('foreach bt')
+    if (not sys_info.livedump):
+	BTstack.btsl = btsl
     return btsl
 
 Fast = False
@@ -226,7 +233,7 @@ def stackSummary():
     btsl = get_btsl()
     tt = get_tt()
     #bt_summarize(btsl)
-    bt_mergestacks(btsl, reverse=True, tt=tt)
+    bt_mergestacks(btsl, reverse=True, tt=tt, verbose=verbose)
     
 # Check Load Averages
 def check_loadavg():
@@ -550,6 +557,13 @@ def print_blkreq():
             pass
 	
 
+# Find stacks with functions matching the specified pattern
+def find_stacks(pattern):
+    btsl = get_btsl()
+    for bt in btsl:
+	if (bt.hasfunc(pattern)):
+	    print bt
+
 # ----------------------------------------------------------------------------
 
 op =  OptionParser()
@@ -586,6 +600,10 @@ op.add_option("--filelock", dest="filelock", default = 0,
 op.add_option("--stacksummary", dest="stacksummary", default = 0,
 		action="store_true",
 		help="Print stacks (bt) categorized summary.")
+
+op.add_option("--findstacks", dest="findstacks", default = "",
+		action="store",
+		help="Print stacks (bt) containing functions that match the provided pattern")
 
 op.add_option("--decodesyscalls", dest="decodesyscalls", default = "",
 		action="store",
@@ -625,6 +643,10 @@ if (o.Lws):
     
 if (o.sysctl):
     check_sysctl()
+    sys.exit(0)
+
+if (o.findstacks):
+    find_stacks(o.findstacks.strip('\'"'))
     sys.exit(0)
 
 if (o.eventwq):

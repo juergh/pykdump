@@ -361,7 +361,7 @@ def exec_bt(crashcmd = None, text = None):
 # Merge similar stacks and print them. If TaskTable is available,
 # add timing info
 def bt_mergestacks(btlist, precise = False, 
-        count = 1, reverse=False, tt=None):
+        count = 1, reverse=False, tt=None, verbose=0):
     # Leave only those frames that have CMD=mss.1
 
     if (tt):
@@ -390,9 +390,11 @@ def bt_mergestacks(btlist, precise = False,
 	sch_young = None
 	sch_old = None
 
+        pidlist = []
         for i in val:
             p = btlist[i]
 	    pid = p.pid
+	    pidlist.append(pid)
 	    if (tt):
 		task = tt.getByTid(pid)
 		ran_ms_ago = basems - task.Last_ran
@@ -416,6 +418,16 @@ def bt_mergestacks(btlist, precise = False,
         print "\n   ........................"
         for cmd in cmdnames:
             print "     %-30s %d times" % (cmd, cmds[cmd])
+	if (verbose):
+	    # Print PIDs
+	    pidlist.sort()
+	    print "\n   ... PIDs ...",
+	    for i, pid in enumerate(pidlist):
+		if (i%10 == 0):
+		    print "\n    ",
+		print str(pid).rjust(6),
+	    print ""
+
     
 
 # This module can be useful as a standalone program for parsing
