@@ -174,6 +174,12 @@ def check_mem():
         print_Zone(Normal)
     #pp.pprint(node)
     
+    # Now check user-space memory. Print anything > 25%
+    for pid, ppid, cpu, task, st, pmem, vsz, rss, comm in parse_ps():
+	if (pmem > 25.0):
+	    print WARNING, "PID=%d CMD=%s uses %5.1f%% of total memory" %\
+	       (pid, comm, pmem)
+    
 # Check how the dump has been triggered
 def dump_reason(dmesg):
     global Panic
@@ -564,6 +570,30 @@ def find_stacks(pattern):
 	if (bt.hasfunc(pattern)):
 	    print bt
 
+# Parse (as reliably as possible)  output of 'ps' command
+#    0      1    2      3      4    5       6      7     8
+#   PID    PPID  CPU   TASK    ST  %MEM     VSZ    RSS  COMM
+#>     0      0   0  c0324a80  RU   0.0       0      0  [swapper]
+#   5758   6983   0  e30aa7b0  IN   0.1    8020   1900  httpd
+
+def parse_ps():
+    out = []
+    for l in exec_crash_command('ps').splitlines()[1:]:
+	spl = re.split("\s+", l[1:].strip())
+	try:
+	    # Convert integers
+	    for i in (0, 1, 2, 6, 7):
+		spl[i] = int(spl[i])
+	    # hexadecimal
+	    spl[3] = int(spl[3], 16)
+	    # Floating-point
+	    spl[5] = float(spl[5])
+	    pid, ppid, cpu, task, st, pmem, vsz, rss = spl[:8]
+	    comm = string.join(spl[8:])
+	    out.append((pid, ppid, cpu, task, st, pmem, vsz, rss, comm))
+	except:
+	    print WARNING, "cannot parse:", l
+    return out
 # ----------------------------------------------------------------------------
 
 op =  OptionParser()
