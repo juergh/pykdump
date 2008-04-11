@@ -45,7 +45,7 @@ def get_btsl():
 	return BTstack.btsl
     except AttributeError:
 	pass
-    print " getting BTstack.btsl"
+    #print " getting BTstack.btsl"
     btsl = exec_bt('foreach bt')
     if (not sys_info.livedump):
 	BTstack.btsl = btsl
@@ -527,30 +527,55 @@ def print_args5():
 #define RQ_SCSI_DONE		0xfffe
 #define RQ_SCSI_DISCONNECTING	0xffe0
 
-def print_request_old(rq):
-    if (rq.rq_status != -1):
-        print rq, "status=%s  rq_dev=0x%x" % (rq.rq_status, rq.rq_dev)
+# On different kernels we have different fields. As we mainly use this
+# function on pointers from slab/allocated, there can be bogus pointers
+# Do not print them
 
+def print_request(rq):
+    out = []
+    out.append(str(rq))
+    # Do we have rq_status? If yes, is it reasonable?
+    try:
+        rq_status = rq.rq_status
+	if (rq_status <= 0 or not rq_status in (1, 0xffff, 0xfffe, 0xffe0)):
+	    return
+	out.append("rq_status=0x%x" % rq_status)
+    except KeyError:
+	pass
+    try:
+	rq_dev = rq.rq_dev
+	(major, minor) = decode_devt(rq_dev)
+	out.append("rq_dev=0x%x major=%d minor=%d" % \
+	   (rq.rq_dev, major, minor))
+    except KeyError:
+	pass
+    
+    try:
+	rq_disk = rq.rq_disk
+	if (not rq_disk):
+	    return
+	out.append("\n\tdisk_name=%s major=%d" % \
+	   (rq_disk.disk_name,rq_disk.major))
+    except KeyError:
+	pass
+    
+    try:
+	q = rq.q
+	if (not q):
+	    retrun
+    except KeyError:
+	pass
+    try:
+	in_flight = rq.q.in_flight
+	cmd_flags = rq.cmd_flags
+	ref_count = rq.ref_count
+	out.append("in_flight=%d, cmd_flags=0x%x, ref_count=%d" %\
+	   (in_flight, cmd_flags, ref_count))
+    except KeyError:
+	pass
+	
+    print ", ".join(out)
 
-def print_request_new(rq):
-    rq_disk = rq.rq_disk
-    in_flight = rq.q.in_flight
-    q = rq.q
-    cmd_flags = rq.cmd_flags
-    ref_count = rq.ref_count
-    # Check for bogus values (we can get them easily on live kernel)
-    if (not rq_disk or not q or cmd_flags <0 or ref_count < -10):
-        return
-
-    # I am not sure whether this test makes sense...
-    if (in_flight == 0):
-        return
-    print rq, rq.ref_count, cmd_flags, rq_disk.disk_name, in_flight
-
-if (member_size("struct request", "rq_status") != -1):
-    print_request = print_request_old
-else:
-    print_request = print_request_new
 
 def print_blkreq():
     from LinuxDump.Slab import get_slab_addrs
@@ -562,6 +587,18 @@ def print_blkreq():
         except crash.error:
             pass
 	
+# Decode dev_t
+# major, minor = decode_devt(dev)
+def decode_devt(dev):
+    if (dev >>16):
+	# New-style
+	major = dev >> 20
+	minor = dev ^ (major<<20)
+    else:
+	# Old-style
+	major = dev >>8
+	minor = dev & 0xff
+    return (major, minor)
 
 # Find stacks with functions matching the specified pattern
 def find_stacks(pattern):
