@@ -26,7 +26,8 @@
 #include <sys/select.h>
 
 extern int debug;
-static sigjmp_buf eenv;
+static jmp_buf eenv, alarm_env;
+static jmp_buf copy_pc_env;
 
 /* crash exceptions */
 PyObject *crashError;
@@ -162,6 +163,35 @@ py_get_GDB_output(PyObject *self, PyObject *args) {
   return out;
 }
 
+// Set an alarm clock and raise SIGINT to trigger calling of
+// internal 'crash' handler
+#define MAX_SIGINTS_ACCEPTED  (3)
+static void
+pykdump_except_handler(int sig) {
+  //kill(0, SIGINT);
+  if (debug > 1)
+    printf("ALARM\n");
+  //restart(SIGPIPE);
+  longjmp(alarm_env, 1);
+}
+
+static struct sigaction act;
+static struct sigaction oldact;
+
+static set_alarm(int secs) {
+  if (secs) {
+    BZERO(&act, sizeof(struct sigaction));
+    act.sa_handler = pykdump_except_handler;
+    act.sa_flags = SA_NOMASK;
+    sigaction(SIGALRM, &act, &oldact);
+    
+    alarm(secs);
+  } else {
+    alarm(0);
+    //sigaction(SIGALRM, &oldact, NULL);
+  }
+}
+
 // This command opens and writes to FIFO so we expect someone to read it
 // It would be probably better to do all reading right here but at this
 // moment we rely on Python part to do this
@@ -173,6 +203,8 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   int flength;			/* Length of a temporary file */
   char *tmpbuf;
   PyObject *obj;
+  
+  int timeout = 30; 
 
   if (!PyArg_ParseTuple(pyargs, "s", &cmd)) {
     PyErr_SetString(crashError, "invalid parameter type"); \
@@ -193,6 +225,21 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   
   fp = tmpfile();
 
+  //memcpy(copy_pc_env, pc->main_loop_env, sizeof(jmp_buf));
+  //pc->sigint_cnt == MAX_SIGINTS_ACCEPTED - 1;
+  set_alarm(timeout);
+  // printf("cmd=%s, timeout=%d\n", pc->command_line, timeout);
+  if (setjmp(alarm_env)) {
+    // Recovery
+    //printf("recovery\n");
+    //pc->flags &= ~IN_RESTART;
+    //set_alarm(0);
+    fclose(fp);
+    fp = oldfp;
+    //memcpy(pc->main_loop_env, copy_pc_env, sizeof(jmp_buf));
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
   /* I use setjmp here as this is how crash recovers after some errors */
   if (!setjmp(eenv))
       exec_command();
@@ -207,6 +254,8 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   free(tmpbuf);
   fclose(fp);
   fp = oldfp;
+  //memcpy(pc->main_loop_env, copy_pc_env, sizeof(jmp_buf));
+  set_alarm(0);
   return obj;
 }
 

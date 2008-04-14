@@ -34,7 +34,7 @@ WARNING = "+++WARNING+++"
 # The type of the dump. We should check different things for real panic and
 # dump created by sysrq_handle
 
-Panic = True
+Panic = False
 
 
 # Parsed output of 'foreach bt' (this is rather time-consuming)
@@ -134,45 +134,49 @@ def check_mem():
         print ""
 
     # Checking for fragmentation (mostly useful on 32-bit systems)
+    # In some patological cases this can be _very_ slow
     kmemf = exec_crash_command("kmem -f")
-    node = parse_kmemf(kmemf)
-    if (len(node) < 2):
-        # IA64 woth 2.6 kernels
-	Normal = node[0]
+    if (kmemf):
+	node = parse_kmemf(kmemf)
+	if (len(node) < 2):
+	    # IA64 woth 2.6 kernels
+	    Normal = node[0]
+	else:
+	    Normal = node[1]
+	warn_8k = True
+	warn_32k = True
+    
+	# We issue a warning if there is less than 2 blocks available.
+	# We are interested in blocks up to 32Kb mainly
+	for area, size, f, blocks, pages in Normal[2:]:
+	    sizekb = int(size[:-1])
+    
+	    # 8-Kb chunks are needed for task_struct
+	    if (sizekb == 8 and blocks > 1):
+		warn_8k = False
+	    if (sizekb > 8 and blocks > 0):
+		warn_8k = False
+		
+	    # 32Kb chunks are needs for loopback as it has high MTU
+	    if (sizekb == 32 and blocks > 1):
+		warn_32k = False
+	    if (sizekb > 32 and blocks > 0):
+		warn_32k = False
+    
+	    #print "%2d  %6d %6d" % (area, sizekb, blocks)
+	if (warn_8k or warn_32k):
+	    printHeader("Memory Fragmentation (kmem -f)")
+    
+	if (warn_8k):
+	    print WARNING, "fragmentation: 8Kb"
+	elif (warn_32k):
+	    print WARNING, "fragmentation: 32Kb"
+    
+	if (warn_8k or warn_32k):
+	    print_Zone(Normal)
+	#pp.pprint(node)
     else:
-        Normal = node[1]
-    warn_8k = True
-    warn_32k = True
-
-    # We issue a warning if there is less than 2 blocks available.
-    # We are interested in blocks up to 32Kb mainly
-    for area, size, f, blocks, pages in Normal[2:]:
-        sizekb = int(size[:-1])
-
-        # 8-Kb chunks are needed for task_struct
-        if (sizekb == 8 and blocks > 1):
-            warn_8k = False
-        if (sizekb > 8 and blocks > 0):
-            warn_8k = False
-	    
-	# 32Kb chunks are needs for loopback as it has high MTU
-        if (sizekb == 32 and blocks > 1):
-            warn_32k = False
-        if (sizekb > 32 and blocks > 0):
-            warn_32k = False
-
-	#print "%2d  %6d %6d" % (area, sizekb, blocks)
-    if (warn_8k or warn_32k):
-        printHeader("Memory Fragmentation (kmem -f)")
-
-    if (warn_8k):
-        print WARNING, "fragmentation: 8Kb"
-    elif (warn_32k):
-        print WARNING, "fragmentation: 32Kb"
-
-    if (warn_8k or warn_32k):
-        print_Zone(Normal)
-    #pp.pprint(node)
+	print WARNING, "was not able to complete 'kmem -f' within timeout"
     
     # Now check user-space memory. Print anything > 25%
     for pid, ppid, cpu, task, st, pmem, vsz, rss, comm in parse_ps():
@@ -195,10 +199,8 @@ def dump_reason(dmesg):
 	else:
 	    return False
 
-    if (quiet):
-        return
-	
-    printHeader("How This Dump Has Been Created")
+    if (not quiet):
+        printHeader("How This Dump Has Been Created")
     if (sys_info.livedump):
 	print "Running on a live kernel"
         return
@@ -231,9 +233,14 @@ def dump_reason(dmesg):
         # This seems to be a real panic - search for BUG/general protection
         res = [bts for bts in bta if bts.hasfunc('die')]
         if (res):
+	    Panic = True
             print "Dump was triggered by kernel"
             if (test(res, "general_protection")):
                 print "\t- General Protection Fault"
+	    m = re.search(r'^(.*Kernel BUG.*)$',dmesg, re.M)
+	    if (m):
+		print m.group(1)
+	    return True
 	
 def stackSummary():
     btsl = get_btsl()
@@ -521,6 +528,16 @@ def print_args5():
 	if (len(spr) > 79):
 	    print ""
 
+def __j_delay(ts, jiffies):
+    v = (jiffies - ts) & INT_MASK
+    if (v > INT_MAX):
+        v = "     n/a"
+    elif (v > HZ*3600*10):
+        v = ">10hours"
+    else:
+        v = "%8.1f s" % (float(v)/HZ)
+    return v
+
 #define RQ_INACTIVE		(-1)
 #define RQ_ACTIVE		1
 #define RQ_SCSI_BUSY		0xffff
@@ -531,9 +548,9 @@ def print_args5():
 # function on pointers from slab/allocated, there can be bogus pointers
 # Do not print them
 
-def print_request(rq):
+def decode_request(rq):
     out = []
-    out.append(str(rq))
+    out.append("    " + str(rq))
     # Do we have rq_status? If yes, is it reasonable?
     try:
         rq_status = rq.rq_status
@@ -550,7 +567,12 @@ def print_request(rq):
     except KeyError:
 	pass
     
+
     try:
+	# If cmd_len is too high, this is not a 
+	# valid structure
+	if (rq.cmd_len > 16):
+	    return	
 	rq_disk = rq.rq_disk
 	if (not rq_disk):
 	    return
@@ -574,18 +596,29 @@ def print_request(rq):
     except KeyError:
 	pass
 	
-    print ", ".join(out)
+    ran_ago = __j_delay(rq.start_time, readSymbol("jiffies"))
+    out.append("\n\tstarted %s ago" % ran_ago)
+    return ", ".join(out)
 
 
-def print_blkreq():
+def print_blkreq(header = None):
     from LinuxDump.Slab import get_slab_addrs
     (alloc, free) = get_slab_addrs("blkdev_requests")
+    out = []
     for a in alloc:
 	rq = readSU("struct request", a)
         try:
-            print_request(rq)
+            rqs = decode_request(rq)
+	    if (rqs):
+		out.append(rqs)
         except crash.error:
             pass
+    if (out):
+	if (header):
+	    print header
+	else:
+	   print WARNING, "there are outstanding blk_dev requests"
+	print "\n".join(out)
 	
 # Decode dev_t
 # major, minor = decode_devt(dev)
@@ -721,7 +754,7 @@ if (o.eventwq):
     sys.exit(0)
 
 if (o.Blkreq):
-    print_blkreq()
+    print_blkreq(" ---- Outstanding blk_dev Requests -----")
     sys.exit(0)
     
 if (o.decodesyscalls):
@@ -759,7 +792,6 @@ else:
 # 1. no options (delault). Print a compact summary suitable for quick triage
 # 2. -q option. Print warnings only
 # 3. -v option. Print a more detailed summary suitable for sending by email
-
 print_basics()
 dump_reason(dmesg)
 check_loadavg()
@@ -772,6 +804,10 @@ if (not quiet):
 #check_activetasks()
 check_spinlocks()
 check_mem()
+
+# Tests that make sense for non-panic situations
+if (not Panic):
+    print_blkreq()
 
 if (not Fast):
     check_auditf()
