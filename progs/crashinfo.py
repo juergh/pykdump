@@ -130,8 +130,11 @@ def check_mem():
     if (not quiet):
 	printHeader("Memory Usage (kmem -i)")
         kmemi = exec_crash_command("kmem -i")
-        print kmemi
-        print ""
+	if (kmemi):
+            print kmemi
+            print ""
+	else:
+	    print WARNING, '<kmem -i> timeouted'
 
     # Checking for fragmentation (mostly useful on 32-bit systems)
     # In some patological cases this can be _very_ slow
@@ -731,7 +734,7 @@ else:
     quiet =0
 
 if (o.Fast):
-    Fast = True
+    set_default_timeout(12)
 
 t1 = os.times()[0]
 
@@ -776,8 +779,7 @@ if (o.filelock):
 if (o.stacksummary):
     stackSummary()
     sys.exit(0)
-    
-HZ = sys_info.HZ
+ 
 
 dmesg = exec_crash_command("log")
 
@@ -809,8 +811,7 @@ check_mem()
 if (not Panic):
     print_blkreq()
 
-if (not Fast):
-    check_auditf()
+check_auditf()
 check_runqueues()
 check_network()
 

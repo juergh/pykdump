@@ -286,15 +286,19 @@ re_f1_t = re.compile(r'\s*(START:)\s+([\w.]+)\sat\s([\da-f]+)$')
 re_via = re.compile(r'(\S+)\s+\(via\s+([^)]+)\)$')
 
 def exec_bt(crashcmd = None, text = None):
+    btslist = []
     # Debugging
     if (crashcmd != None):
         # Execute a crash command...
         text = exec_crash_command(crashcmd)
         #print "Got results from crash", crashcmd
+	if (not text):
+	    # Got timeout
+	    print WARNING, "<%s> timeouted" % crashcmd
+	    return btslist
 
 
     # Split text into one-thread chunks
-    btslist = []
     for s in text.split("\n\n"):
         #print '-' * 50
         #print s

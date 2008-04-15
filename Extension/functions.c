@@ -195,6 +195,8 @@ static set_alarm(int secs) {
 // This command opens and writes to FIFO so we expect someone to read it
 // It would be probably better to do all reading right here but at this
 // moment we rely on Python part to do this
+static int __default_timeout = 60;
+
 static PyObject *
 py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   char *cmd;
@@ -204,15 +206,15 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   char *tmpbuf;
   PyObject *obj;
   
-  int timeout = 30; 
+  int timeout = __default_timeout; 
 
-  if (!PyArg_ParseTuple(pyargs, "s", &cmd)) {
+  if (!PyArg_ParseTuple(pyargs, "s|i", &cmd, &timeout)) {
     PyErr_SetString(crashError, "invalid parameter type"); \
     return NULL;
   }
 
   if (debug > 1)
-    printf("exec_crash_command %s\n", cmd);
+    printf("exec_crash_command <%s>, timeout=%ds\n", cmd, timeout);
   // Send command to crash and get its text output
 
   strcpy(pc->command_line, cmd);
@@ -231,9 +233,17 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   // printf("cmd=%s, timeout=%d\n", pc->command_line, timeout);
   if (setjmp(alarm_env)) {
     // Recovery
-    //printf("recovery\n");
-    //pc->flags &= ~IN_RESTART;
-    //set_alarm(0);
+    // ------- minimal cleanup for crash itself -----------
+    if (pc->tmpfile) {
+	    close_tmpfile();
+    }
+
+    if (pc->tmpfile2) {
+	    close_tmpfile2();
+    }
+    free_all_bufs();
+    // -----------------------------------------------------
+    
     fclose(fp);
     fp = oldfp;
     //memcpy(pc->main_loop_env, copy_pc_env, sizeof(jmp_buf));
@@ -1050,6 +1060,17 @@ py_register_epython_prog(PyObject *self, PyObject *args) {
   Py_RETURN_TRUE;
 }
 
+/* Set default timeout value for exec_crash_command */
+static PyObject *
+py_set_default_timeout(PyObject *self, PyObject *args) {
+  int old_value = __default_timeout;
+  if (!PyArg_ParseTuple(args, "i", &__default_timeout)) {
+    PyErr_SetString(crashError, "invalid parameter type");
+    __default_timeout = old_value;
+    return NULL;
+  }
+  return PyInt_FromLong((long) old_value);
+}
 
 PyObject * py_gdb_typeinfo(PyObject *self, PyObject *args);
 PyObject * py_gdb_whatis(PyObject *self, PyObject *args);
@@ -1084,6 +1105,7 @@ static PyMethodDef crashMethods[] = {
   {"set_readmem_task", py_readmem_task, METH_VARARGS},
   {"get_NR_syscalls", py_get_NR_syscalls, METH_VARARGS},
   {"register_epython_prog", py_register_epython_prog, METH_VARARGS},
+  {"set_default_timeout", py_set_default_timeout, METH_VARARGS},
   {NULL,      NULL}        /* Sentinel */
 };
 

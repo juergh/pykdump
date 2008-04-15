@@ -58,7 +58,14 @@ print2columns = gen.print2columns
 
 
 import crash
-HZ =crash.HZ
+HZ = crash.HZ
+
+# For binary compatibility with older module
+try:
+    set_default_timeout = crash.set_default_timeout
+except AttributeError:
+    def set_default_timeout(timeout):
+	return None
 
 import wrapcrash
 
@@ -109,6 +116,10 @@ def __epythonOptions():
     op.add_option("--debug", dest="debug", default=0,
               action="store", type="int",
               help="enable debugging output")
+    
+    op.add_option("--timeout", dest="timeout", default=120,
+              action="store", type="int",
+              help="set default timeout for crash commands")
 
     op.add_option("--reload", dest="reload", default=0,
               action="store_true",
@@ -136,7 +147,10 @@ def __epythonOptions():
             if(k.split('.')[0] == 'LinuxDump' and m):
                 del sys.modules[k]
                 print "--reloading", k
-        
+    
+    if  (o.timeout):
+	set_default_timeout(o.timeout)
+	
     if (o.filename):
         sys.stdout = open(o.filename, "w")
 
