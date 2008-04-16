@@ -237,8 +237,9 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
     }
 
     if (pc->tmpfile2) {
-	    close_tmpfile2();
+        close_tmpfile2();
     }
+    restore_gdb_sanity();
     free_all_bufs();
     // -----------------------------------------------------
     
