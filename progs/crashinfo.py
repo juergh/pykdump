@@ -2,7 +2,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <08/03/28 15:35:35 alexs>
+# Time-stamp: <08/04/16 12:56:57 alexs>
 
 # Copyright (C) 2007-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007-2008 Hewlett-Packard Co., All rights reserved.
@@ -134,7 +134,8 @@ def check_mem():
             print kmemi
             print ""
 	else:
-	    print WARNING, '<kmem -i> timeouted'
+            # Timeout
+	    print ""
 
     # Checking for fragmentation (mostly useful on 32-bit systems)
     # In some patological cases this can be _very_ slow
@@ -179,7 +180,9 @@ def check_mem():
 	    print_Zone(Normal)
 	#pp.pprint(node)
     else:
-	print WARNING, "was not able to complete 'kmem -f' within timeout"
+        # Timeout
+        pass
+	
     
     # Now check user-space memory. Print anything > 25%
     for pid, ppid, cpu, task, st, pmem, vsz, rss, comm in parse_ps():
@@ -587,7 +590,7 @@ def decode_request(rq):
     try:
 	q = rq.q
 	if (not q):
-	    retrun
+	    return
     except KeyError:
 	pass
     try:

@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <08/02/14 11:28:25 alexs>
+  Time-stamp: <08/04/16 12:39:13 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -31,6 +31,8 @@ static jmp_buf copy_pc_env;
 
 /* crash exceptions */
 PyObject *crashError;
+
+static PyObject *m, *d;		/* Our module object and its dictionary */
 
 /* Default memory time for readmem() */
 static int default_mtype = KVADDR;
@@ -168,10 +170,7 @@ py_get_GDB_output(PyObject *self, PyObject *args) {
 #define MAX_SIGINTS_ACCEPTED  (3)
 static void
 pykdump_except_handler(int sig) {
-  //kill(0, SIGINT);
-  if (debug > 1)
-    printf("ALARM\n");
-  //restart(SIGPIPE);
+  //printf("ALARM\n");
   longjmp(alarm_env, 1);
 }
 
@@ -227,12 +226,11 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   
   fp = tmpfile();
 
-  //memcpy(copy_pc_env, pc->main_loop_env, sizeof(jmp_buf));
-  //pc->sigint_cnt == MAX_SIGINTS_ACCEPTED - 1;
   set_alarm(timeout);
-  // printf("cmd=%s, timeout=%d\n", pc->command_line, timeout);
+
   if (setjmp(alarm_env)) {
-    // Recovery
+    // Recovery after timeout
+    PyObject *wmsg = PyDict_GetItemString(d, "WARNING"); /* Borrowed */
     // ------- minimal cleanup for crash itself -----------
     if (pc->tmpfile) {
 	    close_tmpfile();
@@ -246,9 +244,9 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
     
     fclose(fp);
     fp = oldfp;
-    //memcpy(pc->main_loop_env, copy_pc_env, sizeof(jmp_buf));
-    Py_INCREF(Py_None);
-    return Py_None;
+    printf("%s <%s> failed to complete within the timeout period of %ds\n",
+	   PyString_AsString(wmsg),  cmd, timeout);
+    return PyString_FromString("");
   }
   /* I use setjmp here as this is how crash recovers after some errors */
   if (!setjmp(eenv))
@@ -1111,11 +1109,11 @@ static PyMethodDef crashMethods[] = {
 
 void
 initcrash(const char *crash_version) {
-  PyObject *m, *d;
+  
   int i;
   
   m = Py_InitModule("crash", crashMethods);
-  //d = PyModule_GetDict(m);
+  d = PyModule_GetDict(m);
   crashError = PyErr_NewException("crash.error", NULL, NULL);
   Py_INCREF(crashError);
   PyModule_AddObject(m, "error", crashError);
@@ -1132,6 +1130,7 @@ initcrash(const char *crash_version) {
   PyModule_AddObject(m, "PAGESIZE", PyInt_FromLong(PAGESIZE()));
   PyModule_AddObject(m, "HZ", PyInt_FromLong(machdep->hz));
 
+  PyModule_AddObject(m, "WARNING", PyString_FromString("++WARNING+++"));
 
   // Now create some aliases
 

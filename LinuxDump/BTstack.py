@@ -294,7 +294,6 @@ def exec_bt(crashcmd = None, text = None):
         #print "Got results from crash", crashcmd
 	if (not text):
 	    # Got timeout
-	    print WARNING, "<%s> timeouted" % crashcmd
 	    return btslist
 
 

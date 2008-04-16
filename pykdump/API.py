@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <08/03/24 15:02:41 alexs>
+# Time-stamp: <08/04/16 12:30:03 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -59,6 +59,8 @@ print2columns = gen.print2columns
 
 import crash
 HZ = crash.HZ
+
+crash.WARNING = WARNING                 # To be used from C-code
 
 # For binary compatibility with older module
 try:

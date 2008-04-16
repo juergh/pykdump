@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <08/03/11 10:55:51 alexs>
+  Time-stamp: <08/04/16 12:01:04 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -29,7 +29,7 @@
 
 int debug = 0;
 
-static const char *crash_version = "0.6";
+static const char *crash_version = "0.70";
 static char *ext_filename = NULL;
 #define BUFLEN 1024
 
