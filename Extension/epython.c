@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <08/04/16 12:01:04 alexs>
+  Time-stamp: <08/04/17 14:41:59 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -29,7 +29,8 @@
 
 int debug = 0;
 
-static const char *crash_version = "0.70";
+static char crash_version[] = "@(#)pycrash 0.6.1";
+
 static char *ext_filename = NULL;
 #define BUFLEN 1024
 
@@ -37,7 +38,7 @@ static char *ext_filename = NULL;
 /* Initialize the crashmodule stuff */
 void initcrash(const char *) ;
 
-static int run_fromzip(const char *progname);
+static int run_fromzip(const char *progname, const char* zipfile);
 
 /* This function is called when we do sys.exit(n). The standard Py_Exit is
    defines in Python sourcefile Modules/pythonrun.c and it does Py_Finalize
@@ -163,10 +164,11 @@ void _init(void)  {
     Py_SetPythonHome("");
 #endif
     if (debug)
-      fprintf(fp, "     *** Initializing Embedded Python %s ***\n", crash_version);
+      fprintf(fp, "     *** Initializing Embedded Python %s ***\n",
+	      crash_version+12);
     Py_Initialize();
     PyEval_InitThreads();
-    initcrash(crash_version);
+    initcrash(crash_version+12);
     //sysm = PyImport_ImportModule("sys");
     // For static builds, reset sys.path from scratch
 #if defined(STATICBUILD)
@@ -244,7 +246,7 @@ void _fini(void) {
  */
 
 static int
-run_fromzip(const char *progname) {
+run_fromzip(const char *progname, const char *zipfilename) {
   PyObject *main, *m, *importer;
   PyCodeObject *code;
   PyObject *d, *v;
@@ -254,7 +256,7 @@ run_fromzip(const char *progname) {
     printf("Cannot import <zipimport> module\n");
     return 0;
   }
-  importer = PyObject_CallMethod(m, "zipimporter", "s", ext_filename);
+  importer = PyObject_CallMethod(m, "zipimporter", "s", zipfilename);
   Py_DECREF(m);
 
   code = (PyCodeObject *) PyObject_CallMethod(importer, "get_code", "s",
@@ -426,7 +428,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
 	strcpy(buffer, "");	/* Initprog is in top dir */
       else
 	strcpy(buffer, "progs/");
-      rc = run_fromzip(strncat(buffer, argv[0], BUFLEN - 60));
+      rc = run_fromzip(strncat(buffer, argv[0], BUFLEN - 60), ext_filename);
 #endif
       if (!rc && !quiet)
 	fprintf(fp, " Cannot find the program <%s>\n", argv[0]);

@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <08/04/16 12:39:13 alexs>
+  Time-stamp: <08/04/17 10:08:40 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -179,12 +179,12 @@ static struct sigaction oldact;
 
 static set_alarm(int secs) {
   if (secs) {
+    alarm(secs);
     BZERO(&act, sizeof(struct sigaction));
     act.sa_handler = pykdump_except_handler;
     act.sa_flags = SA_NOMASK;
     sigaction(SIGALRM, &act, &oldact);
     
-    alarm(secs);
   } else {
     alarm(0);
     //sigaction(SIGALRM, &oldact, NULL);

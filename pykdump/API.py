@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <08/04/16 12:30:03 alexs>
+# Time-stamp: <08/04/17 13:49:32 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -41,6 +41,10 @@ import pprint
 pp = pprint.PrettyPrinter(indent=4)
 
 import pykdump                          # For version check
+require_cmod_version = pykdump.require_cmod_version
+  
+require_cmod_version(pykdump.minimal_cmod_version)
+
 
 # Here we make some pieces of other modules classes/functions/varibles
 # visible to API
