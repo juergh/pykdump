@@ -2,7 +2,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <08/04/16 12:56:57 alexs>
+# Time-stamp: <08/04/21 11:58:36 alexs>
 
 # Copyright (C) 2007-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007-2008 Hewlett-Packard Co., All rights reserved.
@@ -595,6 +595,8 @@ def decode_request(rq):
 	pass
     try:
 	in_flight = rq.q.in_flight
+        if (in_flight == 0):
+            return
 	cmd_flags = rq.cmd_flags
 	ref_count = rq.ref_count
 	out.append("in_flight=%d, cmd_flags=0x%x, ref_count=%d" %\
