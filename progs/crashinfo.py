@@ -343,9 +343,11 @@ def check_spinlocks():
 
 # Get important global object from the symtable
 re_bestguess = re.compile(r'^\w+\s+\(D\)\s([a-zA-Z]\w+)\s*$', re.I)
-def get_important():
+@memoize_cond(CU_MOD)
+def get_interesting_symbols():
     results = {}
-    for l in exec_crash_command("sym -l").splitlines():
+    lines = memoize_cond(CU_MOD)(exec_crash_command)("sym -l")
+    for l in lines.splitlines():
 	m = re_bestguess.match(l)
 	if (m):
 	    sym = m.group(1)
@@ -354,7 +356,23 @@ def get_important():
 		results.setdefault(ctype, []).append(sym)
 	    except TypeError:
 		pass
+    # We are not really interested in funcs and integers types
+    not_interested = ('(func)', '<data variable, no debug info>',
+                    '__u32', '__u8', '__u16', '__u64', 
+		    'char', 'int', 'long int',
+		    'long unsigned int', 'short int', 'short unsigned int'
+		    )
+		    
+    for k in results.keys():
+	if (k in not_interested):
+	    del results[k]
+    return results
     
+def get_important():
+    results = get_interesting_symbols()
+	
+    if (verbose > 2):
+	pp.pprint(results)
     print ' -- semaphores with sleepers > 0 --'
     for n in results["struct semaphore"]:
 	sem = readSymbol(n)
@@ -382,7 +400,36 @@ def get_important():
 	    
 	#print n
  
+    # Work queues (2.6) and task queues
+    if (results.has_key("struct work_struct")):
+	off = member_offset("struct work_struct", "entry")
+	print ' -- Non-empty struct work_struct --'
+	for n in results["struct work_struct"]:
+	    # per_cpu_xxx should be processed in a different way
+	    if (n.find("per_cpu") == 0):
+		continue
+	    addr = sym2addr(n)
+	    nel = getListSize(addr+off, 0, 1000000L)
+	    if (nel):
+	       print "\t", n, nel
+
+    if (results.has_key("struct tq_struct")):
+	off = member_offset("struct tq_struct", "list")
+	print ' -- Non-empty struct tq_struct --'
+	for n in results["struct tq_struct"]:
+	    # per_cpu_xxx should be processed in a different way
+	    if (n.find("per_cpu") == 0):
+		continue
+	    addr = sym2addr(n)
+	    try:
+	       nel = getListSize(addr+off, 0, 1000000L) - 1
+	    except crash.error:
+		print WARNING, "corrupted list", n
+		continue
+	    if (nel):
+	       print "\t", n, nel
     return
+	    
     keys = results.keys()
     keys.sort()
     for k in keys:
@@ -677,7 +724,7 @@ def parse_ps():
 op =  OptionParser()
 
 op.add_option("-v", dest="Verbose", default = 0,
-		action="store_true",
+		action="count",
 		help="verbose output")
 
 op.add_option("-q", dest="Quiet", default = 0,
@@ -728,10 +775,7 @@ op.add_option("--lws", dest="Lws", default = "",
 (o, args) = op.parse_args()
 
 
-if (o.Verbose):
-    verbose = 1
-else:
-    verbose =0
+verbose = o.Verbose
 
 if (o.Quiet):
     quiet = 1

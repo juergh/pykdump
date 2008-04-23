@@ -37,9 +37,6 @@ import time
 import stat
 import atexit
 
-import pprint
-pp = pprint.PrettyPrinter(indent=4)
-
 import pykdump                          # For version check
 require_cmod_version = pykdump.require_cmod_version
   
@@ -65,6 +62,8 @@ import crash
 HZ = crash.HZ
 
 crash.WARNING = WARNING                 # To be used from C-code
+
+import pprint
 
 # For binary compatibility with older module
 try:
@@ -214,9 +213,12 @@ def __preprocess(iargv,op):
 
 re_apidebug=re.compile(r'^--apidebug=(\d+)$')
 def enter_epython():
-    global t_start, t_starta
+    global t_start, t_starta, pp
     t_start = os.times()[0]
     t_starta = time.time()
+    
+    # We might redefine stdout every time we execute a command...
+    pp = pprint.PrettyPrinter(indent=4)
     #print "Entering Epython"
 
     # Process hidden '--apidebug=level' and '--reload' options
@@ -349,6 +351,41 @@ def _doSys():
             sys_info.__setattr__(spl[0].strip(), spl[1].strip())
 
 
+# Memoize cache. Is mainly used for expensive exec_crash_command
+
+__memoize_cache = {}
+
+CU_LIVE = 1                             # Update on live
+CU_MOD = 2                              # Update on mod-reload
+
+
+def memoize_cond(condition):
+    def deco(fn):
+        def newfunc(*args):
+            key = (condition, fn.__name__) + args
+	    # If CU_LIVE is set and we are on live kernel, do not
+	    # memoize
+	    if (condition & CU_LIVE and sys_info.livedump):
+		if (debug > 2):
+		    print "do not memoize: live kernel", key
+		return fn(*args)
+            try:
+                return __memoize_cache[key]
+            except KeyError:
+		if (debug > 1):
+                    print "Memoizing", key
+                val =  fn(*args)
+                __memoize_cache[key] = val
+                return val
+        return newfunc
+    return deco
+  
+def print_memoize_cache():
+    keys = __memoize_cache.keys()
+    keys.sort()
+    for k in keys:
+        print k, __memoize_cache[k]
+	
 # -----------  initializations ----------------
 
 # What happens if we use 'epython' command several times without 
