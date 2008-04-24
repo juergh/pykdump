@@ -145,9 +145,11 @@ def __epythonOptions():
  
     (o, args) = op.parse_args(aargs)
     wrapcrash.experimental = API_options.experimental = o.experimental
+    global debug
     debug = API_options.debug = o.debug
 
     if (o.reload):
+	purge_memoize_cache(CU_PYMOD)
         for k, m in sys.modules.items()[:]:
             if(k.split('.')[0] == 'LinuxDump' and m):
                 del sys.modules[k]
@@ -326,6 +328,8 @@ def loadModule(modname, ofile = None):
     __loaded_Mods[modname] = success
     # Invalidate typeinfo caches
     wrapcrash.invalidate_cache_info()
+    # Invalidate memoize_cache entries with CU_LOAD set
+    purge_memoize_cache(CU_LOAD)
     return success
 
 # Unload module
@@ -356,7 +360,12 @@ def _doSys():
 __memoize_cache = {}
 
 CU_LIVE = 1                             # Update on live
-CU_MOD = 2                              # Update on mod-reload
+CU_LOAD = 2                             # Update on crash 'mod' load
+CU_PYMOD = 4                            # Update on Pythom modules reload
+
+# CU_PYMOD is needed if we are reloading Python modules (by deleting it)
+# In this case we need to invalidate cache entries containing references
+# to classes defined in the deleted modules
 
 
 def memoize_cond(condition):
@@ -384,8 +393,24 @@ def print_memoize_cache():
     keys = __memoize_cache.keys()
     keys.sort()
     for k in keys:
-        print k, __memoize_cache[k]
+	v = __memoize_cache[k]
+	try:
+            print k, v
+	except Exception, val:
+	    print "\n\t", val, 'key=', k
 	
+# Purge those cache entries that have at least one of the specified 
+# flags	set
+def purge_memoize_cache(flags):
+    keys = __memoize_cache.keys()
+    keys.sort()
+    for k in keys:
+	ce_flags = k[0]
+	if (ce_flags & flags):
+	    if (debug > 1):
+		print "Purging cache entry", k
+	    del __memoize_cache[k]
+    	
 # -----------  initializations ----------------
 
 # What happens if we use 'epython' command several times without 
@@ -467,7 +492,6 @@ LONG_MAX = ~0L&(LONG_MASK)>>1
 HZ = sys_info.HZ
 
 enter_epython()
-debug = API_options.debug
 
 # Hooks used by C-extension
 sys.enterepython = enter_epython

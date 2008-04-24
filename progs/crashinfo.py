@@ -35,22 +35,6 @@ WARNING = "+++WARNING+++"
 # dump created by sysrq_handle
 
 Panic = False
-
-
-# Parsed output of 'foreach bt' (this is rather time-consuming)
-# If this is not a live kernel, cache it in BTStack module
-# This  will prevent reloading it every time
-def get_btsl():
-    try:
-	return BTstack.btsl
-    except AttributeError:
-	pass
-    #print " getting BTstack.btsl"
-    btsl = exec_bt('foreach bt')
-    if (not sys_info.livedump):
-	BTstack.btsl = btsl
-    return btsl
-
 Fast = False
 
 tt = None
@@ -249,7 +233,8 @@ def dump_reason(dmesg):
 	    return True
 	
 def stackSummary():
-    btsl = get_btsl()
+    btsl = exec_bt("foreach bt")
+    #print_memoize_cache()
     tt = get_tt()
     #bt_summarize(btsl)
     bt_mergestacks(btsl, reverse=True, tt=tt, verbose=verbose)
@@ -265,7 +250,7 @@ def check_loadavg():
 	print WARNING, "High Load Averages:", avgstr
     
 def check_auditf():
-    btsl = get_btsl()
+    btsl = exec_bt("foreach bt")
     func1 = 'auditf'
     func2 = 'rwsem_down'
     res = [bts for bts in btsl
@@ -343,10 +328,10 @@ def check_spinlocks():
 
 # Get important global object from the symtable
 re_bestguess = re.compile(r'^\w+\s+\(D\)\s([a-zA-Z]\w+)\s*$', re.I)
-@memoize_cond(CU_MOD)
+@memoize_cond(CU_LOAD)
 def get_interesting_symbols():
     results = {}
-    lines = memoize_cond(CU_MOD)(exec_crash_command)("sym -l")
+    lines = memoize_cond(CU_LOAD)(exec_crash_command)("sym -l")
     for l in lines.splitlines():
 	m = re_bestguess.match(l)
 	if (m):
@@ -690,7 +675,7 @@ def decode_devt(dev):
 
 # Find stacks with functions matching the specified pattern
 def find_stacks(pattern):
-    btsl = get_btsl()
+    btsl = exec_bt("foreach bt")
     for bt in btsl:
 	if (bt.hasfunc(pattern)):
 	    print bt

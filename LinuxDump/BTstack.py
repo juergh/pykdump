@@ -285,12 +285,13 @@ re_f1_t = re.compile(r'\s*(START:)\s+([\w.]+)\sat\s([\da-f]+)$')
 
 re_via = re.compile(r'(\S+)\s+\(via\s+([^)]+)\)$')
 
+@memoize_cond(CU_LIVE | CU_PYMOD)
 def exec_bt(crashcmd = None, text = None):
     btslist = []
     # Debugging
     if (crashcmd != None):
         # Execute a crash command...
-        text = exec_crash_command(crashcmd)
+        text = memoize_cond(CU_LIVE)(exec_crash_command)(crashcmd)
         #print "Got results from crash", crashcmd
 	if (not text):
 	    # Got timeout

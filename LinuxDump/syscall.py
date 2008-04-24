@@ -46,7 +46,7 @@ def getSyscallArgs_x86(stack):
     # Check whether the last frame is 'system_call'
     lastf = stack.frames[-1]
     if (not lastf.func in ('system_call', 'sysenter_entry')):
-	raise IndexError, "this is not a system_call stack" + lastf
+	raise IndexError, "this is not a system_call stack!"
     # The data of interest is Frame Pointer from
     #  #4 [e6d2bfc0] system_call at c02b0068
     sp = lastf.frame + 4
@@ -83,7 +83,7 @@ def getSyscallArgs_x8664(stack):
     # Check whether the last frame is 'system_call'
     lastf = stack.frames[-1]
     if (not lastf.func in ('system_call', 'sysenter_entry')):
-	raise IndexError, "this is not a system_call stack" + lastf
+	raise IndexError, "this is not a system_call stack!"
     regs = __getRegs(lastf.data)
     #print regs
     # arg0-arg5
@@ -139,7 +139,11 @@ def decode_Stacks(stacks):
 	print stack
 	#print hexl(stack.addr)
 	print "    ....... Decoding Syscall Args ......."
-	nscall, args = getSyscallArgs(stack)
+	try:
+	   nscall, args = getSyscallArgs(stack)
+	except IndexError, val:
+	    print val
+	    continue
         if (nscall == -1):
             return
 	try:
