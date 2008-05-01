@@ -279,12 +279,21 @@ def print_UDP():
     if (count == 0):
 	print WARNING, "Empty UDP-hash - dump is probably incomplete"						 
 
+def tcp_state_name(state):
+    # If the structure is corrupted, state will be bogus
+    try:
+	statename = tcpState[state][4:]
+    except KeyError:
+	statename = "|%d|" % state
+    return statename
+    
 # print AF_UNIX
 
 def print_UNIX():
-    print "unix   State          I-node  Path"
+    print "unix   State          i_ino   Path"
     print "----------------------------------"
-    for s, state, ino, path in proto.get_AF_UNIX(True):
+    for s in proto.get_AF_UNIX():
+	state, ino, path = proto.unix_sock(s)
         if (state == tcpState.TCP_LISTEN):
             if (not print_listen): continue
         else:
@@ -293,13 +302,18 @@ def print_UNIX():
         if (details):
             print '-' * 78
             print s, '\t\tUnix'
-           
-	# If the structure is corrupted, state will be bogus
-	try:
-	    statename = tcpState[state][4:]
-	except KeyError:
-	    statename = "|%d|" % state
+         
+	statename = tcp_state_name(state)
         print "unix   %-12s   %-6d  %s" % (statename,
+                                           ino, path)
+	if (details < 2):
+	    continue
+	# Check whether we have a peer
+	peer = s.Peer
+	if (peer):
+	    state, ino, path = proto.unix_sock(peer)
+	    statename = tcp_state_name(state)
+	    print "  Peer %-12s   %-6d  %s" % (statename,
                                            ino, path)
 
   
@@ -447,6 +461,28 @@ def printTaskSockets(t):
 		    continue
 	    print >>prn, "     ", ips
 	    strue = True
+	if (details > 1 and family == P_FAMILIES.PF_FILE):
+	    # AF_UNIX. on 2.4 we have just 'struct sock',
+	    # on 2.6 'struct unix_sock'
+	    if (not sock_V1):
+		sock = sock.castTo("struct unix_sock")
+	    hdr = "     +" + '-' * 65
+	    print >>prn, hdr
+	    print >>prn, "     |      state          i_ino   Path"
+	    print >>prn, hdr
+	    for us, h in zip((sock, sock.Peer), ("sock", "peer")):
+	       if (us):
+		    state, ino, path = proto.unix_sock(us)
+		    statename = tcp_state_name(state)
+		    print >>prn, "     |%s  %-12s   %-6d  %s" % (h,
+		                                  statename, ino, path)
+		    filep = us.Socket.file
+		    pids = tt.getByFile(filep)
+		    if (h == "peer"):
+			print >>prn, "     |   ",filep, us.Socket
+			for pid in pids:
+			    print >>prn, "     |   ", pid
+	            print >>prn, hdr
 	    
     print >>prn, ""
     if (strue):

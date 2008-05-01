@@ -386,7 +386,11 @@ def init_INET_Stuff():
     except KeyError:
         tw_chain_off = -1
 
-    
+    try:
+        UNIX_HASH_SIZE = whatis("unix_socket_table") - 1
+    except:
+	UNIX_HASH_SIZE = 256
+	
     # Now copy locals to INET_Stuff
     INET_Stuff.__dict__.update(locals())
 
@@ -408,9 +412,11 @@ def init_PseudoAttrs():
     structSetAttr(sn, "uopt", "tp_pinfo.af_udp")
     structSetAttr(sn, "rcv_tstamp", "tp_pinfo.af_tcp.rcv_tstamp")
     structSetAttr(sn, "lsndtime", "tp_pinfo.af_tcp.lsndtime")
+    structSetAttr(sn, "Socket", ["socket", "sk_socket"])
 
     sn = "struct inet_sock"
-    extra = ["struct tcp_sock", "struct udp_sock", "struct raw_sock"]
+    extra = ["struct tcp_sock", "struct udp_sock", "struct raw_sock", 
+                                "struct unix_sock"]
     structSetAttr(sn, "family", "sk.__sk_common.skc_family", extra)
     structSetAttr(sn, "protocol", ["sk_protocol","sk.sk_protocol"], extra)
     structSetAttr(sn, "type", ["sl_type", "sk.sk_type"], extra)
@@ -432,6 +438,7 @@ def init_PseudoAttrs():
                   extra)
     structSetAttr(sn, "user_data", "sk.sk_user_data",
                   extra)
+    structSetAttr(sn, "Socket", "sk.sk_socket", extra)
 
     # TCP-specific
     sn = "struct tcp_sock"
@@ -527,8 +534,51 @@ def init_PseudoAttrs():
     if (not structSetAttr("struct tcp6_timewait_sock", "Dst6",
                       "tw_v6_daddr.in6_u.u6_addr32", extra)):
         structSetProcAttr(sn, "Dst6", getDst6)
-            
-        
+	
+    # AF_UNIX
+    
+    sn = "struct socket"
+    structSetAttr(sn, "Inode", "inode")     # For 2.4
+    structSetAttr(sn, "Ino", "inode.i_ino")     # For 2.4
+    
+    # At this moment "struct socket_alloc" is defined as
+    # struct socket_alloc {
+    #   struct socket socket;
+    #   struct inode vfs_inode;
+    # }
+
+    sn = "struct socket_alloc"
+    extra = ["struct socket"]
+    structSetAttr(sn, "Inode", "vfs_inode", extra)
+    structSetAttr(sn, "Ino", "vfs_inode.i_ino", extra)
+    
+    sn = "struct sock"
+    structSetAttr(sn, "Uaddr", "protinfo.af_unix.addr")
+
+    sn = "struct unix_sock"
+    structSetAttr(sn, "socket", "sk.sk_socket")
+    structSetAttr(sn, "Uaddr", "addr")
+    
+    #Peer:
+    #
+    # #define unix_peer(sk) (unix_sk(sk)->peer)     2.6, unix_sock
+    # #define unix_peer(sk) ((sk)->sk_pair)         2.6.5, unix_sock
+    # #define unix_peer(sk) ((sk)->pair)            2.4, sock 
+    
+    def getPeer26(s):
+	return s.peer.castTo("struct unix_sock")
+    
+    def getPeer26old(s):
+	return s.sk.sk_pair.castTo("struct unix_sock")    
+    
+    if (not structSetAttr("struct sock", "Peer", "pair")):
+        # 2.6
+	sn = "struct unix_sock"
+	if (member_size(sn, "peer") != -1):
+	   structSetProcAttr(sn, "Peer", getPeer26)
+	else:
+	   structSetProcAttr(sn, "Peer", getPeer26old)
+
 	
 # TCP structures are quite different for 2.4 and 2.6 kernels, it makes sense to
 # have two different versions of code
@@ -683,110 +733,44 @@ def get_RAW6():
                     
 # ------------------- AF_UNIX ---------------------------------------
 
-# Old kernels use different tables for AF_UNIX
-def unix_sock_old():
-    unix_socket_table = readSymbol("unix_socket_table")
-    UNIX_HASH_SIZE = len(unix_socket_table) - 1
-    for b in unix_socket_table:
-        next = b
-        while (next):
-            s = readSU('struct sock', next)
-            print hexl(next),
-            addr = s.protinfo.af_unix.addr
-            if (addr):
-                uaddr = readSU("struct unix_address", addr)
-                path =  uaddr.name.sun_path
-                if (uaddr.hash != UNIX_HASH_SIZE):
-                    # ABSTRACT
-                    path = '@' + path[1:]
-                print  path.split('\0')[0]
-            else:
-                print ''    
-            next = s.next
-
-def unix_sock():
-    if (struct_size("struct unix_sock") == -1):
-        unix_sock_old()
-        return
-    # Non-empty buckets
-    usocks_addrs = []
-    # On those kernels where unix sockets are built as a module, we cannot find
-    # symbolic info for unix_socket_table
-    try:
-	ust = whatis("unix_socket_table")
-	unix_socket_table = readSymbol("unix_socket_table")
-    except:
-	descr = "struct hlist_head unix_socket_table[257];"
-	print "We don't have symbolic access to unix_socket_table, assuming"
-	print descr
-	unix_socket_table = readSymbol("unix_socket_table", descr)
-	#return
-
-    UNIX_HASH_SIZE = len(unix_socket_table) - 1
-    for s in unix_socket_table:
-        first = s.first
-        if (first):
-            usocks_addrs +=  sk_for_each(first)
-
-    sainfo = getStructInfo("struct socket_alloc")
-    vfs_off = sainfo["vfs_inode"].offset - sainfo["socket"].offset
-    #print "vfs_off=", vfs_off
-
-    for e in usocks_addrs:
-	s = readSU("struct unix_sock", e)
-        sk_socket = s.sk.sk_socket
-        if (sk_socket == 0):
-            continue
-        vfs_inode_addr = sk_socket + vfs_off
-        vfs_inode = readSU("struct inode", vfs_inode_addr)
-        ino = vfs_inode.i_ino
-        print hexl(e), hexl(sk_socket), ino, 
-        if (s.addr):
-            #uaddr = readSU("struct unix_address", s.addr)
-            uaddr = s.Deref.addr
-            path =  uaddr.name.sun_path
-            if (uaddr.hash != UNIX_HASH_SIZE):
-                # ABSTRACT
-                path = '@' + path[1:]
-            print  path
-            #print  s.GDBderef("->addr->name->sun_path")
-        else:
-            print ''
+# We pass 'struct unix_sock' for new kernels and just 
+# 'struct sock' for old ones
+def unix_sock(s):
+    state = s.state
+    path = ''
+    ino = 0
+    sk_socket = s.socket
+    if (sk_socket):
+	ino = sk_socket.Ino
+	
+    uaddr = s.Uaddr
 
 
-def get_AF_UNIX(details=False):
+    if (uaddr):
+	path =  uaddr.name.sun_path
+	#
+	if (uaddr.hash != INET_Stuff.UNIX_HASH_SIZE):
+	    ulen = uaddr.len - 2
+	    # ABSTRACT
+	    path = '@' + path[1:ulen]
+	    #path = path.split('\0')[0]
+    return state, ino, path
+
+
+
+
+def get_AF_UNIX():
+
     if (struct_size("struct unix_sock") == -1):
         # Old-style AF_UNIX sockets
         unix_socket_table = readSymbol("unix_socket_table")
-        UNIX_HASH_SIZE = len(unix_socket_table) - 1
-        INET_Stuff.UNIX_HASH_SIZE = UNIX_HASH_SIZE
         for b in unix_socket_table:
             next = b
             while (next):
 		#print hexl(next)
                 s = readSU('struct sock', next)
                 next = s.next
-                if (details):
-                    # We use TCP-states here: 1,7 an 10
-                    state = s.state
-                    path = ''
-                    sk_socket = s.socket
-                    if (sk_socket):
-                        #sk->socket->inode->i_ino
-                        ino = sk_socket.Deref.inode.Deref.i_ino
-                    else:
-                        ino = 0
-                    addr = s.protinfo.af_unix.addr
-                    if (addr):
-                        uaddr = readSU("struct unix_address", addr)
-                        path =  uaddr.name.sun_path
-                        if (uaddr.hash != UNIX_HASH_SIZE):
-                            # ABSTRACT
-                            path = '@' + path[1:]
-                            path =  path.split('\0')[0]
-                    yield (s, state, ino, path)
-                else:
-                    yield s
+		yield s
     else:
         # New-style AF_UNIX sockets, using hash buckets
         usocks_addrs = []
@@ -802,9 +786,6 @@ def get_AF_UNIX(details=False):
             unix_socket_table = readSymbol("unix_socket_table", descr)
             #return
 
-        INET_Stuff.UNIX_HASH_SIZE = len(unix_socket_table) - 1
-        UNIX_HASH_SIZE = len(unix_socket_table) - 1
-        
         sainfo = getStructInfo("struct socket_alloc")
         vfs_off = sainfo["vfs_inode"].offset - sainfo["socket"].offset
         #print "vfs_off=", vfs_off
@@ -817,24 +798,7 @@ def get_AF_UNIX(details=False):
                     sk_socket = s.sk.sk_socket
                     if (sk_socket == 0):
                         continue
-                    # We use TCP-states
-                    state = s.sk.__sk_common.skc_state
-                    if (details):
-                        path = ''
-                        vfs_inode_addr = long(sk_socket) + vfs_off
-                        vfs_inode = readSU("struct inode", vfs_inode_addr)
-                        ino = vfs_inode.i_ino
-                        if (s.addr):
-                            uaddr = Deref(s.addr)
-                            path =  uaddr.name.sun_path
-                            if (uaddr.hash != UNIX_HASH_SIZE):
-                                # ABSTRACT
-				path = '@' + path[1:]
-
-                            path = path.split('\0')[0]
-                        yield (s, state, ino, path)
-                    else:
-                        yield s
+                    yield s
 
 
 # Print the contents of accept_queue

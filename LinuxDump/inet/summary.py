@@ -147,7 +147,8 @@ def TCPIP_Summarize(quiet = False):
 
     counts = {}
     count = 0
-    for s, state, ino, path in proto.get_AF_UNIX(True):
+    for s in proto.get_AF_UNIX():
+	state, ino, path = proto.unix_sock(s)
         counts[state] = counts.setdefault(state, 0) + 1
         count += 1
         
