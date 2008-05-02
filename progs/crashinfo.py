@@ -327,7 +327,7 @@ def check_spinlocks():
 	    pass
 
 # Get important global object from the symtable
-re_bestguess = re.compile(r'^\w+\s+\(D\)\s([a-zA-Z]\w+)\s*$', re.I)
+re_bestguess = re.compile(r'^\w+\s+\([DB]\)\s([a-zA-Z]\w+)\s*$', re.I)
 @memoize_cond(CU_LOAD)
 def get_interesting_symbols():
     results = {}

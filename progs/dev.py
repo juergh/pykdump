@@ -7,13 +7,14 @@
 from pykdump.API import *
 
 from LinuxDump.fs import *
+from LinuxDump import Dev
 
 import sys
 
 def printdevs():
     #dump_chrdevs()
-    #dump_blkdevs()
-    dump_mounts()
+    dump_blkdevs()
+    #dump_mounts()
     
 def dump_mounts():
     for vfsmount, superblk, fstype, devname, mnt in getMount():
@@ -96,5 +97,5 @@ def dump_blkdevs_v2():
 
 
 if ( __name__ == '__main__'):
-    printdevs()
+    Dev.print_blkdevs(1)
 
