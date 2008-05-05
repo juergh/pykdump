@@ -49,51 +49,6 @@ def dump_chrdevs():
             print " %3d      %-11s   %x  <%s>" % \
                   (major, name, ops, addr2sym(ops))
 
-def dump_blkdevs():
-    print '\nBLKDEV    NAME         OPERATIONS'
-    if (symbol_exists('all_bdevs')):
-        dump_blkdevs_v2()
-    else:
-        dump_blkdevs_v1()
-
-def dump_blkdevs_v1():
-    pa = readSymbol('blkdevs')
-    for major, s in enumerate(pa):
-        ops = s.bdops
-        if (ops == 0):
-            continue
-        name = s.name
-        print " %3d      %-11s   %x  <%s>" % \
-              (major, name, ops, addr2sym(ops))
-    
-    
-def dump_blkdevs_v2():
-    # We need unique values only, so we use a dictionary to achieve this
-    u = {}
-    for s in readSUListFromHead(sym2addr('all_bdevs'), 'bd_list', 'struct block_device'):
-        u[s.bd_disk] = 1
-    
-    # Get gendisk structures
-    fops ={}
-    for addr in u.keys():
-        if (addr==0):
-            print "ERROR: addr=0 in all_bdevs"
-            continue
-        s = readSU('struct gendisk', addr)
-        fops[s.major] = s.fops
-
-    for addr in readSymbol('major_names'):
-        while(addr):
-            s = readSU('struct blk_major_name', addr)
-            if (fops.has_key(s.major)):
-                fopsaddr = fops[s.major]
-                sfops = '0x%x\t <%s>' % (fopsaddr, addr2sym(fopsaddr))
-            else:
-               sfops = ' (unknown)'
-            # As 'name' is a chararray, we might need to strip after \0
-            name = s.name#.split('\0')[0]
-            print "%3d       %-11s  %-11s" % (s.major, name, sfops)
-            addr = s.next
 
 
 if ( __name__ == '__main__'):

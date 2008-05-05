@@ -307,6 +307,7 @@ def possibleModuleNames(topdir, fbase):
 #  MODULE   NAME          SIZE  OBJECT FILE
 # f8a95800  sunrpc      139173  /data/Dumps/test/sunrpc.ko.debug
 
+
 __loaded_Mods = {}
 def loadModule(modname, ofile = None):
     """Load module file into crash"""
@@ -316,9 +317,14 @@ def loadModule(modname, ofile = None):
         pass
     if (ofile == None):
         for t in sys_info.debuginfo:
-            ofile = possibleModuleNames(t, modname)
-            if (ofile):
-                break
+            # Some modules use different names in file object and lsmod, e.g.:
+            # dm_mod -> dm-mod.ko
+	    for mn in (modname, modname.replace("_", "-")):
+	       ofile = possibleModuleNames(t, mn)
+	       if (ofile):
+		   break
+	    if (ofile):
+		break
         if (debug):
             print "Loading", ofile
     if (ofile == None):
@@ -458,6 +464,9 @@ kname = sys_info.RELEASE
 RHDIR = "/usr/lib/debug/lib/modules/" + kname
 CGDIR = "/usr/lib/kernel-image-%s-dbg/lib/modules/%s/" %(kname, kname)
 debuginfo = [RHDIR, CGDIR]
+
+if (sys_info.DebugDir == ""):
+    sys_info.DebugDir ="."
 if (not  sys_info.livedump):
     # Append the directory of where the dump is located
     debuginfo.append(sys_info.DebugDir)

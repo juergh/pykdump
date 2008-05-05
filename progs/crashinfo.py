@@ -16,9 +16,8 @@ from LinuxDump.kmem import parse_kmemf, print_Zone
 from LinuxDump.Tasks import TaskTable, Task, tasksSummary, getRunQueues
 from LinuxDump.inet import summary
 import LinuxDump.inet.netdevice as netdevice
-from LinuxDump import percpu, sysctl
-
-
+from LinuxDump import percpu, sysctl, Dev
+from LinuxDump.Dev import print_dm_devices
 
 from LinuxDump import percpu
 
@@ -733,6 +732,10 @@ op.add_option("--blkreq", dest="Blkreq", default = 0,
 		action="store_true",
 		help="Print Block I/O requests")
 
+op.add_option("--blkdevs", dest="Blkdevs", default = 0,
+		action="store_true",
+		help="Print Block Devices Info")
+
 op.add_option("--filelock", dest="filelock", default = 0,
 		action="store_true",
 		help="Print filelock info.")
@@ -756,6 +759,10 @@ op.add_option("--keventd_wq", dest="eventwq", default = "",
 op.add_option("--lws", dest="Lws", default = "",
 		action="store_true",
 		help="Print Locks Waitqueues and Semaphores")		
+
+op.add_option("--devmapper", dest="DM", default = "",
+		action="store_true",
+		help="Print DeviceMapper Tables")		
 
 (o, args) = op.parse_args()
 
@@ -794,6 +801,10 @@ if (o.Blkreq):
     print_blkreq(" ---- Outstanding blk_dev Requests -----")
     sys.exit(0)
     
+if (o.Blkdevs):
+    Dev.print_blkdevs(verbose)
+    sys.exit(0)
+    
 if (o.decodesyscalls):
     decode_syscalls(o.decodesyscalls)
     sys.exit(0)
@@ -812,6 +823,10 @@ if (o.filelock):
     
 if (o.stacksummary):
     stackSummary()
+    sys.exit(0)
+ 
+if (o.DM):
+    print_dm_devices()
     sys.exit(0)
  
 

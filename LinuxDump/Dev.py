@@ -36,6 +36,21 @@ def decode_devt(dev):
 
 # ================= Block Device Tables =================
 
+class BlkDev(object):
+    def __init__(self, major, name, ops, bdevs):
+	minors = [m for m, bds in bdevs]
+	minors.sort()
+	self.major = major
+	self.minors = minors
+	self.name = name
+	self.ops = ops
+	self.bdevs = bdevs
+    def __str__(self):
+	#prn = StringIO()
+	return " %3d  %-11s   %x  <%s>" % \
+              (self.major, self.name, self.ops, addr2sym(self.ops))
+
+
 
 # This function returns a dictionary of (name, gendisk) keyed
 # by major
@@ -64,7 +79,8 @@ def get_blkdevs_v1():
     for major, s in enumerate(pa):
 	if (not m_bdevs.has_key(major)):
 	    continue
-	out[major] = (s.name, s.bdops, m_bdevs[major])
+	bi = BlkDev(major, s.name, s.bdops, m_bdevs[major])
+	out[major] = bi
     
     return out
 
@@ -84,7 +100,7 @@ def get_blkdevs_v2():
     # a waste of time. For all practical purposes we are always
     # interested only in those devices that are physically
     # present (i.e. are in 'all_bdevs')
-    out ={}
+    out = {}
     for addr in readSymbol('major_names'):
         while(addr):
 	    s = Deref(addr)
@@ -98,25 +114,31 @@ def get_blkdevs_v2():
 	    bd_disk = bd[0][1].bd_disk
 	    if (bd_disk):
 	       bdops = bd_disk.fops
-	       print bd_disk.kobj.name
+	       #print bd_disk.kobj.name
 	    else:
 		bdops = 0
-            out[major] = (s.name, bdops, bd)
+            out[major] = BlkDev(major, s.name, bdops, bd)
     return out
 
 def print_blkdevs(v = 0):
     out = get_blkdevs()    
     majors = out.keys()
     majors.sort()
+    sep = '-' * 70
+    if (v):
+	print sep
     for major in majors:
-	name, ops, bdevs = out[major]
-	minors = [m for m, bds in bdevs]
-	minors.sort()
-        print " %3d      %-11s   %x  <%s>" % \
-              (major, name, ops, addr2sym(ops))
+	bi = out[major]
+	#name, ops, bdevs = out[major]
+	minors = bi.minors
+	ops= bi.ops
+	bdevs = bi.bdevs
+        print " %3d    %-14s   %x  <%s>" % \
+              (major, bi.name, ops, addr2sym(ops))
 	if (v):
 	   print "\tMinors:", minors
 	   print "\t", bdevs[0][1]
+	   print sep
 
 
 # ================= Device-Mapper =======================
@@ -133,9 +155,15 @@ def print_blkdevs(v = 0):
 #}
 
 def print_dm_devices():
+    sn = "struct hash_cell"
+    # Check whether this struct info is present
+    if (not struct_exists(sn)):
+	loadModule("dm_mod")
+    if (not struct_exists(sn)):
+	print "To decode DeviceMapper structures, you need a debuggable dm_mod"
+	return
     nameb = readSymbol("_name_buckets")
     out = []
-    sn = "struct hash_cell"
     off = member_offset(sn, "name_list")
     for b in nameb:
 	for a in readListByHead(b):
@@ -143,8 +171,10 @@ def print_dm_devices():
 	    out.append((hc.md.disk.first_minor, hc.name, hc.md.map))
     
     out.sort()      # sort on minor
+    print " ========== Devicemapper devices ============"
     for minor, name, dm in out:
-	print "%-40s  minor=%d" % (name, minor)
+	print '-'*70
+	print "%-40s  minor=%d" % (name, minor), dm
 	decode_dm_table(dm)
 
 # Decode struct dm_table
@@ -158,9 +188,33 @@ def print_dm_devices():
 #}
 
 def decode_dm_table(dm):
+    def round4k(s):
+	return s/4096*4096
     devices = dm.devices   # This points to 'list' field in dm_dev
     sn = "struct dm_dev"
     off = member_offset(sn, "list")
+    mtable = get_blkdevs()
+    num_targets = dm.num_targets
+    print " -- %d targets" % num_targets
+    targets = dm.targets
+    for nt in range(num_targets):
+	target = targets + nt
+	ttype = target.type
+	t_begin = target.begin
+	t_len = target.len
+	t_end = t_begin + t_len
+	
+	print "  %d" % nt, target, ttype.name
+	print "       | logical  sectors %d->%d" %(t_begin, t_end)
+	if (ttype.name == "linear"):
+	    lc = readSU("struct linear_c", target.private)
+	    lc_begin = lc.start
+	    lc_end = lc.start + t_len -1
+	    print "       | physical sectors %d->%d" %(lc_begin, lc_end)
+    
+    print " -- Block Devices Used By This Mapping"
     for a in readListByHead(devices):
 	dmdev = readSU(sn, a - off)
-	print "\t", dmdev.name, "\t", dmdev
+	major, minor = decode_devt(dmdev.bdev.bd_dev)
+	print "     ", dmdev, "major=%-3d minor=%-3d" % (major, minor)
+	print "\t", mtable[major]
