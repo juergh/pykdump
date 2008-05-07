@@ -13,7 +13,8 @@ from pykdump.API import *
 from LinuxDump import BTstack
 from LinuxDump.BTstack import exec_bt, bt_summarize, bt_mergestacks
 from LinuxDump.kmem import parse_kmemf, print_Zone
-from LinuxDump.Tasks import TaskTable, Task, tasksSummary, getRunQueues
+from LinuxDump.Tasks import TaskTable, Task, tasksSummary, getRunQueues,\
+            TASK_STATE
 from LinuxDump.inet import summary
 import LinuxDump.inet.netdevice as netdevice
 from LinuxDump import percpu, sysctl, Dev
@@ -73,18 +74,26 @@ def print_basics():
 	# compare the size of vmcore and RAM
 	# If sizeof(vmcore) < 25% sizeof(RAM), print a warning
 	dfile = sys_info.DUMPFILE
+	# Convert memory to Mb
+	(im, sm) = sys_info.MEMORY.split()
+	ram = float(im)
+	if (sm == "GB"):
+	    ram *= 1024
+	# Get vmcore size
+	sz = os.stat(dfile)[ST_SIZE]/1024/1024
+
+        # When RH creates partial dumps, it says so
+	# SLES can do this silently, so we can easily have just
+	# a 14Mb vmcore on a system with 4GB of RAM...
+
 	if (dfile.find("PARTIAL DUMP") != -1):
 	    dfile = dfile.split()[0]
-	    # Convert memory to Mb
-	    (im, sm) = sys_info.MEMORY.split()
-	    ram = float(im)
-	    if (sm == "GB"):
-		ram *= 1024
-	    # Get vmcore size
-	    sz = os.stat(dfile)[ST_SIZE]/1024/1024
 	    if (ram > sz *4):
 	       print WARNING,
 	       print "PARTIAL DUMP with size(vmcore) < 25% size(RAM)"
+	elif (ram > sz *10):
+	    print WARNING,
+	    print "DUMP with size(vmcore) < 10% size(RAM)"
     if (quiet):
         return
 
@@ -199,6 +208,8 @@ def dump_reason(dmesg):
     netconsole = re.compile('netconsole')
     res = [bts for bts in bta if bts.hasfunc(func1)]
     if (res):
+	if (quiet):
+	    return
 	# Now check whether we used keyboard or sysrq-trigger
 	print "Dump has been initiated: with sysrq"
 	if (test(res, trigger)):
@@ -223,13 +234,15 @@ def dump_reason(dmesg):
         res = [bts for bts in bta if bts.hasfunc('die')]
         if (res):
 	    Panic = True
+	    if (quiet):
+		return
             print "Dump was triggered by kernel"
             if (test(res, "general_protection")):
                 print "\t- General Protection Fault"
 	    m = re.search(r'^(.*Kernel BUG.*)$',dmesg, re.M)
 	    if (m):
 		print m.group(1)
-	    return True
+	    return
 	
 def stackSummary():
     btsl = exec_bt("foreach bt")
@@ -575,6 +588,62 @@ def __j_delay(ts, jiffies):
         v = "%8.1f s" % (float(v)/HZ)
     return v
 
+
+# ................................................................
+# Tests for threads in UNINTERRUPTBLE state
+
+# Here are some important cases:
+# 1. We are doing sync/fsync and are stuck  (typically while committing
+#     the journal)
+# 2. Memory allocation - we are short on memory and are shrinking caches/zones
+#    or waiting for swapper
+# 3. We are waiting for NFS
+
+
+def check_UNINTERRUPTIBLE():
+    tt = get_tt()
+    basems = tt.basems
+    bts = []
+    for t in tt.allThreads():
+	if (t.ts.state & TASK_STATE.TASK_UNINTERRUPTIBLE):
+	    pid = t.pid
+            bts.append(exec_bt("bt %d" % pid)[0])
+
+    re_sync = 'sys_fsync'
+    re_nfs = 'svc_process|nfsd_dispatch'
+    re_journal = 'log_wait_commit|journal_commit_transaction'
+    nfscount = 0
+    jcount = 0
+    bigtime = 30                # Cutoff for ran_s_ago
+    for bt in bts:
+	pid = bt.pid
+        mt = tt.getByTid(pid)
+        ran_ms_ago = basems - mt.Last_ran
+	ran_s_ago = ran_ms_ago/1000
+	if (verbose):
+	    print bt
+	    print "\n   ......  last_ran %ds ago\n" % ran_s_ago
+	    print '-' * 70
+	if (bt.cmd == "syslogd" and ran_s_ago > bigtime):
+	    print WARNING, \
+	       "syslogd is in UNINTERRUPTIBLE state, last_ran %ds ago"\
+	           %ran_s_ago
+	if (bt.hasfunc(re_nfs) and ran_s_ago > bigtime):
+	    nfscount += 1
+	if (bt.hasfunc(re_journal)):
+	    jcount += 1
+	    
+    
+    # Print cummulative results
+    if (nfscount):
+	print WARNING, \
+	    "%d NFS processes in UNINTERRUPTIBLE state" % nfscount
+    if (jcount):
+	print WARNING, \
+	    "%d processes in UNINTERRUPTIBLE state are committing journal" %\
+	        jcount
+
+# ................................................................
 #define RQ_INACTIVE		(-1)
 #define RQ_ACTIVE		1
 #define RQ_SCSI_BUSY		0xffff
@@ -826,7 +895,7 @@ if (o.stacksummary):
     sys.exit(0)
  
 if (o.DM):
-    print_dm_devices()
+    print_dm_devices(verbose)
     sys.exit(0)
  
 
@@ -843,6 +912,8 @@ else:
 # 1. no options (delault). Print a compact summary suitable for quick triage
 # 2. -q option. Print warnings only
 # 3. -v option. Print a more detailed summary suitable for sending by email
+
+
 print_basics()
 dump_reason(dmesg)
 check_loadavg()
@@ -860,9 +931,21 @@ check_mem()
 if (not Panic):
     print_blkreq()
 
+
+check_UNINTERRUPTIBLE()
 check_auditf()
-check_runqueues()
-check_network()
+try:
+    check_runqueues()
+except crash.error:
+    print WARNING, "cannot continue - the dump is probably incomplete", \
+        "or corrupted"
+
+try:	
+    check_network()
+except crash.error:
+    print WARNING, "cannot continue - the dump is probably incomplete", \
+        "or corrupted"
+
 
 # After this line we put all routines that can produce significant output
 # We don't want to see hundreds of lines in the beginning!

@@ -44,11 +44,14 @@ class BlkDev(object):
 	self.minors = minors
 	self.name = name
 	self.ops = ops
+	self.opsname = addr2sym(self.ops)
 	self.bdevs = bdevs
     def __str__(self):
 	#prn = StringIO()
 	return " %3d  %-11s   %x  <%s>" % \
-              (self.major, self.name, self.ops, addr2sym(self.ops))
+              (self.major, self.name, self.ops, self.opsname)
+    def shortstr(self):
+	return "driver=%s, bdops=<%s>" % (self.name, self.opsname)
 
 
 
@@ -154,7 +157,7 @@ def print_blkdevs(v = 0):
     #struct dm_table *new_map;
 #}
 
-def print_dm_devices():
+def print_dm_devices(verbose = 0):
     sn = "struct hash_cell"
     # Check whether this struct info is present
     if (not struct_exists(sn)):
@@ -173,9 +176,12 @@ def print_dm_devices():
     out.sort()      # sort on minor
     print " ========== Devicemapper devices ============"
     for minor, name, dm in out:
-	print '-'*70
-	print "%-40s  minor=%d" % (name, minor), dm
-	decode_dm_table(dm)
+	if (verbose):
+	   print '-'*70
+	print "%-40s  minor=%d" % (name, minor)
+	if (verbose):
+	    print "  ", dm
+	    decode_dm_table(dm)
 
 # Decode struct dm_table
 #  list entries are embedded in
@@ -187,7 +193,7 @@ def print_dm_devices():
     #char name[16];
 #}
 
-def decode_dm_table(dm):
+def decode_dm_table(dm, verbose = 0):
     def round4k(s):
 	return s/4096*4096
     devices = dm.devices   # This points to 'list' field in dm_dev
@@ -202,7 +208,7 @@ def decode_dm_table(dm):
 	ttype = target.type
 	t_begin = target.begin
 	t_len = target.len
-	t_end = t_begin + t_len
+	t_end = t_begin + t_len - 1
 	
 	print "  %d" % nt, target, ttype.name
 	print "       | logical  sectors %d->%d" %(t_begin, t_end)
@@ -211,10 +217,11 @@ def decode_dm_table(dm):
 	    lc_begin = lc.start
 	    lc_end = lc.start + t_len -1
 	    print "       | physical sectors %d->%d" %(lc_begin, lc_end)
+	    print "       |    device used", lc.dev
     
     print " -- Block Devices Used By This Mapping"
     for a in readListByHead(devices):
 	dmdev = readSU(sn, a - off)
 	major, minor = decode_devt(dmdev.bdev.bd_dev)
 	print "     ", dmdev, "major=%-3d minor=%-3d" % (major, minor)
-	print "\t", mtable[major]
+	print "\t   ", mtable[major].shortstr()
