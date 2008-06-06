@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <08/04/17 10:08:40 alexs>
+  Time-stamp: <08/05/30 15:04:32 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -24,6 +24,8 @@
 
 // for FD_ISSET
 #include <sys/select.h>
+
+extern struct extension_table *epython_curext;
 
 extern int debug;
 static jmp_buf eenv, alarm_env;
@@ -266,6 +268,23 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   //memcpy(pc->main_loop_env, copy_pc_env, sizeof(jmp_buf));
   set_alarm(0);
   return obj;
+}
+
+// Call epython_execute_prog(argc, argv, 0)
+static PyObject *
+py_exec_epython_command(PyObject *self, PyObject *pyargs) {
+  int argc = PyTuple_Size(pyargs);
+  int i;
+  
+  char **argv = (char **) malloc(sizeof(char *) * argc);
+
+  for (i=0; i < argc; i++)
+    argv[i] = PyString_AsString(PyTuple_GetItem(pyargs, i));
+  epython_execute_prog(argc, argv, 0);
+  free(argv);
+
+  Py_INCREF(Py_None);
+  return Py_None;
 }
 
 static PyObject *
@@ -966,7 +985,6 @@ py_register_epython_prog(PyObject *self, PyObject *args) {
 
   int nentries;
 
-  extern struct extension_table *epython_curext;
   struct command_table_entry *ct = epython_curext->command_table;
   struct command_table_entry *ce, *newce;
 
@@ -1059,6 +1077,23 @@ py_register_epython_prog(PyObject *self, PyObject *args) {
   Py_RETURN_TRUE;
 }
 
+// Return the list of epython registered commands
+
+
+/* Set default timeout value for exec_crash_command */
+static PyObject *
+py_get_epython_cmds(PyObject *self, PyObject *args) {
+  struct command_table_entry *ce;
+  PyObject *list, *val;
+  list = PyList_New(0);
+  for (ce = epython_curext->command_table; ce->name; ce++) {
+    val = PyString_FromString(ce->name);
+    if (PyList_Append(list, val) == -1)
+      return NULL;
+  }
+  return list;
+}
+
 /* Set default timeout value for exec_crash_command */
 static PyObject *
 py_set_default_timeout(PyObject *self, PyObject *args) {
@@ -1084,6 +1119,8 @@ static PyMethodDef crashMethods[] = {
   {"get_symbol_type",  py_crash_get_symbol_type, METH_VARARGS},
   {"get_GDB_output",  py_get_GDB_output, METH_VARARGS},
   {"exec_crash_command",  py_exec_crash_command, METH_VARARGS},
+  {"exec_epython_command",  py_exec_epython_command, METH_VARARGS},
+  {"get_epython_cmds",  py_get_epython_cmds, METH_VARARGS},
   {"sym2addr",  py_sym2addr, METH_VARARGS},
   {"addr2sym",  py_addr2sym, METH_VARARGS},
   {"mem2long",  (PyCFunction)py_mem2long, METH_VARARGS | METH_KEYWORDS},

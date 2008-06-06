@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <08/03/10 15:49:39 alexs>
+# Time-stamp: <08/05/30 15:52:08 alexs>
 
 # High-level API built on top of C-module
 # There are several layers of API. Ideally, the end-users should only call
@@ -1145,7 +1145,17 @@ def symbol_exists(sym):
         rc = noncached_symbol_exists(sym)
         __cache_symbolexists[sym] = rc
         return rc
-    
+
+# Exec either a standard crash command, or a epython command
+def exec_command(cmdline):
+    argv = cmdline.split()
+    #print "argv", argv, "cmds=",  crash.get_epython_cmds()
+    if (argv[0] in crash.get_epython_cmds()):
+        # This is a epython command. In principle, we should parse using
+        # shell-like syntax (i.e. using shlex), but this is probably an overkill
+        crash.exec_epython_command(*argv)
+    else:
+        print crash.exec_crash_command(cmdline)
 
 
 # Aliases
