@@ -206,8 +206,9 @@ def dump_reason(dmesg):
     trigger = re.compile('vfs_write|sys_write')
     kbd  = re.compile('keyboard_interrupt')
     netconsole = re.compile('netconsole')
+    die = re.compile('die')
     res = [bts for bts in bta if bts.hasfunc(func1)]
-    if (res):
+    if (res and not test(res, die)):
 	if (quiet):
 	    return
 	# Now check whether we used keyboard or sysrq-trigger

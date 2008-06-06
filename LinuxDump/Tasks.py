@@ -463,9 +463,15 @@ if (struct_exists("struct rq") or symbol_exists("__vxtime")):
     if (debug):
         print "Using TSC for sched_clock"
     # last_ran is in ns, derived from TSC
-    cyc2ns_scale = readSymbol("cyc2ns_scale")
-    get_schedclockbase = tsc_clock_base
-    sched_clock2ms = sched_clock2ms_26_tsc
+    try:
+	cyc2ns_scale = readSymbol("cyc2ns_scale")
+	get_schedclockbase = tsc_clock_base
+	sched_clock2ms = sched_clock2ms_26_tsc
+    except TypeError:
+	# AMD64 2.4 kernels
+	get_schedclockbase = jiffie_clock_base
+	sched_clock2ms = sched_clock2ms_24
+	pass
 else:
     # last_ran is in ticks, derived from jiffies
     if (debug):
