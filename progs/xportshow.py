@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <08/03/11 11:09:12 alexs>
+# Time-stamp: <08/06/20 14:49:50 alexs>
 
 # Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
@@ -518,7 +518,11 @@ def get_net_sysctl():
     return (dall, ddef)
     
 def print_sysctl():
-    (dall, ddef) = get_net_sysctl()
+    try:
+        (dall, ddef) = get_net_sysctl()
+    except crash.error:
+        print WARNING, "cannot get sysctl tables"
+        return
     names = dall.keys()
     names.sort()
 
@@ -526,7 +530,7 @@ def print_sysctl():
         print n.ljust(45), dall[n]
     #pp.pprint(ddef)
 
-# Print those values that are not equal to default ones
+# Print those values that are not equal to default ones (not implemented yet)
 def print_sysctl_nodef():
     (dall, ddef) = get_net_sysctl()
 

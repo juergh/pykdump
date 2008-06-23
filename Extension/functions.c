@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <08/05/30 15:04:32 alexs>
+  Time-stamp: <08/06/23 14:11:56 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -206,6 +206,8 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   int flength;			/* Length of a temporary file */
   char *tmpbuf;
   PyObject *obj;
+
+  int internal_error = 0;	/* crash/GDB error */
   
   int timeout = __default_timeout; 
 
@@ -231,7 +233,9 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   set_alarm(timeout);
 
   if (setjmp(alarm_env)) {
-    // Recovery after timeout
+    // Recovery after timeout. We have interrupted internal processing
+    // of crash/gdb, so we need to do crash-specific cleanup, e.g.
+    // close temporary fds and free buffers
     PyObject *wmsg = PyDict_GetItemString(d, "WARNING"); /* Borrowed */
     // ------- minimal cleanup for crash itself -----------
     if (pc->tmpfile) {
@@ -251,22 +255,45 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
 	   PyString_AsString(wmsg),  cmd, timeout);
     return PyString_FromString("");
   }
-  /* I use setjmp here as this is how crash recovers after some errors */
-  if (!setjmp(eenv))
-      exec_command();
-  fflush(fp);
+  
+  /*
+    crash uses longjmp(pc->main_loop_env) to recovers after some errors.
+    This puts us into its main loop: read line/process command. As we
+    don't want this, we'll replace pc->main_loop_env with our own location,
+    and later will restore it.
+   */
+  
+  // Copy the old location
+  memcpy(copy_pc_env, pc->main_loop_env, sizeof(jmp_buf));
+  if (!setjmp(pc->main_loop_env)) {
+    exec_command();
+  } else {
+    // There was an internal GDB/crash error
+    internal_error = 1;
+  }
 
-  // Now read from it
+  // Make pc->main_loop_env point to its original location
+  memcpy(pc->main_loop_env, copy_pc_env, sizeof(jmp_buf));
+
+  // Now read from the temporary file
+  fflush(fp);
   flength = ftell(fp);
   fseek(fp, 0,0);
   tmpbuf = malloc(flength);
   fread(tmpbuf, flength, 1, fp);
   obj = PyString_FromStringAndSize(tmpbuf, flength);
   free(tmpbuf);
+  
   fclose(fp);
   fp = oldfp;
-  //memcpy(pc->main_loop_env, copy_pc_env, sizeof(jmp_buf));
   set_alarm(0);
+
+  // If there was an error, we raise an exception and pass obj to it
+  if (internal_error) {
+    PyErr_SetObject(crashError, obj);
+    return NULL;
+  }
+  
   return obj;
 }
 

@@ -2,7 +2,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <08/04/21 11:58:36 alexs>
+# Time-stamp: <08/06/20 14:51:48 alexs>
 
 # Copyright (C) 2007-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007-2008 Hewlett-Packard Co., All rights reserved.
@@ -67,7 +67,7 @@ def printHeader(format, *args, **kwargs):
     print ""
 
 def print_basics():
-    printHeader("*** Crashinfo v0.2 ***", frame=1)
+    printHeader("*** Crashinfo v0.3 ***", frame=1)
     print ""
     if (not sys_info.livedump):
 	# Check whether this is a partial dump and if yes,
@@ -94,6 +94,17 @@ def print_basics():
 	elif (ram > sz *10):
 	    print WARNING,
 	    print "DUMP with size(vmcore) < 10% size(RAM)"
+
+        # Check whether we can read modules table. In case of failure
+        # the built-in 'mod' command prints
+        # "mod: cannot access vmalloc'd module memory"
+        # using error(FATAL,))
+        try:
+            exec_crash_command("mod")
+        except crash.error:
+            print WARNING, "bad modules table.",
+            print "The dump is either corrupt or incomplete"
+        
     if (quiet):
         return
 
