@@ -88,9 +88,9 @@ def init_Structures():
             print "Please install a debuginfo copy of 'nfs' module"
             __NFSMOD = False
 	    #sys.exit(0)
+    __init_attrs()
 
 
-init_Structures()
 
 
 # On 2.4 and earlier 2.6:
@@ -111,7 +111,7 @@ init_Structures()
 # 	atomic_t		tk_count;	/* Reference count */
 # 	struct list_head	tk_task;	/* global list of tasks */
 
-def print_rpc_task(s):
+def old_print_rpc_task(s):
     newk = (member_size("struct rpc_clnt", "cl_pmap_default") != -1)
     # On a live system we can easily get bad addresses
     try:
@@ -145,6 +145,47 @@ def print_rpc_task(s):
     except:
 	pass
 	
+def __init_attrs():
+    sn = "struct rpc_task"
+    #
+    structSetAttr(sn, "P_name", "tk_client.cl_procinfo.p_name")
+    structSetAttr(sn, "P_proc", ["tk_msg.rpc_proc.p_proc", "tk_msg.rpc_proc"])
+    structSetAttr(sn, "CL_procinfo", "tk_client.cl_procinfo")
+    structSetAttr(sn, "CL_vers", ["tk_client.cl_pmap_default.pm_vers",
+                                  "tk_client.cl_pmap.pm_vers",
+                                  "tk_client.cl_vers"])
+    structSetAttr(sn, "CL_prog", ["tk_client.cl_pmap_default.pm_prog",
+                                  "tk_client.cl_pmap.pm_prog",
+                                  "tk_client.cl_prog"])
+    
+# Print RPC task (struct rpc_task)
+def print_rpc_task(s):
+    # On a live system we can easily get bad addresses
+    try:
+        #print s
+        cl_pi = s.CL_procinfo
+        rpc_proc = s.P_proc
+        pn = cl_pi[rpc_proc].p_name
+
+        tk_client = s.tk_client
+        cl_xprt= tk_client.cl_xprt
+        print "\tProtocol=",cl_xprt.prot, ", Server=", tk_client.cl_server
+        
+        print "\tprocname=", pn, tk_client.cl_protname
+       
+        vers = s.CL_vers
+        prog = s.CL_prog
+        if (prog == 100003 and vers == 2):
+            procname = "%d(%s)" % (rpc_proc, NFS2_PROCS.value2key(rpc_proc))
+        elif (prog == 100003 and vers == 3):
+            procname = "%d(%s)" % (rpc_proc, NFS3_PROCS.value2key(rpc_proc))
+        else:
+            procname = "%d" % rpc_proc
+        print "\trpc_proc=", procname 
+
+        print "\tpmap_prog=", prog, ", pmap_vers=", vers
+    except crash.error:
+        pass
 
 # Obtain all_tasks
 def print_all_tasks():
@@ -152,37 +193,7 @@ def print_all_tasks():
     # Check whether it's 2.4 or 2.6
     newk = (member_size("struct rpc_clnt", "cl_pmap_default") != -1)
     for s in all_tasks:
-        # On a live system we can easily get bad addresses
-        try:
-            #print s
-            tk_client = s.Deref.tk_client
-            cl_xprt= tk_client.Deref.cl_xprt
-            print "\tProtocol=",cl_xprt.prot, ", Server=", tk_client.cl_server
-            inetsock = cl_xprt.Deref.inet
-            cl_procinfo = tk_client.Deref.cl_procinfo
-            #print "\tprocname=", cl_procinfo.p_procname, tk_client.cl_protname
-            tk_msg = s.tk_msg
-            if (newk):
-                rpc_proc = tk_msg.Deref.rpc_proc.p_proc
-            else:
-                rpc_proc = tk_msg.rpc_proc
-            if (newk):
-               cl_pmap= tk_client.cl_pmap_default
-            else:
-               cl_pmap= tk_client.cl_pmap
-            vers = cl_pmap.pm_vers
-            prog = cl_pmap.pm_prog
-            if (prog == 100003 and vers == 2):
-                procname = "%d(%s)" % (rpc_proc, NFS2_PROCS.value2key(rpc_proc))
-            elif (prog == 100003 and vers == 3):
-                procname = "%d(%s)" % (rpc_proc, NFS3_PROCS.value2key(rpc_proc))
-            else:
-                procname = "%d" % rpc_proc
-            print "\trpc_proc=", procname 
-
-            print "\tpmap_prog=", cl_pmap.pm_prog, ", pmap_vers=", cl_pmap.pm_vers
-        except:
-            pass
+        print_rpc_task(s)
 
 
 # Print info about RPC status
@@ -205,7 +216,37 @@ def print_rpc_status():
         rpct = readSU("struct rpc_task", ta)
 	print_rpc_task(rpct)
 	
-    
+
+# Getting all tasks.
+#
+# On recent 2.6:
+#/*
+# * All RPC clients are linked into this list
+# */
+#static LIST_HEAD(all_clients);
+
+def get_all_clients():
+    all_clients = sym2addr("all_clients")
+    allc = readSUListFromHead(all_clients, "cl_clients",
+                              "struct rpc_clnt")
+    return allc
+
+# Get all RPC tasks
+def get_all_tasks_old():
+    all_taddr = sym2addr("all_tasks")
+    all_tasks = readSUListFromHead(all_taddr, "tk_task", "struct rpc_task")
+    for t in all_tasks:
+        print t, t.tk_client, getListSize(t.tk_task, 0, 1000)
+
+# Get all RPC tasks
+def get_all_tasks():
+    out = []
+    for cl in get_all_clients():
+        tasks = readSUListFromHead(long(cl.cl_tasks), "tk_task",
+                                   "struct rpc_task")
+        print cl, len(tasks)
+        for t in tasks:
+            print_rpc_task(t)
 
 # Get dirty inodes
 #	struct list_head	s_dirty;	/* dirty inodes */
@@ -226,5 +267,19 @@ def print_test():
             print sb, fsname, \
                   "len(s_dirty)=%d len(s_io)=%d" % (len(s_dirty),len(s_io))
 
-print_rpc_status()
-print_test()
+init_Structures()
+
+#print_rpc_status()
+#print_test()
+
+get_all_tasks_old()
+sys.exit(0)
+# Print info for a given superblock
+
+sb_addr = int(sys.argv[1], 16)
+
+sb = readSU("struct super_block", sb_addr)
+server = readSU("struct nfs_server", sb.s_fs_info)
+rpc_client = server.client
+nfs_client = server.nfs_client
+print server, rpc_client, nfs_client
