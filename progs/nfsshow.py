@@ -235,8 +235,16 @@ def get_all_clients():
 def get_all_tasks_old():
     all_taddr = sym2addr("all_tasks")
     all_tasks = readSUListFromHead(all_taddr, "tk_task", "struct rpc_task")
+    clients = {}
     for t in all_tasks:
-        print t, t.tk_client, getListSize(t.tk_task, 0, 1000)
+        clients.setdefault(t.tk_client, []).append(t)
+
+    for cl, v in clients.items():
+        # Print Client Info
+        print cl
+        # Print Task Info
+        for t in v:
+            print "\t", t, getListSize(t.tk_task, 0, 1000)
 
 # Get all RPC tasks
 def get_all_tasks():
