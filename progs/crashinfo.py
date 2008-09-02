@@ -80,7 +80,7 @@ def print_basics():
 	if (sm == "GB"):
 	    ram *= 1024
 	# Get vmcore size
-	sz = os.stat(dfile)[ST_SIZE]/1024/1024
+	sz = os.stat(dfile.split()[0])[ST_SIZE]/1024/1024
 
         # When RH creates partial dumps, it says so
 	# SLES can do this silently, so we can easily have just

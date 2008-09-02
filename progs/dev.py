@@ -19,10 +19,14 @@ def printdevs():
 def dump_mounts():
     for vfsmount, superblk, fstype, devname, mnt in getMount():
 	superblock = readSU("struct super_block", superblk)
-	s_bdev = superblock.s_bdev
-	if (s_bdev):
-	   print fstype, mnt, superblock.s_bdev.bd_disk
-        
+	#s_bdev = superblock.s_bdev
+	#if (s_bdev):
+	   #print fstype, mnt, superblock.s_bdev.bd_disk
+        s_op = superblock.s_op
+	print mnt
+	if (s_op):
+	    # Check whether all pointers are reasonable
+	    print s_op
 
 def dump_chrdevs():
     pa = readSymbol('chrdevs')
@@ -52,5 +56,9 @@ def dump_chrdevs():
 
 
 if ( __name__ == '__main__'):
-    Dev.print_blkdevs(1)
+    #Dev.print_blkdevs(1)
+    print "Start"
+    print "mod=<%s>" % exec_crash_command("mod")
+    print "After"
+    dump_mounts()
 
