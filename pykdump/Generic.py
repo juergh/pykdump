@@ -1,7 +1,7 @@
 #
 #  Code that does not depend on whether we use embedded API or PTY
 #
-# Time-stamp: <07/11/01 12:09:59 alexs>
+# Time-stamp: <08/09/02 16:21:52 alexs>
 #
 import string
 import pprint
@@ -184,6 +184,27 @@ class TypeInfo(object):
         return out
     elements = LazyEval("elements", getElements)
     tcodetype = LazyEval("tcodetype", getTargetCodeType)
+
+
+# Representing enums
+class EnumInfo(dict):
+    def __setitem__(self, name, value):
+        dict.__setitem__(self, name, value)
+        object.__setattr__(self, name, value)
+    def __init__(self, stype):
+        dd = {}
+        self.stype = stype
+        d.update_EI_fromgdb(self, stype)
+    def __str__(self):
+        out = []
+        for n, v in self._Lst:
+            out.append("%s = %d" % (n, v))
+        return self.stype + " {" + string.join(out, " ,") +"}"
+    def getnam(self, v1):
+        for n,v in self.items():
+            if (v == v1):
+                return n
+        return v1
 
 
 

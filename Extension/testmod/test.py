@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <07/10/26 14:37:28 alexs>
+# Time-stamp: <08/09/02 11:47:52 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -12,7 +12,7 @@ import sys
 sys.path.append(".")
 import time
 
-import cProfile
+#import cProfile
 
 from pykdump.API import *
 

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 #
-# Time-stamp: <08/03/24 15:13:16 alexs>
+# Time-stamp: <08/09/03 15:21:51 alexs>
 
 
 # Start crash session and then start epython command. This is convenient
@@ -159,12 +159,6 @@ def findDumpFiles(dir):
     return [mapfile, namelist, dumpfile]
 
     
-        
-def getDebugDir():
-    """Return the directory that contains the debug kernel"""
-    # We assume that this is where debug kernel is located
-    return sys_info.DebugDir
-
 
 
 # Preprocess options, splitting them into these for API_wide and those
@@ -182,7 +176,7 @@ def __preprocess(iargv,op):
 
     while(iargv):
         el = iargv.pop(0)
-        # All elements starting from '.' and '/' go to aargv - but only
+        # All elements starting from '.' and '/' go to aargv - but only if
         # they match the existing directories. We can specify directories
         # from command-line to make pykdump to search for vmcore/vmlinux
         # files in them. But some options (e.g. output to a file) may
@@ -231,8 +225,9 @@ def executeCrashScriptI(cmd, crashex, ecmd, pythonso):
     tmpgen = PYT_tmpfiles()
     fd,fname = tmpgen.mkfile()
     print >>fd, "extend " + pythonso +" >/dev/null"
-    print >>fd , ecmd
-    print >>fd, "quit"
+    if (ecmd):
+        print >>fd , ecmd
+        print >>fd, "quit"
     fd.close()
     fcmd = crashex + ' ' + cmd + ' ' + '-s --no_crashrc -i' + fname
     os.system(fcmd)
@@ -298,12 +293,6 @@ op.add_option("--pythonso", dest="pythonso",
           action="store", type="string",
           help="Specify pythonso pathname")
 
-op.add_option("--nopsyco", dest="nopsyco", default=0,
-          action="store_true",
-          help="disable Psyco even if it available")
-
-# This option is special - it can be used both by
-# PTY-driver and by epython command
 op.add_option("--debug", dest="debug", default=0,
           action="store", type="int",
           help="enable debugging output")
@@ -311,9 +300,9 @@ op.add_option("--debug", dest="debug", default=0,
 op.add_option("-h", "--help", dest="help",
           action="store_true",
           help="print help")
-	  
-op.add_option("--cmd", dest="Cmd",
-          help="Command name")
+
+
+op.set_usage("%prog [dumpdir] [scriptname] [options]]")
 
 # Before real parsing, separate PTY-driver options from
 # userscript-options
@@ -334,36 +323,34 @@ else:
 #print 'o=', o
 
 
-if (o.Cmd):
-    script = o.Cmd
-else:
-    script = os.path.basename(sys.argv[0])
+script = os.path.basename(sys.argv[0])
 
 if (script == "startcrash"):
-    # Avoid infinite recursion
-    print "You should not use %s directly" % sys.argv[0]
-    sys.exit(1)
+    if (len(uargs) == 0):
+        # Just start the crash, do not try running any extension commands
+        escript = None
+    else:
+        # The 1st uarh should not be an option
+        escript = uargs[0]
+        if (escript[0] == '-'):
+            print "<%s> is not a script name, aborting" % escript
+            sys.exit(1)
+        uargs = uargs[1:]
+else:
+    # Use the scriptname as ecmd
+    escript = script
 
+#print "escript=<%s>" % escript
 crashex = o.crashex                 # Use crash32/crash64 as needed
 
-debug = True
+debug = False
 
-
-filtered_argv = [script]
-if (uargs):
-    filtered_argv += uargs
 if (o.help):
-    print "Generic ",
     op.print_help()
-    filtered_argv.append("--help")
+    uargs.append("--help")
 if (o.debug):
-    filtered_argv.append("--debug=" + str(o.debug))
+    uargs.append("--debug=" + str(o.debug))
 
-# --------------------------------------------------------------------
-# If we are here, we are running externally, maybe without extension
-# --------------------------------------------------------------------
-
-#print args
 # findDumpFiles returns (sysmap, vmlinux, vmcore)
 # if it is unable to find them, it returns empty strings
 if (len(args) ==  1):
@@ -395,8 +382,6 @@ if (crashex == None):
     else:
         crashex = 'crash'
 
-if (sys.stdout.isatty()):
-    print crashex + " " + cmd
 
 # Find the extension name. We rely on .crash*rc do define its
 # location
@@ -414,7 +399,16 @@ for f in os.path.expanduser("~/" + crashrc), crashrc:
                 pythonso = m.group(1)
 
 # epython cmd
-ecmd = "epython " + string.join(filtered_argv)
+if (escript):
+    ecmd = string.join(["epython", escript] + uargs)
+else:
+    ecmd = ""
+    # If Help is set, do not continue
+    if (o.help):
+        sys.exit(0)
+
+if (sys.stdout.isatty()):
+    print crashex + " " + cmd
 
 if (o.pythonso):
     pythonso = o.pythonso
@@ -435,6 +429,9 @@ pythonso = pythonso.strip()
 if (debug):
     print "\nExtension:", pythonso
 
+#print "cmd=%s\ncrashex=%s pythonso=%s" % (cmd, crashex, pythonso)
+#print ecmd
+#sys.exit(0)
 executeCrashScriptI(cmd, crashex, ecmd, pythonso)
 
 # We do not reach this point - executes above call

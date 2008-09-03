@@ -93,6 +93,16 @@ typedef struct ASID asid_t;
 
 asid_t aaa;
 
+enum ASID_ENUM {ASID_0, ASID_2=2, ASID_3};
+
+struct estruct {
+  enum ASID_ENUM e1;
+  int i2;
+};
+
+struct estruct eStruct;
+enum ASID_ENUM asid_enum;
+
 static int __init
 testmod_init(void) {
 

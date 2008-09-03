@@ -104,6 +104,7 @@ ptype_eval (struct expression *exp)
 
 static void do_SU(struct type *type, PyObject *dict);
 static void do_func(struct type *type, PyObject *dict);
+static void do_enum(struct type *type, PyObject *pitem);
 
 static void
 do_ftype(struct type *ftype, PyObject *item) {
@@ -166,6 +167,11 @@ do_ftype(struct type *ftype, PyObject *item) {
   case TYPE_CODE_ENUM:
     if (tagname != NULL) {
       sprintf(buf, "enum %s", tagname);
+      do_enum(ftype, item);
+    } else {
+      /* Untagged enum */
+      sprintf(buf, "enum");
+      do_enum(ftype, item);
     }
     myDict_SetCharChar(item, "basetype", buf);
     break;
@@ -324,6 +330,34 @@ do_SU(struct type *type, PyObject *pitem) {
   }
   Py_DECREF(body);
  
+}
+
+static void
+do_enum(struct type *type, PyObject *pitem) {
+  int nfields =   TYPE_NFIELDS(type);
+  int i;
+  PyObject *n, *v;		/* Name, Value */
+
+  PyObject *edef = PyList_New(0);
+  PyDict_SetItemString(pitem, "edef", edef);
+
+
+  for (i=0; i < nfields; i++) {
+    PyObject *item = PyList_New(0);
+    struct type *ftype = TYPE_FIELD_TYPE(type, i);
+    char *fname = TYPE_FIELD_NAME(type, i);
+    long bp = TYPE_FIELD_BITPOS (type, i);
+    n = PyString_FromString(fname);
+    v = PyInt_FromLong(bp);
+    PyList_Append(item, n);
+    PyList_Append(item, v);
+    Py_DECREF(n);
+    Py_DECREF(v);
+    
+    PyList_Append(edef, item);
+    Py_DECREF(item);
+  }
+  Py_DECREF(edef);
 }
 
 PyObject * py_gdb_typeinfo(PyObject *self, PyObject *args) {

@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <08/05/30 15:52:08 alexs>
+# Time-stamp: <08/09/03 11:40:27 alexs>
 
 # High-level API built on top of C-module
 # There are several layers of API. Ideally, the end-users should only call
@@ -151,6 +151,25 @@ def update_TI(f, e):
 def update_TI_fromgdb(f, sname):
     e = crash.gdb_typeinfo(sname)
     update_TI(f, e)
+
+def update_EI_fromgdb(f, sname):
+    # If sname does not start from 'enum', we are trying to get
+    # a group of unnamed enums using one of its members
+    try:
+        if (sname.find("enum ") == -1):
+            e = crash.gdb_whatis(sname)
+            f.stype = "enum"
+        else:
+            e = crash.gdb_typeinfo(sname)
+    except crash.error:
+        raise TypeError, "cannot find enum <%s>" % sname
+    if (e["codetype"] != 5):               # TYPE_CODE_ENUM
+        raise TypeError, "%s is not a enum"
+    f._Lst = e["edef"]
+    for n, v in f._Lst:
+        f[n] = v
+        
+        
 
 # Choose a tag used for caching:
 # - if we have typedef, use it

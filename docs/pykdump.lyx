@@ -1,4 +1,4 @@
-#LyX 1.5.3 created this file. For more info see http://www.lyx.org/
+#LyX 1.5.5 created this file. For more info see http://www.lyx.org/
 \lyxformat 276
 \begin_document
 \begin_header
@@ -15,7 +15,8 @@
 \font_tt_scale 100
 \graphics default
 \paperfontsize default
-\papersize default
+\spacing single
+\papersize letterpaper
 \use_geometry false
 \use_amsmath 0
 \use_esint 0
@@ -28,7 +29,7 @@
 \defskip medskip
 \quotes_language english
 \papercolumns 1
-\papersides 1
+\papersides 2
 \paperpagestyle default
 \tracking_changes false
 \output_changes false
@@ -194,9 +195,7 @@ comments are introduced using a hash # sign
 \end_layout
 
 \begin_layout Standard
-Uniform Python API is used both for script-driven and loadable extension-based
- versions.
- A very basic example showing how to use API:
+A very basic example showing how to use API:
 \end_layout
 
 \begin_layout Code
@@ -404,11 +403,11 @@ just like with normal Python strings, but in some cases Python library functions
 SmartString
 \emph default
  to regular expressions functions).
- For the example above case you can convert 
+ You can convert 
 \emph on
 SmartString
 \emph default
- s.name to a normal string using 
+ s.name to a normal string using str() function, e.g.
 \end_layout
 
 \begin_layout Code
@@ -476,9 +475,9 @@ major1 = sptr.major             # Approach 2
 \end_layout
 
 \begin_layout Standard
-Please note the second approach.
- The framework finds that an object is a pointer to a structure, so obviously
- the dot operator is not a simple field dereference.
+In appoach 2 we just used the dot operator without dereferencing first,
+ how does this work? The framework finds that an object is a pointer to
+ a structure, so obviously the dot operator is not a simple field dereference.
  So it inteprets it as '->'.
  That is, you can use the dot operator in both cases and it will be used
  in a needed way.
@@ -511,7 +510,7 @@ More than that, in PyKdump pointers to structures and structures themselves
 \begin_layout Standard
 Please note, that the description above is correct only for pointers to
  structures.
- Pointers to any other types are represented with a different object class.
+ Pointers to any other type are represented with a different object class.
  In particular:
 \end_layout
 
@@ -573,8 +572,17 @@ Emulating & Operator
 \end_layout
 
 \begin_layout Standard
-In some cases we need to find the address of struct/union member instead
- of accessing its value.
+For global variables, we can get their address using sym2addr() function,
+ e.g.
+\end_layout
+
+\begin_layout Code
+addr = sym2addr("init_task")
+\end_layout
+
+\begin_layout Standard
+In other cases we starts from a struct/union and need to find the address
+ of its member.
  For example, we have a field which is defined as a struct (not a pointer),
  e.g.
 \end_layout
@@ -615,8 +623,12 @@ init_task_saddr = Addr(init_task.tasks)
 \end_layout
 
 \begin_layout Standard
-If we need to obtain address of a field of another type (e.g.
- int) we have to compute it manually using low-level functions, e.g.
+This works for objects representing aggregates, strings or pointers as they
+ store the needed address internally.
+ But for integer/floating type the objects are just native Python integers/float
+s, there is no address.
+ At this moment the only way to get the address of such a field is to compute
+ it manually using low-level functions, e.g.
  
 \end_layout
 
@@ -633,8 +645,10 @@ addr_next = Addr(dev_base) + offset
 \end_layout
 
 \begin_layout Standard
-In the future we might add a special attribute or fucntion similar to 'Deref'
- doing the needed work for us - but this is not implemented yet.
+In the future we might wrap integers and floats so that Addr() will work
+ for them either - but this is not implemented yet.
+ (The main reason is that we still need to evaluate the impact of these
+ extra wrappers on performance).
 \end_layout
 
 \begin_layout Subsection
@@ -688,7 +702,33 @@ This type represents struct/union
 and
 \emph default
  a pointer to struct/union.
- Operations that we can use:
+ In kernel sources we usually don't need to 
+\begin_inset Quotes eld
+\end_inset
+
+read
+\begin_inset Quotes erd
+\end_inset
+
+ structures as they are already in memory.
+ So if we want to access a structure at a given address, we just use the
+ cast operator, e.g.
+\end_layout
+
+\begin_layout Code
+struct sock *s = (struct sock *) addr;
+\end_layout
+
+\begin_layout Standard
+In PyKdump we 
+\begin_inset Quotes eld
+\end_inset
+
+read
+\begin_inset Quotes erd
+\end_inset
+
+ them (ultimately reading bytes from vmcore file...):
 \end_layout
 
 \begin_layout Code
@@ -708,9 +748,8 @@ tPtr - A Typed Pointer
 \end_layout
 
 \begin_layout Standard
-When a variable is a pointer, we treat it as an integer.
- But it would be nice to attach to it the type of the pointer, so that we
- can use this information for dereferencing and other purposes.
+When a variable is a pointer, it is an integer (address) plus type information.
+ 
 \end_layout
 
 \begin_layout Standard
@@ -730,7 +769,7 @@ tPtr
 tPtr 
 \series default
 \emph default
-to a plain long by doing conversion explictly,
+to a plain long by doing conversion explicitly,
 \end_layout
 
 \begin_layout Code
@@ -797,7 +836,7 @@ s = readSymbol("testvar")
 \end_layout
 
 \begin_layout Code
-# Print thes string using C NULL-terminated convention (i.e."abc")
+# Print this string using C NULL-terminated convention (i.e."abc")
 \end_layout
 
 \begin_layout Code
@@ -827,10 +866,6 @@ print Addr(testvar)
 
 \begin_layout Code
 print long(testvar)         # works in Python 2.4 and later
-\end_layout
-
-\begin_layout Code
-print testvar.ptr           # works in Python 2.3 and later
 \end_layout
 
 \begin_layout Standard
@@ -893,8 +928,8 @@ crash32
 Crash
 \series default
 \emph default
- executables - one built for 32-bit, another one for 64-bit.
- You will need two copies of extensions too.
+ executables - one built for 32-bits, another one for 64-bits.
+ You will need two copies of extensions either.
  So you can name 
 \series bold
 \emph on
@@ -954,8 +989,8 @@ Options
 \end_layout
 
 \begin_layout Standard
-Options that you pass to your program on the command-line (whether from
- crash environment or shell environment) are parsed when you do 
+Options that you pass to your program on the command-line are parsed when
+ you do 
 \end_layout
 
 \begin_layout Code
@@ -966,7 +1001,7 @@ from pykdump.API import *
 You can pass a number of options that are consumed by API itself; if you
  specify them on the command line they will modify the behavior of framework
  itself but will not be passed to an application.
- Here are these options:
+ Here are some of these options:
 \end_layout
 
 \begin_layout Itemize
@@ -974,23 +1009,17 @@ You can pass a number of options that are consumed by API itself; if you
 \end_layout
 
 \begin_layout Itemize
---crash=crashcommandpath
+--reload
 \end_layout
 
 \begin_layout Itemize
---vmcore vmcorefile
-\end_layout
-
-\begin_layout Itemize
---vmlinux vmlinuxfile
-\end_layout
-
-\begin_layout Itemize
---sysmap sysmapfile
+--experimental
 \end_layout
 
 \begin_layout Standard
 These options are for developers and should not be used in normal programs.
+ For example, --reload forces reloading library functions (needed if you
+ are editing files from framework libraries and do not want to restart crash).
 \end_layout
 
 \begin_layout Standard
@@ -1014,7 +1043,7 @@ and API will print some internal debugging messages
 \end_layout
 
 \begin_layout Subsection
-Environment
+Environment Variables
 \end_layout
 
 \begin_layout Itemize
@@ -1024,6 +1053,154 @@ PYKDYMPDEBUG=1 enables debugging messages of C-extension
 \begin_layout Itemize
 PYKDUMPPATH a colon-separated list of directories where we search for programs.
  The current directory is always searched first
+\end_layout
+
+\begin_layout Subsection
+How Python Files Are Searched
+\end_layout
+
+\begin_layout Standard
+The binary disribution intended for final users consists of a single file
+ containing both shared library and Python libraries programmed appended
+ to the end of that file using ZIP-format.
+ What if you want to develop your own programs/libraries - where do you
+ put them? Let us assume that our program needs to import a module like
+ that:
+\end_layout
+
+\begin_layout Code
+import Mylib.myprog
+\end_layout
+
+\begin_layout Standard
+This usually means that we search for files Mylib/myprog.{py,pyc,pyo} in
+ a list of directories defined by Python's sys.path list (initialized on
+ startup).
+ The Python intepreter embedded in te extension has a modified algorithm
+ of sys.path initialization.
+ In particular, it never tries to search at 
+\begin_inset Quotes eld
+\end_inset
+
+normal
+\begin_inset Quotes erd
+\end_inset
+
+ locations such as /usr/lib/python2.5/...
+\end_layout
+
+\begin_layout Standard
+Instead, we are searching in the following places and in the following order:
+\end_layout
+
+\begin_layout Itemize
+the current working directory
+\end_layout
+
+\begin_layout Itemize
+the list of directories as specified by PYKDUMPPATH environment variable
+ (if it is set)
+\end_layout
+
+\begin_layout Itemize
+ZIP-archive at the end of the loaded extension (if it is present)
+\end_layout
+
+\begin_layout Standard
+This means that the modules located in '.' or PYKDUMPPATH directories will
+ be searched before ZIP.
+\end_layout
+
+\begin_layout Standard
+Some typical cases:
+\end_layout
+
+\begin_layout Enumerate
+You are end-user who wants to write a simple program - consisting maybe
+ from a couple of files.
+ You put them in the same directory where vmcore is located.
+ Then, if you start crash from that directory and load the extension, you
+ will be able to run your programs by doing 'epython myprog'
+\end_layout
+
+\begin_layout Enumerate
+You are end-user who wants to try the latest SVN version of PyKdump.
+ C-component of PyKdump is updated rarely - so the chances are you need
+ just an updated Python modules.
+ In this case you can do the following:
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+retrieve a recent development tree (
+\begin_inset Quotes eld
+\end_inset
+
+testing
+\begin_inset Quotes erd
+\end_inset
+
+ branch is recommended), e.g.
+ to /home/newpykdump
+\end_layout
+
+\begin_layout Enumerate
+set PYKDUMPPATH like that: 'export PYKDUMPPATH=/home/newpykdump
+\begin_inset Quotes erd
+\end_inset
+
+
+\end_layout
+
+\begin_layout Enumerate
+load your 
+\begin_inset Quotes eld
+\end_inset
+
+old
+\begin_inset Quotes erd
+\end_inset
+
+ extension
+\end_layout
+
+\begin_layout Enumerate
+this will override all Python modules with those from SVN, only the C-module
+ from extension will be used
+\end_layout
+
+\end_deeper
+\begin_layout Enumerate
+You are a developer and are working both on C-module and Python code
+\end_layout
+
+\begin_deeper
+\begin_layout Enumerate
+unpack the sourcetree from SVN
+\end_layout
+
+\begin_layout Enumerate
+go to 'prog' subdirectory
+\end_layout
+
+\begin_layout Enumerate
+edit C-sources as needed, do 'make' so that only C-module is rebuilt (no
+ ZIP appended)
+\end_layout
+
+\begin_layout Enumerate
+start crash, load the new extension
+\end_layout
+
+\begin_layout Enumerate
+run your programs
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+
+\newpage
+
 \end_layout
 
 \begin_layout Section
@@ -1276,8 +1453,9 @@ We analyze the type of the global variable and return the result accordingly.
 \end_layout
 
 \begin_layout Standard
-At this moment we don't support all possible types.
- Here is what is supported: 
+At this moment we don't support all possible types, if you ever meet a situation
+ when some type does not work, please contact the developers.
+ Here are some of supported types: 
 \end_layout
 
 \begin_layout Itemize
