@@ -236,7 +236,7 @@ def print_mc_list(dev):
     for s in readStructNext(dev.mc_list, "next"):
         try:
             addr = s.dmi_addr
-            addrlen = s.dmi_addlren
+            addrlen = s.dmi_addrlen
             users = s.dmi_users
             gusers = s.dmi_gusers
         except:
@@ -255,14 +255,16 @@ def print_mc_list(dev):
 
     # IPv4 stuff
     idev = readSU("struct in_device", dev.ip_ptr)
-    for s in readStructNext(idev.mc_list, "next"):
-        print "  inet:  %s" % ntodots(s.multiaddr)
+    if (idev):
+	for s in readStructNext(idev.mc_list, "next"):
+	    print "  inet:  %s" % ntodots(s.multiaddr)
 
     # IPv6 stuff
     inet6dev = readSU("struct inet6_dev", dev.ip6_ptr)
-    for s in readStructNext(inet6dev.mc_list, "next"):
-        mca_addr = s.mca_addr
-        print "  inet6: %s" % ntodots6(mca_addr)
+    if (inet6dev):
+	for s in readStructNext(inet6dev.mc_list, "next"):
+	    mca_addr = s.mca_addr
+	    print "  inet6: %s" % ntodots6(mca_addr)
     print " -------------------------"
 
 
