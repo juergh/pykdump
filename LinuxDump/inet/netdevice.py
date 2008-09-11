@@ -1,6 +1,6 @@
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <08/03/17 12:26:57 alexs>
+# Time-stamp: <08/09/11 11:05:14 alexs>
 #
 # Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
@@ -206,6 +206,65 @@ def hwaddr2str(ha, l):
     for i in range(l):
         out.append("%02x" % ha[i])
     return string.join(out, ':')
+
+# Print MC List - for 2.6 only at this moment
+
+# struct dev_addr_list {
+#     struct dev_addr_list *next;
+#     u8 da_addr[32];
+#     u8 da_addrlen;
+#     u8 da_synced;
+#     int da_users;
+#     int da_gusers;
+# }
+# struct dev_mc_list {
+#     struct dev_mc_list *next;
+#     __u8 dmi_addr[32];
+#     unsigned char dmi_addrlen;
+#     int dmi_users;
+#     int dmi_gusers;
+# }
+
+def print_mc_list(dev):
+    # On older 2.6 mc_list is struct dev_mc_list *
+    # On newer 2.6 mc_list is struct dev_addr_list
+    if (dev.mc_list):
+        print " --------mcast------------"
+    else:
+        return
+
+    for s in readStructNext(dev.mc_list, "next"):
+        try:
+            addr = s.dmi_addr
+            addrlen = s.dmi_addlren
+            users = s.dmi_users
+            gusers = s.dmi_gusers
+        except:
+            addr = s.da_addr
+            addrlen = s.da_addrlen
+            users = s.da_users
+            gusers = s.da_gusers
+
+        if (addrlen == 6):
+            if (dev.type == ARP_HW.ARPHRD_ETHER):
+                hwaddr = hwaddr2str(addr, 6)
+            else:
+                hwaddr = ""
+
+            print "  link: %s users=%d gusers=%d" % (hwaddr, users, gusers)
+
+    # IPv4 stuff
+    idev = readSU("struct in_device", dev.ip_ptr)
+    for s in readStructNext(idev.mc_list, "next"):
+        print "  inet:  %s" % ntodots(s.multiaddr)
+
+    # IPv6 stuff
+    inet6dev = readSU("struct inet6_dev", dev.ip6_ptr)
+    for s in readStructNext(inet6dev.mc_list, "next"):
+        mca_addr = s.mca_addr
+        print "  inet6: %s" % ntodots6(mca_addr)
+    print " -------------------------"
+
 
 # Print QDisc data if possible
 def printQdisc(qdisc, verbosity):
@@ -595,9 +654,16 @@ def print_If(dev, details = 0):
         print "    master=%s" % master.name
     except IndexError:
         pass
+
     if (details < 1):
         return
 
+    # This is no ready for all kernel versions yet, so let us make it safe
+    try:
+        print_mc_list(dev)
+    except:
+        print " -- Cannot print multicast for this kernel yet"
+    
     print "    LINK_STATE %3d %s" %(dev.state, decodeDevState(dev.state))
     print "    open=<%s>, stats=<%s> mtu=%d promisc=%d" % \
           (addr2sym(dev.open), addr2sym(dev.get_stats),
