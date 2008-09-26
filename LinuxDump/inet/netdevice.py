@@ -699,3 +699,50 @@ def printPerCPU():
         netif_rx_stats = readSU("struct netif_rx_stats", netdev_rx_stat[cpu])
         print "\tnetif_rx_stats total=%d, dropped=%d" % \
             (netif_rx_stats.total, netif_rx_stats.dropped)
+
+
+# Bonding
+
+# Several first members of bonding and slave structs are the same on 2.4 and 2.6 (checked up to 2.6.26)
+
+__stub_bonding = '''
+struct bonding {
+	struct   net_device *dev; /* first - useful for panic debug */
+	struct   slave *first_slave;
+	struct   slave *curr_active_slave;
+	struct   slave *current_arp_slave;
+	struct   slave *primary_slave;
+	s32      slave_cnt; /* never change this value outside the */
+'''
+
+__stub_slave = '''
+struct slave {
+	struct net_device *dev; /* first - usefull for panic debug */
+	struct slave *next;
+	struct slave *prev;
+	s16    delay;
+	u32    jiffies;
+'''
+
+# Creating arts from C-like string. Should be improved and moved to
+# Generic
+def Cstub2Art(stub):
+    for l in stub.splitlines():
+	# Get rid of comments
+	i_beg = l.find('__')
+	i_end= l.find(';') + 1
+	l = l[i_beg:i_end].strip()
+	if (l):
+	    #print l
+	    sb.append(l)
+
+# So we can print some info even when we don't have debuggable bonding.ko
+
+def __init_bonding():
+    # Try to load the 'bonding' module. If it is unavailable, create
+    # stubs
+    if (loadModule("bonding")):
+	return
+    
+    ss = ArtStructInfo("struct slave")
+    

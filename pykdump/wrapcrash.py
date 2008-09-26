@@ -31,20 +31,16 @@ import pprint
 
 pp = pprint.PrettyPrinter(indent=4)
 
-import tparser
-import nparser
+from tparser import parseSUDef
 
 experimental = False
 experimental = True
 
 debug = False
 
-#GDBStructInfo = tparser.GDBStructInfo
-GDBStructInfo = nparser.GDBStructInfo
-
 
 import Generic as Gen
-from Generic import Bunch, TypeInfo, VarInfo, SUInfo
+from Generic import Bunch, TypeInfo, VarInfo, SUInfo, ArtStructInfo
 
 hexl = Gen.hexl
 
@@ -941,6 +937,40 @@ def readListByHead(start, offset=0, maxel = _MAXEL):
 # An alias
 list_for_each_entry = readListByHead
 
+# Another attempt to make working with listheads easily.
+# We assume that listhead here is declared outside any specific structure,
+# e.g.
+# struct list_head modules;
+# 
+# We can do the following:
+# ListHead(addr) - will return a list of all linked objects, excluding
+# the head itself.
+#
+# ListHead(addr, "struct module").list - will return a list of
+# "struct module" results, linked by the embedded struct list_head list;
+#
+
+class ListHead(list):
+    def __new__(cls, lhaddr, sname = None, maxel = _MAXEL):
+	return list.__new__(cls)
+    def __init__(self, lhaddr, sname, maxel = _MAXEL):
+	self.sname = sname
+	self.maxel = _MAXEL
+	count = 0
+	next = lhaddr
+	while (count < maxel):
+            next = readPtr(next)
+            if (next == 0 or next == lhaddr):
+                break
+            self.append(next)
+            count += 1
+	
+    def __getattr__(self, fname):
+	off = member_offset(self.sname, fname)
+	return [readSU(self.sname, a-off) for a in self]
+	
+	
+
 # readList returns the addresses of all linked structures, including
 # the start address. If the start address is 0, it returns an empty list
 
@@ -1079,6 +1109,45 @@ def whatis(symbol):
     __whatis_cache[symbol] = vi
     return vi
 
+# We cannot subclass from ArtStructInfo as signature is different
+
+def sdef2ArtSU(sdef):
+    sname, finfo = parseSUDef(sdef)
+    uas = ArtStructInfo(sname)
+    uas.__init__(sname)
+    for ftype, fn in finfo:
+	#print ftype, fn
+	try:
+	    ti = TypeInfo(ftype)
+	except crash.error:
+	    #print "  Cannot get typeinfo for %s" % ftype
+	    sp = ftype.find('*')
+	    if (sp != -1):
+		btype = ftype[:sp].strip()
+		#print "    btype=<%s>" % btype
+		# Check whether StructInfo exists for btype
+		#si = getStructInfo(btype)
+		#print si
+		# Yes, replace the name with something existing and try again
+		newftype = ftype.replace(btype, "struct list_head", 1)
+		#print "     new ftype=<%s>" % newftype
+		ti = TypeInfo(newftype)
+		# Force the evaluation of lazy eval attributes
+		ti.tcodetype
+		ti.elements
+		ti.stype = btype
+		#ti.dump()
+	    
+	vi = VarInfo(fn)
+	vi.ti = ti
+	vi.offset = uas.PYT_size
+	vi.bitoffset = vi.offset * 8
+
+	SUInfo.append(uas, fn, vi)
+	# Adjust the size
+	uas.PYT_size += vi.size
+	uas.size = uas.PYT_size
+    return uas
     
 
 #

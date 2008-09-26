@@ -9,6 +9,8 @@ import pprint
 import os
 import tempfile
 import copy
+import types
+from types import *
 
 from StringIO import StringIO
 
@@ -41,7 +43,7 @@ class LazyEval(object):
         self.meth = meth
     def __get__(self, obj, objtype):
         # Switch 
-        #print " ~~lazy~~ ", self.name, '\t', obj.fname
+        #print " ~~lazy~~ ", self.name
         val = self.meth(obj)
         setattr(obj, self.name, val)
         #obj.__setattr__(self.name, val)
@@ -182,6 +184,16 @@ class TypeInfo(object):
 
         out = "TypeInfo <%s %s%s> size=%d" % (stype, pref, suff, self.size)
         return out
+    # For debugging purposes
+    def dump(self):
+	print " -------Dumping all attrs of TypeInfo %s" % self.stype
+	for n in dir(self):
+	    if (n in ('__doc__', '__module__', '__weakref__')):
+		continue
+	    a = getattr(self, n)
+	    if (type(a) in (StringType, IntType, NoneType, ListType)):
+	       print "  fn=%-12s " % n, a
+	print " -----------------------------------------------"
     elements = LazyEval("elements", getElements)
     tcodetype = LazyEval("tcodetype", getTargetCodeType)
 
@@ -386,8 +398,8 @@ class ArtStructInfo(SUInfo):
         self.size += si.PYT_size
             
         
-        
-        
+
+ 
 
             
 # If 'flags' integer variable has some bits set and we assume their

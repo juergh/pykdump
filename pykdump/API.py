@@ -79,7 +79,7 @@ from wrapcrash import readU8, readU16, readU32, readS32, \
      readSymbol, readSU, \
      sLong, le32_to_cpu, cpu_to_le32, le16_to_cpu, \
      readList, getListSize, readListByHead,  list_for_each_entry, \
-     hlist_for_each_entry, \
+     ListHead, hlist_for_each_entry, \
      readSUArray, readSUListFromHead, readStructNext, \
      getStructInfo, getFullBuckets, FD_ISSET, \
      struct_exists, symbol_exists,\
@@ -89,7 +89,7 @@ from wrapcrash import readU8, readU16, readU32, readS32, \
      struct_size, union_size, member_offset, member_size, \
      getSizeOf, whatis, printObject,\
      exec_gdb_command, exec_crash_command, exec_command,\
-     flushCache, structSetAttr, structSetProcAttr
+     flushCache, structSetAttr, structSetProcAttr, sdef2ArtSU
 
 gen.d = wrapcrash
 
@@ -309,12 +309,19 @@ def possibleModuleNames(topdir, fbase):
 
 
 __loaded_Mods = {}
-def loadModule(modname, ofile = None):
+def loadModule(modname, ofile = None, altname = None):
     """Load module file into crash"""
+    
+    # In some cases we load modules renaming them. 
+    # In this case modname is the original name (used to search for debug)
+    # and altname is the name in 'mod' output
+    if (not altname):
+	altname = modname
     try:
         return __loaded_Mods[modname]
     except KeyError:
         pass
+    
     if (ofile == None):
         for t in sys_info.debuginfo:
             # Some modules use different names in file object and lsmod, e.g.:
@@ -329,7 +336,10 @@ def loadModule(modname, ofile = None):
             print "Loading", ofile
     if (ofile == None):
         return False
-    rc = exec_crash_command("mod -s %s %s" % (modname, ofile))
+    # If we specify a non-loaded module, exec_crash_command does not return
+    if (not altname in lsModules()):
+	return False
+    rc = exec_crash_command("mod -s %s %s" % (altname, ofile))
     success = (rc.find("MODULE") != -1)
     __loaded_Mods[modname] = success
     # Invalidate typeinfo caches
@@ -349,7 +359,18 @@ def delModule(modname):
 	    print "Unloading", modname
     except KeyError:
         pass
-   
+
+# get modules list. We need it mainly to find 
+__mod_list = []
+def lsModules():
+    if (len(__mod_list) > 1):
+	return __mod_list
+    lh = ListHead(sym2addr("modules"), "struct module")
+    for m in lh.list:
+	__mod_list.append(m.name)
+    return __mod_list
+
+
 # Execute 'sys' command and put its split output into a dictionary
 # Some names contain space and should be accessed using a dict method, e.g.
 # sys_info["LOAD AVERAGE"]
