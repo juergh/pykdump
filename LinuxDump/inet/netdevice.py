@@ -259,12 +259,19 @@ def print_mc_list(dev):
 	for s in readStructNext(idev.mc_list, "next"):
 	    print "  inet:  %s" % ntodots(s.multiaddr)
 
-    # IPv6 stuff
-    inet6dev = readSU("struct inet6_dev", dev.ip6_ptr)
-    if (inet6dev):
-	for s in readStructNext(inet6dev.mc_list, "next"):
-	    mca_addr = s.mca_addr
-	    print "  inet6: %s" % ntodots6(mca_addr)
+    # IPv6 stuff. In 2.4 kernels needs ipv6.ko
+    ip6ptr = dev.ip6_ptr
+    if (ip6ptr):
+	try:
+	    inet6dev = readSU("struct inet6_dev", dev.ip6_ptr)
+	    for s in readStructNext(inet6dev.mc_list, "next"):
+		mca_addr = s.mca_addr
+		print "  inet6: %s" % ntodots6(mca_addr)
+	except TypeError:
+	    print " cannot find definition of struct inet6_dev"
+
+
+	
     print " -------------------------"
 
 
@@ -378,6 +385,16 @@ def lb_get_stats(priv):
     return stats
          
 
+# Bond statistics
+def bond_get_stats(priv):
+    bond = readSU("struct bonding", priv)
+    # We can find the stats field only with the real bonding.ko
+    try:
+	stats = bond.stats
+    except KeyError:
+	return
+    stats.Dump()
+
 # tg3-specific
 def get_stat64(val):
     low = val.low
@@ -488,6 +505,8 @@ def getStats(dev):
         stats = readSU("struct net_device_stats", priv + off)
     elif (func == 'tg3_get_stats'):
         stats = tg3_get_stats(priv)
+    elif (func == 'bond_get_stats'):
+	stats = bond_get_stats(priv)
     elif (devname  == 'lo'):
         stats = lb_get_stats(priv)
     if (not stats):
@@ -650,7 +669,6 @@ def print_If(dev, details = 0):
     if (features):
         print "    features=<%s>" % features
 
-    # Bonding info
     try:
         master = Deref(dev.master)
         print "    master=%s" % master.name
@@ -659,6 +677,12 @@ def print_If(dev, details = 0):
 
     if (details < 1):
         return
+
+    # Bonding info
+    if (dev.flags & IFF_FLAGS.IFF_MASTER):
+	print    " ---Bond Master-----"
+	bond = readSU("struct bonding", dev.priv)
+	printBondMaster(bond)
 
     # This is no ready for all kernel versions yet, so let us make it safe
     try:
@@ -713,6 +737,7 @@ struct bonding {
 	struct   slave *current_arp_slave;
 	struct   slave *primary_slave;
 	s32      slave_cnt; /* never change this value outside the */
+};
 '''
 
 __stub_slave = '''
@@ -722,27 +747,40 @@ struct slave {
 	struct slave *prev;
 	s16    delay;
 	u32    jiffies;
+};
 '''
 
-# Creating arts from C-like string. Should be improved and moved to
-# Generic
-def Cstub2Art(stub):
-    for l in stub.splitlines():
-	# Get rid of comments
-	i_beg = l.find('__')
-	i_end= l.find(';') + 1
-	l = l[i_beg:i_end].strip()
-	if (l):
-	    #print l
-	    sb.append(l)
+
 
 # So we can print some info even when we don't have debuggable bonding.ko
 
 def __init_bonding():
     # Try to load the 'bonding' module. If it is unavailable, create
     # stubs
-    if (loadModule("bonding")):
+    mods = lsModules()
+
+# Search for bonding*
+    bond = None
+    for n in mods:
+	if (n.find("bonding") == 0):
+	    bond = n
+	    break
+    print bond
+    rc = loadModule("bonding", altname=bond) 
+    if (rc):
 	return
     
-    ss = ArtStructInfo("struct slave")
-    
+    sdef2ArtSU(__stub_bonding)
+    sdef2ArtSU(__stub_slave)
+
+__init_bonding()
+
+# Print master parameters
+def printBondMaster(bond):
+    # We can do this only with a real struct bonding
+    try:
+        params = bond.params
+    except KeyError:
+	return
+    print "    ...Bond params..."
+    params.Dump()

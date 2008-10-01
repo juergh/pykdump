@@ -365,9 +365,23 @@ __mod_list = []
 def lsModules():
     if (len(__mod_list) > 1):
 	return __mod_list
-    lh = ListHead(sym2addr("modules"), "struct module")
-    for m in lh.list:
-	__mod_list.append(m.name)
+    
+    try:
+	# On older kernels, we have module_list
+	kernel_module = sym2addr("kernel_module")
+	if (kernel_module):
+	    module_list = readSymbol("module_list")    
+	    for m in readStructNext(module_list, "next", inchead = False):
+		if (long(m) != kernel_module):
+		    __mod_list.append(m.name)
+	else:
+	    # On new kernels, we have a listhead
+	    lh = ListHead(sym2addr("modules"), "struct module")
+	    for m in lh.list:
+	       __mod_list.append(m.name)
+    except:
+	# If anything went wrong, return a partial list	
+	pass
     return __mod_list
 
 

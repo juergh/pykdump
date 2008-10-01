@@ -366,6 +366,18 @@ class StructResult(long):
     def __repr__(self):
         return "StructResult <%s 0x%x> \tsize=%d" % \
                (self.PYT_symbol, long(self), self.PYT_size)
+    # Print all fields (without diving into structs/unions)
+    def Dump(self):
+	for fn in self.PYT_sinfo.PYT_body:
+	    # For big arrays, print just 4 first elements
+	    fi = self.PYT_sinfo[fn]
+	    elements = fi.ti.elements
+	    val = self.__getattr__(fn)
+	    if (not isinstance(val, SmartString) and elements > 3):
+	       val = str(val[:4])[:-1] + ", ..."
+	    print "    %18s " % fn, val
+	
+	
     
     # Backwards compatibility
     #def __nonzero__(self):
