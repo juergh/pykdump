@@ -99,11 +99,11 @@ def print_basics():
         # the built-in 'mod' command prints
         # "mod: cannot access vmalloc'd module memory"
         # using error(FATAL,))
-        try:
-            exec_crash_command("mod")
-        except crash.error:
-            print WARNING, "bad modules table.",
-            print "The dump is either corrupt or incomplete"
+        #try:
+            #exec_crash_command("mod")
+        #except crash.error:
+            #print WARNING, "bad modules table.",
+            #print "The dump is either corrupt or incomplete"
         
     if (quiet):
         return

@@ -116,6 +116,7 @@ class IP_sock(object):
 	    self.dst = s.Dst
 	    self.dport = ntohs(s.dport)
         elif (family == P_FAMILIES.PF_INET6):
+	    print s.pinet6
 	    self.src = s.Src6
 	    self.sport = ntohs(s.sport)
 	    self.dst = s.Dst6
@@ -300,8 +301,8 @@ def check_inet_sock():
 
     as = ArtStructInfo("struct inet_sock")
     as.append("struct sock", "sk")
-    if (symbol_exists("tcpv6_protocol") and 
-        symbol_exists("udpv6_protocol")):
+    if (symbol_exists("tcpv6_protocol") or 
+        symbol_exists("secure_tcpv6_sequence_number")):
         if (debug):
             print "Adding struct ipv6_pinfo *pinet6;"
         as.append("struct ipv6_pinfo *", "pinet6")
