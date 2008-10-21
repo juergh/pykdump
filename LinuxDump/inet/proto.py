@@ -1,7 +1,7 @@
 
 # module LinuxDump.inet.proto
 #
-# Time-stamp: <08/03/05 15:51:52 alexs>
+# Time-stamp: <08/10/21 11:15:34 alexs>
 #
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -116,7 +116,6 @@ class IP_sock(object):
 	    self.dst = s.Dst
 	    self.dport = ntohs(s.dport)
         elif (family == P_FAMILIES.PF_INET6):
-	    print s.pinet6
 	    self.src = s.Src6
 	    self.sport = ntohs(s.sport)
 	    self.dst = s.Dst6

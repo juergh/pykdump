@@ -275,12 +275,44 @@ def print_test():
             print sb, fsname, \
                   "len(s_dirty)=%d len(s_io)=%d" % (len(s_dirty),len(s_io))
 
+
+def container_of(ptr, ctype, member):
+    offset = member_offset(ctype, member)
+    return readSU(ctype, long(ptr) - offset)
+
+def INT_LIMIT(bits):
+    return (~(1 << (bits - 1)))
+# Print nlm_blocked list
+
+def print_nlm_blocked():
+    lh = ListHead(sym2addr("nlm_blocked"), "struct nlm_wait")
+    for block in lh.b_list:
+	fl_blocked = block.b_lock
+	owner = fl_blocked.fl_u.nfs_fl.owner.pid 
+	haddr = block.b_host.h_addr      # This is sockaddr_in
+	ip = ntodots(haddr.sin_addr.s_addr)
+	print " ---- block ", block
+	inode = fl_blocked.fl_file.f_dentry.d_inode
+	nfs_inode = container_of(inode, "struct nfs_inode", "vfs_inode")
+	fh = nfs_inode.fh
+	data = fh.data[:fh.size]
+	print "  fl_start=%d fl_end=%d owner=%d ip=%s" % (fl_blocked.fl_start,
+	               fl_blocked.fl_end, owner, ip)
+	# Print FH-data
+	print "   ", nfs_inode
+	print "   FH size=%d" % fh.size, "data=",
+	for c in data:
+	   sys.stdout.write("%02x" % c)
+	print ""
+
 init_Structures()
 
+print INT_LIMIT(64)
 #print_rpc_status()
 #print_test()
+#get_all_tasks_old()
 
-get_all_tasks_old()
+print_nlm_blocked()
 sys.exit(0)
 # Print info for a given superblock
 
