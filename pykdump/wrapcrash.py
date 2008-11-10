@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <08/09/03 11:40:27 alexs>
+# Time-stamp: <08/11/10 11:00:04 alexs>
 
 # High-level API built on top of C-module
 # There are several layers of API. Ideally, the end-users should only call
@@ -210,6 +210,9 @@ def update_SUI_fromgdb(f, sname):
         e = crash.gdb_typeinfo(sname)
     except crash.error:
         raise TypeError, "no type " + sname
+    # This can be a typedef to struct
+    if (not e.has_key("body")):
+        e = crash.gdb_typeinfo(e["basetype"])
     update_SUI(f, e)
 
 class subStructResult(type):
@@ -1036,6 +1039,11 @@ def readSymbol(symbol, art = None):
 def getSizeOf(vtype):
     return struct_size(vtype)
 
+# Similar to C-macro in kernel sources - container of a field
+def container_of(ptr, ctype, member):
+    offset = member_offset(ctype, member)
+    return readSU(ctype, long(ptr) - offset)
+
 # .........................................................................
 import time
 
@@ -1263,8 +1271,9 @@ union_size = struct_size
 
 
 import crash
-from crash import sym2addr, addr2sym
+from crash import sym2addr, addr2sym, sym2alladdr
 from crash import  mem2long, readInt, FD_ISSET
+from crash import get_pathname
 def exec_gdb_command(cmd):
     return crash.get_GDB_output(cmd).replace('\r', '')
 

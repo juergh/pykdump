@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <07/10/11 12:16:51 alexs>
+# Time-stamp: <08/11/10 12:06:10 alexs>
 
 # NFS & RPC  functions
 
@@ -27,7 +27,17 @@ _c_NFS_flags = '''
 #define NFSACL			0x10000
 '''
 
+_c_NFS_caps = '''
+/* Server capabilities */
+#define NFS_CAP_READDIRPLUS	1  //(1U << 0)
+#define NFS_CAP_HARDLINKS	2  //(1U << 1)
+#define NFS_CAP_SYMLINKS	4  //(1U << 2)
+#define NFS_CAP_ACLS		8  //(1U << 3)
+#define NFS_CAP_ATOMIC_OPEN	16 //(1U << 4)
+'''
+
 NFS_flags = CDefine(_c_NFS_flags)
+NFS_caps = CDefine(_c_NFS_caps)
 
 _c_NFS_inode_flags_old ='''
 /*
@@ -45,12 +55,6 @@ _c_NFS_inode_flags_old ='''
 if (sys_info.kernel <= "2.6.12"):
     NFS_INO = CDefine(_c_NFS_inode_flags_old)
 
-def print_nfsmount(vfs):
-    pass
-
-def container_of(ptr, ctype, member):
-    offset = member_offset(ctype, member)
-    return readSU(ctype, long(ptr) - offset)
     
 # Print NFS details of a given inode
 def print_nfs_inode(inode):

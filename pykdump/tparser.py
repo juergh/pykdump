@@ -79,8 +79,8 @@ Cenumdecl.ignore(cStyleComment)
 
 defineStmt = Suppress("#define")+ \
              Group(Cid + (Cid|intval))
-defineStmt.ignore(cStyleComment)	     
-defineBlock = OneOrMore(defineStmt)
+#defineStmt.ignore(cStyleComment)	     
+defineBlock = OneOrMore(defineStmt).ignore(cStyleComment)
 
 
 # Convert a string with C-enum declaration to class attributes
@@ -206,6 +206,7 @@ def parseSUDef(s):
     
 
 __test_defs = '''
+/* A comment */
 #define RTF_UP          0x0001          /* route usable                 */
 #define RTF_GATEWAY     0x0002          /* destination is a gateway     */
 #define RTF_HOST        0x0004          /* host entry (net otherwise)   */

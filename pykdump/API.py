@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <08/09/02 16:31:35 alexs>
+# Time-stamp: <08/11/10 11:00:21 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -84,10 +84,11 @@ from wrapcrash import readU8, readU16, readU32, readS32, \
      getStructInfo, getFullBuckets, FD_ISSET, \
      struct_exists, symbol_exists,\
      Addr, Deref, SmartString, tPtr, \
-     sym2addr, addr2sym, \
+     sym2addr, addr2sym, sym2alladdr, \
+     get_pathname, \
      readmem, uvtop, readProcessMem, set_readmem_task, \
      struct_size, union_size, member_offset, member_size, \
-     getSizeOf, whatis, printObject,\
+     getSizeOf, container_of, whatis, printObject,\
      exec_gdb_command, exec_crash_command, exec_command,\
      flushCache, structSetAttr, structSetProcAttr, sdef2ArtSU
 

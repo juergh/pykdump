@@ -6,11 +6,18 @@ from pykdump.API import *
 
 from pykdump.API import *
 
+# For FS stuff
+from LinuxDump.fs import *
+
 # For INET stuff
 from LinuxDump.inet import *
+
 from LinuxDump.inet import proto, netdevice
 from LinuxDump.inet.proto import tcpState, sockTypes, \
     IP_sock,  P_FAMILIES
+
+# For NFS/RPC stuff
+from LinuxDump.nfsrpc import *
 
 import string
 
@@ -81,16 +88,33 @@ def init_Structures():
     #print "RPC_DEBUG=", RPC_DEBUG, ", Recent=", RECENT
     
     if (not struct_exists("struct rpc_task")):
-        if (not loadModule("nfs") \
+        if (not loadModule("nfs") or not loadModule("lockd") \
             or not struct_exists("struct rpc_task") \
             or not struct_exists("struct nfs_inode")):
 	    print "Some functionality missing. ",
-            print "Please install a debuginfo copy of 'nfs' module"
+            print "Please install debuginfo copies of 'nfs' and 'lockd' modules"
             __NFSMOD = False
 	    #sys.exit(0)
+    sizeloff = getSizeOf("loff_t")
+    bits = sizeloff*8
+    global OFFSET_MAX, OFFSET_MASK
+    OFFSET_MASK = (~(~0<<bits))
+    OFFSET_MAX =  (~(1 << (bits - 1))) & OFFSET_MASK
     __init_attrs()
 
 
+# Traversing RPC-cache
+def print_rpc_cache(c):
+    hs = c.hash_size
+    ht = c.hash_table
+    print c
+
+    for i in range(hs):
+        e = ht[i]
+        if (e):
+            for h in readStructNext(e, "next"):
+                exp = container_of(h, "struct svc_export", "h")
+                print h, exp, exp.ex_path, exp.ex_client.name
 
 
 # On 2.4 and earlier 2.6:
@@ -157,6 +181,20 @@ def __init_attrs():
     structSetAttr(sn, "CL_prog", ["tk_client.cl_pmap_default.pm_prog",
                                   "tk_client.cl_pmap.pm_prog",
                                   "tk_client.cl_prog"])
+
+    sn = "struct file_lock"
+    structSetAttr(sn, "Inode", ["fl_file.f_path.dentry.d_inode",
+                                "fl_file.f_dentry.d_inode"])
+
+    sn = "struct nlm_file"
+    structSetAttr(sn, "Inode", ["f_file.f_path.dentry.d_inode",
+                                "f_file.f_dentry.d_inode"])
+
+    sn = "struct nfs_server"
+    structSetAttr(sn, "Hostname", ["hostname", "nfs_client.cl_hostname"])
+    structSetAttr(sn, "Rpccl", ["client", "nfs_client.cl_rpcclient"])
+                                
+
     
 # Print RPC task (struct rpc_task)
 def print_rpc_task(s):
@@ -276,50 +314,138 @@ def print_test():
                   "len(s_dirty)=%d len(s_io)=%d" % (len(s_dirty),len(s_io))
 
 
-def container_of(ptr, ctype, member):
-    offset = member_offset(ctype, member)
-    return readSU(ctype, long(ptr) - offset)
 
 def INT_LIMIT(bits):
     return (~(1 << (bits - 1)))
+
+
+# Print 'struct file_lock' info
+def print_file_lock(fl):
+    lockhost = fl.fl_owner.castTo("struct nlm_host")
+    print lockhost
+    
+
 # Print nlm_blocked list
 
-def print_nlm_blocked():
-    lh = ListHead(sym2addr("nlm_blocked"), "struct nlm_wait")
+def print_nlm_blocked_clnt(nlm_blocked):
+    lh = ListHead(nlm_blocked, "struct nlm_wait")
     for block in lh.b_list:
 	fl_blocked = block.b_lock
 	owner = fl_blocked.fl_u.nfs_fl.owner.pid 
 	haddr = block.b_host.h_addr      # This is sockaddr_in
 	ip = ntodots(haddr.sin_addr.s_addr)
 	print " ---- block ", block
-	inode = fl_blocked.fl_file.f_dentry.d_inode
+	#inode = fl_blocked.fl_file.f_dentry.d_inode
+        inode = fl_blocked.Inode
 	nfs_inode = container_of(inode, "struct nfs_inode", "vfs_inode")
+        print inode, nfs_inode
 	fh = nfs_inode.fh
 	data = fh.data[:fh.size]
-	print "  fl_start=%d fl_end=%d owner=%d ip=%s" % (fl_blocked.fl_start,
-	               fl_blocked.fl_end, owner, ip)
+        fl_start = fl_blocked.fl_start
+        fl_end = fl_blocked.fl_end
+        if (fl_end == OFFSET_MAX):
+            length = 0
+        else:
+            length = (fl_end - fl_start + 1) & OFFSET_MASK
+	print "  fl_start=%d fl_len=%d owner=%d ip=%s" % (fl_start,
+                                                          length, owner, ip)
 	# Print FH-data
 	print "   ", nfs_inode
-	print "   FH size=%d" % fh.size, "data=",
+	print "  FH size=%d\n    data" % fh.size,
 	for c in data:
 	   sys.stdout.write("%02x" % c)
 	print ""
 
+# built-in crash command 'files -l' is broken on recent kernels
+#static struct hlist_head	nlm_files[FILE_NRHASH];
+def print_nlm_files():
+    nlm_files = readSymbol("nlm_files")
+    for h in nlm_files:
+        if (h.first == 0):
+            continue
+        #print h
+        for e in hlist_for_each_entry("struct nlm_file", h, "f_list"):
+            print e
+            f_file = e.f_file
+            f_path = f_file.f_path
+            print "  ", get_pathname(f_path.dentry, f_path.mnt)
+            for fl in readStructNext(e.Inode.i_flock, "fl_next"):
+                lockhost = fl.fl_owner.castTo("struct nlm_host")
+                print "    ", lockhost.h_name
+
+# Print nfs-server info
+def print_nfs_server(nfs, mntpath = None):
+    print "--%s---- %s ---- %s ----" % (str(nfs), nfs.Hostname, mntpath)
+    print "   flags=<%s>," % dbits2str(nfs.flags, NFS_flags, 10),
+    print " caps=<%s>" % dbits2str(nfs.caps, NFS_caps, 8)
+    print "   rsize=%d, wsize=%d" % (nfs.rsize, nfs.wsize)
+    print "   acregmin=%d, acregmax=%d, acdirmin=%d, acdirmax=%d" % \
+          (nfs.acregmin, nfs.acregmax, nfs.acdirmin, nfs.acdirmax)
+    print "   ", nfs.Rpccl
+    
+
+    
+def print_nfsmount():
+    for vfsmount, superblk, fstype, devname, mnt in getMount():
+        if (fstype != "nfs"):
+            continue
+        vfsmount = readSU("struct vfsmount" , vfsmount)
+        sb = readSU("struct super_block", superblk)
+        srv = readSU("struct nfs_server", sb.s_fs_info)
+        print_nfs_server(srv, mnt)
+        
+
 init_Structures()
 
-print INT_LIMIT(64)
+# There are two nlm_blocked lists: the 1st one declared in clntlock.c,
+# the 2nd one in svclock.c.
+
+# E.g.:
+# ffffffff88cf6240 (d) nlm_blocked
+# ffffffff88cf6800 (d) nlm_blocked
+
+# The client listhead is typically followed by 'nlmclnt_lock_ops'
+# (but not on 2.4),  the svs by 'nlmsvc_procedures'
+# So we assume that address near 'nlmclnt_lock_ops' is the client addr
+
+anchor = sym2addr("nlmclnt_lock_ops")
+#print "anchor", hexl(anchor)
+
+clnt, svc = tuple(sym2alladdr("nlm_blocked"))
+
+if (abs(clnt-anchor) > abs(svc-anchor)):
+    clnt, svc = svc, clnt
+
+#print "nlm_blocked clnt=", hexl(clnt), getListSize(clnt, 0, 1000)
+#print "nlm_blocked svc=", hexl(svc), getListSize(svc, 0, 1000)
+#print_nlm_blocked_clnt(clnt)
+#print_nlm_files()
+
+print_nfsmount()
 #print_rpc_status()
 #print_test()
 #get_all_tasks_old()
 
-print_nlm_blocked()
-sys.exit(0)
-# Print info for a given superblock
+HZ = sys_info.HZ
 
-sb_addr = int(sys.argv[1], 16)
+svc_export_cache = readSU("struct cache_detail", sym2addr("svc_export_cache"))
+if (svc_export_cache):
+    print_rpc_cache(svc_export_cache)
 
-sb = readSU("struct super_block", sb_addr)
-server = readSU("struct nfs_server", sb.s_fs_info)
-rpc_client = server.client
-nfs_client = server.nfs_client
-print server, rpc_client, nfs_client
+lru_head = sym2addr("lru_head")
+if (lru_head):
+    sn = "struct svc_cacherep"
+    jiffies = readSymbol("jiffies")
+    offset = member_offset(sn, "c_hash")
+    for e in ListHead(lru_head, sn).c_lru:
+        #print e
+        #print e, ntodots(e.c_addr.sin_addr.s_addr), e.c_timestamp, e.c_state
+        hnode = e.c_hash
+        for he in readList(hnode, 0):
+            hc = readSU(sn, he-offset)
+            secago = (jiffies-hc.c_timestamp)/HZ
+            if (secago > 100):
+                continue
+            print "  ", hc, ntodots(hc.c_addr.sin_addr.s_addr), \
+                  secago,\
+                  hc.c_state

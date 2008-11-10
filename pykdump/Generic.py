@@ -1,7 +1,7 @@
 #
 #  Code that does not depend on whether we use embedded API or PTY
 #
-# Time-stamp: <08/09/02 16:21:52 alexs>
+# Time-stamp: <08/11/10 11:59:27 alexs>
 #
 import string
 import pprint
@@ -32,6 +32,9 @@ def unsigned16(l):
 
 def unsigned32(l):
     return l & 0xffffffff
+
+def unsigned64(l):
+    return l & 0xffffffffffffffff
 
 # A helper class to implement lazy attibute computation. It calls the needed
 # function only once and adds the result as an attribute so that next time
@@ -405,11 +408,24 @@ class ArtStructInfo(SUInfo):
 # If 'flags' integer variable has some bits set and we assume their
 # names/values are in a dict-like object, return a string. For example,
 # decoding interface flags we will print "UP|BROADCAST|RUNNING|MULTICAST"
+#
+# Do not consider dictionary keys that have several bits set
 
 def dbits2str(flags, d, offset = 0):
+    # Return True if there is 1-bit only
+    def bit1(f):
+        nb = 0
+        while (f):
+            if (f & 1):
+                nb += 1
+            if (nb > 1):
+                return False
+            f >>= 1
+        return nb == 1
+    
     out = ""
     for name, val in d.items():
-        if (val and (flags & val)):
+        if (bit1(val) and (flags & val)):
             if (out == ""):
                 out = name[offset:]
             else:

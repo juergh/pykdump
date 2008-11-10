@@ -1,6 +1,6 @@
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <08/09/11 11:05:14 alexs>
+# Time-stamp: <08/10/22 14:51:51 alexs>
 #
 # Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
@@ -758,6 +758,7 @@ def __init_bonding():
     # Try to load the 'bonding' module. If it is unavailable, create
     # stubs
     mods = lsModules()
+    return
 
 # Search for bonding*
     bond = None

@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <08/06/23 14:11:56 alexs>
+  Time-stamp: <08/10/23 16:39:10 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -370,6 +370,104 @@ py_sym2addr(PyObject *self, PyObject *args) {
   //printf("addr=%lx\n", addr);
   //return Py_BuildValue("K", (unsigned long long) addr);
   return PyLong_FromUnsignedLong(addr);
+}
+
+/* =========================WARNING=====================================
+   We had to copy the following code from crash sources as symbol_search_next()
+   is at this moment declared as static. I'll ask Dave to make it visible,
+   but it will take some time
+*/
+#define MODULE_PSEUDO_SYMBOL(sp) \
+    (STRNEQ((sp)->name, "_MODULE_START_") || STRNEQ((sp)->name, "_MODULE_END_"))
+
+#define MODULE_START(sp) (STRNEQ((sp)->name, "_MODULE_START_"))
+#define MODULE_END(sp)   (STRNEQ((sp)->name, "_MODULE_END_"))
+
+/*
+ *  Return the syment of the next symbol with the same name of the input symbol.
+ */
+static struct syment *
+symbol_search_next(char *s, struct syment *spstart)
+{
+	int i;
+        struct syment *sp, *sp_end;
+	struct load_module *lm;
+	int found_start;
+	int pseudos;
+
+	found_start = FALSE;
+
+        for (sp = st->symtable; sp < st->symend; sp++) {
+		if (sp == spstart) {
+			found_start = TRUE;
+			continue;
+		} else if (!found_start)
+			continue;
+
+                if (strcmp(s, sp->name) == 0) {
+                        return(sp);
+		}
+        }
+
+	pseudos = (strstr(s, "_MODULE_START_") || strstr(s, "_MODULE_END_"));
+
+        for (i = 0; i < st->mods_installed; i++) {
+                lm = &st->load_modules[i];
+		sp = lm->mod_symtable;
+                sp_end = lm->mod_symend;
+
+                for ( ; sp < sp_end; sp++) {
+                	if (!pseudos && MODULE_PSEUDO_SYMBOL(sp))
+                        	continue;
+
+			if (sp == spstart) {
+				found_start = TRUE;
+				continue;
+			} else if (!found_start)
+				continue;
+
+                	if (STREQ(s, sp->name))
+                        	return(sp);
+                }
+        }
+
+        return((struct syment *)NULL);
+}
+
+
+static PyObject *
+py_sym2_alladdr(PyObject *self, PyObject *args) {
+  char *symbol;
+  unsigned long long addr;
+  struct syment *se;
+  PyObject *list;
+
+     
+  if (!PyArg_ParseTuple(args, "s", &symbol)) {
+    PyErr_SetString(crashError, "invalid parameter type"); \
+    return NULL;
+  }
+
+  se = symbol_search(symbol);
+
+  if (se)
+    addr = se->value;
+  else
+    addr = 0;
+
+  list = PyList_New(0);
+  if (addr)
+    if (PyList_Append(list,PyLong_FromUnsignedLong(addr)) == -1)
+      return NULL;
+
+  // Are there additional symbols?
+  while (se = symbol_search_next(symbol, se))
+    if (PyList_Append(list,PyLong_FromUnsignedLong(se->value)) == -1)
+      return NULL;
+  // ASID
+  //printf("addr=%lx\n", addr);
+  //return Py_BuildValue("K", (unsigned long long) addr);
+  return list;
 }
 
 // A switch table - call the needed function based on integer object
@@ -1133,6 +1231,20 @@ py_set_default_timeout(PyObject *self, PyObject *args) {
   return PyInt_FromLong((long) old_value);
 }
 
+static PyObject *
+py_get_pathname(PyObject *self, PyObject *args) {
+
+  ulong dentry, vfsmnt;
+  char pathname[BUFSIZE];
+  if (!PyArg_ParseTuple(args, "kk", &dentry, &vfsmnt)) {
+    PyErr_SetString(crashError, "invalid parameter type"); \
+    return NULL;
+  }
+
+  get_pathname(dentry, pathname, sizeof(pathname), 1, vfsmnt);
+  return PyString_FromString(pathname);
+}
+
 PyObject * py_gdb_typeinfo(PyObject *self, PyObject *args);
 PyObject * py_gdb_whatis(PyObject *self, PyObject *args);
 
@@ -1149,6 +1261,7 @@ static PyMethodDef crashMethods[] = {
   {"exec_epython_command",  py_exec_epython_command, METH_VARARGS},
   {"get_epython_cmds",  py_get_epython_cmds, METH_VARARGS},
   {"sym2addr",  py_sym2addr, METH_VARARGS},
+  {"sym2alladdr",  py_sym2_alladdr, METH_VARARGS},
   {"addr2sym",  py_addr2sym, METH_VARARGS},
   {"mem2long",  (PyCFunction)py_mem2long, METH_VARARGS | METH_KEYWORDS},
   {"uvtop",  py_uvtop, METH_VARARGS},
@@ -1169,6 +1282,7 @@ static PyMethodDef crashMethods[] = {
   {"get_NR_syscalls", py_get_NR_syscalls, METH_VARARGS},
   {"register_epython_prog", py_register_epython_prog, METH_VARARGS},
   {"set_default_timeout", py_set_default_timeout, METH_VARARGS},
+  {"get_pathname", py_get_pathname, METH_VARARGS},
   {NULL,      NULL}        /* Sentinel */
 };
 
