@@ -345,7 +345,7 @@ def check_spinlocks():
 	# (e.g.this can be rwlock_t)
 	try:
 	    lv = readSymbol(ln).slock
-	    if (lv != 1):
+	    if ((ia64 == 1 and lv != 0) or (ia64 == 0 and lv <= 0)):
 		print WARNING, "Lock %s is held, lock=%d" % (ln, lv)
 	except:
 	    pass
@@ -388,6 +388,13 @@ def get_important():
 	sleepers = sem.sleepers
 	if (sleepers):
 	   print n, sem.sleepers
+
+    print ' -- semaphores with sleepers <= 0 --'
+    for n in results["struct semaphore"]:
+	sem = readSymbol(n)
+	sleepers = sem.sleepers
+	if (sleepers <= 0):
+	   print n, sem.sleepers
     
     print ' -- rw_semaphores with count > 0 --'
     for n in results["struct rw_semaphore"]:
@@ -397,6 +404,16 @@ def get_important():
 	except KeyError:
 	    count = sem.activity
 	if (count):
+	   print n, count
+
+    print ' -- rw_semaphores with count <= 0 --'
+    for n in results["struct rw_semaphore"]:
+	sem = readSymbol(n)
+	try:
+	   count = sem.count
+	except KeyError:
+	    count = sem.activity
+	if (count <= 0):
 	   print n, count
  	
     print ' -- Non-empty wait_queue_head --'
@@ -850,10 +867,16 @@ op.add_option("--devmapper", dest="DM", default = "",
 
 verbose = o.Verbose
 
+if (sys_info.machine == "ia64"):
+    ia64 = 1
+    print "This is IA64!"
+else:
+    ia64 = 0
+
 if (o.Quiet):
     quiet = 1
 else:
-    quiet =0
+    quiet = 0
 
 if (o.Fast):
     set_default_timeout(12)
