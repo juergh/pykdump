@@ -238,6 +238,9 @@ def enter_epython():
     # Print vmcore name/path when not on tty
     if (isfileoutput()):
         print "\n", 'o' * lpad, text, 'o' * lpad
+    
+    # Use KVADDR
+    set_readmem_task(0)
 
 
 # We call this when exiting epython

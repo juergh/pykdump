@@ -521,7 +521,7 @@ def decode_syscalls(arg):
 	bt = exec_bt('foreach bt')
         # Leave only those that have the specified syscall
         def test(stack, bt):
-            if (not stack.hasfunc(r"^(system_call|sysenter_entry)$")):
+            if (not stack.hasfunc(r"^(system_call|sysenter_entry|ia64_ret_from_syscall)$")):
                 return False
             if (arg =='all' or stack.hasfunc('sys_' + arg)):
                 return True
@@ -869,7 +869,7 @@ verbose = o.Verbose
 
 if (sys_info.machine == "ia64"):
     ia64 = 1
-    print "This is IA64!"
+    #print "This is IA64!"
 else:
     ia64 = 0
 

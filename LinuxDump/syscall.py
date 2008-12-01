@@ -13,18 +13,20 @@ debug = API_options.debug
 import re
 import crash
 
+pointersize = sys_info.pointersize
+
 def get_SysCallTable():
 # Get syscall table names
     sys_call_table = sym2addr("sys_call_table")
     psz = sys_info.pointersize
     out = []
     for i in range(crash.get_NR_syscalls()):
-	ptr = readPtr(sys_call_table + i * psz)
+	ptr = readPtr(sys_call_table + i * pointersize)
 	out.append(addr2sym(ptr))
     return out
 
 sct = get_SysCallTable()
-pointersize = sys_info.pointersize
+
 
 def __getRegs(data):
     # The data consists of lines like that:
@@ -92,12 +94,36 @@ def getSyscallArgs_x8664(stack):
     nscall = regs["RAX"]
     return (nscall, args)
 
+# On IA64 syscall number + 1024 is in R15, args start from BSP
+def getSyscallArgs_ia64(stack):
+    # Depending on kernel, we can reach ia64_ret_from_syscall via
+    # __kernel_syscall_via_break. In this case, we are interested in 
+    # the frame with ia64_ret_from_syscall
+    lastf = stack.frames[-1]
+    if (not lastf.data):
+	lastf = stack.frames[-2]
+    print lastf
+    regs = __getRegs(lastf.data)
+    nscall = regs["R15"]- 1024
+    bsp = lastf.frame
+    # Read from stack 6 args
+    args = []
+    try:
+        mem = readmem(bsp, 6*pointersize)
+    except crash.error:
+        "Cannot read stack on ia64 - have you loaded crash-driver?"
+        return (-1, [])
+    args = crash.mem2long(mem, array=6)
+    return (nscall, args)
+    
 __mach = sys_info.machine
 
 if (__mach in ("i386", "i686", "athlon")):
     getSyscallArgs = getSyscallArgs_x86
 elif (__mach == "x86_64"):
     getSyscallArgs = getSyscallArgs_x8664
+elif (__mach == "ia64"):
+    getSyscallArgs = getSyscallArgs_ia64
 else:
     getSyscallArgs = None
 
@@ -203,8 +229,9 @@ def __decode_sys_select(args):
 #                  fd_set *exceptfds, struct timeval *timeout); 
     def fdset2list(nfds, addr):
 	fileparray = readmem(addr, struct_size("fd_set"))
+	maxfds = struct_size("fd_set") * 8
 	out = []
-	for i in range(nfds):
+	for i in range(min(nfds, maxfds)):
 	    if (FD_ISSET(i, fileparray)):
 		out.append(i)
 	return out
@@ -233,6 +260,16 @@ def __decode_sys_rmdir(args):
     # The only arg is a directory name
     s = readmem(args[0], 256)
     print "\t rmdir(%s)" % s.split('\0')[0]
+    
+def __decode_sys_mount(args):
+    # long sys_mount(char __user * dev_name, char __user * dir_name,
+    #   	  char __user * type, unsigned long flags,
+    #		  void __user * data)
+    print hexl(args[0])
+    dev_name = readmem(args[0], 256).split('\0')[0]
+    dir_name = readmem(args[1], 256).split('\0')[0]
+    print "\t dev_name=%s, dir_name=%s" % (dev_name, dir_name)
+    
 
 def __decode_sys_nanosleep(args):
     # nanosleep(const struct timespec *req, struct timespec *rem)
