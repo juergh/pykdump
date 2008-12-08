@@ -123,3 +123,5 @@ echo "LINKFLAGS := `${PYTHON}  pyconf.py -s --linkflags`" >>$slmk
 echo "STDLIBP :=  `${PYTHON} pyconf.py -s --stdlib`" >>$slmk
 echo "COMPALL :=  `${PYTHON}  pyconf.py -s --compileall`" >>$slmk
 
+# Files to be included in the minimal Python library
+echo "MINPYLIB_FILES := minpylib-`${PYTHON}  pyconf.py -s --pyvers`.lst" >>$slmk

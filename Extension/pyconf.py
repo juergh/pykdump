@@ -18,7 +18,7 @@ opts, args = getopt.getopt(sys.argv[1:],
                            ['sourcetree',
 			    'static', 'cc', 'cflags', 'includes',
                             'linkflags', 'libs', 'srcdir', 'stdlib',
-                            'compileall']
+                            'compileall', 'pyvers']
                            )
 
 for o, a in opts:
@@ -28,6 +28,10 @@ for o, a in opts:
         staticbuild = True
     elif (o == '-s'):
 	sourcetree = True
+
+# Python version (major), e.g. 2.5 for 2.5.2
+pv = sys.version_info
+pyvers = "%d.%d" % (pv[0], pv[1])
 
 # System libraries we need to link with
 testprog = get_config_var('TESTPROG')
@@ -132,3 +136,5 @@ for o, a in opts:
         print stdlib     
     elif (o == '--compileall'):
         print compileall
+    elif (o == '--pyvers'):
+        print pyvers

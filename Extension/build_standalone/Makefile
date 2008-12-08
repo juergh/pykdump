@@ -69,10 +69,10 @@ PYFULLPATH = $(PWD)/$(PYFULL)
 pyparsing.pyo: pyparsing.py
 	$(PYTHON) -O -c "import pyparsing"
 
-$(PYLIB): minpylib.lst pyparsing.pyo $(PYTHONDIR)/python
+$(PYLIB): $(MINPYLIB_FILES) pyparsing.pyo $(PYTHONDIR)/python
 	ln -sf  $(STDLIBP) $(PYLIBPREF)
 	rm -f $(PYLIB)
-	sed -e "s|^|$(PYLIBPREF)/|" minpylib.lst | zip $(PYLIB) -@
+	sed -e "s|^|$(PYLIBPREF)/|"  $(MINPYLIB_FILES) | zip $(PYLIB) -@
 	zip $@ pyparsing.pyo
 	rm -f $(PYLIBPREF)
 
