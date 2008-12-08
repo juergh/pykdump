@@ -1,7 +1,7 @@
 
 # module LinuxDump.inet.proto
 #
-# Time-stamp: <08/10/21 11:15:34 alexs>
+# Time-stamp: <08/12/08 15:28:09 alexs>
 #
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -298,32 +298,32 @@ def check_inet_sock():
     except TypeError:
         pass
 
-    as = ArtStructInfo("struct inet_sock")
-    as.append("struct sock", "sk")
+    aS = ArtStructInfo("struct inet_sock")
+    aS.append("struct sock", "sk")
     if (symbol_exists("tcpv6_protocol") or 
         symbol_exists("secure_tcpv6_sequence_number")):
         if (debug):
             print "Adding struct ipv6_pinfo *pinet6;"
-        as.append("struct ipv6_pinfo *", "pinet6")
+        aS.append("struct ipv6_pinfo *", "pinet6")
     iopti = getStructInfo("struct inet_opt")
-    as.inline(iopti)
-    # print as
+    aS.inline(iopti)
+    # print aS
 
     # tcp_sock is inet_sock followed by tcp_opt
     tas = ArtStructInfo("struct tcp_sock")
-    tas.inline(as)
+    tas.inline(aS)
     tas.append("struct tcp_opt", "tcp")
     #print tas
 
     # udp_sock is inet_sock followed by udp_opt
     uas = ArtStructInfo("struct udp_sock")
-    uas.inline(as)
+    uas.inline(aS)
     uas.append("struct udp_opt", "udp")
     #print uas
 
     # raw_sock is inet_sock followed by raw_opt
     ras = ArtStructInfo("struct raw_sock")
-    ras.inline(as)
+    ras.inline(aS)
     ras.append("struct raw_opt", "udp")
     #print ras
 
