@@ -1,6 +1,6 @@
 
 # module LinuxDump.inet.proto
-# Time-stamp: <08/12/10 15:32:58 alexs>
+# Time-stamp: <08/12/10 15:37:19 alexs>
 
 #
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
@@ -708,9 +708,11 @@ def get_RAW():
 	# 2.6
         #
         # 2.6.27
-        table = readSymbol("raw_v4_hashinfo").ht
-        # older
-        #table = readSymbol("raw_v4_htable")
+        try:
+            table = readSymbol("raw_v4_hashinfo").ht
+            # older
+        except TypeError:
+            table = readSymbol("raw_v4_htable")
 	for s in table:
 	    first = s.first
 	    if (first):
