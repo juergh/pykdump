@@ -1,6 +1,6 @@
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <08/10/22 14:51:51 alexs>
+# Time-stamp: <08/12/10 14:59:07 alexs>
 #
 # Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
@@ -508,7 +508,12 @@ def getStats(dev):
     elif (func == 'bond_get_stats'):
 	stats = bond_get_stats(priv)
     elif (devname  == 'lo'):
-        stats = lb_get_stats(priv)
+        # On 2.6.27 loopback uses ml_priv
+        try:
+            ml_priv = dev.ml_priv
+        except:
+            ml_priv = priv
+        stats = lb_get_stats(ml_priv)
     if (not stats):
         return None
 
@@ -702,7 +707,21 @@ def print_If(dev, details = 0):
             print "    \ttrans_start %7.2f s ago" % \
                   ((jiffies - trans_start)/HZ)
     getStats(dev)
-    printQdisc(dev.qdisc, details-1)
+    # 2.6.27
+    try:
+        for i in range(0, dev.real_num_tx_queues):
+            qdisc = dev._tx.qdisc + i
+            print "    .................."
+            print "    | tx queue", i
+            printQdisc(qdisc, details-1)
+        print "    .................."
+        print "    | rx_queue"
+        printQdisc(dev.rx_queue.qdisc, details - 1)
+        
+    except KeyError:
+        # Older
+        qdisc = dev.qdisc
+        printQdisc(qdisc, details-1)
    
 def print_Ifs(IF):
     for dev in dev_base_list():

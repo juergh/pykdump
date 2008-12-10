@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <08/03/10 16:30:38 alexs>
+# Time-stamp: <08/12/10 14:39:40 alexs>
 
 # Per-cpu functions
 
@@ -43,11 +43,19 @@ def __percpu_disguise(pdata):
 #        (__typeof__(ptr))__p->ptrs[(cpu)];	          \
 #})
 
+# On 2.6.27 instead of NR_CPU sized array we have ptrs[1]:
+
+# struct percpu_data {
+# 	void *ptrs[1];
+# };
+
+
 # Until we unify tPtr and StructResult
+
 
 def get_percpu_ptr_26(ptr, cpu):
     p =  __percpu_disguise(ptr)
-    #print " disguised = 0x%x" % p
+    #print " ptr=0x%x disguised = 0x%x" % (ptr, p)
     dp = readSU("struct percpu_data", p)
     if (isinstance(ptr, pykdump.wrapcrash.StructResult)):
         optr = readSU(ptr.PYT_symbol, dp.ptrs[cpu])

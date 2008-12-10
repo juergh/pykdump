@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <08/11/10 11:00:04 alexs>
+# Time-stamp: <08/12/10 14:39:01 alexs>
 
 # High-level API built on top of C-module
 # There are several layers of API. Ideally, the end-users should only call
@@ -527,6 +527,7 @@ def intReader(vi):
               "uint=", uint, \
               "bitsize=", bitsize, "bitoffset=", bitoffset
 
+    #print "dims=", dims
     if (dims != None and len(dims) == 1 and ti.stype == 'char'):
         # CharArray
         dim1 = dims[0]
@@ -648,7 +649,7 @@ def ptrReader(vi, ptrlev):
 	reader = ptrSU
     else:
         if (dims != None):
-            if (len(dims) == 1 and elements == 0):
+            if (len(dims) == 1 and elements <= 1):
                 return ptrArr0
             else:
                 return ptrArray
@@ -688,7 +689,7 @@ def Addr(obj, extra = None):
         else:
             off = obj.PYT_sinfo[extra].offset
             return long(obj) + off
-    elif (isinstance(obj, SmartString)):
+    elif (isinstance(obj, SmartString) or isinstance(obj, SmartList)):
           return obj.addr
     else:
         raise TypeError, type(obj)
@@ -775,6 +776,14 @@ class SmartString(str):
 	return self.__fullstr.__getslice__(i, j)
     def __getitem__(self, key):
 	return self.__fullstr.__getitem__(key)
+
+class SmartList(list):
+    def __new__(cls, l = [], addr = None):
+        return list.__new__(cls, l)
+    def __init__(self, l = [], addr = None):
+        list.__init__(self, l)
+        self.addr = addr
+    
     
 
 # Print the object delegating all work to GDB. At this moment can do this

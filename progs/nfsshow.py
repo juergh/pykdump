@@ -14,7 +14,7 @@ from LinuxDump.inet import *
 
 from LinuxDump.inet import proto, netdevice
 from LinuxDump.inet.proto import tcpState, sockTypes, \
-    IP_sock,  P_FAMILIES
+    IP_sock,  P_FAMILIES, format_sockaddr_in, protoName
 
 # For NFS/RPC stuff
 from LinuxDump.nfsrpc import *
@@ -74,6 +74,8 @@ NFS3_PROCS = CDefine(NFS3_C)
 
 __NFSMOD = True
 
+nfs_avail = {}
+
 # Check whether all needed structures are present
 def init_Structures():
     global __NFSMOD
@@ -86,15 +88,25 @@ def init_Structures():
     else:
 	RECENT = False
     #print "RPC_DEBUG=", RPC_DEBUG, ", Recent=", RECENT
-    
-    if (not struct_exists("struct rpc_task")):
-        if (not loadModule("nfs") or not loadModule("lockd") \
-            or not struct_exists("struct rpc_task") \
-            or not struct_exists("struct nfs_inode")):
-	    print "Some functionality missing. ",
-            print "Please install debuginfo copies of 'nfs' and 'lockd' modules"
-            __NFSMOD = False
-	    #sys.exit(0)
+
+    # We need debuggable versions of the following:
+    #
+    # 'nfs' for basic NFS-client hosts
+    # 'lockd' for locking info - both on clients and servers
+    # 'nfsd' for NFS-servers additional info
+
+    nfs_avail.clear()
+    for m, sn in (("nfs", "struct rpc_task"),
+                 ("lockd", "struct nlm_wait"),
+                 ("nfsd", "struct svc_export")
+                 ):
+        nfs_avail[m] = False
+        if (m in lsModules()):
+            if((struct_exists(sn) or (loadModule(m) and struct_exists(sn)))):
+                nfs_avail[m] = True
+            else:
+                print "WARNING: cannot find debuginfo for module %s" % m
+
     sizeloff = getSizeOf("loff_t")
     bits = sizeloff*8
     global OFFSET_MAX, OFFSET_MASK
@@ -103,18 +115,26 @@ def init_Structures():
     __init_attrs()
 
 
-# Traversing RPC-cache
-def print_rpc_cache(c):
+# Print NFS-exported directories
+def print_nfs_exports(v = 0):
+    c = readSU("struct cache_detail",
+                              sym2addr("svc_export_cache"))
+
     hs = c.hash_size
     ht = c.hash_table
-    print c
+    print "  -----NFS-exports ------"
+    #print c
 
     for i in range(hs):
         e = ht[i]
         if (e):
             for h in readStructNext(e, "next"):
                 exp = container_of(h, "struct svc_export", "h")
-                print h, exp, exp.ex_path, exp.ex_client.name
+                print "    ", exp.ex_path, exp.ex_client.name,
+                if (v):
+                    print "  ", exp
+                else:
+                    print ""
 
 
 # On 2.4 and earlier 2.6:
@@ -323,75 +343,99 @@ def INT_LIMIT(bits):
 def print_file_lock(fl):
     lockhost = fl.fl_owner.castTo("struct nlm_host")
     print lockhost
-    
+
+# Print FH
+def printFH(fh, indent = 0):
+    def chunk(seq, size):
+        for i in range(0, len(seq), size):
+            yield seq[i:i+size]
+    sz = fh.size
+    data = fh.data[:sz]
+    s = []
+    for c in data:
+        s.append("%02x" % c)
+    FH = "FH(%d)" % sz
+    lFH = len(FH)
+    s =  string.join(s,'')
+    sb = s[:76-indent-lFH]
+    se = s[76-indent-lFH:]
+    print ' ' * indent, FH, sb
+    for ss in chunk(se, 76-indent - lFH):
+        print ' ' * (indent + lFH + 1), ss
 
 # Print nlm_blocked list
 
 def print_nlm_blocked_clnt(nlm_blocked):
     lh = ListHead(nlm_blocked, "struct nlm_wait")
+    if (len(lh)):
+        print "  ................ Waiting For Locks ........................."
+
     for block in lh.b_list:
 	fl_blocked = block.b_lock
 	owner = fl_blocked.fl_u.nfs_fl.owner.pid 
 	haddr = block.b_host.h_addr      # This is sockaddr_in
 	ip = ntodots(haddr.sin_addr.s_addr)
-	print " ---- block ", block
+	print "    ----  ", block
 	#inode = fl_blocked.fl_file.f_dentry.d_inode
         inode = fl_blocked.Inode
 	nfs_inode = container_of(inode, "struct nfs_inode", "vfs_inode")
-        print inode, nfs_inode
+        print "     ", inode, nfs_inode
 	fh = nfs_inode.fh
-	data = fh.data[:fh.size]
         fl_start = fl_blocked.fl_start
         fl_end = fl_blocked.fl_end
         if (fl_end == OFFSET_MAX):
             length = 0
         else:
             length = (fl_end - fl_start + 1) & OFFSET_MASK
-	print "  fl_start=%d fl_len=%d owner=%d ip=%s" % (fl_start,
+	print "         fl_start=%d fl_len=%d owner=%d ip=%s" % (fl_start,
                                                           length, owner, ip)
 	# Print FH-data
-	print "   ", nfs_inode
-	print "  FH size=%d\n    data" % fh.size,
-	for c in data:
-	   sys.stdout.write("%02x" % c)
-	print ""
+	printFH(fh, 8)
 
 # built-in crash command 'files -l' is broken on recent kernels
 #static struct hlist_head	nlm_files[FILE_NRHASH];
 def print_nlm_files():
     nlm_files = readSymbol("nlm_files")
+    print "  -- Files NLM locks for clients ----"
     for h in nlm_files:
         if (h.first == 0):
             continue
         #print h
         for e in hlist_for_each_entry("struct nlm_file", h, "f_list"):
-            print e
             f_file = e.f_file
             f_path = f_file.f_path
-            print "  ", get_pathname(f_path.dentry, f_path.mnt)
+            print "    File:", get_pathname(f_path.dentry, f_path.mnt), \
+                  "   ", e
             for fl in readStructNext(e.Inode.i_flock, "fl_next"):
                 lockhost = fl.fl_owner.castTo("struct nlm_host")
-                print "    ", lockhost.h_name
+                print "       Host:", lockhost.h_name
 
 # Print nfs-server info
 def print_nfs_server(nfs, mntpath = None):
-    print "--%s---- %s ---- %s ----" % (str(nfs), nfs.Hostname, mntpath)
-    print "   flags=<%s>," % dbits2str(nfs.flags, NFS_flags, 10),
+    print "    --%s--- %s ---- %s ---" % (str(nfs), nfs.Hostname, mntpath)
+    print "       flags=<%s>," % dbits2str(nfs.flags, NFS_flags, 10),
     print " caps=<%s>" % dbits2str(nfs.caps, NFS_caps, 8)
-    print "   rsize=%d, wsize=%d" % (nfs.rsize, nfs.wsize)
-    print "   acregmin=%d, acregmax=%d, acdirmin=%d, acdirmax=%d" % \
+    print "       rsize=%d, wsize=%d" % (nfs.rsize, nfs.wsize)
+    print "       acregmin=%d, acregmax=%d, acdirmin=%d, acdirmax=%d" % \
           (nfs.acregmin, nfs.acregmax, nfs.acdirmin, nfs.acdirmax)
-    print "   ", nfs.Rpccl
+    #print "   ", nfs.Rpccl
     
 
-    
-def print_nfsmount():
+nfs_mounts = []
+
+def get_nfs_mounts():    
+    del nfs_mounts[:]
     for vfsmount, superblk, fstype, devname, mnt in getMount():
-        if (fstype != "nfs"):
-            continue
-        vfsmount = readSU("struct vfsmount" , vfsmount)
-        sb = readSU("struct super_block", superblk)
-        srv = readSU("struct nfs_server", sb.s_fs_info)
+        if (fstype == "nfs"):
+            vfsmount = readSU("struct vfsmount" , vfsmount)
+            sb = readSU("struct super_block", superblk)
+            srv = readSU("struct nfs_server", sb.s_fs_info)
+            nfs_mounts.append((srv, mnt))
+    return nfs_mounts
+
+def print_nfsmount():
+    print "  ................ NFS-mounts ........................."
+    for srv, mnt in nfs_mounts:
         print_nfs_server(srv, mnt)
         
 
@@ -421,31 +465,58 @@ if (abs(clnt-anchor) > abs(svc-anchor)):
 #print_nlm_blocked_clnt(clnt)
 #print_nlm_files()
 
-print_nfsmount()
 #print_rpc_status()
 #print_test()
 #get_all_tasks_old()
 
 HZ = sys_info.HZ
 
-svc_export_cache = readSU("struct cache_detail", sym2addr("svc_export_cache"))
-if (svc_export_cache):
-    print_rpc_cache(svc_export_cache)
+# Printing info for NFS-client
+if (nfs_avail["nfs"] and get_nfs_mounts()):
+    print '='*20, " Info For NFS-client ", '*'*20
+    print_nfsmount()
+    print_nlm_blocked_clnt(clnt)
 
-lru_head = sym2addr("lru_head")
-if (lru_head):
-    sn = "struct svc_cacherep"
-    jiffies = readSymbol("jiffies")
-    offset = member_offset(sn, "c_hash")
-    for e in ListHead(lru_head, sn).c_lru:
-        #print e
-        #print e, ntodots(e.c_addr.sin_addr.s_addr), e.c_timestamp, e.c_state
-        hnode = e.c_hash
-        for he in readList(hnode, 0):
-            hc = readSU(sn, he-offset)
-            secago = (jiffies-hc.c_timestamp)/HZ
-            if (secago > 100):
-                continue
-            print "  ", hc, ntodots(hc.c_addr.sin_addr.s_addr), \
-                  secago,\
-                  hc.c_state
+#print_nlm_files()
+
+    
+
+# Printing info for NFS-server
+if (nfs_avail["nfsd"]):
+    print '='*20, " Info For NFS-server ", '*'*20
+
+    # Exportes filesystems
+    print_nfs_exports(1)
+
+    # Locks we are holding for clients
+    print_nlm_files()
+
+
+    # Time in seconds - show only the recent ones
+    new_enough = 10
+    lru_head = sym2addr("lru_head")
+    rpc_list = []
+    if (lru_head):
+        sn = "struct svc_cacherep"
+        jiffies = readSymbol("jiffies")
+        offset = member_offset(sn, "c_hash")
+        for e in ListHead(lru_head, sn).c_lru:
+            #print e
+            #print e, ntodots(e.c_addr.sin_addr.s_addr), e.c_timestamp, e.c_state
+            hnode = e.c_hash
+            for he in readList(hnode, 0):
+                hc = readSU(sn, he-offset)
+                secago = (jiffies-hc.c_timestamp)/HZ
+                if (secago > new_enough):
+                    continue
+                rpc_list.append((secago, hc))
+                
+        if (rpc_list):
+            rpc_list.sort()
+            print "  -- Recent RPC Reply-cache Entries (most recent first)"
+            for secago, hc in rpc_list:
+                prot = protoName(hc.c_prot)
+                proc = hc.c_proc
+                print "   ", hc, prot, format_sockaddr_in(hc.c_addr), \
+                      secago, hc.c_state
+                

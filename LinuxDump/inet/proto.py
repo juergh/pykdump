@@ -1,7 +1,7 @@
 
 # module LinuxDump.inet.proto
-#
-# Time-stamp: <08/12/08 15:28:09 alexs>
+# Time-stamp: <08/12/10 15:32:58 alexs>
+
 #
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -242,6 +242,20 @@ class IP_conn_tw(IP_sock):
 
         return
 
+
+# Format sockaddr_in to print
+
+def format_sockaddr_in(sin):
+    family = sin.sin_family
+    port = ntohs(sin.sin_port)
+
+    addr = sin.sin_addr
+    
+    if (family == P_FAMILIES.PF_INET):
+        return "%s:%d" % (ntodots(addr.s_addr), port)
+    else:
+        raise TypeError, "family=%d o=%s" % (family, str(o))
+        
 
 
 # Convert inode to socket
@@ -692,7 +706,12 @@ def get_RAW():
 	
     else:
 	# 2.6
-	for s in readSymbol("raw_v4_htable"):
+        #
+        # 2.6.27
+        table = readSymbol("raw_v4_hashinfo").ht
+        # older
+        #table = readSymbol("raw_v4_htable")
+	for s in table:
 	    first = s.first
 	    if (first):
 		for a in  sk_for_each(first):
@@ -703,9 +722,21 @@ def get_RAW6():
     if (INET_Stuff.Kernel24):
 	# 2.4 - not implemented yet
         return
-	
+
+    elif (symbol_exists("raw_v6_hashinfo")):
+        # 2.6.27
+        raw_v6_hashinfo = readSU("struct raw_hashinfo",
+                                 sym2addr("raw_v6_hashinfo"))
+        table = raw_v6_hashinfo.ht
+	for s in table:
+	    first = s.first
+	    if (first):
+		for a in  sk_for_each(first):
+		    s = readSU("struct inet_sock", a)
+		    yield s
+
     else:
-	# 2.6
+	# Older 2.6
         # Unfortunately, the default kernel does not have "raw_v6_htable"
         # definition (it's in ipv6 DLKM...). And we don't have
         # 'struct raw6_sock' either...
