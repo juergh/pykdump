@@ -1,6 +1,6 @@
 # module LinuxDump.inet.routing
 #
-# Time-stamp: <08/03/17 11:05:55 alexs>
+# Time-stamp: <08/12/11 16:02:01 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -154,21 +154,32 @@ def get_fib_v26():
             RT_TABLE_MAIN = 254
         #print "RT_TABLE_MAIN=",RT_TABLE_MAIN
 
-        #static struct hlist_head fib_table_hash[FIB_TABLE_HASHSZ];
-        fib_table_hash = readSymbol("fib_table_hash")
+        if (symbol_exists("init_net")): # 2.6.27
+            fib_table_hash = readSymbol("init_net").ipv4.fib_table_hash
+        else:
+            #static struct hlist_head fib_table_hash[FIB_TABLE_HASHSZ];
+            fib_table_hash = readSymbol("fib_table_hash")
+
         offset = member_offset("struct fib_table", "tb_hlist")
 
 	table_main = None
+        # Warning: on 2.6.27 the size of fib_table_hash is defined by
+        # FIB_TABLE_HASHSZ (usually 2 for IPv4). As there is no way
+        # to obtain it from dump, we break out as soon as we find
+        # the main table
         for b in fib_table_hash:
             first = b.first
             if (first):
                 for a in readList(first, 0):
                     tb = readSU("struct fib_table", a-offset)
+                    print tb, tb.tb_id
                     if (tb.tb_id == RT_TABLE_MAIN):
                         table_main = tb
                         break
+                if (table_main): break
 
     #     unsigned char tb_data[0];
+    #print "table_main=", table_main
     fn_hash = readSU("struct fn_hash", table_main.tb_data)
 
     hlist_head_sz = struct_size("struct hlist_head")

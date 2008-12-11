@@ -1,6 +1,6 @@
 # module LinuxDump.inet.snmpstats
 #
-# Time-stamp: <08/03/17 11:52:50 alexs>
+# Time-stamp: <08/12/11 16:24:51 alexs>
 #
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -82,7 +82,12 @@ class SnmpTable(dict):
 	return out
 
 def __getSnmpTable_26(tname):
-    table = readSymbol(tname)
+    # On 2.6.27 the tables are in init_net
+    try:
+        mib = readSymbol("init_net").mib
+        table = mib.__getattr__(tname)
+    except TypeError:
+        table = readSymbol(tname)
     snmpname = tabnames[tname]
     out = []
     if (not symbol_exists(snmpname)):
