@@ -167,8 +167,13 @@ def TCPIP_Summarize(quiet = False):
 
     counts = {}
     for o in list(proto.get_RAW()) + list(proto.get_RAW6()):
-         pstr = IP_sock(o, True)
-         counts[state] = counts.setdefault(state, 0) + 1
+	try:
+            pstr = IP_sock(o, True)
+	except KeyError, msg:
+	    print ERROR, msg
+	    continue
+	
+        counts[state] = counts.setdefault(state, 0) + 1
 
     states = counts.keys()
     states.sort()

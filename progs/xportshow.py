@@ -320,7 +320,11 @@ def print_UNIX():
 
 def print_RAW():
     for o in list(proto.get_RAW()) + list(proto.get_RAW6()):
-        pstr = IP_sock(o, details)
+	try:
+            pstr = IP_sock(o, details)
+	except KeyError, msg:
+	   print "   Unexpected protocol in RAW table,", msg 
+	   continue
         if (not print_listen and pstr.state != tcpState.TCP_ESTABLISHED):
             continue
 

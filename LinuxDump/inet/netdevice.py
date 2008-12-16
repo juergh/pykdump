@@ -777,15 +777,15 @@ def __init_bonding():
     # Try to load the 'bonding' module. If it is unavailable, create
     # stubs
     mods = lsModules()
-    return
+    #return
 
 # Search for bonding*
     bond = None
     for n in mods:
-	if (n.find("bonding") == 0):
+	if (n.find("bond") == 0):
 	    bond = n
 	    break
-    print bond
+    #print bond
     rc = loadModule("bonding", altname=bond) 
     if (rc):
 	return

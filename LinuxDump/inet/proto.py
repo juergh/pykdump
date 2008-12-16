@@ -98,6 +98,10 @@ class IP_sock(object):
 	    s = o
 	    if (s.protocol != 17):
 		raise KeyError,str(o)+' incorrect protocol=%d' %  s.protocol
+	elif (o.isNamed("struct raw_sock")):
+	    s = o
+	    if (s.protocol in (6,17)):
+		raise KeyError,str(o)+' incorrect protocol=%d' %  s.protocol
 	    
         else:
             s = o
