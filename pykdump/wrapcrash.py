@@ -1020,6 +1020,31 @@ def readList(start, offset=0, maxel = _MAXEL, inchead = True):
         count += 1
     return out
 
+# The same as readList, but in case we are interested
+# in partial lists even when there are low-level errors 
+# Returns (partiallist, error/None)
+def readBadList(start, offset=0, maxel = _MAXEL, inchead = True):
+    start = long(start)     # equivalent to (void *) cast
+    if (start == 0):
+        return []
+    if (inchead):
+        count = 1
+        out = [start]
+    else:
+        out = []
+        count = 0
+    next = start
+    while (count < maxel):
+	try:
+            next = readPtr(next + offset)
+	except crash.error, err:
+	    return (out, err)
+        if (next == 0 or next == start):
+            break
+        out.append(next)
+        count += 1
+    return (out, None)
+
 #     ======= get list size for LIST_HEAD =====
 def getListSize(addr, offset, maxel):
     if (addr == 0):

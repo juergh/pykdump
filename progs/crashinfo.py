@@ -526,18 +526,25 @@ def check_runqueues():
             #print active.queue
             for i, pq in enumerate(active.queue):
                 #print hexl(Addr(pq))
-                talist = readList(Addr(pq), inchead = False)
+		(talist, errmsg) = readBadList(Addr(pq), inchead = False)
+		if (errmsg):
+		    print WARNING, "prio=%d" % i, errmsg, pq
                 l = len(talist)
                 if (l and not quiet):
                    print "    prio=%-3d len=%d" % (i, l)
                 for ra in talist:
                     ta = ra - rloffset
                     ts = readSU("struct task_struct", ta)
+		    try:
+			policy = ts.policy
+		    except Exception,e:
+			print WARNING, e
+			continue
                     if (ts.policy != 0):
                         RT_count += 1
                     if (verbose):
-                        print "\tTASK_STRUCT=0x%x  policy=%d CMD=%s"\
-                              %(ta, ts.policy, ts.comm)
+                        print "\tTASK_STRUCT=0x%x  policy=%d CMD=%s PID=%s"\
+                              %(ta, ts.policy, ts.comm, ts.pid)
 	if (RT_count == 0):
 	    RT_hang = False
 	else:
