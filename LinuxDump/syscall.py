@@ -84,7 +84,8 @@ def getSyscallArgs_x86(stack):
 def getSyscallArgs_x8664(stack):
     # Check whether the last frame is 'system_call'
     lastf = stack.frames[-1]
-    if (not lastf.func in ('system_call', 'sysenter_entry')):
+    if (not lastf.func in ('system_call', 'sysenter_entry',
+                           'system_call_fastpath')):
 	raise IndexError, "this is not a system_call stack!"
     regs = __getRegs(lastf.data)
     #print regs

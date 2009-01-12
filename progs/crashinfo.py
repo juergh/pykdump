@@ -2,7 +2,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <08/06/20 14:51:48 alexs>
+# Time-stamp: <08/12/31 12:51:51 alexs>
 
 # Copyright (C) 2007-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007-2008 Hewlett-Packard Co., All rights reserved.
@@ -463,40 +463,85 @@ def get_important():
 	results[k].sort()
 	for v in results[k]:
 	    print '\t', v
-	     
-def check_runqueues():
 
+# Ordered Traversal of RB-tree (as represented by "struct rb_node")
+def traverse_binary_tree(node):
+    if (not node): return
+    left = node.rb_left
+    right = node.rb_right
+    for nd in traverse_binary_tree(left):
+        yield nd
+    yield node
+    for nd in traverse_binary_tree(right):
+        yield nd
+
+# Print CFS runqueue
+def print_CFS_runqueue(rq):
+    rb_node = rq.cfs.tasks_timeline.rb_node
+    for node in traverse_binary_tree(rb_node):
+        se = container_of(node, "struct sched_entity", "run_node")
+        task = container_of(se, "struct task_struct", "se")
+        print "   ", task.pid, task.comm, se.sum_exec_runtime*1.e-9
+
+# Print RT-queue (new style)
+def print_RT_runqueue(rq):
+    # struct rt_rq
+    rt = rq.rt
+    prn = StringIO()
+    RT_count = 0
+    print >>prn, "  -- RT Queues ---"
+    for i, pq in enumerate(rt.active.queue):
+        talist = readList(Addr(pq), inchead = False)
+        l = len(talist)
+        if (l):
+            RT_count += 1
+            print >>prn, "    prio=%-3d len=%d" % (i, l)
+
+    if (RT_count):
+        print prn.getvalue(),
+    prn.close()
+    return RT_count
+ 
+def check_runqueues():
     if (not quiet):
         printHeader("Scheduler Runqueues (per CPU)")
     rloffset = member_offset("struct task_struct", "run_list")
+    # New kernels use CFS
+    CFS = (member_offset("struct task_struct", "se") != -1)
     # Whether all 
     RT_hang = True
     for cpu, rq in enumerate(getRunQueues()):
 	RT_count = 0
-	# Print Active
-	active = rq.Active
-	if (not quiet):
-	   print ' ---- CPU#%d ---  %s' % (cpu, str(rq))
-	#print active
-	#print active.queue
-	for i, pq in enumerate(active.queue):
-	    #print hexl(Addr(pq))
-	    talist = readList(Addr(pq), inchead = False)
-	    l = len(talist)
-	    if (l and not quiet):
-	       print "    prio=%-3d len=%d" % (i, l)
-	    for ra in talist:
-		ta = ra - rloffset
-		ts = readSU("struct task_struct", ta)
-		if (ts.policy != 0):
-		    RT_count += 1
-		if (verbose):
-		    print "\tTASK_STRUCT=0x%x  policy=%d CMD=%s"\
-		          %(ta, ts.policy, ts.comm)
+        print "--", rq, "CPU=%d" % cpu
+        if (CFS):
+            print_CFS_runqueue(rq)
+            RT_count = print_RT_runqueue(rq)
+        else:
+            # Old scheduler
+            # Print Active
+            active = rq.Active
+            if (not quiet):
+               print ' ---- CPU#%d ---  %s' % (cpu, str(rq))
+            #print active
+            #print active.queue
+            for i, pq in enumerate(active.queue):
+                #print hexl(Addr(pq))
+                talist = readList(Addr(pq), inchead = False)
+                l = len(talist)
+                if (l and not quiet):
+                   print "    prio=%-3d len=%d" % (i, l)
+                for ra in talist:
+                    ta = ra - rloffset
+                    ts = readSU("struct task_struct", ta)
+                    if (ts.policy != 0):
+                        RT_count += 1
+                    if (verbose):
+                        print "\tTASK_STRUCT=0x%x  policy=%d CMD=%s"\
+                              %(ta, ts.policy, ts.comm)
 	if (RT_count == 0):
 	    RT_hang = False
 	else:
-	    print " %d Real-Time processes on this CPU" % RT_count
+	    print "    %d Real-Time processes on this CPU" % RT_count
     if (RT_hang):
 	print WARNING, "all CPUs are busy running Real-Time processes"
 	
@@ -521,7 +566,7 @@ def decode_syscalls(arg):
 	bt = exec_bt('foreach bt')
         # Leave only those that have the specified syscall
         def test(stack, bt):
-            if (not stack.hasfunc(r"^(system_call|sysenter_entry|ia64_ret_from_syscall)$")):
+            if (not stack.hasfunc(r"^(system_call|sysenter_entry|ia64_ret_from_syscall|system_call_fastpath)$")):
                 return False
             if (arg =='all' or stack.hasfunc('sys_' + arg)):
                 return True
@@ -862,6 +907,10 @@ op.add_option("--devmapper", dest="DM", default = "",
 		action="store_true",
 		help="Print DeviceMapper Tables")		
 
+op.add_option("--runq", dest="Runq", default = "",
+		action="store_true",
+		help="Print Runqueus")		
+
 (o, args) = op.parse_args()
 
 
@@ -931,6 +980,10 @@ if (o.stacksummary):
  
 if (o.DM):
     print_dm_devices(verbose)
+    sys.exit(0)
+
+if (o.Runq):
+    check_runqueues()
     sys.exit(0)
  
 
