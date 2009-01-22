@@ -791,7 +791,7 @@ class SmartList(list):
 
 def printObject(obj):
     if (isinstance(obj, StructResult)):
-        cmd = "p *(%s *)0x%x" %(obj.PYT_symbol, long(obj))
+        cmd = "p *(%s *)0x%x" %(obj.PYT_symbol, long(self))
         print cmd
         s = exec_gdb_command(cmd)
         # replace the 1st line with something moe useful
