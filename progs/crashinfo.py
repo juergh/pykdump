@@ -18,7 +18,7 @@ from LinuxDump.Tasks import TaskTable, Task, tasksSummary, getRunQueues,\
 from LinuxDump.inet import summary
 import LinuxDump.inet.netdevice as netdevice
 from LinuxDump import percpu, sysctl, Dev
-from LinuxDump.Dev import print_dm_devices
+from LinuxDump.Dev import print_dm_devices, print_gendisk
 
 from LinuxDump import percpu
 
@@ -916,7 +916,12 @@ op.add_option("--devmapper", dest="DM", default = "",
 
 op.add_option("--runq", dest="Runq", default = "",
 		action="store_true",
-		help="Print Runqueus")		
+		help="Print Runqueus")
+
+op.add_option("--gendisk", dest="gendisk", default = "",
+		action="store_true",
+		help="Print gendisk structures")
+	
 
 (o, args) = op.parse_args()
 
@@ -992,6 +997,10 @@ if (o.DM):
 if (o.Runq):
     check_runqueues()
     sys.exit(0)
+
+if (o.gendisk):
+    print_gendisk(verbose)
+    sys.exit(0)
  
 
 dmesg = exec_crash_command("log")
@@ -1026,6 +1035,8 @@ check_mem()
 if (not Panic):
     print_blkreq()
 
+# Check gendisk structures
+print_gendisk(0)
 
 check_UNINTERRUPTIBLE()
 check_auditf()

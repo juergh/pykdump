@@ -115,3 +115,4 @@ if (symbol_exists("per_cpu__runqueues")):
     percpu_ptr = get_percpu_ptr_26
 else:
     get_cpu_var = get_cpu_var_24
+    percpu_ptr = None

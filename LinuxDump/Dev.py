@@ -20,6 +20,9 @@ This is a package providing generic access to block devices
 '''
 
 from pykdump.API import *
+from LinuxDump.percpu import percpu_ptr
+
+import re
 
 # Decode dev_t
 # major, minor = decode_devt(dev)
@@ -225,3 +228,82 @@ def decode_dm_table(dm, verbose = 0):
 	major, minor = decode_devt(dmdev.bdev.bd_dev)
 	print "     ", dmdev, "major=%-3d minor=%-3d" % (major, minor)
 	print "\t   ", mtable[major].shortstr()
+
+
+# ================ gendisk stuff =============================
+# Get the list of (dev, gendisk) sorted by dev
+
+def get_gendisks():
+    out = []
+    # We do not process other gets yet (e.g. ata_probe)
+    good_gets = sym2alladdr("exact_match")
+    for pm in readSymbol("bdev_map").probes:
+        for p in readStructNext(Deref(pm), "next"):
+            data = p.data
+            dev = p.dev
+            if (data and long(p.get) in good_gets):
+		#print '--', hexl(dev), p
+                gd = readSU("struct gendisk", data)
+                out.append((dev, gd))
+
+    out.sort()
+    return out
+
+# Print disk statistics
+def print_disk_stats(gd):
+    ptr = gd.dkstats
+    # gd.dkstats is a per-cpu pointer
+    for cpu in range(sys_info.CPUS):
+	pcpu = percpu_ptr(ptr, cpu)
+        print "  ", cpu, pcpu
+	#printObject(pcpu)
+	
+	
+# Print gendisk structures with some checking.
+# If v=0, print errors only
+__re_good_diskname = re.compile(r'^[-\w:/]+$')
+def print_gendisk(v = 1):
+    try:
+	gdlist = get_gendisks()
+    except TypeError:
+	if (v):
+	    print "print_gendisk is not implemented for 2.4 kernels yet"
+	return
+    for dev, gd in gdlist:
+	disk_name = gd.disk_name
+	# Check whether name is alphanum
+	if (not __re_good_diskname.match(disk_name)):
+	    disk_name = '???'
+	#kname = gd.kobj.name
+	openname = None
+	try:
+	    owner = gd.fops.owner
+	    badfops = False
+	except crash.error:
+	    badfops = True
+	
+	try:
+	    openptr = gd.fops.open
+	    if (openptr):
+		openname = addr2sym(openptr)
+        except crash.error:
+	    pass
+        
+	if (v):
+	   print  "  %12s dev=0x%x" % (disk_name, dev), gd, openname
+	if (badfops):
+	    print ERROR, gd, "corrupted fops, disk_name=%s dev=0x%x"% \
+	           (disk_name, dev)
+	outparts = []
+	for i in range(gd.minors - 1):
+	    hd = gd.part[i]
+	    try:
+		if (hd and hd.nr_sects):
+		    if (v):
+			print "\t\t", i, hd
+	    except crash.error:
+		outparts.append(i)
+	        if (v):
+		    print ERROR, "corrupted", hd
+	if (outparts):
+	    print ERROR, gd, "corrupted part list", outparts
