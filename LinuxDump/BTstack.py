@@ -401,7 +401,6 @@ def bt_mergestacks(btlist, precise = False,
 	    pidlist.append(pid)
 	    if (tt):
 		task = tt.getByTid(pid)
-		print pid, task
 		ran_ms_ago = basems - task.Last_ran
 		if (sch_old == None or ran_ms_ago > sch_old):
 		    sch_old = ran_ms_ago
