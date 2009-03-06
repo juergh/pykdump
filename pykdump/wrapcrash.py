@@ -1025,11 +1025,14 @@ def readList(start, offset=0, maxel = _MAXEL, inchead = True):
 # Returns (partiallist, error/None)
 def readBadList(start, offset=0, maxel = _MAXEL, inchead = True):
     start = long(start)     # equivalent to (void *) cast
+    # A dictionary used to detect duplicates
+    ha = {}
     if (start == 0):
         return []
     if (inchead):
         count = 1
         out = [start]
+	ha[start] = 1
     else:
         out = []
         count = 0
@@ -1041,6 +1044,10 @@ def readBadList(start, offset=0, maxel = _MAXEL, inchead = True):
 	    return (out, err)
         if (next == 0 or next == start):
             break
+	elif (ha.has_key(next)):
+	    err = "Duplicate entry"
+	    return (out, err)
+	ha[next] = 1
         out.append(next)
         count += 1
     return (out, None)

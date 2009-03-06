@@ -113,23 +113,46 @@ class Task:
         for a in readList(saddr, inchead = False):
             threads.append(Task(readSU("struct task_struct", a-Task.tgoffset), self))
         return threads
+    def __get_threads_fast_265(self):
+        return self.__get_threads_fast()[:-1]	
     def __get_threads_fast_24(self):
 	return self.ttable.pids[self.pid][1:]
     def __get_threads(self):
         tgoffset = member_offset("struct task_struct", "thread_group")
+	fast_method = Task.__get_threads_fast	
         if (tgoffset != -1):
             # New 2.6
             Task.tgoffset = tgoffset
-        elif (struct_exists("struct pid_link")):
+        elif (sys_info.kernel < "2.6.0"):
             # 2.4 - threads are processes
-	    Task.threads = property(Task.__get_threads_fast_24)
-            return self.threads
+	    fast_method = Task.__get_threads_fast_24
         else:
-            # Older 2.6
+            # Older 2.6. We have either
+	    # struct pid      pids[PIDTYPE_MAX];
+	    # then we need pids[PIDTYPE_TGID].pid_list
+	    # 
+	    # Or, we have
+	    # struct pid_link pids[PIDTYPE_MAX];
+	    # then we need pids[PIDTYPE_TGID].pid.task_list
+
+	    si = getStructInfo("struct task_struct")
+	    sn = si["pids"].ti.stype
+	    if (sn == "struct pid"):
+		pl_off = member_offset(sn, "pid_list")
+	    elif (sn == "struct pid_link"):
+		#pl_off = member_offset(sn, "pid") + \
+		#          member_offset("struct pid", "task_list")
+		pl_off = member_offset(sn, "pid_chain")
+		fast_method = Task.__get_threads_fast_265
+            else:
+		raise TypeError, "Don't know how to find threads"
+ 
+            pl_off += struct_size(sn)
+	    #print sn, "pl_off=", pl_off
             Task.tgoffset = member_offset("struct task_struct", "pids") + \
-                            struct_size("struct pid") + \
-                            member_offset("struct pid", "pid_list")
-        Task.threads = property(Task.__get_threads_fast)
+                           pl_off
+            #print "tgoffset=", Task.tgoffset
+        Task.threads = property(fast_method)
         return self.threads
         
     threads = property(__get_threads)
