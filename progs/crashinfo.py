@@ -790,9 +790,32 @@ def decode_request(rq):
     return ", ".join(out)
 
 
+# Decode struct rw_semaphore - waiting-list etc.
+
+def decode_semaphore(semaddr):
+    s = readSU("struct rw_semaphore", semaddr)
+    print s
+    #wait_list elements are embedded in struct rwsem_waiter
+    wait_list = readSUListFromHead(Addr(s.wait_list), "list",
+             "struct rwsem_waiter")
+    out = []
+    for w in wait_list:
+	task = w.task
+	out.append([task.pid, task.comm])
+    # Sort on PID
+    out.sort()
+    for pid, comm in out:
+	print "\t%8d  %s" % (pid, comm)
+    
+    
+
 def print_blkreq(header = None):
     from LinuxDump.Slab import get_slab_addrs
-    (alloc, free) = get_slab_addrs("blkdev_requests")
+    try:
+        (alloc, free) = get_slab_addrs("blkdev_requests")
+    except crash.error, val:
+	print val
+	return
     out = []
     for a in alloc:
 	rq = readSU("struct request", a)
@@ -918,6 +941,10 @@ op.add_option("--runq", dest="Runq", default = "",
 		action="store_true",
 		help="Print Runqueus")
 
+op.add_option("--semaphore", dest="Sema", default = -1,
+		type="long", action="store",
+		help="Print Semaphore info")
+		
 op.add_option("--gendisk", dest="gendisk", default = "",
 		action="store_true",
 		help="Print gendisk structures")
@@ -972,6 +999,10 @@ if (o.Blkdevs):
     
 if (o.decodesyscalls):
     decode_syscalls(o.decodesyscalls)
+    sys.exit(0)
+
+if (o.Sema):
+    decode_semaphore(o.Sema)
     sys.exit(0)
 
 if (o.ext3):
