@@ -95,6 +95,20 @@ def getSyscallArgs_x8664(stack):
     nscall = regs["RAX"]
     return (nscall, args)
 
+# A special case: 32-bit call on a 64-bit x86_64
+def getSyscall32Args_x8664(stack):
+    # Check whether the last frame is 'system_call'
+    lastf = stack.frames[-1]
+    if (not lastf.func in ('sysenter_dispatch')):
+	raise IndexError, "this is not a system_call stack!"
+    regs = __getRegs(lastf.data)
+    #print regs
+    # arg0-arg5
+    args = [regs["RSI"], regs["RDX"], 
+            regs["R10"], regs["R8"], regs["R9"]]
+    nscall = regs["RAX"]
+    return (nscall, args)
+
 # On IA64 syscall number + 1024 is in R15, args start from BSP
 def getSyscallArgs_ia64(stack):
     # Depending on kernel, we can reach ia64_ret_from_syscall via

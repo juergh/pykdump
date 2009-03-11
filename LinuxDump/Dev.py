@@ -1,6 +1,6 @@
 # module LinuxDump.Dev
 #
-# Time-stamp: <08/03/05 15:51:52 alexs>
+# Time-stamp: <09/03/11 16:54:00 alexs>
 #
 # Copyright (C) 2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2008 Hewlett-Packard Co., All rights reserved.
@@ -295,8 +295,26 @@ def print_gendisk(v = 1):
 	    print ERROR, gd, "corrupted fops, disk_name=%s dev=0x%x"% \
 	           (disk_name, dev)
 	outparts = []
-	for i in range(gd.minors - 1):
-	    hd = gd.part[i]
+        # < 2.6.28
+        # struct hd_struct **part;
+        # 2.6.28
+        #    struct disk_part_tbl *part_tbl;
+        #    struct hd_struct part0;
+        # and
+        # struct disk_part_tbl {
+        #     struct rcu_head rcu_head;
+        #     int len;
+        #     struct hd_struct *part[];
+        #  };
+        try:
+            np = gd.part_tbl.len
+            tbl =  gd.part_tbl.part
+        except KeyError:
+            np = gd.minors - 1
+            tbl = gd.part
+	for i in range(np):
+            hd = tbl[i]
+
 	    try:
 		if (hd and hd.nr_sects):
 		    if (v):

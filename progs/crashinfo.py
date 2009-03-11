@@ -2,7 +2,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <08/12/31 12:51:51 alexs>
+# Time-stamp: <09/03/11 15:57:40 alexs>
 
 # Copyright (C) 2007-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007-2008 Hewlett-Packard Co., All rights reserved.
@@ -941,7 +941,7 @@ op.add_option("--runq", dest="Runq", default = "",
 		action="store_true",
 		help="Print Runqueus")
 
-op.add_option("--semaphore", dest="Sema", default = -1,
+op.add_option("--semaphore", dest="Sema", default = 0,
 		type="long", action="store",
 		help="Print Semaphore info")
 		
