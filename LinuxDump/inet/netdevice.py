@@ -1,6 +1,6 @@
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <08/12/10 14:59:07 alexs>
+# Time-stamp: <09/03/12 15:23:54 alexs>
 #
 # Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
@@ -786,10 +786,11 @@ def __init_bonding():
 	    bond = n
 	    break
     #print bond
-    rc = loadModule("bonding", altname=bond) 
-    if (rc):
-	return
-    
+    if (bond):
+        rc = loadModule("bonding", altname=bond) 
+        if (rc):
+            return
+    return
     sdef2ArtSU(__stub_bonding)
     sdef2ArtSU(__stub_slave)
 

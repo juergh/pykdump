@@ -1,7 +1,7 @@
 #
 #  Code that does not depend on whether we use embedded API or PTY
 #
-# Time-stamp: <08/11/10 11:59:27 alexs>
+# Time-stamp: <09/03/12 14:51:06 alexs>
 #
 import string
 import pprint
@@ -338,8 +338,11 @@ class SUInfo(dict):
         #print "Creating SUInfo", sname
         #self.parentstype = None
         #dict.__init__(self, {})
+
+        # These three attributes will not be accessible via dict 
         object.__setattr__(self, "PYT_sname", sname)
         object.__setattr__(self, "PYT_body",  []) # For printing only
+        object.__setattr__(self, "PYT_dchains", {}) # Deref chains cache
         if (gdbinit):
             d.update_SUI_fromgdb(self, sname)
 
@@ -370,6 +373,17 @@ class SUInfo(dict):
             out.append("    " + self[fn].shortstr())
         out.append("}")
         return string.join(out, "\n")
+    # Is the derefence chain OK?
+    def chainOK(self, dstr):
+        try:
+            return self.PYT_dchains[dstr]
+        except KeyError:
+            pass
+        res = parseDerefString(self.PYT_sname, dstr)
+        
+        self.PYT_dchains[dstr] = res
+        return res
+        
 
 
 class ArtStructInfo(SUInfo):

@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <08/12/10 14:39:01 alexs>
+# Time-stamp: <09/03/12 15:01:54 alexs>
 
 # High-level API built on top of C-module
 # There are several layers of API. Ideally, the end-users should only call
@@ -391,6 +391,7 @@ class StructResult(long):
 
     def hasField(self, fname):
         return self.PYT_sinfo.has_key(fname)
+        #return (self.PYT_sinfo.chainOK(fname) != False)
 
     def isNamed(self, sname):
         return sname == self.PYT_symbol
@@ -1335,6 +1336,7 @@ getListSize = crash.getListSize
 readmem = crash.readmem
 set_readmem_task = crash.set_readmem_task
 nc_member_offset = crash.member_offset
+Gen.parseDerefString = parseDerefString
 
 
 def print_stats():
