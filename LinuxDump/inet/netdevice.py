@@ -790,7 +790,7 @@ def __init_bonding():
         rc = loadModule("bonding", altname=bond) 
         if (rc):
             return
-    return
+
     sdef2ArtSU(__stub_bonding)
     sdef2ArtSU(__stub_slave)
 

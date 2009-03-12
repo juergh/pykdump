@@ -784,7 +784,10 @@ def unix_sock(s):
 
 
     if (uaddr):
-	path =  uaddr.name.sun_path
+	try:
+	    path =  uaddr.name.sun_path
+	except crash.error:
+	    path = "!Cannot read memory!"
 	#
 	if (uaddr.hash != INET_Stuff.UNIX_HASH_SIZE):
 	    ulen = uaddr.len - 2
