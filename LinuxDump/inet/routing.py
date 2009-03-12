@@ -1,6 +1,6 @@
 # module LinuxDump.inet.routing
 #
-# Time-stamp: <08/12/11 16:02:01 alexs>
+# Time-stamp: <09/03/12 15:35:12 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -154,11 +154,13 @@ def get_fib_v26():
             RT_TABLE_MAIN = 254
         #print "RT_TABLE_MAIN=",RT_TABLE_MAIN
 
-        if (symbol_exists("init_net")): # 2.6.27
-            fib_table_hash = readSymbol("init_net").ipv4.fib_table_hash
-        else:
+        if (symbol_exists("fib_table_hash")):
             #static struct hlist_head fib_table_hash[FIB_TABLE_HASHSZ];
             fib_table_hash = readSymbol("fib_table_hash")
+        elif (symbol_exists("init_net")): # 2.6.27
+            fib_table_hash = readSymbol("init_net").ipv4.fib_table_hash
+        else:
+            raise TypeError, "Don't know how to get routes for this kernel"
 
         offset = member_offset("struct fib_table", "tb_hlist")
 
