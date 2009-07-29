@@ -2,7 +2,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <09/03/11 15:57:40 alexs>
+# Time-stamp: <09/05/01 10:58:14 alexs>
 
 # Copyright (C) 2007-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007-2008 Hewlett-Packard Co., All rights reserved.
@@ -807,21 +807,37 @@ def decode_semaphore(semaddr):
     for pid, comm in out:
 	print "\t%8d  %s" % (pid, comm)
     
-    
+
+# WARNING: on some kernels (e.g. Ubuntu/Hardy, 2.6.24)
+# blkdev_requests is mapped to a general slab.
+# E.g. when struct request has size 188, it goes into "kmalloc-192"
+# 
 
 def print_blkreq(header = None):
     from LinuxDump.Slab import get_slab_addrs
     try:
-        (alloc, free) = get_slab_addrs("blkdev_requests")
+        name = readSymbol("request_cachep").name
+    except:
+        name = "blkdev_requests"
+    try:
+        (alloc, free) = get_slab_addrs(name)
     except crash.error, val:
 	print val
 	return
     out = []
-    for a in alloc:
+    lalloc = len(alloc)
+    sfree = None
+    for i, a in enumerate(alloc+free):
 	rq = readSU("struct request", a)
         try:
             rqs = decode_request(rq)
 	    if (rqs):
+                if (a in alloc):
+                    rqs = "+" + rqs
+                else:
+                    rqs = '-' + rqs
+                if (sfree == None and i >= lalloc):
+                    sfree = len(out)
 		out.append(rqs)
         except crash.error:
             pass
@@ -830,6 +846,15 @@ def print_blkreq(header = None):
 	    print header
 	else:
 	   print WARNING, "there are outstanding blk_dev requests"
+        print lalloc,len(free), sfree
+        # Insert alloc/free headers
+        if (sfree == 0):
+            # No alloc, just free
+            print "  ===== Free List"
+        else:
+            print "  ===== Allocated List"
+            if (sfree):
+                out.insert(sfree, "  ===== Free List")
 	print "\n".join(out)
 	
 # Decode dev_t
@@ -876,6 +901,24 @@ def parse_ps():
 	except:
 	    print WARNING, "cannot parse:", l
     return out
+
+# Compute the sum of all RSS memory used by applications. We cannot
+# just some values from 'ps' output as it does not make difference between
+# processes and threads. Hence, for multithreaded processes it reports
+# the same memory multiple times
+
+def user_space_memory_report():
+    # Get processes/thread group leaders only
+    
+    tt = get_tt()
+    rss_tot = pmem_tot = 0
+    # Get processes/thread group leaders only
+    for pid, ppid, cpu, task, st, pmem, vsz, rss, comm in parse_ps():
+        if (tt.getByPid(pid)):
+            rss_tot += rss
+            pmem_tot += pmem
+    print "RSS_TOTAL=%d pages, %%mem=%7.1f" % (rss_tot, pmem_tot)
+
 # ----------------------------------------------------------------------------
 
 op =  OptionParser()
@@ -946,8 +989,12 @@ op.add_option("--semaphore", dest="Sema", default = 0,
 		help="Print Semaphore info")
 		
 op.add_option("--gendisk", dest="gendisk", default = "",
-		action="store_true",
-		help="Print gendisk structures")
+              action="store_true",
+              help="Print gendisk structures")
+
+op.add_option("--umem", dest="umem", default = "",
+              action="store_true",
+              help="Print User-space Memory Usage")
 	
 
 (o, args) = op.parse_args()
@@ -1032,7 +1079,12 @@ if (o.Runq):
 if (o.gendisk):
     print_gendisk(verbose)
     sys.exit(0)
+
+if (o.umem):
+    user_space_memory_report()
+    sys.exit(0)
  
+
 
 dmesg = exec_crash_command("log")
 

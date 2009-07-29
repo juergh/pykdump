@@ -1,5 +1,5 @@
 # -*- coding: latin-1 -*-
-# Time-stamp: <08/03/17 12:24:33 alexs>
+# Time-stamp: <09/05/01 09:52:02 alexs>
 # module LinuxDump.Slab
 #
 # Time-stamp: <08/03/05 15:51:52 alexs>
@@ -27,11 +27,13 @@ import re
 
 # Return a tuple of allocated and free lists
 __re_alloc = re.compile(r'^\s+\[([a-f0-9]+)\]\s*$')
-__re_free = re.compile(r'^\s+([a-f0-9]+)\s*$')
+__re_free = re.compile(r'^\s+([a-f0-9]+)\s*(\(cpu.*cache\))?\s*$')
 def get_slab_addrs(slabname):
     alloc = []
     free = []
     res = exec_crash_command("kmem -S %s" % slabname)
+    if (len(res) == 0):
+        raise KeyError, "no slab %s" % slabname
     for s in res.splitlines():
 	m = __re_alloc.match(s)
 	if (m):

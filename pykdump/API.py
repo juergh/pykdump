@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <08/11/10 11:00:21 alexs>
+# Time-stamp: <09/05/06 11:02:18 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -325,9 +325,13 @@ def loadModule(modname, ofile = None, altname = None):
         return __loaded_Mods[modname]
     except KeyError:
         pass
-    
+
+    if (debug > 1):
+        print "Starting module search", modname
     if (ofile == None):
         for t in sys_info.debuginfo:
+            if (debug > 1):
+                print t
             # Some modules use different names in file object and lsmod, e.g.:
             # dm_mod -> dm-mod.ko
 	    for mn in (modname, modname.replace("_", "-")):
@@ -336,13 +340,17 @@ def loadModule(modname, ofile = None, altname = None):
 		   break
 	    if (ofile):
 		break
-        if (debug):
+        if (debug > 1):
             print "Loading", ofile
     if (ofile == None):
         return False
     # If we specify a non-loaded module, exec_crash_command does not return
+    if (debug > 1):
+        print "Checking for altname"
     if (not altname in lsModules()):
 	return False
+    if (debug > 1):
+        print "Trying to insert", altname, ofile
     rc = exec_crash_command("mod -s %s %s" % (altname, ofile))
     success = (rc.find("MODULE") != -1)
     __loaded_Mods[modname] = success
