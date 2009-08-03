@@ -150,16 +150,19 @@ def generic_decoder(sc, args):
     # Print args assuming that small ints are ints, big ones are
     # pointers. Finally, if we have it slightly below INTMASK, this
     # is a negative integer
-    def smartint(i):
-	if ( i <= INT_MASK and i > INT_MASK-1000):
+    def smartint(i, size):
+	if ((i <= INT_MASK and i > INT_MASK-1000)):
 	    return "%d" % (-(INT_MASK - i) - 1)
+	elif (i == LONG_MASK):
+	    return "-1"
 	else:
 	    return "%d" % i
     
     sargs = []
     for a, ti  in zip(args, prototype):
 	if (ti.ptrlev == None):
-	    darg = smartint(a)
+	    size = ti.size
+	    darg = smartint(a, size)
 	else:
 	    # A pointer
 	    ptrtype = ti.fullstr()[:-1]
@@ -276,6 +279,17 @@ def __decode_sys_rmdir(args):
     s = readmem(args[0], 256)
     print "\t rmdir(%s)" % s.split('\0')[0]
     
+def __decode_sys_unlink(args):
+    # The only arg is a file name
+    s = readmem(args[0], 256)
+    print "\t unlink(%s)" % s.split('\0')[0]    
+
+def __decode_sys_getxattr(args):
+    # (path, name, value, size)
+    path = readmem(args[0], 256)
+    name = readmem(args[1], 256)
+    print '\t getxattr("%s", "%s")' % (path.split('\0')[0], name.split('\0')[0])
+
 def __decode_sys_mount(args):
     # long sys_mount(char __user * dev_name, char __user * dir_name,
     #   	  char __user * type, unsigned long flags,
