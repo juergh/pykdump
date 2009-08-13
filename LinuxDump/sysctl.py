@@ -38,11 +38,17 @@ from pykdump.API import *
 #	{ root_table, LIST_HEAD_INIT(root_table_header.ctl_entry) };
 
 
+# Some kernels have two completely unrelated root_table variables,
+# both static. One for sysctl, another one for unwind.
 
-root_table = readSymbol("root_table")
+if (len(sym2alladdr("root_table")) == 1):
+    root_table = readSymbol("root_table")
+    stype = root_table[0].PYT_symbol
+else:
+    stype = "struct ctl_table"
+
 root_table_header = readSymbol("root_table_header")
 
-stype = root_table[0].PYT_symbol
 
 # We put all found entries in a dcitionary - indexed by entry names, e.g.
 # net.ipv6.conf.vmnet1.force_mld_version
@@ -54,7 +60,6 @@ __entries = {}
 def readCtlTable(root, parent = ''):
     #print "root=", root
     for ct in root:
-        #print ct
         if (long(ct) == 0 or ct.ctl_name == 0): break
         if (ct.child):
             # This is a pointer to another table
@@ -65,6 +70,8 @@ def readCtlTable(root, parent = ''):
         # and then disable some table elements by setting
         # procname to NULL, e.g.
         # t->neigh_vars[12].procname = NULL;
+        if (ct.procname[0] > chr(128)):
+            continue
         if (ct.procname != None):
             __entries[str(parent + ct.procname)] =  ct
 
