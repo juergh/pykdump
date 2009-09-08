@@ -267,9 +267,10 @@ def bt_summarize(btlist):
 re_pid = re.compile(r'^PID:\s+(\d+)\s+TASK:\s+([\da-f]+)\s+' +
                     'CPU:\s(\d+)\s+COMMAND:\s+"([^"]+)".*$')
 
-# Frame start can have one of three forms:
-#  #0 [c038ffa4] smp_call_function_interrupt at c0116c4a
+# Frame start can have one of four forms:
+# #0 [c038ffa4] smp_call_function_interrupt at c0116c4a
 # #7 [f2035f20] error_code (via page_fault) at c02d1ba9
+# #9 [103edef1f80] tracesys at ffffffff8011045a (via system_call)
 # (active)
 #
 # and there can be space in [] like  #0 [ c7bfe28] schedule at 21249c3
@@ -277,13 +278,93 @@ re_pid = re.compile(r'^PID:\s+(\d+)\s+TASK:\s+([\da-f]+)\s+' +
 # In IA64:
 #  #0 [BSP:e00000038dbb1458] netconsole_netdump at a000000000de7d40
 
-
-re_f1 = re.compile(r'\s*(?:#\d+)?\s+\[(?:BSP:)?([ \da-f]+)\]\s+(.+)\sat\s([\da-f]+)(\s+\*)?$')
+#                         frame                  faddr        func        addr  
+re_f1 = re.compile(r'\s*(?:#\d+)?\s+\[(?:BSP:)?([\da-f]+)\]\s+(.+)\sat\s([\da-f]+)(\s+\*)?$')
 # The 1st line of 'bt -t' stacks
 #       START: disk_dump at f8aa6d6e
 re_f1_t = re.compile(r'\s*(START:)\s+([\w.]+)\sat\s([\da-f]+)$')
 
 re_via = re.compile(r'(\S+)\s+\(via\s+([^)]+)\)$')
+
+
+@memoize_cond(CU_LIVE | CU_PYMOD)
+def old_exec_bt(crashcmd = None, text = None):
+    btslist = []
+    # Debugging
+    if (crashcmd != None):
+        # Execute a crash command...
+        text = memoize_cond(CU_LIVE)(exec_crash_command)(crashcmd)
+        #print "Got results from crash", crashcmd
+	if (not text):
+	    # Got timeout
+	    return btslist
+
+
+    # Split text into one-thread chunks
+    for s in text.split("\n\n"):
+        #print '-' * 50
+        #print s
+        # The first line is PID-line, after that we have frames-list
+        lines = s.splitlines()
+        pidline = lines[0]
+        #print pidline
+        m = re_pid.match(pidline)
+	if (not m):
+	    continue
+        pid = int(m.group(1))
+        addr = int(m.group(2), 16)
+        cpu = int(m.group(3))
+        cmd = m.group(4)
+
+        bts = BTStack()
+        bts.pid = pid
+        bts.cmd = cmd
+	bts.addr = addr
+	bts.cpu = cpu
+        bts.frames = []
+
+        #print "%d 0x%x %d <%s>" % (pid, addr, cpu, cmd)
+        f = None
+        level = 0
+        for fl in lines[1:]:
+            m = re_f1.match(fl)
+            #print '--', fl, m
+            if (not m):
+                m = re_f1_t.match(fl)
+            if (m):
+                f = BTFrame()
+                f.level = level
+                level += 1
+                f.func = m.group(2)
+		# For 'bt -at' we can have START instead of frameaddr
+		try:
+		    f.frame = int(m.group(1), 16)
+		except ValueError:
+		    f.frame = None
+                viam = re_via.match(f.func)
+                if (viam):
+                    f.via = viam.group(2)
+                    f.func = viam.group(1)
+                else:
+                    f.via = ''
+                # If we have a pattern like 'error_code (via page_fault)'
+                # it makes more sense to use 'via' func as a name
+                f.addr = int(m.group(3), 16)
+                if (crashcmd):
+                    # Real dump environment
+                    f.offset = f.addr - sym2addr(f.func)
+                else:
+                    f.offset = -1       # Debugging
+                f.data = []
+                bts.frames.append(f)
+            elif (f != None):
+                f.data.append(fl)
+
+        btslist.append(bts)
+    return btslist
+
+# Regex to remove (via funcname)
+re_rmvia = re.compile(r'\s*\(via\s+([^)]+)\)')
 
 @memoize_cond(CU_LIVE | CU_PYMOD)
 def exec_bt(crashcmd = None, text = None):
@@ -325,10 +406,17 @@ def exec_bt(crashcmd = None, text = None):
         f = None
         level = 0
         for fl in lines[1:]:
-            m = re_f1.match(fl)
-            #print '--', fl
-            if (not m):
-                m = re_f1_t.match(fl)
+	    # Before doing anything else, remove (via funcname) and remember it
+	    m = re_rmvia.search(fl)
+	    if (m):
+		fls = re_rmvia.sub('', fl)
+		viafunc = m.group(1)
+	    else:
+		viafunc = ''
+		fls = fl
+            m = (re_f1.match(fls) or re_f1_t.match(fls))
+            #print '-- <%s>' % fls, m, viafunc
+
             if (m):
                 f = BTFrame()
                 f.level = level
@@ -339,12 +427,9 @@ def exec_bt(crashcmd = None, text = None):
 		    f.frame = int(m.group(1), 16)
 		except ValueError:
 		    f.frame = None
-                viam = re_via.match(f.func)
-                if (viam):
-                    f.via = viam.group(2)
-                    f.func = viam.group(1)
-                else:
-                    f.via = ''
+		
+		f.via = viafunc
+
                 # If we have a pattern like 'error_code (via page_fault)'
                 # it makes more sense to use 'via' func as a name
                 f.addr = int(m.group(3), 16)

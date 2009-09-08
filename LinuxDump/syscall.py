@@ -25,7 +25,22 @@ def get_SysCallTable():
 	out.append(addr2sym(ptr))
     return out
 
+# 32-bit calls on x86_64
+def get_SysCallTable32():
+# Get syscall table names
+    #define IA32_NR_syscalls		285
+    sys_call_table = sym2addr("ia32_sys_call_table")
+    psz = sys_info.pointersize
+    out = []
+    for i in range(285):
+	ptr = readPtr(sys_call_table + i * pointersize)
+	out.append(addr2sym(ptr))
+    return out
+
 sct = get_SysCallTable()
+
+if (symbol_exists("ia32_sys_call_table")):
+    sct32 = get_SysCallTable32()
 
 
 def __getRegs(data):
@@ -68,7 +83,7 @@ def getSyscallArgs_x86(stack):
     regs = __getRegs(lastf.data)
     nscall = regs["EAX"]
     #print args
-    return (nscall, args)
+    return (sct, nscall, args)
     
     
 # * Register setup:	
@@ -84,22 +99,27 @@ def getSyscallArgs_x86(stack):
 def getSyscallArgs_x8664(stack):
     # Check whether the last frame is 'system_call'
     lastf = stack.frames[-1]
+    print lastf
     if (not lastf.func in ('system_call', 'sysenter_entry',
-                           'system_call_fastpath')):
-	raise IndexError, "this is not a system_call stack!"
+                           'system_call_fastpath', 'tracesys')):
+	# This is not a 64-bit system call. Let us see whether this is 
+	# a 32-bit call on the 64-bit kernel
+	return getSyscall32Args_x8664(stack)
     regs = __getRegs(lastf.data)
     #print regs
     # arg0-arg5
     args = [regs["RDI"], regs["RSI"], regs["RDX"], 
         regs["R10"], regs["R8"], regs["R9"]]
     nscall = regs["RAX"]
-    return (nscall, args)
+    if (nscall > 1000 and regs.has_key("ORIG_RAX")):
+	nscall = regs["ORIG_RAX"]
+    return (sct, nscall, args)
 
 # A special case: 32-bit call on a 64-bit x86_64
 def getSyscall32Args_x8664(stack):
     # Check whether the last frame is 'system_call'
     lastf = stack.frames[-1]
-    if (not lastf.func in ('sysenter_dispatch')):
+    if (not lastf.func in ('sysenter_dispatch', 'sysenter_do_call')):
 	raise IndexError, "this is not a system_call stack!"
     regs = __getRegs(lastf.data)
     #print regs
@@ -107,7 +127,9 @@ def getSyscall32Args_x8664(stack):
     args = [regs["RSI"], regs["RDX"], 
             regs["R10"], regs["R8"], regs["R9"]]
     nscall = regs["RAX"]
-    return (nscall, args)
+    if (nscall > 1000 and regs.has_key("ORIG_RAX")):
+	nscall = regs["ORIG_RAX"]
+    return (sct32, nscall, args)
 
 # On IA64 syscall number + 1024 is in R15, args start from BSP
 def getSyscallArgs_ia64(stack):
@@ -129,7 +151,7 @@ def getSyscallArgs_ia64(stack):
         "Cannot read stack on ia64 - have you loaded crash-driver?"
         return (-1, [])
     args = crash.mem2long(mem, array=6)
-    return (nscall, args)
+    return (sct, nscall, args)
     
 __mach = sys_info.machine
 
@@ -184,7 +206,7 @@ def decode_Stacks(stacks):
 	#print hexl(stack.addr)
 	print "    ....... Decoding Syscall Args ......."
 	try:
-	   nscall, args = getSyscallArgs(stack)
+	   sct, nscall, args = getSyscallArgs(stack)
 	except IndexError, val:
 	    print val
 	    continue
@@ -279,6 +301,15 @@ def __decode_sys_rmdir(args):
     s = readmem(args[0], 256)
     print "\t rmdir(%s)" % s.split('\0')[0]
     
+def __decode_sys_open(args):
+    # The 1st argh is a filename
+    print hexl(args[0])
+    s = readmem(args[0], 256)
+    print "\t open(%s)" % s.split('\0')[0]
+
+def __decode_sys32_open(args):
+    __decode_sys_open(args)
+
 def __decode_sys_unlink(args):
     # The only arg is a file name
     s = readmem(args[0], 256)
