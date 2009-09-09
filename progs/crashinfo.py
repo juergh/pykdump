@@ -919,6 +919,43 @@ def user_space_memory_report():
             pmem_tot += pmem
     print "RSS_TOTAL=%d pages, %%mem=%7.1f" % (rss_tot, pmem_tot)
 
+# Check for long (>nmin) chains of processes. E.g. custom script is looping and
+# spawns more and more processes recursively
+def longChainOfPids(tt, nmin):
+    # Convert to tree structure, ignore pid=0
+    # Each element is (ppid, [children]) tuple
+    ptree = {}
+    
+    for t in tt.allThreads():
+	pid = t.pid
+	if (pid == 0):
+	    continue
+	ppid = t.parent.pid
+	if (not ptree.has_key(pid)):
+	    ptree[pid] = (ppid, [])
+    
+	ptree.setdefault(ppid, (t.parent.parent.pid, []))[1].append(pid)
+    
+
+    for pid, l in ptree.items():
+	ppid, children = l
+	if (not children):
+	    # Check distance from the top
+	    dist = 0
+	    #print pid
+	    chain = [pid]
+	    while (ppid != 1):
+		dist += 1
+		ppid = ptree[ppid][0]
+		if (dist < 10):
+		    chain.insert(0, ppid)
+		#print "\t", ppid
+	    if (dist > nmin):
+		print WARNING, "a long chain of processes, N=%d, last pid=%d" % (dist, pid)
+		print "  Last 10 Processes in this chain"
+		for i, pid in enumerate(chain):
+		    comm = tt.getByPid(pid).comm
+		    print '  ', '  ' * i, pid, comm
 # ----------------------------------------------------------------------------
 
 op =  OptionParser()
@@ -1104,6 +1141,7 @@ else:
 print_basics()
 dump_reason(dmesg)
 check_loadavg()
+longChainOfPids(get_tt(), 20)
 if (not quiet):
     printHeader("Tasks Summary")
     threadcount = tasksSummary()
