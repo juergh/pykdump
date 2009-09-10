@@ -419,6 +419,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
 
     if (scriptfp) {
       PyRun_SimpleFile(scriptfp, argv[0]);
+      fclose(scriptfp);
     
     } else {
       /* Try to load code from ZIP */
