@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <09/03/12 15:01:54 alexs>
+# Time-stamp: <09/09/24 11:48:15 alexs>
 
 # High-level API built on top of C-module
 # There are several layers of API. Ideally, the end-users should only call
@@ -346,7 +346,12 @@ class StructResult(long):
         try:
             fi = self.PYT_sinfo[name]
         except KeyError:
-            # This is ugly - but I have not found a better way yet
+            # Due to Python 'private' class variables mangling,
+            # if we use a.__var inside 'class AAA', it will be
+            # converted to a._AAA__var. This creates prob;ems for
+            # emulating C to access attributes.
+            # The approach I use below is ugly - but I have not found
+            # a better way yet
             ind = name.find('__')
             if (ind > 0):
                 name = name[ind:]
