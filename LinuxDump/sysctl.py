@@ -44,6 +44,7 @@ from pykdump.API import *
 if (len(sym2alladdr("root_table")) == 1):
     root_table = readSymbol("root_table")
     stype = root_table[0].PYT_symbol
+    # Sometimes stype is returned as 'ctl_table', not 'struct ctl_table'
 else:
     stype = "struct ctl_table"
 
@@ -70,7 +71,7 @@ def readCtlTable(root, parent = ''):
         # and then disable some table elements by setting
         # procname to NULL, e.g.
         # t->neigh_vars[12].procname = NULL;
-        if (ct.procname[0] > chr(128)):
+        if (ct.procname and ct.procname[0] > chr(128)):
             continue
         if (ct.procname != None):
             __entries[str(parent + ct.procname)] =  ct
