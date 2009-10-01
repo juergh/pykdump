@@ -315,6 +315,16 @@ def __decode_sys_unlink(args):
     s = readmem(args[0], 256)
     print "\t unlink(%s)" % s.split('\0')[0]    
 
+def __decode_sys_newstat(args):
+    # sys_newstat(char __user * filename, struct stat __user * statbuf)
+    s = readmem(args[0], 256)
+    print '\t newstat("%s")' % s.split('\0')[0]    
+
+def __decode_sys_newlstat(args):
+    # sys_newstat(char __user * filename, struct stat __user * statbuf)
+    s = readmem(args[0], 256)
+    print '\t newlstat("%s")' % s.split('\0')[0]    
+
 def __decode_sys_getxattr(args):
     # (path, name, value, size)
     path = readmem(args[0], 256)

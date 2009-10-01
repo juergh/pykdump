@@ -97,6 +97,11 @@ class MemoizeSU(type):
             rc =  super(MemoizeSU, cls).__call__(*args)
             MemoizeSU.__cache[sname] = rc
             return rc
+    @staticmethod
+    def purgecache():
+	MemoizeSU.__cache.clear()
+	print "SU Cache purged, len=", len(MemoizeSU.__cache)
+ 
 
 
 

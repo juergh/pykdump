@@ -258,7 +258,7 @@ def format_sockaddr_in(sin):
     if (family == P_FAMILIES.PF_INET):
         return "%s:%d" % (ntodots(addr.s_addr), port)
     else:
-        raise TypeError, "family=%d o=%s" % (family, str(o))
+        raise TypeError, "family=%d o=%s" % (family, str(sin))
         
 
 

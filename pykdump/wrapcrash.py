@@ -370,7 +370,8 @@ class StructResult(long):
         return "StructResult <%s 0x%x> \tsize=%d" % \
                (self.PYT_symbol, long(self), self.PYT_size)
     # Print all fields (without diving into structs/unions)
-    def Dump(self):
+    def Dump(self, indent = 0):
+	sindent = ' ' * indent
 	for fn in self.PYT_sinfo.PYT_body:
 	    # For big arrays, print just 4 first elements
 	    fi = self.PYT_sinfo[fn]
@@ -378,7 +379,7 @@ class StructResult(long):
 	    val = self.__getattr__(fn)
 	    if (not isinstance(val, SmartString) and elements > 3):
 	       val = str(val[:4])[:-1] + ", ..."
-	    print "    %18s " % fn, val
+	    print sindent, "    %18s " % fn, val
 	
 	
     
@@ -1246,7 +1247,7 @@ def struct_size(sname):
     return sz
 
 def invalidate_cache_info(sname = None):
-    if (sname and __struct_size_cache.has_key):
+    if (sname and __struct_size_cache.has_key(sname)):
 	del __struct_size_cache[sname]
     else:
 	__struct_size_cache.clear()
