@@ -474,7 +474,7 @@ HZ = sys_info.HZ
 # Check whether we are using jiffies or tsc for sched_clock.
 # Recent kernels use struct rq with most_recent_timestamp field
 # Older 2.6 kernels do not have it, but those using TSC define __vxtime
-if (symbol_exists("sched_clock") or symbol_exists("__vxtime")):
+if (symbol_exists("sched_clock")):
     if (debug):
         print "Using sched_clock"
     # last_ran is in ns, derived from TSC
