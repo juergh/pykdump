@@ -1,11 +1,12 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 #
 # First-pass dumpanalysis
 #
 # Time-stamp: <09/05/01 10:58:14 alexs>
 
-# Copyright (C) 2007-2008 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2007-2008 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2007-2009 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2007-2009 Hewlett-Packard Co., All rights reserved.
 
 # 1st-pass dumpanalysis
 
@@ -142,7 +143,11 @@ def check_mem():
 
     # Checking for fragmentation (mostly useful on 32-bit systems)
     # In some patological cases this can be _very_ slow
-    kmemf = exec_crash_command("kmem -f")
+    try:
+	kmemf = exec_crash_command("kmem -f")
+    except crash.error:
+	kmemf = None
+	print WARNING, "Cannot Execute kmem -f"
     if (kmemf):
 	node = parse_kmemf(kmemf)
 	if (len(node) < 2):
@@ -501,7 +506,18 @@ def print_RT_runqueue(rq):
         print prn.getvalue(),
     prn.close()
     return RT_count
- 
+
+# Decode cpus_allowed
+from crash import  mem2long
+def decode_cpus_allowed(cpus_allowed):
+    bits = cpus_allowed.mask[0]
+    out = []
+    for i in range(sys_info.CPUS):
+	if ((bits >> i) & 1):
+	    out.append(i)
+    return out
+	
+
 def check_runqueues():
     if (not quiet):
         printHeader("Scheduler Runqueues (per CPU)")
@@ -512,7 +528,9 @@ def check_runqueues():
     RT_hang = True
     for cpu, rq in enumerate(getRunQueues()):
 	RT_count = 0
-        print "--", rq, "CPU=%d" % cpu
+        print "  ---+ CPU=%d %s ----" % (cpu, str(rq))
+	print "     | CURRENT TASK %s, CMD=%s" % \
+	       (rq.curr, rq.curr.comm)
         if (CFS):
             print_CFS_runqueue(rq)
             RT_count = print_RT_runqueue(rq)
@@ -520,10 +538,9 @@ def check_runqueues():
             # Old scheduler
             # Print Active
             active = rq.Active
-            if (not quiet):
-               print ' ---- CPU#%d ---  %s' % (cpu, str(rq))
             #print active
             #print active.queue
+	    timestamp_last_tick = rq.timestamp_last_tick
             for i, pq in enumerate(active.queue):
                 #print hexl(Addr(pq))
 		(talist, errmsg) = readBadList(Addr(pq), inchead = False)
@@ -545,6 +562,11 @@ def check_runqueues():
                     if (verbose):
                         print "\tTASK_STRUCT=0x%x  policy=%d CMD=%s PID=%s"\
                               %(ta, ts.policy, ts.comm, ts.pid)
+		    if (verbose > 1):
+			print "\t\t (Timestamp - rq.timestamp_last_tick)=%4.2f s" %\
+			      ((ts.timestamp - timestamp_last_tick)*1.e-9)
+			print "\t\t  CPUs allowed", ts.cpus_allowed, \
+			     decode_cpus_allowed(ts.cpus_allowed)
 	if (RT_count == 0):
 	    RT_hang = False
 	else:

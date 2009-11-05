@@ -1303,7 +1303,7 @@ initcrash(const char *crash_version) {
   PyModule_AddObject(m, "UVADDR", PyInt_FromLong(UVADDR));
   PyModule_AddObject(m, "PHYSADDR", PyInt_FromLong(PHYSADDR));
   PyModule_AddObject(m, "XENMACHADDR", PyInt_FromLong(XENMACHADDR));
-  PyModule_AddObject(m, "FILEADDR", PyInt_FromLong(FILEADDR));
+  //PyModule_AddObject(m, "FILEADDR", PyInt_FromLong(FILEADDR));
   PyModule_AddObject(m, "AMBIGUOUS", PyInt_FromLong(AMBIGUOUS));
 
   PyModule_AddObject(m, "PAGESIZE", PyInt_FromLong(PAGESIZE()));

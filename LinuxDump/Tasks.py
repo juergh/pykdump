@@ -1,12 +1,9 @@
 #!/usr/bin/env python
-# -*- coding: latin-1 -*-
-# Time-stamp: <08/03/17 12:24:33 alexs>
+# -*- coding: utf-8 -*-
 # module LinuxDump.Tasks
 #
-# Time-stamp: <08/03/05 15:51:52 alexs>
-#
-# Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2006-2009 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2006-2009 Hewlett-Packard Co., All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -329,9 +326,6 @@ class TaskTable:
 #        return (cyc * cyc2ns_scale) >> CYC2NS_SCALE_FACTOR;
 #}
 
-def cycles_2_ns(cyc):
-    cyc2ns_scale = readSymbol("cyc2ns_scale")
-    return (cyc * cyc2ns_scale) >> 10
 
 TASK_STATE_c_26 = '''
 #define TASK_RUNNING		0
@@ -441,8 +435,6 @@ def get_uptime():
 # the last value saved recently). We convert it to milliseconds
 
 def tsc_clock_base():
-    #vx = readSymbol("__vxtime")
-    #return cycles_2_ns(vx.last_tsc)/1000000
     recent = 0
     for cpu in range(sys_info.CPUS):
 	rq = readSU(rqtype, sys_info.runqueues_addrs[cpu])
@@ -482,19 +474,12 @@ HZ = sys_info.HZ
 # Check whether we are using jiffies or tsc for sched_clock.
 # Recent kernels use struct rq with most_recent_timestamp field
 # Older 2.6 kernels do not have it, but those using TSC define __vxtime
-if (struct_exists("struct rq") or symbol_exists("__vxtime")):
+if (symbol_exists("sched_clock") or symbol_exists("__vxtime")):
     if (debug):
-        print "Using TSC for sched_clock"
+        print "Using sched_clock"
     # last_ran is in ns, derived from TSC
-    try:
-	cyc2ns_scale = readSymbol("cyc2ns_scale")
-	get_schedclockbase = tsc_clock_base
-	sched_clock2ms = sched_clock2ms_26_tsc
-    except TypeError:
-	# AMD64 2.4 kernels
-	get_schedclockbase = jiffie_clock_base
-	sched_clock2ms = sched_clock2ms_24
-	pass
+    get_schedclockbase = tsc_clock_base
+    sched_clock2ms = sched_clock2ms_26_tsc
 else:
     # last_ran is in ticks, derived from jiffies
     if (debug):
