@@ -519,6 +519,8 @@ def decode_cpus_allowed(cpus_allowed):
 	
 
 def check_runqueues():
+    if (sys_info.kernel < "2.6.0"):
+	return
     if (not quiet):
         printHeader("Scheduler Runqueues (per CPU)")
     rloffset = member_offset("struct task_struct", "run_list")
@@ -947,7 +949,6 @@ def longChainOfPids(tt, nmin):
     # Convert to tree structure, ignore pid=0
     # Each element is (ppid, [children]) tuple
     ptree = {}
-    
     for t in tt.allThreads():
 	pid = t.pid
 	if (pid == 0):
@@ -958,7 +959,6 @@ def longChainOfPids(tt, nmin):
     
 	ptree.setdefault(ppid, (t.parent.parent.pid, []))[1].append(pid)
     
-
     for pid, l in ptree.items():
 	ppid, children = l
 	if (not children):
@@ -966,7 +966,7 @@ def longChainOfPids(tt, nmin):
 	    dist = 0
 	    #print pid
 	    chain = [pid]
-	    while (ppid != 1):
+	    while (ppid > 1):
 		dist += 1
 		ppid = ptree[ppid][0]
 		if (dist < 10):
