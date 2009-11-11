@@ -1,6 +1,6 @@
 
 # module LinuxDump.inet.proto
-# Time-stamp: <08/12/10 15:37:19 alexs>
+# Time-stamp: <09/11/11 14:50:15 alexs>
 
 #
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
@@ -35,6 +35,7 @@ from LinuxDump.inet import *
 # socket. Returns a list of 'struct sock' addresses
 
 skc_node_off = -1
+skc_nulls_node_off = -1
 sock_V1 = (struct_size("struct sock_common") == -1)
 
 debug = API_options.debug
@@ -53,6 +54,49 @@ def sk_for_each(head):
     return [a - skc_node_off for a in addrs]
 
 
+# >= 2.6.29 uses list_nulls, see include/linux/list_nulls.h in kernel  sources
+#
+# struct hlist_nulls_head {
+#     struct hlist_nulls_node *first;
+# }
+# struct hlist_nulls_node {
+#     struct hlist_nulls_node *next;
+#     struct hlist_nulls_node **pprev;
+# }
+
+# struct sock_common {
+#     union {
+#         struct hlist_node skc_node;
+#         struct hlist_nulls_node skc_nulls_node;
+#     };
+
+# head is the object from hashbucket, e.g.
+#
+# struct inet_listen_hashbucket {
+#     spinlock_t lock;
+#     struct hlist_nulls_head head;
+# }
+
+def sk_nulls_for_each(first):
+    global skc_nulls_node_off
+    if (skc_nulls_node_off == -1):
+        sock_info = getStructInfo("struct sock")        
+        sock_common_info = getStructInfo("struct sock_common")
+        skc_nulls_node_off = sock_info["__sk_common"].offset + \
+                       sock_common_info["skc_nulls_node"].offset
+
+    ptr = first
+    addrs = []
+    while (True):
+        if (ptr & 1):
+            break
+        addrs.append(ptr)
+        ptr = readPtr(ptr)
+    # Now recompute addrs to point to 'struct sock' where head_list is embedded
+    return [a - skc_nulls_node_off for a in addrs]
+
+# For older kernels, INET uses non-nulls version
+inet_sk_for_each = sk_for_each
 
 # Addresses/ports for AF_INET and AF_INET6
 
@@ -395,6 +439,10 @@ def init_INET_Stuff():
         Kernel24 = False
     eb_info = getStructInfo(ehash_btype)
     eb_size = eb_info.size
+
+    global inet_sk_for_each
+    if (eb_info["chain"].ti.stype == "struct hlist_nulls_head"):
+        inet_sk_for_each = sk_nulls_for_each
     
     chain_off = eb_info["chain"].offset
     chain_sz = eb_info["chain"].size
@@ -497,6 +545,10 @@ def init_PseudoAttrs():
     structSetAttr(sn, "uopt", ["udp", ""], extra)
 
 
+    # inet_listen_hashbucket
+    sn = "struct inet_listen_hashbucket"
+    structSetAttr(sn, "first", ["head.first"])
+    
     # TIME_WAIT sockets
 
     # old-style
@@ -623,7 +675,7 @@ def get_TCP_LISTEN():
             # hlist_head
             first = b.first
             if (first):
-                for a in  sk_for_each(first):
+                for a in  inet_sk_for_each(first):
                     s = readSU("struct tcp_sock", a)
                     yield s
  
@@ -643,7 +695,7 @@ def get_TCP_ESTABLISHED():
     else:
         # 2.6
         for b in getFullBuckets(t.ehash_addr, t.eb_size, t.ehash_size, t.chain_off):
-            for a in sk_for_each(b):
+            for a in inet_sk_for_each(b):
                 s = readSU("struct tcp_sock", a)
                 yield s
 
@@ -671,7 +723,7 @@ def get_TCP_TIMEWAIT():
             ehash_tw = long(t.ehash_addr) + t.eb_size * t.ehash_size
             chain_off = t.chain_off
         for b in getFullBuckets(ehash_tw, t.eb_size, t.ehash_size, chain_off):
-            for a in sk_for_each(b):
+            for a in inet_sk_for_each(b):
                 tw = readSU(t.tw_type, a)
                 yield tw
 
@@ -690,10 +742,15 @@ def get_UDP():
 	
     else:
 	# 2.6
-	for s in readSymbol("udp_hash"):
-	    first = s.first
+        try:
+            udphash =  readSymbol("udp_hash")
+        except TypeError:
+            udphash =  readSymbol("udp_table").hash
+        for s in udphash:
+	    #first = s.first
+            first = s.head.first
 	    if (first):
-		for a in  sk_for_each(first):
+		for a in  inet_sk_for_each(first):
 		    s = readSU("struct udp_sock", a)
 		    yield s
 

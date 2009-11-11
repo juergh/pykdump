@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <09/09/24 11:48:15 alexs>
+# Time-stamp: <09/11/11 13:58:39 alexs>
 
 # High-level API built on top of C-module
 # There are several layers of API. Ideally, the end-users should only call
@@ -259,8 +259,12 @@ def parseDerefString(sname, teststring):
             isptr= False
             if (codetype == 1):
                 # Pointer
-                tti = ti.getTargetType()
-                tcodetype = ti.getTargetCodeType()
+                if (ti.stype == "(func)"):
+                    tcodetype = -1      # Bogus
+                    isptr = True
+                else:
+                    tti = ti.getTargetType()
+                    tcodetype = ti.getTargetCodeType()
                 if (debug):
                     print "    pointer:",
                 if (tcodetype in (3,4)):
@@ -726,7 +730,7 @@ class tPtr(long):
         #self.ptrlev = vi.ptrlev
     # For pointers, index access is equivalent to pointer arithmetic
     def __getitem__(self, i):
-        sz1 = self.vi.ti.size
+        #sz1 = self.vi.ti.size
         return self.getArrDeref(i)
     def getArrDeref(self, i):
         addr = long(self)
@@ -736,8 +740,9 @@ class tPtr(long):
             raise IndexError, msg
 
         if (ptrlev == 1):
+            dereferencer = self.vi.dereferencer # sets vi.tsize as well
             addr += i * self.vi.tsize
-            return  self.vi.dereferencer(addr)
+            return  dereferencer(addr)
         elif (ptrlev == 2 and self.vi.ti.tcodetype in (3,4)):
             addr += i * self.vi.ti.size
             return self.vi.dereferencer(readPtr(addr))

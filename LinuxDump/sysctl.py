@@ -1,6 +1,6 @@
 # module LinuxDump.sysctl
 #
-# Time-stamp: <07/10/11 13:52:56 alexs>
+# Time-stamp: <09/11/11 16:35:07 alexs>
 #
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -82,6 +82,11 @@ def getCtlTables():
     for ct in readSUListFromHead("root_table_header", "ctl_entry",
                                  "struct ctl_table_header", inchead=True):
         ctp = ct.ctl_table
+        # On new kernels we can exit because root is null
+        try:
+            if (not ct.root): break
+        except KeyError:
+            pass
         #print ct, hexl(ctp), ct.Deref.ctl_table.procname
         ctl_table = readSUArray(stype, ctp)
         #print '-' * 70

@@ -3,7 +3,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <09/05/01 10:58:14 alexs>
+# Time-stamp: <09/11/11 15:11:16 alexs>
 
 # Copyright (C) 2007-2009 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007-2009 Hewlett-Packard Co., All rights reserved.
@@ -804,6 +804,13 @@ def decode_request(rq):
             return
 	cmd_flags = rq.cmd_flags
 	ref_count = rq.ref_count
+
+        # On recent kernels in_flight is an array with two elements,
+        # one counter for sync and another one for non-sync
+        try:
+            in_flight = in_flight[0] + in_flight[1]
+        except TypeError:
+            pass
 	out.append("in_flight=%d, cmd_flags=0x%x, ref_count=%d" %\
 	   (in_flight, cmd_flags, ref_count))
     except KeyError:
@@ -1183,6 +1190,7 @@ print_gendisk(0)
 
 check_UNINTERRUPTIBLE()
 check_auditf()
+
 try:
     check_runqueues()
 except crash.error:

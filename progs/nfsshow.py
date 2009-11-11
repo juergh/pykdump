@@ -530,12 +530,24 @@ def new_print_nlm_files():
 def print_nlm_files():
     nlm_files = readSymbol("nlm_files")
     print "  -- Files NLM locks for clients ----"
-    for e in nlm_files:
-	if (not e):
-	    continue
-	# Deref the pointer
-        e = Deref(e)	
-
+    def get_all_nlm_files():
+        try:
+            #print "New style"
+            for h in nlm_files:
+                if (h.first == 0):
+                    continue
+                #print h
+                for e in hlist_for_each_entry("struct nlm_file", h, "f_list"):
+                    yield e
+        except KeyError:
+            for e in nlm_files:
+                if (not e):
+                    continue
+                # Deref the pointer
+                e = Deref(e)
+                yield e
+           
+    for e in get_all_nlm_files():
 	f_file = e.f_file
 	f_path = f_file.f_path
 	print "    File:", get_pathname(f_path.dentry, f_path.mnt), \
@@ -604,7 +616,6 @@ def print_nfsmount():
     print "  .... Stats for program ", rpc_prog.name
     cl_stats.Dump()
 
-
 init_Structures()
 
 # There are two nlm_blocked lists: the 1st one declared in clntlock.c,
@@ -659,7 +670,7 @@ def host_as_server():
     print_nlm_files()
 
     # Time in seconds - show only the recent ones
-    new_enough = 10
+    new_enough = 10 * HZ
     lru_head = sym2addr("lru_head")
     rpc_list = []
     if (lru_head):
@@ -667,18 +678,18 @@ def host_as_server():
         jiffies = readSymbol("jiffies")
         offset = member_offset(sn, "c_hash")
         for e in ListHead(lru_head, sn).c_lru:
-            #print e
             #print e, ntodots(e.c_addr.sin_addr.s_addr), e.c_timestamp, e.c_state
 	    if (e.c_state == 0):       # RC_UNUSED
 		continue
             hnode = e.c_hash
+
             for he in readList(hnode, 0):
                 hc = readSU(sn, he-offset)
                 secago = (jiffies-hc.c_timestamp)/HZ
                 if (secago > new_enough):
                     continue
                 rpc_list.append((secago, hc))
-                
+
         if (rpc_list):
             rpc_list.sort()
             print "  -- Recent RPC Reply-cache Entries (most recent first)"

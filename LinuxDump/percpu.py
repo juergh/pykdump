@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <08/12/10 14:39:40 alexs>
+# Time-stamp: <09/11/11 12:21:16 alexs>
 
 # Per-cpu functions
 
@@ -49,6 +49,23 @@ def __percpu_disguise(pdata):
 # 	void *ptrs[1];
 # };
 
+# On 2.6.31 we can configure CONFIG_HAVE_DYNAMIC_PER_CPU_AREA
+
+#extern unsigned long __per_cpu_offset[NR_CPUS];
+#define per_cpu_offset(x) (__per_cpu_offset[x])
+#define per_cpu_ptr(ptr, cpu)	SHIFT_PERCPU_PTR((ptr), per_cpu_offset((cpu)))
+#define SHIFT_PERCPU_PTR(__p, __offset)	RELOC_HIDE((__p), (__offset))
+
+
+def get_percpu_ptr_26_dynamic(ptr, cpu):
+    addr = long(ptr) + per_cpu_offsets[cpu]
+    if (isinstance(ptr, pykdump.wrapcrash.StructResult)):
+        optr = readSU(ptr.PYT_symbol, addr)
+    else:
+        optr = tPtr(addr, ptr.ptype)
+    return optr
+
+
 
 # Until we unify tPtr and StructResult
 
@@ -62,6 +79,7 @@ def get_percpu_ptr_26(ptr, cpu):
     else:
         optr = tPtr(dp.ptrs[cpu], ptr.ptype)
     return optr
+
 
 def percpu_counter_sum(fbc):
     count = fbc.count
@@ -112,7 +130,11 @@ if (symbol_exists("per_cpu__runqueues")):
     else:
         per_cpu_offsets = [0]
     get_cpu_var = get_cpu_var_26
-    percpu_ptr = get_percpu_ptr_26
+    if (struct_exists("struct percpu_data")):
+        percpu_ptr = get_percpu_ptr_26
+    else:
+        percpu_ptr = get_percpu_ptr_26_dynamic
+    
 else:
     get_cpu_var = get_cpu_var_24
     percpu_ptr = None

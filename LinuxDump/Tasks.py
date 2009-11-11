@@ -75,15 +75,6 @@ class Task:
     # We use the same algorithm as 'crash' does
     def __get_last_ran(self):
         return sched_clock2ms(self.ts._Last_ran)
-        ts = self.ts
-        if (ts.hasField('last_run')):
-            return sched_clock2ms(ts.last_run)
-	elif (ts.hasField('timestamp')):
-	    return sched_clock2ms(ts.timestamp)
-        elif (ts.hasField('last_ran')):
-            return sched_clock2ms(ts.last_ran)
-        else:
-            return None
     Last_ran = property(__get_last_ran)
 
     # -- Get CPU --
@@ -438,6 +429,7 @@ def tsc_clock_base():
     recent = 0
     for cpu in range(sys_info.CPUS):
 	rq = readSU(rqtype, sys_info.runqueues_addrs[cpu])
+        #print rq, rq.Timestamp
 	if (rq.Timestamp > recent):
 	    recent = rq.Timestamp
 #     try:
@@ -498,7 +490,7 @@ sys_info.runqueues_addrs = runqueues_addrs
 rqtype = percpu.get_cpu_var_type('runqueues')
 structSetAttr(rqtype, "Timestamp",
               ["timestamp_last_tick", "most_recent_timestamp",
-               "tick_timestamp"])
+               "tick_timestamp", "clock"])
 structSetAttr(rqtype, "Active", ["active", "dflt_lrq.active"])
 
 # Print tasks summary and return the total number of threads

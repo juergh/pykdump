@@ -1,7 +1,7 @@
 #
 #  Code that does not depend on whether we use embedded API or PTY
 #
-# Time-stamp: <09/03/12 14:51:06 alexs>
+# Time-stamp: <09/11/11 14:00:29 alexs>
 #
 import string
 import pprint
@@ -360,6 +360,22 @@ class SUInfo(dict):
     def append(self, name, value):
         self.PYT_body.append(name)
         self[name] = value
+        # A special case: empty name. We can meet this while
+        # adding internal union w/o fname, e.g.
+        # union {int a; char *b;}
+        if (not name):
+            #print "name <%s>, value <%s>" % (name, str(value))
+            ti = value.ti
+            if (ti.codetype == 4):      # Union
+                usi = SUInfo(ti.stype)
+                #print ti.stype, usi
+                for fn in usi.PYT_body:
+                    #print "Adding", fn, usi[fn].ti
+                    vi = VarInfo(fn)
+                    vi.ti = usi[fn].ti
+                    vi.addr = 0
+                    vi.offset = value.offset
+                    self[fn] = vi
         
     def fullstr(self, indent = 0):
         inds = ' ' * indent

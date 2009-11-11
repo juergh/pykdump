@@ -1,6 +1,6 @@
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <09/05/06 10:55:11 alexs>
+# Time-stamp: <09/11/11 14:02:00 alexs>
 #
 # Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
@@ -202,6 +202,7 @@ NETIF_FEATURES = CDefine(__NETIF_FEATURES_c)
 
 # Convert hwaddr (a list of bytes) to string
 def hwaddr2str(ha, l):
+    #print repr(ha), type(ha), ha.vi
     out = []
     for i in range(l):
         out.append("%02x" % ha[i])
@@ -599,6 +600,36 @@ except TypeError:
 prio2band = readSymbol("prio2band")
 
 HZ = float(sys_info.HZ)
+
+sn = "struct net_device"
+structSetAttr(sn, "open", ["open", "netdev_ops.ndo_open"])
+structSetAttr(sn, "get_stats", ["open", "netdev_ops.ndo_get_stats"])
+
+# /**
+#  *	netdev_priv - access network device private data
+#  *	@dev: network device
+#  *
+#  * Get network device private data
+#  */
+# static inline void *netdev_priv(const struct net_device *dev)
+# {
+# 	return (char *)dev + ALIGN(sizeof(struct net_device), NETDEV_ALIGN);
+# }
+#define	NETDEV_ALIGN		32
+
+NETDEV_ALIGN = 32
+# Programmatic attrs
+
+def __align_addr(addr, align):
+    return (addr + align -1) & ~(align-1)
+
+def _getPriv(dev):
+    addr = long(dev) + __align_addr(long(dev), NETDEV_ALIGN)
+    return addr
+
+if (not structSetAttr(sn, "priv", "priv")):
+    structSetProcAttr(sn, "priv", _getPriv)
+ 
 
 # Does this u32 can be intepreted as 'number of significant netmask bits'
 def snetmask(u32):
