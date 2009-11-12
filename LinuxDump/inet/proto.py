@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 
 # module LinuxDump.inet.proto
 # Time-stamp: <09/11/11 14:50:15 alexs>
@@ -747,8 +748,10 @@ def get_UDP():
         except TypeError:
             udphash =  readSymbol("udp_table").hash
         for s in udphash:
-	    #first = s.first
-            first = s.head.first
+	    try:
+		first = s.first
+	    except KeyError:
+		first = s.head.first
 	    if (first):
 		for a in  inet_sk_for_each(first):
 		    s = readSU("struct udp_sock", a)

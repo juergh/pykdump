@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 #
 # -*- coding: latin-1 -*-
 # Time-stamp: <09/11/11 13:58:39 alexs>
@@ -512,8 +513,13 @@ def intReader(vi):
     def unsignedArrayReader(addr):
         s = readmem(addr, totsize)
         val =  mem2long(s, array = elements)
+	# A subtle problem: for array=1 mem2long returns and
+	# integer, not a list. This is bad for declarations like
+	# in bits[1]
         if (len(dims) > 1):
             val = _arr1toM(dims, val)
+	elif (elements == 1):
+	    val = [val]
         return val
 
     # A special case like unsigned char tb_data[0];

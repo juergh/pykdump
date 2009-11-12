@@ -509,8 +509,18 @@ def print_RT_runqueue(rq):
 
 # Decode cpus_allowed
 from crash import  mem2long
+
+# cpumask_t can be declared as:
+#struct {
+    #long unsigned int bits[1];
+#}
+#
+# or with 'mask' instead of 'bits'
 def decode_cpus_allowed(cpus_allowed):
-    bits = cpus_allowed.mask[0]
+    try:
+	bits = cpus_allowed.mask[0]
+    except KeyError:
+	bits = cpus_allowed.bits[0]
     out = []
     for i in range(sys_info.CPUS):
 	if ((bits >> i) & 1):

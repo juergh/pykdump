@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # module LinuxDump.inet.netdevice
 #
 # Time-stamp: <09/11/11 14:02:00 alexs>
@@ -603,7 +604,7 @@ HZ = float(sys_info.HZ)
 
 sn = "struct net_device"
 structSetAttr(sn, "open", ["open", "netdev_ops.ndo_open"])
-structSetAttr(sn, "get_stats", ["open", "netdev_ops.ndo_get_stats"])
+structSetAttr(sn, "get_stats", ["get_stats", "netdev_ops.ndo_get_stats"])
 
 # /**
 #  *	netdev_priv - access network device private data
