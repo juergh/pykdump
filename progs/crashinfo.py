@@ -3,7 +3,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <09/11/11 15:11:16 alexs>
+# Time-stamp: <09/11/12 11:10:27 alexs>
 
 # Copyright (C) 2007-2009 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007-2009 Hewlett-Packard Co., All rights reserved.
@@ -800,8 +800,6 @@ def decode_request(rq):
 	pass
     try:
 	in_flight = rq.q.in_flight
-        if (in_flight == 0):
-            return
 	cmd_flags = rq.cmd_flags
 	ref_count = rq.ref_count
 
@@ -811,6 +809,9 @@ def decode_request(rq):
             in_flight = in_flight[0] + in_flight[1]
         except TypeError:
             pass
+        if (in_flight == 0):
+            return
+
 	out.append("in_flight=%d, cmd_flags=0x%x, ref_count=%d" %\
 	   (in_flight, cmd_flags, ref_count))
     except KeyError:
