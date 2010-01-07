@@ -19,6 +19,15 @@
 #include <errno.h>
 #include <setjmp.h>
 
+typedef NORETURN void (*ERROR_HOOK_TYPE) (void) ATTR_NORETURN;
+
+/* GDB-7 specific stuff */
+#if defined(GDB7)
+ERROR_HOOK_TYPE error_hook;
+#define VALUE_TYPE value_type
+#endif
+
+
 extern int debug;
 
 extern PyObject *crashError;
@@ -27,7 +36,6 @@ static void whatis_exp (char *exp, int show);
 
 static sigjmp_buf eenv;
 
-typedef NORETURN void (*ERROR_HOOK_TYPE) (void) ATTR_NORETURN;
 static ERROR_HOOK_TYPE old_error_hook;
 
 static FILE *nullfp = NULL;
@@ -128,9 +136,15 @@ do_ftype(struct type *ftype, PyObject *item) {
   PyObject *ptr;
 
   if(TYPE_STUB(ftype) && tagname) {
+#if defined(GDB7)    
+    struct symbol *sym = lookup_symbol(tagname,
+				       0, STRUCT_DOMAIN,
+				       0);
+#else    
     struct symbol *sym = lookup_symbol(tagname,
 				       0, STRUCT_DOMAIN,
 				       0, (struct symtab **) NULL);
+#endif    
     if(sym) {
       ftype=sym->type;
     } 
@@ -436,3 +450,30 @@ PyObject * py_gdb_whatis(PyObject *self, PyObject *args) {
   return item;
 }
 
+
+// Register enums needed to be used for type-analysis
+#define REGISTER_ENUM(name) PyModule_AddObject(m, #name, PyInt_FromLong(name))
+
+void py_gdb_register_enums(PyObject *m) {
+  REGISTER_ENUM(TYPE_CODE_PTR);
+  REGISTER_ENUM(TYPE_CODE_ARRAY);
+  REGISTER_ENUM(TYPE_CODE_STRUCT);
+  REGISTER_ENUM(TYPE_CODE_UNION);
+  REGISTER_ENUM(TYPE_CODE_ENUM);
+  REGISTER_ENUM(TYPE_CODE_FUNC);
+  REGISTER_ENUM(TYPE_CODE_INT);
+  REGISTER_ENUM(TYPE_CODE_FLT);
+  REGISTER_ENUM(TYPE_CODE_VOID);
+}
+
+// Some of GDB-6 values
+//    TYPE_CODE_PTR = 1           #/* Pointer type */
+//    TYPE_CODE_ARRAY = 2         #/* Array type with lower & upper bounds. */
+//    TYPE_CODE_STRUCT = 3        #/* C struct or Pascal record */
+//    TYPE_CODE_UNION = 4         #/* C union or Pascal variant part */
+//    TYPE_CODE_ENUM = 5          #/* Enumeration type */
+//    TYPE_CODE_FUNC = 6          #/* Function type */
+//    TYPE_CODE_INT = 7           #/* Integer type */
+//    TYPE_CODE_FLT = 8
+//    TYPE_CODE_VOID = 9
+//

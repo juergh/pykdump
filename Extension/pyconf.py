@@ -5,7 +5,7 @@
 import sys
 import string
 import getopt
-import os.path
+import os.path, glob
 from distutils.core import setup, Extension
 from distutils.sysconfig import *
 
@@ -15,7 +15,8 @@ sourcetree = False
 
 opts, args = getopt.getopt(sys.argv[1:],
                            'ds',
-                           ['sourcetree',
+                           ['sourcetree', 'writefiles',
+                            'crashdir=', "pythondir=",
 			    'static', 'cc', 'cflags', 'includes',
                             'linkflags', 'libs', 'srcdir', 'stdlib',
                             'compileall', 'pyvers']
@@ -27,7 +28,7 @@ for o, a in opts:
     elif (o == '--static'):
         staticbuild = True
     elif (o == '-s'):
-	sourcetree = True
+        sourcetree = True
 
 # Python version (major), e.g. 2.5 for 2.5.2
 pv = sys.version_info
@@ -119,6 +120,9 @@ if (debug):
     print get_config_var('LIBRARY')
     print get_config_var('LIBS')
 
+crashdir = None
+writefiles = False
+
 for o, a in opts:
     if (o == '--cc'):
         print cc
@@ -138,3 +142,105 @@ for o, a in opts:
         print compileall
     elif (o == '--pyvers'):
         print pyvers
+    elif (o == '--crashdir'):
+        crashdir = a
+    elif (o == '--pythondir'):
+        pythondir = a
+    elif (o == '--writefiles'):
+        writefiles = True
+        
+
+if (not writefiles):
+    sys.exit(0)
+
+
+# Here we start writing the configuration files
+if (sourcetree):
+    btype = "static"
+else:
+    btype = "dynamic"
+    
+print "\n *** Creating configuration files for a %s build ***" %btype
+
+cmk="crash.mk"
+lmk="local.mk"
+slmk="slocal.mk"
+
+# ---------- Crash mk part -------------------------------------------------
+
+# Check whether crash sourcetree is installed and compiled at this location
+try:
+    re_target = re.compile(r'^TARGET=(\w+)$')
+    re_gdb = re.compile(r'^GDB=gdb-(\d).\d$')
+    target = None
+    gdb_major = None
+    for l in open(os.path.join(crashdir, "Makefile"), "r"):
+        m = re_target.match(l)
+        if (m):
+            target = m.group(1)
+        m = re_gdb.match(l)
+        if (m):
+            gdb_major = int(m.group(1))
+            
+except:
+    print "Cannot find Makefile in the specified CRASHDIR", crashdir
+    sys.exit(0)
+
+if (not target):
+    print "Bad Makefile in ", crashdir
+
+print "target=%s" % target
+
+fd = open(cmk, "w+")
+ol = []
+ol.append("# Configuration options for 'crash' tree")
+ol.append("CRASHDIR := %s" % crashdir)
+try:
+    gdbdir = glob.glob("%s/gdb*/gdb" % crashdir)[0]
+except:
+    print "Cannot find GDB directory in crash sourcetree"
+    sys.exit(2)
+ol.append("GDBDIR := %s" % gdbdir)
+ol.append("GDBINCL =  -I$(GDBDIR)  -I$(GDBDIR)/config  -I$(GDBDIR)/../bfd \\")
+ol.append("  -I$(GDBDIR)/../include -I$(GDBDIR)/../intl")
+# We need to use different includes and prototypes for GDB6 and GDB7
+if (gdb_major == 7):
+    ol.append("EXTRA := -DGDB7 -I$(GDBDIR)/common")
+ol.append("TARGET := %s" % target)
+fd.write(string.join(ol, "\n"))
+fd.write("\n")
+
+fd.close()
+            
+
+# ---------- Python mk parts------------------------------------------------
+# 
+ol = []
+if (sourcetree):
+    fd = open(slmk, "w+")
+    ol.append("# Configuration options for static-build")
+    ol.append("PYTHONDIR := %s" % pythondir)
+    ol.append("PYTHON := env LD_LIBRARY_PATH=%s %s/python" %\
+              (pythondir, pythondir))
+else:
+    fd = open(lmk, "w+")
+    ol.append("# Configuration options for local build")
+    ol.append("PYTHON := %s"% os.environ["PYTHON"])
+
+# Common stuff both for local and slocal
+ol.append("PYINCLUDE := %s" % includes)
+ol.append("CC := %s" % cc)
+ol.append("CFLAGS := %s" % cflags)
+ol.append("LIBS := %s" % libs)
+ol.append("LINKFLAGS := %s" % linkflags)
+
+# Extras for static build
+if (sourcetree):
+    ol.append("STDLIBP :=  %s" % stdlib)
+    ol.append("COMPALL :=  %s" % compileall)
+    ol.append("MINPYLIB_FILES := minpylib-%s.lst" % pyvers)
+
+fd.write(string.join(ol, "\n"))
+fd.write("\n")
+fd.close()
+              

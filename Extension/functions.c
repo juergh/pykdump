@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <08/10/23 16:39:10 alexs>
+  Time-stamp: <10/01/07 15:50:54 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -1150,7 +1150,7 @@ py_register_epython_prog(PyObject *self, PyObject *args) {
   
   ct = realloc(ct, sizeof(struct command_table_entry)*(nentries+2));
   if (!ct) {
-    printf("Cannot realloc while registering epython/%d\n", cmd);
+    printf("Cannot realloc while registering epython/%s\n", cmd);
   } else {
     // Add a new entry
     ce = ct + nentries;
@@ -1247,6 +1247,7 @@ py_get_pathname(PyObject *self, PyObject *args) {
 
 PyObject * py_gdb_typeinfo(PyObject *self, PyObject *args);
 PyObject * py_gdb_whatis(PyObject *self, PyObject *args);
+void py_gdb_register_enums(PyObject *m);
 
 
 static PyMethodDef crashMethods[] = {
@@ -1310,6 +1311,9 @@ initcrash(const char *crash_version) {
   PyModule_AddObject(m, "HZ", PyInt_FromLong(machdep->hz));
 
   PyModule_AddObject(m, "WARNING", PyString_FromString("++WARNING+++"));
+
+  // Register GDB-internal enums
+  py_gdb_register_enums(m);
 
   // Now create some aliases
 

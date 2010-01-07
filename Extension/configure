@@ -3,24 +3,17 @@
 # This is not a GNU-autoconf configure but rather a small utility
 # to create the local.mk to be included in makefiles
 
-cmk="crash.mk"
-lmk="local.mk"
-slmk="slocal.mk"
-
-help="yes"
+# We rely on the fact that Python should be available on the host - either
+# system-wide or compiled from sources. So we use this shell script just
+# to locate Python binary and then all the real work is done by Python script
 
 Usage() {
   # Omit some internal or obsolete options to make the list less imposing.
   # This message is too long to be a string in the A/UX 3.1 sh.
   cat <<_ACEOF
-\`configure' lets you specify the location of Python and Crash source trees.
+'configure' lets you specify the location of Python and Crash source trees.
 
-Usage: $0 [OPTION]... [VAR=VALUE]...
-
-To assign environment variables (e.g., CC, CFLAGS...), specify them as
-VAR=VALUE.  See below for descriptions of some of the useful variables.
-
-Defaults for the options are specified in brackets.
+Usage: $0 -c CRASHDIR [-p PYTHONDIR]
 
 Configuration:
   -h, --help              display this help and exit
@@ -29,99 +22,63 @@ Configuration:
 _ACEOF
 }
 
-while [ "$#" -gt "0" ]
+# Are there any arguments at all? If not, output help
+if test "${1+set}" != set
+then
+   Usage;exit 0
+fi   
+
+while getopts "c:p:h" opt
 do
-    case $1 in
-        -c|--crashdir)
-	    shift
-	    CRASHDIR=$1
-            ;;
-        -p|--pythondir)
-            shift
-            PYTHONDIR=$1
-            ;;
-        -h|--help)
-            Usage
-            exit 0
-            ;;
-        *)
-            echo "Syntax Error"
-            Usage
-            exit 1
-            ;;
-    esac
-    shift
+    case $opt in
+      p)
+        # Strip the trailing '/' if any
+        PYTHONDIR=`echo $OPTARG | sed 'sT/$TT'`
+        ;;
+      c)
+        # Strip the trailing '/' if any
+        CRASHDIR=`echo $OPTARG | sed 'sT/$TT'`
+        ;;
+      h)
+        Usage;exit 0
+        ;;
+      esac
 done
 
-echo "CRASHDIR=$CRASHDIR  PYTHONDIR=$PYTHONDIR"
-
+# Is CRASHDIR set? This is mandatory!
 if test "${CRASHDIR+set}" != set; then
-   echo "You need to specify the source-tree directory where crash is built"
-   exit 1
-fi
+    echo "CRASHDIR not specified" >&2
+    exit 1
+fi    
 
-TARGET=`grep '^TARGET=' ${CRASHDIR}/Makefile | sed -e s/TARGET=//`
 
-# Now output all crash-specific variables to crash.mk
-echo "# Configuration options for 'crash' tree\n" > $cmk
-echo "CRASHDIR := ${CRASHDIR}" >> $cmk
-echo "GDBDIR := ${CRASHDIR}/gdb-6.1/gdb" >>$cmk
-echo -e 'GDBINCL =  -I$(GDBDIR)  -I$(GDBDIR)/config  -I$(GDBDIR)/../bfd \\'>>$cmk 
-echo -e '  -I$(GDBDIR)/../include -I$(GDBDIR)/../intl' >>$cmk
-echo "TARGET := ${TARGET}" >>$cmk
+# If there is a system-wide Python, generate files for shared installation,
+# even in case if we specify PYTHONDIR.
 
-# Now find all other directories and compilation flags using pyconf
-# If Python is already installed on this host, we can use it for
-# development version (i.e. using locally installed shared libraries).
-# This is not suitable for packaged distribution as the built modules
-# will depend on local shared libraries and Python libraries
-
-PYTHON=python
+export PYTHON=${PYTHON:-python}
 
 # Test whether a locally-installed python is present
 if ${PYTHON} -c "import os"; then
-  echo "# Configuration options for local build\n" > $lmk
-
-  echo "PYTHON := ${PYTHON}" >>$lmk
-  echo "PYINCLUDE := `${PYTHON} pyconf.py --includes`" >>$lmk
-  echo "CC := `${PYTHON}  pyconf.py --cc`" >>$lmk
-  echo "CFLAGS := `${PYTHON}  pyconf.py --cflags`"  >>$lmk
-  echo "LIBS := `${PYTHON}  pyconf.py --libs`"  >>$lmk
-  echo "LINKFLAGS := `${PYTHON}  pyconf.py --linkflags`" >>$lmk
-
+    ${PYTHON} pyconf.py --writefiles --crashdir ${CRASHDIR}
 fi
-
-# Is PYTHONDIR or are we using the default Python ?
+    
+# Now check whether PYTHONDIR is set for a static build
 
 if test "${PYTHONDIR+set}" != set; then
-  # No need to do anything else
+  # Not set, no need to do anything else
   exit 0
 fi
 
+# Python compiled from sources for a static build
 
-# As source-built Python uses shared library, we need to
-# set some environment variables properly
 PYTHON=${PYTHONDIR}/python
 export LD_LIBRARY_PATH=${PYTHONDIR}
 # Check whether we can run the Python from that directory
 if ! ${PYTHON} -c "import os"; then
-  echo "Cannot use the source-tree Python, did you built it properly?"
+  echo "Cannot use the source-tree Python, did you build it properly?"
   exit 1
 fi
 
-echo "# Configuration options for static-build\n" > $slmk
+${PYTHON} pyconf.py -s --writefiles --crashdir=${CRASHDIR} \
+    --pythondir=${PYTHONDIR}
 
-echo "PYTHONDIR := ${PYTHONDIR}" >>$slmk
-echo "PYTHON := env LD_LIBRARY_PATH=${PYTHONDIR} ${PYTHONDIR}/python" >>$slmk
-echo "PYINCLUDE := `${PYTHON} pyconf.py -s --includes`" >>$slmk
-echo "CC := `${PYTHON}  pyconf.py -s --cc`" >>$slmk
-echo "CFLAGS := `${PYTHON}  pyconf.py -s --cflags`"  >>$slmk
-echo "LIBS := `${PYTHON}  pyconf.py -s --libs`"  >>$slmk
-echo "LINKFLAGS := `${PYTHON}  pyconf.py -s --linkflags`" >>$slmk 
-   
-# Extras for static build
-echo "STDLIBP :=  `${PYTHON} pyconf.py -s --stdlib`" >>$slmk
-echo "COMPALL :=  `${PYTHON}  pyconf.py -s --compileall`" >>$slmk
-
-# Files to be included in the minimal Python library
-echo "MINPYLIB_FILES := minpylib-`${PYTHON}  pyconf.py -s --pyvers`.lst" >>$slmk

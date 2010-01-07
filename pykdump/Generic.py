@@ -1,7 +1,7 @@
 #
 #  Code that does not depend on whether we use embedded API or PTY
 #
-# Time-stamp: <09/11/11 14:00:29 alexs>
+# Time-stamp: <10/01/07 16:13:47 alexs>
 #
 import string
 import pprint
@@ -277,18 +277,18 @@ class VarInfo(object):
      def getReader(self, ptrlev = None):
          ti = self.ti
          codetype = ti.codetype
-         if (codetype == 7):
+         if (codetype == TYPE_CODE_INT):
              return d.intReader(self)
-         elif (codetype == 3 or codetype == 4):
+         elif (codetype == TYPE_CODE_STRUCT or codetype == TYPE_CODE_UNION):
              # Struct/Union
              return d.suReader(self)
-         elif (codetype == 1):
+         elif (codetype == TYPE_CODE_PTR):
              #print "getReader", id(self), self
              # Pointer
              if (ptrlev == None):
                  ptrlev = ti.ptrlev
              return d.ptrReader(self, ptrlev)
-	 elif (codetype == 5):     # TYPE_CODE_ENUM
+	 elif (codetype == TYPE_CODE_ENUM):     # TYPE_CODE_ENUM
 	     return d.intReader(self)
          else:
              raise TypeError, "don't know how to read codetype "+str(codetype)
@@ -366,7 +366,7 @@ class SUInfo(dict):
         if (not name):
             #print "name <%s>, value <%s>" % (name, str(value))
             ti = value.ti
-            if (ti.codetype == 4):      # Union
+            if (ti.codetype == TYPE_CODE_UNION):      # Union
                 usi = SUInfo(ti.stype)
                 #print ti.stype, usi
                 for fn in usi.PYT_body:

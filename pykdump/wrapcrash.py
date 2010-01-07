@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <09/11/11 13:58:39 alexs>
+# Time-stamp: <10/01/07 16:18:44 alexs>
 
 # High-level API built on top of C-module
 # There are several layers of API. Ideally, the end-users should only call
@@ -160,7 +160,7 @@ def update_EI_fromgdb(f, sname):
             e = crash.gdb_typeinfo(sname)
     except crash.error:
         raise TypeError, "cannot find enum <%s>" % sname
-    if (e["codetype"] != 5):               # TYPE_CODE_ENUM
+    if (e["codetype"] != Gen.TYPE_CODE_ENUM): # TYPE_CODE_ENUM
         raise TypeError, "%s is not a enum"
     f._Lst = e["edef"]
     for n, v in f._Lst:
@@ -258,7 +258,7 @@ def parseDerefString(sname, teststring):
             ti = fi.ti
             codetype = ti.codetype
             isptr= False
-            if (codetype == 1):
+            if (codetype == Gen.TYPE_CODE_PTR):
                 # Pointer
                 if (ti.stype == "(func)"):
                     tcodetype = -1      # Bogus
@@ -268,12 +268,12 @@ def parseDerefString(sname, teststring):
                     tcodetype = ti.getTargetCodeType()
                 if (debug):
                     print "    pointer:",
-                if (tcodetype in (3,4)):
+                if (tcodetype in (Gen.TYPE_CODE_STRUCT,Gen.TYPE_CODE_UNION)):
                     si = getStructInfo(tti.stype)
                     if (debug):
                         print tti.stype
                     isptr = True
-            elif (codetype == 3 or codetype == 4):
+            elif (codetype in (Gen.TYPE_CODE_STRUCT,Gen.TYPE_CODE_UNION)):
                 # Struct/Union
                 if (debug):
                     print "    SU:", ti.stype
@@ -676,26 +676,6 @@ def ptrReader(vi, ptrlev):
     return reader
 
         
-    
-# Struct/Union info representation with methods to append data
-
-class _GDB:
-    TYPE_CODE_PTR = 1		#/* Pointer type */
-    TYPE_CODE_ARRAY = 2		#/* Array type with lower & upper bounds. */
-    TYPE_CODE_STRUCT = 3	#/* C struct or Pascal record */
-    TYPE_CODE_UNION = 4		#/* C union or Pascal variant part */
-    TYPE_CODE_ENUM = 5		#/* Enumeration type */
-    TYPE_CODE_FUNC = 6		#/* Function type */
-    TYPE_CODE_INT = 7		#/* Integer type */
-    TYPE_CODE_FLT = 8
-    TYPE_CODE_VOID = 9
-
-
-
-            
-
-
-
 # Wrapper functions to return attributes of StructResult
 
 def Addr(obj, extra = None):
@@ -749,7 +729,8 @@ class tPtr(long):
             dereferencer = self.vi.dereferencer # sets vi.tsize as well
             addr += i * self.vi.tsize
             return  dereferencer(addr)
-        elif (ptrlev == 2 and self.vi.ti.tcodetype in (3,4)):
+        elif (ptrlev == 2 and self.vi.ti.tcodetype in \
+              (Gen.TYPE_CODE_STRUCT,Gen.TYPE_CODE_UNION)):
             addr += i * self.vi.ti.size
             return self.vi.dereferencer(readPtr(addr))
         else:

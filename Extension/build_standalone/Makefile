@@ -42,7 +42,7 @@ vpath %.c ..
 	$(CC) -c $(CFLAGS) $(DEFINES) $(INCLUDES) $< -o $@
 
 gdbspec.o: gdbspec.c
-	$(CC) -c $(CFLAGS) $(GDBINCL) $(PYINCLUDE)  $< -o $@
+	$(CC) -c $(CFLAGS) $(GDBINCL) $(EXTRA) $(PYINCLUDE)  $< -o $@
 
 OBJS :=  epython.o functions.o gdbspec.o pythonrun.o
 

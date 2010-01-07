@@ -1,6 +1,6 @@
 # module pykdump.API
 #
-# Time-stamp: <09/05/06 11:02:18 alexs>
+# Time-stamp: <10/01/07 16:05:08 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -93,6 +93,10 @@ from wrapcrash import readU8, readU16, readU32, readS32, \
      flushCache, structSetAttr, structSetProcAttr, sdef2ArtSU
 
 gen.d = wrapcrash
+# Add all GDB-registered types as Generic variables
+for n in dir(crash):
+    if (n.find('TYPE_CODE') == 0):
+        setattr(gen, n, getattr(crash, n))
 
 from tparser import CEnum, CDefine
 

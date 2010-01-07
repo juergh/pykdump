@@ -1,7 +1,5 @@
 #
-# Copy this file to Makefile and edit the copy as needed. If you have Python-2.4
-# and its development packages installed properly, you only need to customize
-# the next line (CRASH sources location)
+# Before running make, use 'configure' utility
 
 INSTALL := /usr/bin/install
 
@@ -42,7 +40,7 @@ all: $(EXT)
 	$(CC) -c $(CFLAGS) $(DEFINES) $(INCLUDES) $< -o $@
 
 gdbspec.o: gdbspec.c
-	$(CC) -c $(CFLAGS) $(GDBINCL) $(PYINCLUDE)  $< -o $@
+	$(CC) -c $(CFLAGS) $(GDBINCL) $(PYINCLUDE) $(EXTRA)  $< -o $@
 
 OBJS :=  epython.o functions.o gdbspec.o
 
