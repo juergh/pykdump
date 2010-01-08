@@ -1,7 +1,7 @@
 #
 #  Code that does not depend on whether we use embedded API or PTY
 #
-# Time-stamp: <10/01/07 16:13:47 alexs>
+# Time-stamp: <10/01/08 11:30:29 alexs>
 #
 import string
 import pprint
@@ -279,7 +279,7 @@ class VarInfo(object):
          codetype = ti.codetype
          if (codetype == TYPE_CODE_INT):
              return d.intReader(self)
-         elif (codetype == TYPE_CODE_STRUCT or codetype == TYPE_CODE_UNION):
+         elif (codetype in TYPE_CODE_SU):
              # Struct/Union
              return d.suReader(self)
          elif (codetype == TYPE_CODE_PTR):

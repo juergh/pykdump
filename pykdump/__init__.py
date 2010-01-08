@@ -1,19 +1,19 @@
 """PyKdump Python API for CRASH Dumpanalysis Tool
 """
 # Version number
-__version__ = '0.2'
+__version__ = '0.3'
 
 import sys
 
 # Copyright notice string
 __copyright__ = """\
-Copyright (c) 2006-2008, Alex Sidorenko; mailto:asid@hp.com
+Copyright (c) 2006-2009, Alex Sidorenko; mailto:asid@hp.com
     See the documentation for further information on copyrights,
     or contact the author. All Rights Reserved.
 """
 
 # A minimal C-module version that is needed for API to work
-minimal_cmod_version = "0.6.3"
+minimal_cmod_version = "0.6.4"
 
 
 # The next subroutines are used for version compatibility control.

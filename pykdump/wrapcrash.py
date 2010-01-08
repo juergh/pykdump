@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <10/01/07 16:18:44 alexs>
+# Time-stamp: <10/01/08 11:31:32 alexs>
 
 # High-level API built on top of C-module
 # There are several layers of API. Ideally, the end-users should only call
@@ -160,7 +160,7 @@ def update_EI_fromgdb(f, sname):
             e = crash.gdb_typeinfo(sname)
     except crash.error:
         raise TypeError, "cannot find enum <%s>" % sname
-    if (e["codetype"] != Gen.TYPE_CODE_ENUM): # TYPE_CODE_ENUM
+    if (e["codetype"] != TYPE_CODE_ENUM): # TYPE_CODE_ENUM
         raise TypeError, "%s is not a enum"
     f._Lst = e["edef"]
     for n, v in f._Lst:
@@ -258,7 +258,7 @@ def parseDerefString(sname, teststring):
             ti = fi.ti
             codetype = ti.codetype
             isptr= False
-            if (codetype == Gen.TYPE_CODE_PTR):
+            if (codetype == TYPE_CODE_PTR):
                 # Pointer
                 if (ti.stype == "(func)"):
                     tcodetype = -1      # Bogus
@@ -268,12 +268,12 @@ def parseDerefString(sname, teststring):
                     tcodetype = ti.getTargetCodeType()
                 if (debug):
                     print "    pointer:",
-                if (tcodetype in (Gen.TYPE_CODE_STRUCT,Gen.TYPE_CODE_UNION)):
+                if (tcodetype in TYPE_CODE_SU):
                     si = getStructInfo(tti.stype)
                     if (debug):
                         print tti.stype
                     isptr = True
-            elif (codetype in (Gen.TYPE_CODE_STRUCT,Gen.TYPE_CODE_UNION)):
+            elif (codetype in TYPE_CODE_SU):
                 # Struct/Union
                 if (debug):
                     print "    SU:", ti.stype
@@ -729,8 +729,7 @@ class tPtr(long):
             dereferencer = self.vi.dereferencer # sets vi.tsize as well
             addr += i * self.vi.tsize
             return  dereferencer(addr)
-        elif (ptrlev == 2 and self.vi.ti.tcodetype in \
-              (Gen.TYPE_CODE_STRUCT,Gen.TYPE_CODE_UNION)):
+        elif (ptrlev == 2 and self.vi.ti.tcodetype in TYPE_CODE_SU):
             addr += i * self.vi.ti.size
             return self.vi.dereferencer(readPtr(addr))
         else:
