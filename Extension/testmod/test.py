@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <08/09/02 11:47:52 alexs>
+# Time-stamp: <09/08/14 11:15:39 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -9,7 +9,7 @@
 
 
 import sys
-sys.path.append(".")
+#sys.path.append(".")
 import time
 
 #import cProfile
@@ -23,6 +23,8 @@ from pykdump.Generic import TypeInfo, VarInfo, SUInfo
 import crash
 loadModule("testmod", "../Extension/testmod/testmod.ko")
 
+mynode = readSymbol("mynode")
+print mynode.one, mynode.two
 
 addr = sym2addr("asid")
 asid = readSU("struct ASID", addr)

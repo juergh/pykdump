@@ -89,9 +89,19 @@ struct AA aa;
 long seven = 7;
 int six = 6;
 
+
+struct node {
+  int one;
+  char *two;
+};
+
+typedef struct node my_node;
+
 typedef struct ASID asid_t;
 
 asid_t aaa;
+
+my_node mynode;
 
 enum ASID_ENUM {ASID_0, ASID_2=2, ASID_3};
 
@@ -109,6 +119,10 @@ testmod_init(void) {
   int i, j;
   
   LBLOG("++++++++++++++ testmod loaded\n");
+
+  mynode.one = 111;
+  mynode.two = "mynode_two";
+  
   asid.li = 123456789;
   asid.i2 = -555;
   asid.bf1 = 1;
