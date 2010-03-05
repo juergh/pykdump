@@ -630,7 +630,8 @@ def decode_eventwq():
     # cwq = per_cpu_ptr(keventd_wq->cpu_wq, cpu);
 
     cpu_wq = keventd_wq.cpu_wq
-    per_cpu = keventd_wq.hasField("freezeable")
+    # If cpu_wq is not an array, this is per_cpu_ptr
+    per_cpu = not isinstance(cpu_wq, list)
     # CPU-specific 
     for cpu in range(0, sys_info.CPUS):
         if (per_cpu):
@@ -644,7 +645,7 @@ def decode_eventwq():
 	print "\tworklist:"
 	for e in readSUListFromHead(Addr(worklist), "entry",
 	    "struct work_struct"):
-	    print e
+	    print "\t   ", e
     return
     # print singleevent
     singleevent = readSymbol("singleevent")
