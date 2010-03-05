@@ -1,6 +1,6 @@
 # module LinuxDump.Dev
 #
-# Time-stamp: <09/03/11 16:54:00 alexs>
+# Time-stamp: <10/03/05 12:19:22 alexs>
 #
 # Copyright (C) 2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2008 Hewlett-Packard Co., All rights reserved.
@@ -200,8 +200,19 @@ def decode_dm_table(dm, verbose = 0):
     def round4k(s):
 	return s/4096*4096
     devices = dm.devices   # This points to 'list' field in dm_dev
+    # On newer kernels (e.g. 2.6.31)
+    #
+    # struct dm_dev_internal {
+    #   struct list_head list;
+    #   atomic_t count;
+    #   struct dm_dev dm_dev;
+    # }
+
     sn = "struct dm_dev"
+    sn_i = "struct dm_dev_internal"
     off = member_offset(sn, "list")
+    if (off == -1):
+        off = member_offset(sn_i, "list") - member_offset(sn_i, "dm_dev")
     mtable = get_blkdevs()
     num_targets = dm.num_targets
     print " -- %d targets" % num_targets
