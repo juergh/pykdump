@@ -1,7 +1,5 @@
 # -*- coding: utf-8 -*-
 #
-# -*- coding: latin-1 -*-
-# Time-stamp: <10/01/08 11:31:32 alexs>
 
 # High-level API built on top of C-module
 # There are several layers of API. Ideally, the end-users should only call
@@ -623,7 +621,16 @@ def ptrReader(vi, ptrlev):
         # If ptr = NULL, return None, needed for backwards compatibility
         if (ptr == 0):
             return None
-        s = readmem(ptr, 256)
+        # Usually a string pointer points to a NULL-terminates string
+        # But it can be used for crah/byte-array as well
+        # So we do not really know how many bytes to read. I expected that
+        # 256 is a reasonable number but small strings at the end of pages
+        # trigger "Cannot access memory" in some rare cases
+        try:
+	    s = readmem(ptr, 256)
+	except crash.error:
+	    bytes = (((ptr>>8) +1)<<8) - ptr
+	    s = readmem(ptr, bytes)
         return SmartString(s, addr, ptr)
     def genPtr(addr):
         return tPtr(readPtr(addr), vi)
