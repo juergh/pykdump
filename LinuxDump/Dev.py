@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # module LinuxDump.Dev
 #
 # Time-stamp: <10/03/05 12:19:22 alexs>
@@ -73,11 +74,13 @@ def get_blkdevs_v1():
     # and heads are embedded in 'struct block_device'
     
     m_bdevs = {}
+    out_bddev = {}	# a dict with bd_dev key
     for h in readSymbol("bdev_hashtable"):
 	for s in readSUListFromHead(h, 'bd_hash',
 	     'struct block_device'):
 	    # We have one block_device structure per minor
 	    major, minor =  decode_devt(s.bd_dev)
+	    out_bddev[s.bd_dev] = s
 	    m_bdevs.setdefault(major, []).append((minor, s))
     
     pa = readSymbol('blkdevs')
@@ -88,15 +91,17 @@ def get_blkdevs_v1():
 	bi = BlkDev(major, s.name, s.bdops, m_bdevs[major])
 	out[major] = bi
     
-    return out
+    return out, out_bddev
 
 
 def get_blkdevs_v2():
     # We need unique values only, so we use a dictionary to achieve this
     m_bdevs = {}
+    out_bddev = {}	# a dict with bd_dev key
     for s in readSUListFromHead(sym2addr('all_bdevs'), 
 	   'bd_list', 'struct block_device'):
 	major, minor =  decode_devt(s.bd_dev)
+	out_bddev[s.bd_dev] = s
 	m_bdevs.setdefault(major, []).append((minor, s))
   
     # When we register a device, it can grab several major
@@ -124,15 +129,28 @@ def get_blkdevs_v2():
 	    else:
 		bdops = 0
             out[major] = BlkDev(major, s.name, bdops, bd)
-    return out
+    return out, out_bddev
 
 def print_blkdevs(v = 0):
-    out = get_blkdevs()    
+    out, out_bddev = get_blkdevs()
     majors = out.keys()
     majors.sort()
     sep = '-' * 70
     if (v):
 	print sep
+    if (v > 1):
+	devs = sorted(out_bddev.keys())
+	for dev in devs:
+	    bd = out_bddev[dev]
+	    print hexl(dev), bd
+	    bd_holder = bd.bd_holder
+	    print " ", bd.bd_openers, hexl(bd_holder)
+	    if (bd_holder):
+		si = exec_gdb_command("x/i 0x%x" % bd_holder).rstrip()
+		ss = exec_gdb_command("x/s 0x%x" % bd_holder).rstrip()
+		print "  ", si
+		print "  ", ss
+    
     for major in majors:
 	bi = out[major]
 	#name, ops, bdevs = out[major]
@@ -144,6 +162,8 @@ def print_blkdevs(v = 0):
 	if (v):
 	   print "\tMinors:", minors
 	   print "\t", bdevs[0][1]
+
+	if (v):
 	   print sep
 
 
@@ -213,7 +233,7 @@ def decode_dm_table(dm, verbose = 0):
     off = member_offset(sn, "list")
     if (off == -1):
         off = member_offset(sn_i, "list") - member_offset(sn_i, "dm_dev")
-    mtable = get_blkdevs()
+    mtable, out_bddev = get_blkdevs()
     num_targets = dm.num_targets
     print " -- %d targets" % num_targets
     targets = dm.targets
@@ -280,7 +300,12 @@ def print_gendisk(v = 1):
 	if (v):
 	    print "print_gendisk is not implemented for 2.4 kernels yet"
 	return
+    # To get block_device based on dev_t
+    dummy, bd_devs = get_blkdevs()
+    #
     for dev, gd in gdlist:
+	if (v > 1):
+	    print '#' * 50
 	disk_name = gd.disk_name
 	# Check whether name is alphanum
 	if (not __re_good_diskname.match(disk_name)):
@@ -336,3 +361,8 @@ def print_gendisk(v = 1):
 		    print ERROR, "corrupted", hd
 	if (outparts):
 	    print ERROR, gd, "corrupted part list", outparts
+	
+	if (v < 2):
+	    continue
+	
+	
