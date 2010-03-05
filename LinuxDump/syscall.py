@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -7,6 +8,7 @@
 
 from pykdump.API import *
 from LinuxDump.BTstack import exec_bt
+from LinuxDump.Files import pidFiles, filesR
 
 debug = API_options.debug
 
@@ -99,7 +101,7 @@ def getSyscallArgs_x86(stack):
 def getSyscallArgs_x8664(stack):
     # Check whether the last frame is 'system_call'
     lastf = stack.frames[-1]
-    print lastf
+    #print lastf
     if (not lastf.func in ('system_call', 'sysenter_entry',
                            'system_call_fastpath', 'tracesys')):
 	# This is not a 64-bit system call. Let us see whether this is 
@@ -201,7 +203,10 @@ def generic_decoder(sc, args):
 # WARNING: this does not work well on fast live hosts as arguments
 # are changing too fast and we can easily get bogus values
 def decode_Stacks(stacks):
+    # PID might be needed in decoders
+    global currentPID
     for stack in stacks:
+	currentPID = stack.pid
 	print stack
 	#print hexl(stack.addr)
 	print "    ....... Decoding Syscall Args ......."
@@ -314,6 +319,34 @@ def __decode_sys_unlink(args):
     # The only arg is a file name
     s = readmem(args[0], 256)
     print "\t unlink(%s)" % s.split('\0')[0]    
+
+# Decode some extra stuff when writing to pipes
+def __decode_sys_write(args):
+    pf = pidFiles(currentPID)
+    #print "Files for pid=%d" % currentPID
+    # The 1st arg is FD
+    fd = int(args[0])
+    fa, da, ia = pf.fileInfo(fd)[:3]
+    set_readmem_task(0)
+    sfile = readSU("struct file", fa)
+    f_op = sfile.f_op
+    writefunc = addr2sym(f_op.write)
+    if (writefunc == "pipe_write"):
+	inode = readSU("struct inode", ia)
+	readers = inode.i_pipe.readers
+	print "\t pipe_write fd=%d,  %d readers" % (fd, readers)
+	if (readers):
+	    print "    PIDs of readers:",
+	    # Get other processes using this pipe
+	    out = filesR(inode)
+	    for pid in out:
+		if (pid == currentPID):
+		    continue
+		else:
+		    print pid,
+	    print ""
+
+	
 
 def __decode_sys_newstat(args):
     # sys_newstat(char __user * filename, struct stat __user * statbuf)

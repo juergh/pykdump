@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -28,27 +29,35 @@ from pykdump.API import *
 #  0  db172e00  e6030600  f4af3300  PIPE
 #  1  f1927980  dfdc3e00  e68bba90  REG   /var/factiva/tmplatform2/san/pindex2/in
 
-class crashFiles(object):
+class pidFiles(object):
     def __init__(self, pid):
 	lines = exec_crash_command("files %d" % pid).splitlines()
 	self.files = {}
 	for l in lines[3:]:
 	    fields = l.split()
-	    if (len(fields) == 6):
-	       fd, file, dentry, inode, ftype, path = fields
-	    elif (len(fields) == 5):
-	       fd, file, dentry, inode, ftype = fields
-	       path = ""
-	    else:
+	    if (len(fields) < 5):
 		continue
-	    fd= int(fd)
-	    self.files[fd] = ftype, path
-    def fileInfo(fd):
+	    fields[0] = int(fields[0])
+	    for i in range(1,4):
+		fields[i] = long(fields[i], 16)
+	    if (len(fields) == 5):
+		fields.append("")
+	    fd= int(fields[0])
+	    self.files[fd] = fields[1:]
+    def fileInfo(self, fd):
 	return self.files[fd]
-    def printFiles(self, fds):
-	for f in fds:
-	    print "     %3d" %f, self.files[f]
+    def printFiles(self):
+	fds = self.files.keys()
+	fds.sort()
+	for fd in fds:
+	    print "     %3d" % fd, self.fileInfo(fd)
+	
 
-	
-	
-	
+def filesR(ref):
+    rc = exec_crash_command("foreach files -R 0x%x" % long(ref))
+    out = []
+    for l in rc.splitlines():
+	ff = l.split()
+	if (ff and ff[0] == "PID:"):
+	    out.append(int(ff[1]))
+    return out
