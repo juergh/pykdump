@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 # Time-stamp: <08/06/20 14:49:50 alexs>
 
@@ -480,10 +481,12 @@ def printTaskSockets(t):
 		    statename = tcp_state_name(state)
 		    print >>prn, "     |%s  %-12s   %-6d  %s" % (h,
 		                                  statename, ino, path)
-		    filep = us.Socket.file
-		    pids = tt.getByFile(filep)
-		    if (h == "peer"):
-			print >>prn, "     |   ",filep, us.Socket
+		    sock = us.Socket
+			
+		    if (h == "peer" and sock):
+			filep = sock.file
+			pids = tt.getByFile(filep)
+			print >>prn, "     |   ",filep, sock
 			for pid in pids:
 			    print >>prn, "     |   ", pid
 	            print >>prn, hdr

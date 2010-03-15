@@ -853,7 +853,7 @@ def unix_sock(s):
 	    ulen = uaddr.len - 2
 	    # ABSTRACT
 	    path = '@' + path[1:ulen]
-	    #path = path.split('\0')[0]
+	    path = path.split('\0')[0]
     return state, ino, path
 
 
