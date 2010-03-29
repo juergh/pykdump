@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # module LinuxDump.inet.routing
 #
 # Time-stamp: <09/03/12 15:35:12 alexs>
@@ -174,7 +175,7 @@ def get_fib_v26():
             if (first):
                 for a in readList(first, 0):
                     tb = readSU("struct fib_table", a-offset)
-                    print tb, tb.tb_id
+                    #print tb, tb.tb_id
                     if (tb.tb_id == RT_TABLE_MAIN):
                         table_main = tb
                         break
