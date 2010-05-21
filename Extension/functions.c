@@ -20,7 +20,8 @@
 #include <stdlib.h>
 
 #include "defs.h"    /* From the crash source top-level directory */
-#include <asm/byteorder.h>
+//#include <asm/byteorder.h>
+#include <endian.h>
 
 // for FD_ISSET
 #include <sys/select.h>
