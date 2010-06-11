@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 # Print info about NFS/RPC
 
@@ -248,6 +249,10 @@ def __init_attrs():
     sn = "struct nlm_file"
     structSetAttr(sn, "Inode", ["f_file.f_path.dentry.d_inode",
                                 "f_file.f_dentry.d_inode"])
+                                
+    sn = "struct file"
+    structSetAttr(sn, "Dentry", ["f_dentry", "f_path.dentry"])
+    structSetAttr(sn, "Mnt", ["f_vfsmnt", "f_path.mnt"])
 
     sn = "struct nfs_server"
 
@@ -511,21 +516,6 @@ def print_nlm_blocked_clnt(nlm_blocked):
 # static struct hlist_head	nlm_files[FILE_NRHASH];
 #   On older kernels (e.g. 2.6.9-2.6.18) we have
 # static struct nlm_file *	nlm_files[FILE_NRHASH];
-def new_print_nlm_files():
-    nlm_files = readSymbol("nlm_files")
-    print "  -- Files NLM locks for clients ----"
-    for h in nlm_files:
-        if (h.first == 0):
-            continue
-        #print h
-        for e in hlist_for_each_entry("struct nlm_file", h, "f_list"):
-            f_file = e.f_file
-            f_path = f_file.f_path
-            print "    File:", get_pathname(f_path.dentry, f_path.mnt), \
-                  "   ", e
-            for fl in readStructNext(e.Inode.i_flock, "fl_next"):
-                lockhost = fl.fl_owner.castTo("struct nlm_host")
-                print "       Host:", lockhost.h_name
 
 def print_nlm_files():
     nlm_files = readSymbol("nlm_files")
@@ -539,19 +529,23 @@ def print_nlm_files():
                 #print h
                 for e in hlist_for_each_entry("struct nlm_file", h, "f_list"):
                     yield e
-        except KeyError:
+        except (KeyError, AttributeError):
+	    # struct nlm_file *nlm_files[32];
+	    # struct nlm_file {
+	    #     struct nlm_file *f_next;
+	    
             for e in nlm_files:
                 if (not e):
                     continue
                 # Deref the pointer
-                e = Deref(e)
-                yield e
+                for e in readStructNext(e, "f_next"):
+		    yield e
+                
            
     for e in get_all_nlm_files():
 	f_file = e.f_file
-	f_path = f_file.f_path
-	print "    File:", get_pathname(f_path.dentry, f_path.mnt), \
-		"   ", e
+	print "    File:", get_pathname(f_file.Dentry, f_file.Mnt)
+	print "         ", e
 	for fl in readStructNext(e.Inode.i_flock, "fl_next"):
 	    lockhost = fl.fl_owner.castTo("struct nlm_host")
 	    print "       Host:", lockhost.h_name
@@ -640,7 +634,7 @@ if (abs(clnt-anchor) > abs(svc-anchor)):
 #print "nlm_blocked clnt=", hexl(clnt), getListSize(clnt, 0, 1000)
 #print "nlm_blocked svc=", hexl(svc), getListSize(svc, 0, 1000)
 #print_nlm_blocked_clnt(clnt)
-#print_nlm_files()
+
 
 #print_rpc_status()
 #print_test()
@@ -659,7 +653,7 @@ def host_as_client():
     
 
 # Printing info for NFS-server
-def host_as_server():
+def host_as_server(v = 0):
 
     print '*'*20, " Host As A NFS-server ", '*'*20
 
@@ -669,6 +663,9 @@ def host_as_server():
     # Locks we are holding for clients
     print_nlm_files()
 
+    # We are finished if we are in non-verbose mode
+    if (v ==0):
+	return
     # Time in seconds - show only the recent ones
     new_enough = 10 * HZ
     lru_head = sym2addr("lru_head")
@@ -725,7 +722,15 @@ if ( __name__ == '__main__'):
     op.add_option("--rpctasks", dest="Rpctasks", default = 0,
                   action="store_true",
                   help="print RPC tasks")
-		  
+
+    op.add_option("--locks", dest="Locks", default = 0,
+		    action="store_true",
+		    help="print NLM locks")
+
+    op.add_option("-v", dest="Verbose", default = 0,
+	action="count",
+	help="verbose output")
+
     
     (o, args) = op.parse_args()
     
@@ -735,7 +740,11 @@ if ( __name__ == '__main__'):
 	     
     if (o.Server):
 	if (nfs_avail["nfsd"]):
-	    host_as_server()
+	    host_as_server(o.Verbose)
     
     if (o.Rpctasks):
-	    print_all_rpc_tasks()
+	print_all_rpc_tasks()
+
+    if (o.Locks):
+	print_nlm_files()
+	
