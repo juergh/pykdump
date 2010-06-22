@@ -147,6 +147,22 @@ void _init(void)  {
     debug = atoi(getenv("PYKDUMPDEBUG"));
   if (debug)
     printf("Running epython_init\n");
+  
+  /* Before doing anything else, check whether the versions of crash 
+    used for build and the currently running version are compatible:
+    build_crash_version vs build_version
+   */
+  
+  extern const char *build_crash_version;
+  if (build_crash_version[0] != build_version[0]) {
+    fprintf(stderr, "\nYou need to use mpykdump.so matching the major"
+	" crash version\n");
+    fprintf(stderr, "crash used for build: %s, currently running: %s\n",
+	 build_crash_version, build_version);
+    fprintf(stderr, "Cannot continue, exiting\n\n");
+    exit(1);
+  }
+  
 
   ext_filename = malloc(strlen(pc->curext->filename)+1);
   strcpy(ext_filename,  pc->curext->filename);

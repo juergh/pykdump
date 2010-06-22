@@ -23,7 +23,7 @@ endif
 
 
 INCLUDES := -I$(CRASHDIR) $(PYINCLUDE)
-DEFINES += -D$(TARGET)
+DEFINES += -D$(TARGET) -DCRASHVERS=\"$(CRASHVERS)\"
 
 # Older 'make' does not support 'else ifeq'
 

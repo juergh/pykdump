@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 # Find different python locations that we need to use in Makefile
 
@@ -172,8 +173,10 @@ slmk="slocal.mk"
 try:
     re_target = re.compile(r'^TARGET=(\w+)$')
     re_gdb = re.compile(r'^GDB=gdb-(\d).\d$')
+    re_crashvers = re.compile(r'^VERSION=([\.\d]+)\s*$')
     target = None
     gdb_major = None
+    crash_vers = None
     for l in open(os.path.join(crashdir, "Makefile"), "r"):
         m = re_target.match(l)
         if (m):
@@ -181,7 +184,10 @@ try:
         m = re_gdb.match(l)
         if (m):
             gdb_major = int(m.group(1))
-            
+	m = re_crashvers.match(l)
+	if (m):
+	    crash_vers = m.group(1)
+		
 except:
     print "Cannot find Makefile in the specified CRASHDIR", crashdir
     sys.exit(0)
@@ -207,6 +213,7 @@ ol.append("  -I$(GDBDIR)/../include -I$(GDBDIR)/../intl")
 if (gdb_major == 7):
     ol.append("EXTRA := -DGDB7 -I$(GDBDIR)/common")
 ol.append("TARGET := %s" % target)
+ol.append("CRASHVERS := %s" % crash_vers)
 fd.write(string.join(ol, "\n"))
 fd.write("\n")
 

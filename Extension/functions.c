@@ -1,9 +1,8 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <10/01/07 15:50:54 alexs>
 
-  Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
-  Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
+  Copyright (C) 2006-2010 Alex Sidorenko <asid@hp.com>
+  Copyright (C) 2006-2010 Hewlett-Packard Co., All rights reserved.
  
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -35,6 +34,9 @@ extern struct extension_table *epython_curext;
 extern int debug;
 static jmp_buf eenv, alarm_env;
 static jmp_buf copy_pc_env;
+
+/* We save the version of crash against which we build */
+const char *build_crash_version = CRASHVERS;
 
 /* crash exceptions */
 PyObject *crashError;
@@ -1316,6 +1318,10 @@ initcrash(const char *crash_version) {
   PyModule_AddObject(m, "HZ", PyInt_FromLong(machdep->hz));
 
   PyModule_AddObject(m, "WARNING", PyString_FromString("++WARNING+++"));
+  
+  PyModule_AddObject(m, "Crash_run", PyString_FromString(build_version));
+  PyModule_AddObject(m,
+		     "Crash_build",PyString_FromString(build_crash_version));
 
   // Register GDB-internal enums
   py_gdb_register_enums(m);
