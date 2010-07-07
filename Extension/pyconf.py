@@ -144,9 +144,9 @@ for o, a in opts:
     elif (o == '--pyvers'):
         print pyvers
     elif (o == '--crashdir'):
-        crashdir = a
+        crashdir = os.path.realpath(a)
     elif (o == '--pythondir'):
-        pythondir = a
+        pythondir = os.path.realpath(a)
     elif (o == '--writefiles'):
         writefiles = True
         
