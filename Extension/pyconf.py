@@ -66,8 +66,10 @@ if (sourcetree):
     if (debug):
         print " *** Source-tree Python at %s ***" % sourcetree
 
+    # We need the directory where pyconfig.h is located
     inc1 = get_python_inc()
-    srcdir = inc2 = os.path.dirname(inc1)
+    inc2 = os.path.dirname(config_h)
+    srcdir = os.path.dirname(inc1)
     includes = "-I%s -I%s" % (inc1, inc2)
 
     # At this moment this works with static build only
