@@ -91,7 +91,12 @@ class Task:
 
     # -- Get Task State in a symbolic format --
     def __get_state(self):
-        return task_state2str(self.ts.state)
+        try:
+	    st = task_state2str(self.ts.state)
+	except:
+	    st = '??'
+	    print ERROR, 'corrupted task ', self.ts
+        return st
     state = property(__get_state)
 
     # -- Get all threads belonging to our tgid --
@@ -99,8 +104,15 @@ class Task:
         saddr = Addr(self.ts) + Task.tgoffset
         threads = []
         for a in readList(saddr, inchead = False):
-            threads.append(Task(readSU("struct task_struct", a-Task.tgoffset), self))
-        return threads
+	    addr = a-Task.tgoffset
+	    # Can we read from this addr? 
+	    # This can be due to corruption or missing pages
+	    try:
+		readInt(addr)
+		threads.append(Task(readSU("struct task_struct", addr), self))
+	    except crash.error:
+		print WARNING, " missing page"
+	return threads
     def __get_threads_fast_265(self):
         return self.__get_threads_fast()[:-1]	
     def __get_threads_fast_24(self):
@@ -141,7 +153,7 @@ class Task:
                            pl_off
             #print "tgoffset=", Task.tgoffset
         Task.threads = property(fast_method)
-        return self.threads
+	return self.threads
         
     threads = property(__get_threads)
 
@@ -206,7 +218,7 @@ class TaskTable:
         tt = readSUListFromHead(init_task_saddr,
                                 'tasks',
                                 'struct task_struct',
-                                inchead = True, maxel=100000)
+                                inchead = True, maxel=10000)
 
         # On 2.4, we have in this list both thread group leaders
         # and threads. Leave only tg leaders, attach threads to
@@ -217,8 +229,13 @@ class TaskTable:
 	self.comms = {}
 	
         for t in tt:
-            pid = t.pid
-            tgid = t.tgid
+	    # In case we get a corrupted list
+	    try:
+	        pid = t.pid
+	        tgid = t.tgid
+	    except:
+		print WARNING, "corrupted task-list"
+		break
             task = Task(t, self)
             if (not pids_d.has_key(pid)):
                 pids_d[pid] = []
@@ -255,7 +272,11 @@ class TaskTable:
 	for mt in self.tt:
 	    out[mt.pid] = mt
 	    for t in mt.threads:
-		out[t.pid] = t
+	        # If it is corrupted, report and reparent to 1
+	        try:
+		    out[t.pid] = t
+		except:
+		    print ERROR, "corrupted thread", hexl(t)
 
         tids = out.keys()
 	tids.sort()    # sort by tids

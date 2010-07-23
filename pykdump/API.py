@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # module pykdump.API
 #
 # Time-stamp: <10/01/08 11:32:04 alexs>
@@ -72,6 +73,7 @@ except AttributeError:
     def set_default_timeout(timeout):
 	return None
 
+
 import wrapcrash
 
 from wrapcrash import readU8, readU16, readU32, readS32, \
@@ -107,6 +109,10 @@ from tparser import CEnum, CDefine
 # API module globals
 sys_info = Bunch()
 API_options = Bunch()
+
+# Timeout used on a previous run
+global __timeout_exec
+__timeout_exec = 0
 
 # Check whether we output to a real file.
 
@@ -154,7 +160,7 @@ def __epythonOptions():
  
     (o, args) = op.parse_args(aargs)
     wrapcrash.experimental = API_options.experimental = o.experimental
-    global debug
+    global debug, __timeout_exec
     debug = API_options.debug = o.debug
 
     if (o.reload):
@@ -166,6 +172,12 @@ def __epythonOptions():
     
     if  (o.timeout):
 	set_default_timeout(o.timeout)
+	# Purge the CU_TIMEOUT caches if we _increase_ the timeout
+	# This makes sense if some commands did not complete and we
+	# re-run with bigger timeout
+	if (o.timeout > __timeout_exec):
+	    purge_memoize_cache(CU_TIMEOUT)
+	__timeout_exec = o.timeout
 	
     if (o.filename):
         sys.stdout = open(o.filename, "w")
@@ -422,7 +434,8 @@ __memoize_cache = {}
 
 CU_LIVE = 1                             # Update on live
 CU_LOAD = 2                             # Update on crash 'mod' load
-CU_PYMOD = 4                            # Update on Pythom modules reload
+CU_PYMOD = 4                            # Update on Python modules reload
+CU_TIMEOUT = 8				# Update on timeout change
 
 # CU_PYMOD is needed if we are reloading Python modules (by deleting it)
 # In this case we need to invalidate cache entries containing references

@@ -1018,7 +1018,13 @@ def readList(start, offset=0, maxel = _MAXEL, inchead = True):
         count = 0
     next = start
     while (count < maxel):
-        next = readPtr(next + offset)
+        # If we get an error while reading lists, report it but return what we
+        # have already collected anyway
+        try:
+	    next = readPtr(next + offset)
+	except crash.error, val:
+	    print val
+	    break
         if (next == 0 or next == start):
             break
         out.append(next)

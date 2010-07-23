@@ -720,10 +720,18 @@ def check_UNINTERRUPTIBLE():
     tt = get_tt()
     basems = tt.basems
     bts = []
+    count = 0
     for t in tt.allThreads():
 	if (t.ts.state & TASK_STATE.TASK_UNINTERRUPTIBLE):
 	    pid = t.pid
-            bts.append(exec_bt("bt %d" % pid)[0])
+	    count += 1
+	    # crash can miss some threads when there are pages missing
+	    # and it will not do 'bt' in that case.
+	    try:
+		bts.append(exec_bt("bt %d" % pid)[0])
+	    except:
+		pass
+
 
     re_sync = 'sys_fsync'
     re_nfs = 'svc_process|nfsd_dispatch'
@@ -1170,6 +1178,7 @@ if (not sys_info.livedump):
     bta = exec_bt('bt -a')
 else:
     bta = []
+
 
 # If we reached this place, this means that no 'special' options are set
 #

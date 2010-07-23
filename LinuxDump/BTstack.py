@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 #
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -287,92 +288,19 @@ re_f1_t = re.compile(r'\s*(START:)\s+([\w.]+)\sat\s([\da-f]+)$')
 re_via = re.compile(r'(\S+)\s+\(via\s+([^)]+)\)$')
 
 
-@memoize_cond(CU_LIVE | CU_PYMOD)
-def old_exec_bt(crashcmd = None, text = None):
-    btslist = []
-    # Debugging
-    if (crashcmd != None):
-        # Execute a crash command...
-        text = memoize_cond(CU_LIVE)(exec_crash_command)(crashcmd)
-        #print "Got results from crash", crashcmd
-	if (not text):
-	    # Got timeout
-	    return btslist
 
-
-    # Split text into one-thread chunks
-    for s in text.split("\n\n"):
-        #print '-' * 50
-        #print s
-        # The first line is PID-line, after that we have frames-list
-        lines = s.splitlines()
-        pidline = lines[0]
-        #print pidline
-        m = re_pid.match(pidline)
-	if (not m):
-	    continue
-        pid = int(m.group(1))
-        addr = int(m.group(2), 16)
-        cpu = int(m.group(3))
-        cmd = m.group(4)
-
-        bts = BTStack()
-        bts.pid = pid
-        bts.cmd = cmd
-	bts.addr = addr
-	bts.cpu = cpu
-        bts.frames = []
-
-        #print "%d 0x%x %d <%s>" % (pid, addr, cpu, cmd)
-        f = None
-        level = 0
-        for fl in lines[1:]:
-            m = re_f1.match(fl)
-            #print '--', fl, m
-            if (not m):
-                m = re_f1_t.match(fl)
-            if (m):
-                f = BTFrame()
-                f.level = level
-                level += 1
-                f.func = m.group(2)
-		# For 'bt -at' we can have START instead of frameaddr
-		try:
-		    f.frame = int(m.group(1), 16)
-		except ValueError:
-		    f.frame = None
-                viam = re_via.match(f.func)
-                if (viam):
-                    f.via = viam.group(2)
-                    f.func = viam.group(1)
-                else:
-                    f.via = ''
-                # If we have a pattern like 'error_code (via page_fault)'
-                # it makes more sense to use 'via' func as a name
-                f.addr = int(m.group(3), 16)
-                if (crashcmd):
-                    # Real dump environment
-                    f.offset = f.addr - sym2addr(f.func)
-                else:
-                    f.offset = -1       # Debugging
-                f.data = []
-                bts.frames.append(f)
-            elif (f != None):
-                f.data.append(fl)
-
-        btslist.append(bts)
-    return btslist
 
 # Regex to remove (via funcname)
 re_rmvia = re.compile(r'\s*\(via\s+([^)]+)\)')
 
 @memoize_cond(CU_LIVE | CU_PYMOD)
 def exec_bt(crashcmd = None, text = None):
+    #print "Doing exec_bt('%s')" % crashcmd
     btslist = []
     # Debugging
     if (crashcmd != None):
         # Execute a crash command...
-        text = memoize_cond(CU_LIVE)(exec_crash_command)(crashcmd)
+        text = memoize_cond(CU_LIVE | CU_TIMEOUT)(exec_crash_command)(crashcmd)
         #print "Got results from crash", crashcmd
 	if (not text):
 	    # Got timeout
@@ -486,6 +414,8 @@ def bt_mergestacks(btlist, precise = False,
 	    pidlist.append(pid)
 	    if (tt):
 		task = tt.getByTid(pid)
+		if (not task):
+		    continue
 		ran_ms_ago = basems - task.Last_ran
 		if (sch_old == None or ran_ms_ago > sch_old):
 		    sch_old = ran_ms_ago
@@ -501,7 +431,7 @@ def bt_mergestacks(btlist, precise = False,
             print p
         else:
             print p.simplerepr()
-	if (tt):
+	if (tt and sch_young != None and sch_old != None):
 	    print "    youngest=%ds(pid=%d), oldest=%ds(pid=%d)" % \
 	       (sch_young/1000, pid_young,  sch_old/1000, pid_old)
         print "\n   ........................"

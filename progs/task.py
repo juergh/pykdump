@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 from pykdump.API import *
 
@@ -23,6 +24,7 @@ def printTasks(reverse = False):
 	for mt in tt.allTasks():
 	    out.append((basems - mt.Last_ran, mt.pid, mt))
 	    for t in mt.threads:
+		#print "    struct thread_info 0x%x" % long(t)
 		out.append((basems - t.Last_ran, t.pid, t))
 	print '==== Tasks in PID order, grouped by Thread Group leader =='
     else:
