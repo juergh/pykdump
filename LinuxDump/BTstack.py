@@ -40,7 +40,7 @@ class BTStack:
     def __init__(self):
         pass
     def __repr__(self):
-        out = ["\nPID=%d  CMD=%s" % (self.pid, self.cmd)]
+        out = ["\nPID=%d  CPU=%d CMD=%s" % (self.pid, self.cpu, self.cmd)]
         for f in self.frames:
             out.append(str(f))
         return string.join(out, "\n")
@@ -293,7 +293,7 @@ re_via = re.compile(r'(\S+)\s+\(via\s+([^)]+)\)$')
 # Regex to remove (via funcname)
 re_rmvia = re.compile(r'\s*\(via\s+([^)]+)\)')
 
-@memoize_cond(CU_LIVE | CU_PYMOD)
+@memoize_cond(CU_LIVE | CU_PYMOD | CU_TIMEOUT)
 def exec_bt(crashcmd = None, text = None):
     #print "Doing exec_bt('%s')" % crashcmd
     btslist = []

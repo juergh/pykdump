@@ -714,6 +714,9 @@ def __j_delay(ts, jiffies):
 # 2. Memory allocation - we are short on memory and are shrinking caches/zones
 #    or waiting for swapper
 # 3. We are waiting for NFS
+#
+# In general, if we have UN threads that did not run for a long time, this
+# is highly suspicious
 
 
 def check_UNINTERRUPTIBLE():
@@ -739,16 +742,20 @@ def check_UNINTERRUPTIBLE():
     nfscount = 0
     jcount = 0
     bigtime = 30                # Cutoff for ran_s_ago
+    oldbts = []
     for bt in bts:
 	pid = bt.pid
         mt = tt.getByTid(pid)
         ran_ms_ago = basems - mt.Last_ran
 	ran_s_ago = ran_ms_ago/1000
+	if (ran_s_ago > bigtime):
+	    oldbts.append((ran_s_ago, bt))
 	if (verbose):
 	    print bt
 	    print "\n   ......  last_ran %ds ago\n" % ran_s_ago
 	    print '-' * 70
-	if (bt.cmd == "syslogd" and ran_s_ago > bigtime):
+	if ((bt.cmd == "syslogd" or bt.cmd == "syslog-ng") and 
+		    ran_s_ago > bigtime):
 	    print WARNING, \
 	       "syslogd is in UNINTERRUPTIBLE state, last_ran %ds ago"\
 	           %ran_s_ago
@@ -766,6 +773,14 @@ def check_UNINTERRUPTIBLE():
 	print WARNING, \
 	    "%d processes in UNINTERRUPTIBLE state are committing journal" %\
 	        jcount
+	        
+    # Sort oldbts and print the last three stacks
+    bts3 = sorted(oldbts)[-3:]
+    if (bts3):
+	print WARNING, "three oldest UNINTERRUPTIBLE threads"
+	for r, bt in bts3:
+	    print '   ... ran %ds ago' % r
+	    print bt
 
 # ................................................................
 #define RQ_INACTIVE		(-1)
