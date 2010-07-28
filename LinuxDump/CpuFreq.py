@@ -31,21 +31,31 @@ from LinuxDump import percpu
 
 debug = API_options.debug
 
-addr = sym2addr("cpufreq_cpu_data")
-
-# struct cpufreq_policy *cpufreq_cpu_data[NR_CPUS]
-
-# Fill-in the list
 pointersize = sys_info.pointersize
+# Fill-in the list
 cpufreq_cpu_data = []
-for cpu in range(0, sys_info.CPUS):
-    ptr = readPtr(addr + pointersize * cpu)
-    p = readSU("struct cpufreq_policy", ptr)
-    cpufreq_cpu_data.append(p)
+
+if (symbol_exists("cpufreq_cpu_data")):
+    addr = sym2addr("cpufreq_cpu_data")
+    # struct cpufreq_policy *cpufreq_cpu_data[NR_CPUS]
+
+    for cpu in range(0, sys_info.CPUS):
+        ptr = readPtr(addr + pointersize * cpu)
+        p = readSU("struct cpufreq_policy", ptr)
+        cpufreq_cpu_data.append(p)
     
+elif (symbol_exists("per_cpu__cpufreq_cpu_data")):
+    # static DEFINE_PER_CPU(struct cpufreq_policy *, cpufreq_cpu_data)
+    vtype = percpu.get_cpu_var_type("cpufreq_cpu_data")
+    for v in percpu.get_cpu_var("cpufreq_cpu_data"):
+        cpufreq_cpu_data.append(readSU(vtype, v))
+    
+
 
 def print_cpufreq():
     for p in cpufreq_cpu_data:
+        if (not p.governor):
+            continue
 	print "  CPU=%d" % p.cpu, p, p.governor.name
 	print "      Frequencies: min=%d max=%d cur=%d" % \
 	    (p.min, p.max, p.cur)
