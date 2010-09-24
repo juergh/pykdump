@@ -37,7 +37,6 @@ experimental = True
 
 debug = False
 
-
 import Generic as Gen
 from Generic import Bunch, TypeInfo, VarInfo, SUInfo, ArtStructInfo
 
@@ -332,6 +331,11 @@ class StructResult(long):
     #def __init__(self, sname, addr = 0):
     #	pass
 
+    # The next two methods implement pointer arithmetic, i.e.
+    # stype *p
+    # (p+i) points to addr + sizeof(stype)*i
+    # p[i] is equivalent to (p+i)
+
     def __getitem__(self, i):
         if (type(i) == type("")):
             return self.PYT_sinfo[i]
@@ -469,7 +473,7 @@ def structSetProcAttr(sname, aname, meth):
     return True
 
 # A factory function for integer readers
-def intReader(vi):
+def ti_intReader(ti, bitoffset = None, bitsize = None):
     def signedReader(addr):
         #s = readmem(addr, size)
         #return mem2long(s, signed = True)
@@ -525,13 +529,7 @@ def intReader(vi):
     def zeroArrayReader(addr):
         return intDimensionlessArray(addr, size, not unsigned)
 
-    ti = vi.ti
     size = ti.size
-    bitsize = vi.bitsize
-    if (bitsize != None):
-        bitoffset = vi.bitoffset - vi.offset * 8
-    else:
-	bitoffset = None
     uint = ti.uint
     unsigned = (uint == None or uint)
     dims = ti.dims
@@ -576,6 +574,7 @@ def intReader(vi):
         else:
             mask = (~(~0<<bitsize))
             return signedBFReader
+
 
 
 # A factory function for struct/union readers

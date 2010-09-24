@@ -1,6 +1,6 @@
 # module LinuxDump.sysctl
 #
-# Time-stamp: <09/11/11 16:35:07 alexs>
+# Time-stamp: <10/09/24 15:48:55 alexs>
 #
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -61,10 +61,13 @@ __entries = {}
 def readCtlTable(root, parent = ''):
     #print "root=", root
     for ct in root:
-        if (long(ct) == 0 or ct.ctl_name == 0): break
+        #print " +", ct, ct.procname, type(ct.procname)
+        if (long(ct) == 0 or not ct.procname):
+            break
         if (ct.child):
             # This is a pointer to another table
             newroot = readSUArray(stype, ct.child)
+            #print "   |", newroot, parent + ct.procname + '.'
             readCtlTable(newroot, parent + ct.procname + '.')
             continue
         # In some cases (e.g. neigh_sysctl_template) we copy the template
@@ -82,6 +85,7 @@ def getCtlTables():
     for ct in readSUListFromHead("root_table_header", "ctl_entry",
                                  "struct ctl_table_header", inchead=True):
         ctp = ct.ctl_table
+        if (not ctp.procname.isalnum()): continue
         # On new kernels we can exit because root is null
         try:
             if (not ct.root): break
@@ -111,5 +115,9 @@ def getCtlData(ct):
         i = readU32(data)
         out.append(int(i))
         data += intsize
+    # Arrays cane be huge - do not print more than 5 elements
+    l = len(out)
+    if (l > 5):
+        out = out[:5] + ["... %d more elements" % (l-5)]
     return out
     

@@ -95,13 +95,9 @@ struct node {
   char *two;
 };
 
-typedef struct node my_node;
-
 typedef struct ASID asid_t;
 
 asid_t aaa;
-
-my_node mynode;
 
 enum ASID_ENUM {ASID_0, ASID_2=2, ASID_3};
 
@@ -120,8 +116,6 @@ testmod_init(void) {
   
   LBLOG("++++++++++++++ testmod loaded\n");
 
-  mynode.one = 111;
-  mynode.two = "mynode_two";
   
   asid.li = 123456789;
   asid.i2 = -555;

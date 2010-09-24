@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <09/11/11 14:02:00 alexs>
+# Time-stamp: <10/09/24 16:38:04 alexs>
 #
 # Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
@@ -136,6 +136,9 @@ __IN6_ADDR_HSIZE = 16
 def get_inet6_ifaddr():
     ptrsz = sys_info.pointersize
     tableaddr = sym2addr('inet6_addr_lst')
+    # Two variants:
+    # static struct hlist_head inet6_addr_lst[IN6_ADDR_HSIZE]; /* 2.6.35 */
+    # static struct inet6_ifaddr		*inet6_addr_lst[IN6_ADDR_HSIZE];
     if (tableaddr == 0):
         return
     sn = "struct inet6_ifaddr"
@@ -143,16 +146,24 @@ def get_inet6_ifaddr():
 	print WARNING, "IPv6 structures definitions missing"
 	return
     offset = member_offset(sn, "lst_next")
-    for i in range(__IN6_ADDR_HSIZE):
-        sa = readPtr(tableaddr + i * ptrsz)
-        if (sa == 0):
-            continue
-        for pt in readList(sa, offset):
-            #print i, hexl(pt)
-            ifa = readSU("struct inet6_ifaddr", pt)
-            #print ifa.addr
-            #print "  ", ntodots6(ifa.addr), ifa.Deref.idev.Deref.dev.name
-            yield ifa
+    if (offset != -1):
+        for i in range(__IN6_ADDR_HSIZE):
+            sa = readPtr(tableaddr + i * ptrsz)
+            if (sa == 0):
+                continue
+            for pt in readList(sa, offset):
+                #print i, hexl(pt)
+                ifa = readSU("struct inet6_ifaddr", pt)
+                #print ifa.addr
+                #print "  ", ntodots6(ifa.addr), ifa.Deref.idev.Deref.dev.name
+                yield ifa
+    else:
+        offset = member_offset(sn, "addr_lst")
+        for h in readSymbol('inet6_addr_lst'):
+            for ifa in hlist_for_each_entry(sn, h, "addr_lst"):
+                yield ifa
+
+    
 
             
             

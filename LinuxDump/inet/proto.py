@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # module LinuxDump.inet.proto
-# Time-stamp: <09/11/11 14:50:15 alexs>
+# Time-stamp: <10/09/24 14:56:39 alexs>
 
 #
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
@@ -415,6 +415,9 @@ def init_INET_Stuff():
     # 	     unsigned int			ehash_size;
     # 	     struct hlist_head		listening_hash[INET_LHTABLE_SIZE];
 
+    # On 2.6.35 there is no ehash_size, we have ehash_mask instead
+    # ehash_size will be ehash_mask+1
+
     try:
 	ehash_size = tcp_hashinfo.__tcp_ehash_size
 	ehash_btype = tcp_hashinfo["__tcp_ehash"].basetype
@@ -423,7 +426,10 @@ def init_INET_Stuff():
 	tcp_listening_hash = tcp_hashinfo.__tcp_listening_hash
 	tw_type = "struct tcp_tw_bucket"
     except KeyError:
-	ehash_size = tcp_hashinfo.ehash_size
+        if (tcp_hashinfo.hasField("ehash_mask")):
+            ehash_size = tcp_hashinfo.ehash_mask + 1
+        else:
+            ehash_size = tcp_hashinfo.ehash_size
 	ehash_btype = tcp_hashinfo["ehash"].basetype
 	ehash_addr = tcp_hashinfo.ehash
 
@@ -489,10 +495,12 @@ def init_PseudoAttrs():
     structSetAttr(sn, "type", ["sl_type", "sk.sk_type"], extra)
     structSetAttr(sn, "state", "sk.__sk_common.skc_state", extra)
 
-    structSetAttr(sn, "Src", ["inet.rcv_saddr", "rcv_saddr"], extra)
-    structSetAttr(sn, "Dst", ["inet.daddr", "daddr"], extra)
-    structSetAttr(sn, "sport", ["inet.sport", "sport"], extra)
-    structSetAttr(sn, "dport", ["inet.dport", "dport"], extra)
+    structSetAttr(sn, "Src",
+                  ["inet_rcv_saddr",
+                   "inet.rcv_saddr", "rcv_saddr"], extra)
+    structSetAttr(sn, "Dst", ["inet_daddr", "inet.daddr", "daddr"], extra)
+    structSetAttr(sn, "sport", ["inet_sport", "inet.sport", "sport"], extra)
+    structSetAttr(sn, "dport", ["inet_dport", "inet.dport", "dport"], extra)
 
     structSetAttr(sn, "Src6", "pinet6.rcv_saddr.in6_u.u6_addr32", extra)
     structSetAttr(sn, "Dst6", "pinet6.daddr.in6_u.u6_addr32", extra)
@@ -746,7 +754,27 @@ def get_UDP():
         try:
             udphash =  readSymbol("udp_hash")
         except TypeError:
+            udptable =  readSymbol("udp_table")
+
+            # On older 2.6:
+            #struct udp_table {
+            #  struct udp_hslot	hash[UDP_HTABLE_SIZE];
+            #};
+
+            # Newer
+            #struct udp_table {
+            #   struct udp_hslot	*hash;
+            #   struct udp_hslot	*hash2;
+            #   unsigned int		mask;
+            #   unsigned int		log;
+            #};
+
             udphash =  readSymbol("udp_table").hash
+            if (udptable.hasField("mask")):
+                sz = udptable.mask + 1
+                udphash = iterN(udphash, sz)
+
+
         for s in udphash:
 	    try:
 		first = s.first

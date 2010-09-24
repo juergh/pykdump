@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module pykdump.API
 #
-# Time-stamp: <10/01/08 11:32:04 alexs>
+# Time-stamp: <10/09/24 14:55:13 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -48,7 +48,7 @@ require_cmod_version(pykdump.minimal_cmod_version)
 # visible to API
 
 import Generic as gen
-from Generic import Bunch, ArtStructInfo, EnumInfo
+from Generic import Bunch, ArtStructInfo, EnumInfo, iterN
 
 hexl = gen.hexl
 unsigned16 = gen.unsigned16

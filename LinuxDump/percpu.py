@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <09/11/11 12:21:16 alexs>
+# Time-stamp: <10/09/24 17:05:27 alexs>
 
 # Per-cpu functions
 
@@ -10,6 +10,16 @@ from pykdump.API import *
 # the whole array (list) of addresses for all CPUs
 
 def get_cpu_var_26(varname):
+    cpuvarname = "per_cpu__" + varname
+    saddr = sym2addr(cpuvarname)
+    addrlist = []
+    #print CPUS, per_cpu_offsets
+    for cpu in range(CPUS):
+        addr = (saddr + per_cpu_offsets[cpu])  & 0xffffffffffffffffL
+        addrlist.append(addr)
+    return addrlist
+
+def get_cpu_var_26_new(varname):
     cpuvarname = "per_cpu__" + varname
     saddr = sym2addr(cpuvarname)
     addrlist = []
@@ -99,7 +109,7 @@ def percpu_counter_sum(fbc):
 CPUS = sys_info.CPUS
 pointermask = sys_info.pointermask
 
-if (symbol_exists("per_cpu__runqueues")):
+if (symbol_exists("per_cpu__runqueues") or symbol_exists("runqueues")):
     pda_addr = None
     if (symbol_exists("cpu_pda")):
         # AMD64, older kernels.
@@ -129,7 +139,12 @@ if (symbol_exists("per_cpu__runqueues")):
         per_cpu_offsets = readSymbol("__per_cpu_offset")
     else:
         per_cpu_offsets = [0]
-    get_cpu_var = get_cpu_var_26
+
+    
+    if (symbol_exists("per_cpu__runqueues")):
+        get_cpu_var = get_cpu_var_26
+    else:
+        get_cpu_var = get_cpu_var_26_new
     if (struct_exists("struct percpu_data")):
         percpu_ptr = get_percpu_ptr_26
     else:

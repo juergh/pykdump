@@ -1,7 +1,7 @@
 #
 #  Code that does not depend on whether we use embedded API or PTY
 #
-# Time-stamp: <10/01/08 11:30:29 alexs>
+# Time-stamp: <10/09/24 14:54:58 alexs>
 #
 import string
 import pprint
@@ -103,7 +103,14 @@ class MemoizeSU(type):
 	print "SU Cache purged, len=", len(MemoizeSU.__cache)
  
 
+# Limit a potentially infinite sequence so that while iterating
+# it we'll stop not later than after N elements
 
+def iterN(seq, N):
+    it = iter(seq)
+    for i in range(N):
+        yield it.next()
+    return
 
 
 # INTTYPES = ('char', 'short', 'int', 'long', 'signed', 'unsigned',
@@ -276,9 +283,14 @@ class VarInfo(object):
      # Return a reader for this varinfo
      def getReader(self, ptrlev = None):
          ti = self.ti
+         if (self.bitsize != None):
+             bitoffset = self.bitoffset - self.offset * 8
+         else:
+             bitoffset = None
+         
          codetype = ti.codetype
          if (codetype == TYPE_CODE_INT):
-             return d.intReader(self)
+             return d.ti_intReader(ti, bitoffset, self.bitsize)
          elif (codetype in TYPE_CODE_SU):
              # Struct/Union
              return d.suReader(self)
@@ -289,7 +301,7 @@ class VarInfo(object):
                  ptrlev = ti.ptrlev
              return d.ptrReader(self, ptrlev)
 	 elif (codetype == TYPE_CODE_ENUM):     # TYPE_CODE_ENUM
-	     return d.intReader(self)
+	     return d.ti_intReader(ti, bitoffset, self.bitsize)
          else:
              raise TypeError, "don't know how to read codetype "+str(codetype)
 

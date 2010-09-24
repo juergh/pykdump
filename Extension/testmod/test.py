@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <09/08/14 11:15:39 alexs>
+# Time-stamp: <10/08/17 16:01:28 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
@@ -9,7 +9,7 @@
 
 
 import sys
-#sys.path.append(".")
+sys.path.insert(0, "../..")
 import time
 
 #import cProfile
@@ -21,10 +21,7 @@ from pykdump.Generic import TypeInfo, VarInfo, SUInfo
 
 
 import crash
-loadModule("testmod", "../Extension/testmod/testmod.ko")
-
-mynode = readSymbol("mynode")
-print mynode.one, mynode.two
+loadModule("testmod", "testmod.ko")
 
 addr = sym2addr("asid")
 asid = readSU("struct ASID", addr)
@@ -117,6 +114,8 @@ else:
     nfailed += 1
 
 print "%d tests run, %d failed" % (ntests, nfailed)
+
+sys.exit(0)
 
 print " ------------ Performance testing --------------"
 
