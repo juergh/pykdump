@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <10/09/27 14:56:19 alexs>
+# Time-stamp: <10/09/27 16:20:07 alexs>
 
 # Per-cpu functions
 
@@ -109,7 +109,7 @@ def percpu_counter_sum(fbc):
 CPUS = sys_info.CPUS
 pointermask = sys_info.pointermask
 
-if (symbol_exists("per_cpu__runqueues") or symbol_exists("runqueues")):
+if (symbol_exists("per_cpu__runqueues")):
     pda_addr = None
     if (symbol_exists("cpu_pda")):
         # AMD64, older kernels.
@@ -141,15 +141,22 @@ if (symbol_exists("per_cpu__runqueues") or symbol_exists("runqueues")):
         per_cpu_offsets = [0]
 
     
-    if (symbol_exists("per_cpu__runqueues")):
-        get_cpu_var = get_cpu_var_26
-    else:
-        get_cpu_var = get_cpu_var_26_new
+    get_cpu_var = get_cpu_var_26
     if (struct_exists("struct percpu_data")):
         percpu_ptr = get_percpu_ptr_26
     else:
         percpu_ptr = get_percpu_ptr_26_dynamic
-    
+
+elif (symbol_exists("runqueues")):
+    # Either 2.4 _or_ 2.6.35+ :-)
+    if (symbol_exists("percpu_counters")):
+        # 2.6.35+
+        per_cpu_offsets = readSymbol("__per_cpu_offset")
+        get_cpu_var = get_cpu_var_26_new
+        percpu_ptr = get_percpu_ptr_26_dynamic
+    else:
+        # 2.4
+        get_cpu_var = get_cpu_var_24
+        percpu_ptr = None
 else:
-    get_cpu_var = get_cpu_var_24
-    percpu_ptr = None
+    raise TypeError, "Cannot process runqueues on this kernel"
