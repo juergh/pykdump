@@ -3,7 +3,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <09/11/12 11:10:27 alexs>
+# Time-stamp: <10/09/27 15:45:32 alexs>
 
 # Copyright (C) 2007-2009 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007-2009 Hewlett-Packard Co., All rights reserved.
@@ -68,7 +68,7 @@ def printHeader(format, *args, **kwargs):
     print ""
 
 def print_basics():
-    printHeader("*** Crashinfo v0.3 ***", frame=1)
+    printHeader("*** Crashinfo v0.4 ***", frame=1)
     print ""
     if (not sys_info.livedump):
 	# Check whether this is a partial dump and if yes,

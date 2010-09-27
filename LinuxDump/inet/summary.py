@@ -1,7 +1,7 @@
 
 # module LinuxDump.inet.summary
 #
-# Time-stamp: <08/03/14 09:52:58 alexs>
+# Time-stamp: <10/09/27 15:44:20 alexs>
 #
 # Copyright (C) 2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2008 Hewlett-Packard Co., All rights reserved.
@@ -216,7 +216,11 @@ def IF_Summarize(quiet = False):
     jiffies = readSymbol("jiffies")
     for dev in dev_base_list:
         last_rx = __j_delay(dev.last_rx, jiffies)
-        trans_start = __j_delay(dev.trans_start, jiffies)
+        if (dev.hasField("_tx")):
+            trans_start = dev._tx.trans_start
+        else:
+            trans_start = dev.trans_start
+        trans_start = __j_delay(trans_start, jiffies)
         print "\t%5s    %s     %s"% ( dev.name, last_rx, trans_start)
 
 

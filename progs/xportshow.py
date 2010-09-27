@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Time-stamp: <10/09/24 12:22:24 alexs>
+# Time-stamp: <10/09/27 15:45:51 alexs>
 
 # Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
@@ -27,7 +27,7 @@ from LinuxDump.inet import summary
 import string
 from StringIO import StringIO
 
-__version__ = 0.5
+__version__ = 0.6
 
 debug = API_options.debug
 

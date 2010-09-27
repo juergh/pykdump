@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <10/09/24 16:38:04 alexs>
+# Time-stamp: <10/09/27 15:36:19 alexs>
 #
 # Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
@@ -241,30 +241,51 @@ def hwaddr2str(ha, l):
 def print_mc_list(dev):
     # On older 2.6 mc_list is struct dev_mc_list *
     # On newer 2.6 mc_list is struct dev_addr_list
-    if (dev.mc_list):
-        print " --------mcast------------"
-    else:
-        return
+    # 2.6.32 struct dev_addr_list	*mc_list;/* Multicast mac addresses*/
+    # 2.6.35 struct netdev_hw_addr_list	mc;	/* Multicast mac addresses */
 
-    for s in readStructNext(dev.mc_list, "next"):
-        try:
-            addr = s.dmi_addr
-            addrlen = s.dmi_addrlen
-            users = s.dmi_users
-            gusers = s.dmi_gusers
-        except:
-            addr = s.da_addr
-            addrlen = s.da_addrlen
-            users = s.da_users
-            gusers = s.da_gusers
+    if (dev.hasField("mc_list")):
+        if (dev.mc_list):
+            print " --------mcast------------"
+        else:
+            return
 
-        if (addrlen == 6):
-            if (dev.type == ARP_HW.ARPHRD_ETHER):
-                hwaddr = hwaddr2str(addr, 6)
-            else:
-                hwaddr = ""
+        for s in readStructNext(dev.mc_list, "next"):
+            try:
+                addr = s.dmi_addr
+                addrlen = s.dmi_addrlen
+                users = s.dmi_users
+                gusers = s.dmi_gusers
+            except:
+                addr = s.da_addr
+                addrlen = s.da_addrlen
+                users = s.da_users
+                gusers = s.da_gusers
 
-            print "  link: %s users=%d gusers=%d" % (hwaddr, users, gusers)
+            if (addrlen == 6):
+                if (dev.type == ARP_HW.ARPHRD_ETHER):
+                    hwaddr = hwaddr2str(addr, 6)
+                else:
+                    hwaddr = ""
+
+                print "  link: %s users=%d gusers=%d" % (hwaddr, users, gusers)
+    elif (dev.hasField("mc")):
+        if (dev.mc):
+            print " --------mcast------------"
+        else:
+            return
+        addrlen = dev.addr_len
+        for ha in readSUListFromHead(dev.mc, "list", "struct netdev_hw_addr"):
+            addr = ha.addr
+            if (addrlen == 6):
+                if (dev.type == ARP_HW.ARPHRD_ETHER):
+                    hwaddr = hwaddr2str(addr, 6)
+                else:
+                    hwaddr = ""
+
+                print "  link: %s" % (hwaddr)
+           
+
 
     # IPv4 stuff
     idev = readSU("struct in_device", dev.ip_ptr)
@@ -290,7 +311,6 @@ def print_mc_list(dev):
 
 # Print QDisc data if possible
 def printQdisc(qdisc, verbosity):
-    qdiscalign = 32
     enqueuename = addr2sym(qdisc.enqueue)
     dequeuename = addr2sym(qdisc.dequeue)
     qdiscaddr = Addr(qdisc)
@@ -311,18 +331,36 @@ def printQdisc(qdisc, verbosity):
           (stats.qlen, stats.backlog, stats.drops,
            requeues, stats.overlimits)
     if (enqueuename == "pfifo_fast_enqueue"):
-	#print "\tqdisc.rate_est.bps", qdisc.rate_est.bps	
-        # Should be aligned to 32 bytes
+	#print "\tqdisc.rate_est.bps", qdisc.rate_est.bps
+        # Older 2.6
+        # struct sk_buff_head *list = qdisc_priv(qdisc);
+        # 
+        # 2.6.32+
+        #  struct pfifo_fast_priv *priv = qdisc_priv(qdisc);
+	#  struct sk_buff_head *list = band2list(priv, band);
+
+
+        priv = None
         if (qdisc.hasField("data")):
 	    privaddr = long(qdisc.data)
 	else:
+            # Should be aligned to 32 or 64  bytes
+            qdiscalign = 32
+            if (struct_exists("struct pfifo_fast_priv")):
+                qdiscalign = 64
             privaddr = (qdiscaddr + qdiscsz + qdiscalign-1)&(~(qdiscalign-1))
+            if (qdiscalign == 64):
+                priv = readSU("struct pfifo_fast_priv", privaddr)
 	# On 2.4 privaddr is computed as qdisc.data, 
 	print "\t== Bands =="
         for band in range(3):
-            addr = privaddr + skbsz * band
-            sk_buff_head = readSU("struct sk_buff_head", addr)
-            print "\t  sk_buff_head=0x%x len=%d" % (addr, sk_buff_head.qlen)
+            if (priv):
+                sk_buff_head = priv.q[band]
+            else:
+                addr = privaddr + skbsz * band
+                sk_buff_head = readSU("struct sk_buff_head", addr)
+            print "\t  sk_buff_head=0x%x len=%d" % (long(sk_buff_head),
+                                                    sk_buff_head.qlen)
 	    if (sk_buff_head.qlen > 0):
 		if (verbosity > 0):
 		    print_skbuff_head(sk_buff_head, verbosity - 1)
@@ -692,7 +730,10 @@ def print_If(dev, details = 0):
             pass
 
     last_rx = dev.last_rx
-    trans_start = dev.trans_start
+    if (dev.hasField("_tx")):
+        trans_start = dev._tx.trans_start
+    else:
+        trans_start = dev.trans_start
     flags = dbits2str(dev.flags, IFF_FLAGS)
     features = dbits2str(dev.features, NETIF_FEATURES, 8)
     # If this is Ethernet, print its MAC-address

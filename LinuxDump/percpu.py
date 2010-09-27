@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <10/09/24 17:05:27 alexs>
+# Time-stamp: <10/09/27 14:56:19 alexs>
 
 # Per-cpu functions
 
@@ -20,7 +20,7 @@ def get_cpu_var_26(varname):
     return addrlist
 
 def get_cpu_var_26_new(varname):
-    cpuvarname = "per_cpu__" + varname
+    cpuvarname = varname
     saddr = sym2addr(cpuvarname)
     addrlist = []
     #print CPUS, per_cpu_offsets

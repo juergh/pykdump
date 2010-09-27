@@ -1,6 +1,6 @@
 # module LinuxDump.sysctl
 #
-# Time-stamp: <10/09/24 15:48:55 alexs>
+# Time-stamp: <10/09/27 14:29:19 alexs>
 #
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -61,13 +61,17 @@ __entries = {}
 def readCtlTable(root, parent = ''):
     #print "root=", root
     for ct in root:
-        #print " +", ct, ct.procname, type(ct.procname)
-        if (long(ct) == 0 or not ct.procname):
-            break
+        if (long(ct) == 0): break
+        #print ct, ct.procname
+        if (ct.hasField("ctl_name")):
+            if(ct.ctl_name == 0): break
+        elif (ct.procname == None): break
+
+        
         if (ct.child):
             # This is a pointer to another table
             newroot = readSUArray(stype, ct.child)
-            #print "   |", newroot, parent + ct.procname + '.'
+            #print "   |", newroot, ct.child,  parent + ct.procname + '.'
             readCtlTable(newroot, parent + ct.procname + '.')
             continue
         # In some cases (e.g. neigh_sysctl_template) we copy the template

@@ -1,6 +1,6 @@
 # module LinuxDump.inet.snmpstats
 #
-# Time-stamp: <10/09/24 16:55:46 alexs>
+# Time-stamp: <10/09/24 17:16:38 alexs>
 #
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -105,7 +105,6 @@ def __getSnmpTable_26(tname):
 def __getSnmpEntry(mib2, entry):
     sum = 0
     for cpu in range(__cpus):
-        print percpu.percpu_ptr
 	mib0 = Deref(percpu.percpu_ptr(mib2[0], cpu))
 	mib1 = Deref(percpu.percpu_ptr(mib2[1], cpu))
 	#print mib0
