@@ -456,7 +456,7 @@ py_sym2_alladdr(PyObject *self, PyObject *args) {
 
   if (symbol_search_next) {
     ssn = symbol_search_next;
-    if (debug > 1)
+    if (debug > 0)
       fprintf(fp, "Using CRASH's version of symbol_search_next\n");
   } else {
     ssn = my_symbol_search_next;
