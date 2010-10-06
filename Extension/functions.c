@@ -130,7 +130,7 @@ py_crash_get_symbol_type(PyObject *self, PyObject *args) {
   printf("name=%s, member=%s\n", name, member);
   val = get_symbol_type(name, member, &req);
   printf("val=%d, length=%d, name=%s, typename=%s, tagname=%s\n",
-	 val, req.length, req.name, req.typename, req.tagname);
+	 val, (int)req.length, req.name, req.typename, req.tagname);
   
   return Py_BuildValue("i", val);
 }
@@ -379,11 +379,15 @@ py_sym2addr(PyObject *self, PyObject *args) {
   return PyLong_FromUnsignedLong(addr);
 }
 
+extern  struct syment * symbol_search_next(char *, struct syment *) __attribute__ ((weak));
+
+
 /* =========================WARNING=====================================
-   We had to copy the following code from crash sources as symbol_search_next()
-   is at this moment declared as static. I'll ask Dave to make it visible,
-   but it will take some time
+   We have to copy the following code from crash sources as symbol_search_next()
+   is at this moment declared as static. Dave Anderson will make it visible 
+   in 5.0.9. As soon as it becomes visible, it'll be used automatically
 */
+
 #define MODULE_PSEUDO_SYMBOL(sp) \
     (STRNEQ((sp)->name, "_MODULE_START_") || STRNEQ((sp)->name, "_MODULE_END_"))
 
@@ -394,7 +398,7 @@ py_sym2addr(PyObject *self, PyObject *args) {
  *  Return the syment of the next symbol with the same name of the input symbol.
  */
 static struct syment *
-symbol_search_next(char *s, struct syment *spstart)
+my_symbol_search_next(char *s, struct syment *spstart)
 {
 	int i;
         struct syment *sp, *sp_end;
@@ -448,6 +452,17 @@ py_sym2_alladdr(PyObject *self, PyObject *args) {
   unsigned long long addr;
   struct syment *se;
   PyObject *list;
+  struct syment *(*ssn)(char *, struct syment *);
+
+  if (symbol_search_next) {
+    ssn = symbol_search_next;
+    if (debug > 1)
+      fprintf(fp, "Using CRASH's version of symbol_search_next\n");
+  } else {
+    ssn = my_symbol_search_next;
+    if (debug > 0)
+      fprintf(fp, "Using my own version of symbol_search_next\n");
+  }
 
      
   if (!PyArg_ParseTuple(args, "s", &symbol)) {
@@ -468,7 +483,7 @@ py_sym2_alladdr(PyObject *self, PyObject *args) {
       return NULL;
 
   // Are there additional symbols?
-  while (se = symbol_search_next(symbol, se))
+  while (se = ssn(symbol, se))
     if (PyList_Append(list,PyLong_FromUnsignedLong(se->value)) == -1)
       return NULL;
   // ASID
@@ -724,7 +739,7 @@ py_readmem(PyObject *self, PyObject *args) {
   char pb[256];
   char *symbol;
   ulonglong addr;
-  int size;
+  long size;
   void *buffer;
 
   PyObject *out;
@@ -783,7 +798,7 @@ static PyObject *
 py_readInt(PyObject *self, PyObject *args) {
   char *symbol;
   ulonglong addr;
-  int size;
+  long size;
   int signedvar = 0;		/* The default */
   int mtype = default_mtype;
   char buffer[32];
@@ -1017,7 +1032,7 @@ py_getlistsize(PyObject *self, PyObject *args) {
     /* next = readPtr(ptr+offset) */
     if (readmem((ulonglong)(ulong)(ptr + offset), KVADDR, &next,
 		sizeof(void *), "Python", RETURN_ON_ERROR|QUIET) == FALSE) {
-          sprintf(pb, "readmem error at addr 0x%llx", addr);	\
+          sprintf(pb, "readmem error at addr %p", addr);	\
 	  PyErr_SetString(crashError, pb);
 	  return NULL;
     }

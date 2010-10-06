@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <10/01/08 11:33:52 alexs>
+  Time-stamp: <10/10/06 11:58:06 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -162,6 +162,18 @@ void _init(void)  {
     fprintf(stderr, "Cannot continue, exiting\n\n");
     exit(1);
   }
+  
+  /* crash-5 is a moving target and we usually need to rebuild the
+     module with each new release. Output a warning
+  */
+
+  if (build_version[0] == '5' && strcmp(build_crash_version, build_version)) {
+    /* Turn off scrolling */
+    fprintf(fp, "PyKdump built for crash %s, currently running: %s\n",
+	   build_crash_version, build_version);
+    fprintf(fp, "If something does not work, use the matching versions\n");
+  }
+      
   
 
   ext_filename = malloc(strlen(pc->curext->filename)+1);
