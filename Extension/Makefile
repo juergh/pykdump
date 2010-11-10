@@ -11,6 +11,7 @@ ZIPPROGS := $(addprefix progs/, $(PROGS))
 FULLPROGS =  $(addprefix ../progs/, $(PROGS))
 INITPROG := PyKdumpInit.py
 
+
 # Check whether we ran configure
 
 c_ok := $(wildcard crash.mk)
@@ -23,6 +24,10 @@ else
   include crash.mk slocal.mk
 endif
 
+SRCDIR := $(TOPDIR)/Extension
+VPATH := $(SRCDIR)
+
+MIN_PYLIST := $(SRCDIR)/$(MINPYLIB_FILES)
 
 EXT_C := pykdump_c.so
 EXT_CPY = mpykdump.so
@@ -48,9 +53,13 @@ gdbspec.o: gdbspec.c
 
 OBJS :=  epython.o functions.o gdbspec.o pythonrun.o
 
-PYTHONRUN_C = $(PYTHONDIR)/Python/pythonrun.c
+PYTHONRUN_C := $(PYTHONDIR)/Python/pythonrun.c
 
-pythonrun.o: $(PYTHONDIR)/Python/pythonrun.c
+ifeq ($(strip $(wildcard $(PYTHONRUN_C))),)
+  PYTHONRUN_C := $(PYTHONDIR)/../Python/pythonrun.c
+endif
+
+pythonrun.o: $(PYTHONRUN_C)
 	sed 's/Py_Exit(int sts)/xPy_Exit(int sts)/' $(PYTHONRUN_C) >pythonrun.c
 	$(CC) -c $(CFLAGS) $(GDBINCL) $(PYINCLUDE)  pythonrun.c -o $@
 	@rm -f pythonrun.c
@@ -65,16 +74,15 @@ PYLIBPREF = pylib
 
 # Full library: std Python + Pykdump + LinuxDump + Progs
 PYFULL = pyfull.zip
-PWD = $(shell pwd)
 PYFULLPATH = $(PWD)/$(PYFULL)
 
 pyparsing.pyo: pyparsing.py
-	$(PYTHON) -O -c "import pyparsing"
+	$(PYTHON) -O -c 'import py_compile;py_compile.compile("$^", "$@")'
 
-$(PYLIB): $(MINPYLIB_FILES) pyparsing.pyo $(PYTHONDIR)/python
+$(PYLIB): $(MIN_PYLIST) pyparsing.pyo $(PYTHONDIR)/python
 	ln -sf  $(STDLIBP) $(PYLIBPREF)
 	rm -f $(PYLIB)
-	sed -e "s|^|$(PYLIBPREF)/|"  $(MINPYLIB_FILES) | zip $(PYLIB) -@
+	sed -e "s|^|$(PYLIBPREF)/|"  $(MIN_PYLIST) | zip $(PYLIB) -@
 	zip $@ pyparsing.pyo
 	rm -f $(PYLIBPREF)
 
@@ -82,19 +90,19 @@ FIND = find $(1) -name \*.pyc -o -type d -not \( -name .svn\* -prune \)
 
 $(PYFULL):  $(PYLIB) $(FULLPROGS) $(PYCOMPILE)
 	cp $(PYLIB) $(PYFULL)
-	cd ..; $(call FIND, pykdump)  |  zip  $(PYFULLPATH) -@
-	cd ..; $(call FIND, LinuxDump)  |  zip $(PYFULLPATH) -@
-	cd ..; zip  $(PYFULLPATH) $(ZIPPROGS)
-	cd ../progs;  zip  $(PYFULLPATH) $(INITPROG)
+	cd $(TOPDIR); $(call FIND, pykdump)  |  zip  $(PYFULLPATH) -@
+	cd $(TOPDIR); $(call FIND, LinuxDump)  |  zip $(PYFULLPATH) -@
+	cd $(TOPDIR); zip  $(PYFULLPATH) $(ZIPPROGS)
+	cd $(TOPDIR)/progs;  zip  $(PYFULLPATH) $(INITPROG)
 
 
 # Before compiling, remove all .pyc files. This might be needed
 # if we ran as crash as root (then .pyc are owned by root)
 pycompile:
-	find ../pykdump -name \*.pyc | xargs rm -f
-	find ../LinuxDump -name \*.pyc | xargs rm -f
-	$(PYTHON) $(COMPALL) -f ../pykdump
-	$(PYTHON) $(COMPALL) -f ../LinuxDump
+	find $(TOPDIR)/pykdump -name \*.pyc | xargs rm -f
+	find $(TOPDIR)/LinuxDump -name \*.pyc | xargs rm -f
+	$(PYTHON) $(COMPALL) -f $(TOPDIR)/pykdump
+	$(PYTHON) $(COMPALL) -f $(TOPDIR)/LinuxDump
 
 $(EXT_CPY): $(EXT_C) $(PYFULL)
 	cat  $(EXT_C) $(PYFULL) >$(EXT_CPY)

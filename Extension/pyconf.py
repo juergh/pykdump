@@ -171,6 +171,10 @@ slmk="slocal.mk"
 
 # ---------- Crash mk part -------------------------------------------------
 
+# To make it easier to building  both x86 and x86_64 on a x86_64 host,
+# we use a special convention - if  crash directory contains files crash32
+# and crash64, this means that we can use that directory both for 
+
 # Check whether crash sourcetree is installed and compiled at this location
 try:
     re_target = re.compile(r'^TARGET=(\w+)$')
@@ -242,6 +246,7 @@ ol.append("CC := %s" % cc)
 ol.append("CFLAGS := %s" % cflags)
 ol.append("LIBS := %s" % libs)
 ol.append("LINKFLAGS := %s" % linkflags)
+ol.append("TOPDIR := %s" % os.path.abspath(os.getcwd()+"/../.."))
 
 # Extras for static build
 if (sourcetree):

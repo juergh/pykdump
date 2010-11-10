@@ -28,7 +28,7 @@ then
    Usage;exit 0
 fi   
 
-while getopts "c:p:h" opt
+while getopts "c:p:d:h" opt
 do
     case $opt in
       p)
@@ -39,46 +39,93 @@ do
         # Strip the trailing '/' if any
         CRASHDIR=`echo $OPTARG | sed 'sT/$TT'`
         ;;
+      d)
+        # Strip the trailing '/' if any
+        DIR32_64=`echo $OPTARG | sed 'sT/$TT'`
+        ;;
       h)
         Usage;exit 0
         ;;
       esac
 done
 
-# Is CRASHDIR set? This is mandatory!
-if test "${CRASHDIR+set}" != set; then
-    echo "CRASHDIR not specified" >&2
-    exit 1
+build_one_flavor () {
+
+    # Is CRASHDIR set? This is mandatory!
+    if test "${CRASHDIR+set}" != set; then
+	echo "CRASHDIR not specified" >&2
+	exit 1
+    fi    
+
+
+    # If there is a system-wide Python, generate files for shared installation,
+    # even in case if we specify PYTHONDIR.
+
+    export PYTHON=${PYTHON:-python}
+
+    # Test whether a locally-installed python is present
+    if ${PYTHON} -c "import os"; then
+	${PYTHON} pyconf.py --writefiles --crashdir ${CRASHDIR}
+    fi
+    
+    # Now check whether PYTHONDIR is set for a static build
+
+    if test "${PYTHONDIR+set}" != set; then
+        # Not set, no need to do anything else
+	exit 0
+    fi
+
+    # Python compiled from sources for a static build
+
+    PYTHON=${PYTHONDIR}/python
+    export LD_LIBRARY_PATH=${PYTHONDIR}
+    # Check whether we can run the Python from that directory
+    if ! ${PYTHON} -c "import os"; then
+	echo "Cannot use the source-tree Python, did you build it properly?"
+	exit 1
+    fi
+
+    ${PYTHON} pyconf.py -s --writefiles --crashdir=${CRASHDIR} \
+	--pythondir=${PYTHONDIR}
+
+}
+
+# If DIR32_64 is set, we should have a special directory layout
+if test "${DIR32_64+set}" != set; then
+    build_one_flavor
 fi    
 
+# Check whether we have a proper layout
 
-# If there is a system-wide Python, generate files for shared installation,
-# even in case if we specify PYTHONDIR.
+lastvers () {
+  local dlist n
+  dlist=($*)
+  n=${#dlist[*]}
+  dirfound=${dlist[$n-1]}
+}
 
-export PYTHON=${PYTHON:-python}
+# Step I. We should have $DIR32_64/Python*/{X86,X86_64} to exist. If there are
+# several versions of Python, use the latest one
 
-# Test whether a locally-installed python is present
-if ${PYTHON} -c "import os"; then
-    ${PYTHON} pyconf.py --writefiles --crashdir ${CRASHDIR}
-fi
-    
-# Now check whether PYTHONDIR is set for a static build
+lastvers ${DIR32_64}/Python-2*
+PYTHONTOP=$dirfound
 
-if test "${PYTHONDIR+set}" != set; then
-  # Not set, no need to do anything else
-  exit 0
-fi
+lastvers ${DIR32_64}/crash-5*
+CRASHTOP=$dirfound
 
-# Python compiled from sources for a static build
+TOPDIR=$PWD
 
-PYTHON=${PYTHONDIR}/python
-export LD_LIBRARY_PATH=${PYTHONDIR}
-# Check whether we can run the Python from that directory
-if ! ${PYTHON} -c "import os"; then
-  echo "Cannot use the source-tree Python, did you build it properly?"
-  exit 1
-fi
+for t in X86 X86_64
+do
+  CRASHDIR=${CRASHTOP}/$t
+  PYTHONDIR=${PYTHONTOP}/$t
+  if [ ! -d "$t" ]; then
+    mkdir $t
+  fi
+  cd $t
+  ln -sf ../pyconf.py ../minpylib* ../Makefile .
+  
+  build_one_flavor
 
-${PYTHON} pyconf.py -s --writefiles --crashdir=${CRASHDIR} \
-    --pythondir=${PYTHONDIR}
-
+  cd $TOPDIR
+done
