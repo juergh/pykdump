@@ -93,6 +93,7 @@ build_one_flavor () {
 # If DIR32_64 is set, we should have a special directory layout
 if test "${DIR32_64+set}" != set; then
     build_one_flavor
+    exit 0
 fi    
 
 # Check whether we have a proper layout
