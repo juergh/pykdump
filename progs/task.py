@@ -50,8 +50,16 @@ def printTasks(reverse = False):
 	    pid_s =  " %5d " % pid
 	    tgid_s = ""
 
-	print " %s %15s %2d %15d  %s %s" \
-		    % (pid_s, t.comm,  t.cpu,
+	RLIMIT_NPROC = 6
+	rlimit = t.signal.rlim[RLIMIT_NPROC].rlim_cur
+	pcount = t.user.processes.counter
+	uid = t.user.uid
+	if (pcount > rlimit - 20):
+	    print ' OOO', rlimit, pcount, "uid=%d" % uid
+	else:
+	    print '    ', rlimit, pcount, "uid=%d" % uid
+	print " %05d %s %15s %2d %15d  %s %s" \
+		    % (pcount, pid_s, t.comm,  t.cpu,
 			int(ran_ms_ago), sstate, tgid_s)
 
 

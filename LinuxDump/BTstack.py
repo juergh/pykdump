@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 #
-# Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2007-2010 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2007-2010 Hewlett-Packard Co., All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -275,19 +275,19 @@ re_pid = re.compile(r'^PID:\s+(\d+)\s+TASK:\s+([\da-f]+)\s+' +
 # (active)
 #
 # and there can be space in [] like  #0 [ c7bfe28] schedule at 21249c3
+# 5.1.0 started to show modules, e.g.
+ #3 [ffff8102d6551d50] nlm_lookup_host at ffffffff88639781 [lockd]
 
 # In IA64:
 #  #0 [BSP:e00000038dbb1458] netconsole_netdump at a000000000de7d40
 
-#                         frame                  faddr        func        addr  
-re_f1 = re.compile(r'\s*(?:#\d+)?\s+\[(?:BSP:)?([\da-f]+)\]\s+(.+)\sat\s([\da-f]+)(\s+\*)?$')
+#                         frame                  faddr        func        addr          [mod]
+re_f1 = re.compile(r'\s*(?:#\d+)?\s+\[(?:BSP:)?([\da-f]+)\]\s+(.+)\sat\s([\da-f]+)(\s+\[[-\w]+\])?(\s+\*)?$')
 # The 1st line of 'bt -t' stacks
 #       START: disk_dump at f8aa6d6e
 re_f1_t = re.compile(r'\s*(START:)\s+([\w.]+)\sat\s([\da-f]+)$')
 
 re_via = re.compile(r'(\S+)\s+\(via\s+([^)]+)\)$')
-
-
 
 
 # Regex to remove (via funcname)
@@ -361,6 +361,7 @@ def exec_bt(crashcmd = None, text = None):
                 # If we have a pattern like 'error_code (via page_fault)'
                 # it makes more sense to use 'via' func as a name
                 f.addr = int(m.group(3), 16)
+                f.module = m.group(4)
                 if (crashcmd):
                     # Real dump environment
                     f.offset = f.addr - sym2addr(f.func)
