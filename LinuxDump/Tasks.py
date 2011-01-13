@@ -210,8 +210,10 @@ class Task:
 		    inode = Deref(dentry.d_inode)
 		    out.append((i, filep, dentry, inode))
 	return out
-
-
+    # Get children
+    def taskChildren(self):
+        return readSUListFromHead(self.ts.children, "sibling",
+                                  "struct task_struct")
 
 class TaskTable:
     def __init__(self):

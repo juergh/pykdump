@@ -1,6 +1,6 @@
 # module LinuxDump.fs
 #
-# Time-stamp: <07/08/23 15:51:31 alexs>
+# Time-stamp: <10/11/25 16:32:45 alexs>
 #
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -34,6 +34,7 @@ import string
 
 # Generic FS stuff, used by all FS
 #----------------------------------------------------------------------
+@memoize_cond(CU_LIVE)
 def getMount():
     rc = exec_crash_command("mount")
     mounts = rc.splitlines()[1:]
@@ -46,12 +47,20 @@ def getMount():
         mlist.append((vfsmount, superblk, fstype, devname, mnt))
     return mlist
 
+# Search for a superblock addr in mounts and if found, return the first vfsmnt
+@memoize_cond(CU_LIVE)
+def sb2Vfsmnt(sbaddr):
+    for mlist in getMount():
+        if (long(mlist[1]) == long(sbaddr)):
+            return mlist[0]
+    return 0
+
 # We could probably interface C-version from 'crash'. But it is useful
 # to have pure Python version for debugging purposes
 
 # We pass tPtr objects to this function
 
-def get_pathname(dentry, vfsmnt, root, rootmnt):
+def XXXget_pathname(dentry, vfsmnt, root, rootmnt):
 
     out = []
     while(True):
@@ -74,6 +83,10 @@ def get_pathname(dentry, vfsmnt, root, rootmnt):
         dentry = parent
     return '/' + string.join(out, '/')
 
+def get_dentry_name(dentry):
+    namelen = dentry.d_name.len
+    return readmem(dentry.d_name.name, namelen)
+    
 
 def IS_ROOT(x):
         return (x == x.Deref.d_parent)
