@@ -42,7 +42,8 @@ def __rlim2str(v):
     
 
 def printTaskDetails(t):
-    print "----", t.pid, t.comm
+    sstate = t.state[5:7]
+    print "---- %5d(%s) %s %s" % (t.pid, sstate, str(t.ts), t.comm)
     parent = t.parent
     real_parent = t.real_parent
     if (t.parent):
@@ -69,6 +70,9 @@ def printTaskDetails(t):
             print "\tI am the leader of a thread group"
         else:
             print "\tWe belong to a thread group with tgid=%d" % t.tgid
+    # for EXIT_DEAD processes, it does not make sense to continue
+    if (sstate == 'DE'):
+	return
     # Rlimits
     print "   -- Rlimits:"
     for i, r in enumerate(signal.rlim):
@@ -137,16 +141,16 @@ def printTasks(reverse = False):
 	    pid_s =  " %5d " % pid
 	    tgid_s = ""
 
-	RLIMIT_NPROC = 6
-	rlimit = t.signal.rlim[RLIMIT_NPROC].rlim_cur
-	pcount = t.user.processes.counter
+	#RLIMIT_NPROC = 6
+	#rlimit = t.signal.rlim[RLIMIT_NPROC].rlim_cur
+	#pcount = t.user.processes.counter
 	uid = t.user.uid
-	if (pcount > rlimit - 20):
-	    print ' OOO', rlimit, pcount, "uid=%d" % uid
-	else:
-	    print '    ', rlimit, pcount, "uid=%d" % uid
-	print " %05d %s %15s %2d %15d  %s %s" \
-		    % (pcount, pid_s, t.comm,  t.cpu,
+	#if (pcount > rlimit - 20):
+	#    print ' OOO', rlimit, pcount, "uid=%d" % uid
+	#else:
+	#    print '    ', rlimit, pcount, "uid=%d" % uid
+	print " %s %15s %2d %15d  %s %s" \
+		    % (pid_s, t.comm,  t.cpu,
 			int(ran_ms_ago), sstate, tgid_s)
 
 
