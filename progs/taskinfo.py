@@ -45,8 +45,11 @@ def printTaskDetails(t):
     sstate = t.state[5:7]
     print "---- %5d(%s) %s %s" % (t.pid, sstate, str(t.ts), t.comm)
     parent = t.parent
-    real_parent = t.real_parent
-    if (t.parent):
+    if (t.hasField("real_parent")):
+	real_parent = t.real_parent
+    else:
+	real_parent = parent
+    if (parent):
         print "   -- Parent:", parent.pid, parent.comm
         if (real_parent != parent):
             print "   -- Real Parent:", real_parent.pid, real_parent.comm
@@ -89,13 +92,22 @@ def printTaskDetails(t):
         print "\t fsid=%-5d fsgid=%-5d" % (c.fsuid, c.fsgid)
         u = c.user
         print "     --user_struct", u
-        print "\t  processes=%d files=%d sigpending=%d" % \
-              (u.processes.counter, u.files.counter, u.sigpending.counter)
-        g = c.group_info
+        if (u.hasField("sigpending")):
+	    extra = " sigpending=%d" % u.sigpending.counter
+	else:
+	    extra = ""
+        print "\t  processes=%d files=%d%s" % \
+              (u.processes.counter, u.files.counter, extra)
+	if (c.hasField("group_info")):
+	    g = c.group_info
+	    ngroups = g.ngroups
+	    small_block = g.small_block
+	else:
+	    ngroups = t.ngroups
+	    small_block = t.groups
+	    g = ""
         print "     --group_info", g
-        ngroups = g.ngroups
-        small_block = g.small_block
-        # Print only if we do not have more than NGROUPS_SMALL
+	            # Print only if we do not have more than NGROUPS_SMALL
         if (ngroups <= len(small_block)):
             out = []
             for i in range(ngroups):
@@ -110,7 +122,12 @@ def printTaskDetails(t):
 	return
     # Rlimits
     print "   -- Rlimits:"
-    for i, r in enumerate(signal.rlim):
+    # On RHEL4 rlim is in task_struct, on later kernels in signal
+    if t.hasField("rlim"):
+	rlim = t.rlim
+    else:
+	rlim = signal.rlim
+    for i, r in enumerate(rlim):
         s = __RLIMIT.value2key(i)
         print"\t%02d (%s) cur=%s max=%s" % (i, s,
                                             __rlim2str(r.rlim_cur),
