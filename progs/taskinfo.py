@@ -126,7 +126,7 @@ def printTasks(reverse = False):
 	print '==== Tasks in reverse order, scheduled recently first   =='
 
     print " PID          CMD       CPU   Ran ms ago   STATE"
-    print "--------    -----------  --  ------------- -----"
+    print "--------   ------------  --  ------------- -----"
 
     for ran_ms_ago, pid, t in out:
 	sstate = t.state[5:7]
@@ -136,22 +136,24 @@ def printTasks(reverse = False):
 	tgid = t.tgid
 	if (pid != tgid):
 	    pid_s =  "  %5d" % pid
-	    tgid_s = "  (tgid=%d)" % tgid
+	    extra = " (tgid=%d)" % tgid
 	else:
 	    pid_s =  " %5d " % pid
-	    tgid_s = ""
+	    extra = ""
+        uid = t.Uid
+        extra = "%13s UID=%d" % (extra, uid)
 
 	#RLIMIT_NPROC = 6
 	#rlimit = t.signal.rlim[RLIMIT_NPROC].rlim_cur
 	#pcount = t.user.processes.counter
-	uid = t.user.uid
+	uid = t.Uid
 	#if (pcount > rlimit - 20):
 	#    print ' OOO', rlimit, pcount, "uid=%d" % uid
 	#else:
 	#    print '    ', rlimit, pcount, "uid=%d" % uid
-	print " %s %15s %2d %15d  %s %s" \
+	print "%s %15s %2d %15d  %s %s" \
 		    % (pid_s, t.comm,  t.cpu,
-			int(ran_ms_ago), sstate, tgid_s)
+			int(ran_ms_ago), sstate, extra)
 
 
 taskstates_filter=None

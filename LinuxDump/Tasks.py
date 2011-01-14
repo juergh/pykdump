@@ -28,6 +28,7 @@ from LinuxDump import percpu
 
 debug = API_options.debug
 
+
 PIDTYPE_c = '''
 enum pid_type
 {
@@ -515,6 +516,9 @@ structSetAttr(rqtype, "Timestamp",
               ["timestamp_last_tick", "most_recent_timestamp",
                "tick_timestamp", "clock"])
 structSetAttr(rqtype, "Active", ["active", "dflt_lrq.active"])
+
+__sts = "struct task_struct"
+structSetAttr(__sts, "Uid", ["uid", "cred.uid"])
 
 # Print tasks summary and return the total number of threads
 

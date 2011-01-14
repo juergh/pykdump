@@ -50,3 +50,13 @@ options:
 rprog("crashinfo", "1st-pass analysis",
       "-h   - list available options",
       help)
+
+
+help = '''
+Print information about tasks in more details as the built-in 'ps'
+command
+'''
+
+rprog("taskinfo", "Detailed info about tasks",
+      "-h   - list available optoions",
+      help)
