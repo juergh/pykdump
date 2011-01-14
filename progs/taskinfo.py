@@ -70,6 +70,41 @@ def printTaskDetails(t):
             print "\tI am the leader of a thread group"
         else:
             print "\tWe belong to a thread group with tgid=%d" % t.tgid
+    # Credentials
+    #
+
+    if (t.hasField('cred')):
+        if (t.cred != t.real_cred):
+            job = [('cred', t.cred), ('real_cred', t.real_cred)]
+        else:
+            job = [('Credentials', t.cred)]
+    else:
+        job = [('Credentials', t)]
+
+    for jh, c in job:
+        print "   --", jh
+        print "\t  uid=%-5d   gid=%-5d" % (c.uid, c.gid)
+        print "\t suid=%-5d  sgid=%-5d" % (c.suid, c.sgid)
+        print "\t euid=%-5d  egid=%-5d" % (c.euid, c.egid)
+        print "\t fsid=%-5d fsgid=%-5d" % (c.fsuid, c.fsgid)
+        u = c.user
+        print "     --user_struct", u
+        print "\t  processes=%d files=%d sigpending=%d" % \
+              (u.processes.counter, u.files.counter, u.sigpending.counter)
+        g = c.group_info
+        print "     --group_info", g
+        ngroups = g.ngroups
+        small_block = g.small_block
+        # Print only if we do not have more than NGROUPS_SMALL
+        if (ngroups <= len(small_block)):
+            out = []
+            for i in range(ngroups):
+                out.append(str(small_block[i]))
+            print "     ", out
+                
+            
+
+        
     # for EXIT_DEAD processes, it does not make sense to continue
     if (sstate == 'DE'):
 	return

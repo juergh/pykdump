@@ -518,7 +518,21 @@ structSetAttr(rqtype, "Timestamp",
 structSetAttr(rqtype, "Active", ["active", "dflt_lrq.active"])
 
 __sts = "struct task_struct"
-structSetAttr(__sts, "Uid", ["uid", "cred.uid"])
+
+# New kernels have potentially different 'cred' and 'real_cred' and as a result
+# two copies of 'struct user_struct'. By default, we'll use 'real_cred'
+
+# task_struct::real_cred then refers to the objective and apparent
+# real subjective credentials of a task, as perceived by the other tasks
+# in the system.
+
+# task_struct::cred then refers to the effective subjective credentials of
+# a task, as used by that task when it's actually running. These are not
+# visible to the other tasks in the system.
+
+
+structSetAttr(__sts, "Uid", ["uid", "real_cred.uid"])
+structSetAttr(__sts, "User", ["user", "real_cred.user"])
 
 # Print tasks summary and return the total number of threads
 
