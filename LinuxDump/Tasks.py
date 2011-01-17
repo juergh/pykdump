@@ -213,8 +213,9 @@ class Task:
 	return out
     # Get children
     def taskChildren(self):
-        return readSUListFromHead(self.ts.children, "sibling",
+        clist = readSUListFromHead(self.ts.children, "sibling",
                                   "struct task_struct")
+        return [Task(c, self.ttable) for c in clist]
 
 class TaskTable:
     def __init__(self):

@@ -71,6 +71,10 @@ def printTaskDetails(t):
               (len(threads)+1, live)
         if (t.pid == t.tgid):
             print "\tI am the leader of a thread group"
+            # Print all threads in verbose mode
+            if (verbose):
+                tids = [t.pid for t in threads]
+                print "\tThreads:", tids
         else:
             print "\tWe belong to a thread group with tgid=%d" % t.tgid
     # Credentials
@@ -89,7 +93,7 @@ def printTaskDetails(t):
         print "\t  uid=%-5d   gid=%-5d" % (c.uid, c.gid)
         print "\t suid=%-5d  sgid=%-5d" % (c.suid, c.sgid)
         print "\t euid=%-5d  egid=%-5d" % (c.euid, c.egid)
-        print "\t fsid=%-5d fsgid=%-5d" % (c.fsuid, c.fsgid)
+        print "\tfsuid=%-5d fsgid=%-5d" % (c.fsuid, c.fsgid)
         u = c.user
         print "     --user_struct", u
         if (u.hasField("sigpending")):
@@ -207,15 +211,95 @@ def printTasks(reverse = False):
 		    % (pid_s, t.comm,  t.cpu,
 			int(ran_ms_ago), sstate, extra)
 
+# Emulate pstree
 
+__STEP = 4
+
+# A recursive thingy
+def xxx_walk_children(t, indent=0):
+    # Sort children by comm
+    def getcomm(t):
+        return t.comm
+    newl = sorted(t.taskChildren(), key=getcomm)
+    for c in newl:
+        comm = c.comm
+        print ' '*indent, c.pid, comm
+        # If this task has threads, treat them as special children
+        # printing something like 2*[{udisks-daemon}]
+        l = len(c.threads)
+        if (l):
+            if (l>1):
+                comm = "%d*[{%s}]" % (l, comm)
+            else:
+                comm = "{%s}" % commw
+            print ' ' * (indent+__STEP), comm
+        walk_children(c, indent+__STEP)
+
+# Sort children by comm
+def __getcomm(t):
+    return t.comm
+
+def __t_str(t):
+    return "%s(%d)" % (t.comm, t.pid)
+
+def walk_children(t, top = False):
+    parent_s = __t_str(t)
+    if (not top):
+        parent_s = '-' + parent_s
+    sorted_c = sorted(t.taskChildren(), key=__getcomm)
+    # If this task has threads, treat them as special children
+    # printing something like 2*[{udisks-daemon}]
+    threads = t.threads
+    if (threads):
+        lt = len(threads)
+        if (lt > 1):
+            st = "-%d*[{%s}]" % (lt, t.comm)
+        else:
+            st ="-{%s}" % t.comm
+        sorted_c.append(st)
+    
+    newl = len(sorted_c)
+    last = newl - 1
+    if (newl == 0):
+        yield parent_s
+
+    padding = ' ' * (len(parent_s) + 1)
+    for i, c in enumerate(sorted_c):
+        if (i == 0):
+            if (newl == 1):
+                s = parent_s + "--"
+            else:
+                s = parent_s + "-+"
+            ll = len(s)
+        else:
+            if (i == last):
+                s = padding + '`'
+            else:
+                s = padding + '|'
+        # If we have threads and c is the last element, it is a preformatted
+        # string rather than a task
+        if (i == last and threads):
+            yield s + c
+        else:
+            for s1 in walk_children(c):
+                yield  s + s1
+
+            
+def pstree():
+    tt = TaskTable()
+    init = tt.getByPid(1)
+    for s in walk_children(init, top = True):
+        print s
+        
 taskstates_filter=None
+verbose = 0
 
 if ( __name__ == '__main__'):
     from optparse import OptionParser
     op =  OptionParser()
 
     op.add_option("-v", dest="Verbose", default = 0,
-		action="store_true",
+		action="count",
 		help="verbose output")
     
     op.add_option("--summary", dest="Summary", default = 0,
@@ -230,20 +314,28 @@ if ( __name__ == '__main__'):
 		action="store",
 		help="A list of 2-letter task states to print, e.g. UN")
 
+    op.add_option("--pstree", dest="Pstree", default = False,
+		action="store_true",
+		help="Emulate user-space 'pstree' output")
+
     op.add_option("-r", "--reverse", dest="Reverse", default = 0,
                     action="store_true",
                     help="Reverse order while sorting")
     (o, args) = op.parse_args()
     
+    verbose = o.Verbose
+
     if (o.Taskfilter):
         taskstates_filter = re.split("\s*,\s*", o.Taskfilter)
-	
+
     if (o.Reverse):
 	printTasks(reverse=True)
     elif (o.Summary):
 	tasksSummary()
     elif (o.Pidinfo):
         find_and_print(o.Pidinfo)
+    elif (o.Pstree):
+        pstree()
     else:
         printTasks()
 
