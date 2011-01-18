@@ -217,7 +217,7 @@ class Task:
                                   "struct task_struct")
         return [Task(c, self.ttable) for c in clist]
 
-class TaskTable:
+class _TaskTable:
     def __init__(self):
         tt = readSUListFromHead(init_task_saddr,
                                 'tasks',
@@ -330,7 +330,9 @@ class TaskTable:
             return []
  
 
-
+@memoize_cond(CU_LIVE |CU_PYMOD) 
+def TaskTable():
+    return _TaskTable()
 
 
 # On AMD64 we use RDTSC to measure times for scheduler

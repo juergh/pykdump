@@ -56,9 +56,10 @@ def printTaskDetails(t):
 
     children = t.taskChildren()
     if (children):
-        print "   -- Children:"
-        for c in children:
-            print "\t", c.pid, c.comm
+        print "   -- Children: %d" % len(children)
+        if (verbose):
+	    for c in children:
+		print "\t", c.pid, c.comm
 
     # Stuff from 'struct signal_struct"
     signal = t.signal
@@ -216,24 +217,6 @@ def printTasks(reverse = False):
 __STEP = 4
 
 # A recursive thingy
-def xxx_walk_children(t, indent=0):
-    # Sort children by comm
-    def getcomm(t):
-        return t.comm
-    newl = sorted(t.taskChildren(), key=getcomm)
-    for c in newl:
-        comm = c.comm
-        print ' '*indent, c.pid, comm
-        # If this task has threads, treat them as special children
-        # printing something like 2*[{udisks-daemon}]
-        l = len(c.threads)
-        if (l):
-            if (l>1):
-                comm = "%d*[{%s}]" % (l, comm)
-            else:
-                comm = "{%s}" % commw
-            print ' ' * (indent+__STEP), comm
-        walk_children(c, indent+__STEP)
 
 # Sort children by comm
 def __getcomm(t):
@@ -264,7 +247,18 @@ def walk_children(t, top = False):
         yield parent_s
 
     padding = ' ' * (len(parent_s) + 1)
+    p_blank = padding + ' '
+    p_end =  padding + '`'
+
     for i, c in enumerate(sorted_c):
+	if (i == last):
+	    if (newl == 1):
+		sc = padding + ' '
+	    else:
+		sc = p_end
+	else:
+	    sc = padding + '|'
+	
         if (i == 0):
             if (newl == 1):
                 s = parent_s + "--"
@@ -272,10 +266,7 @@ def walk_children(t, top = False):
                 s = parent_s + "-+"
             ll = len(s)
         else:
-            if (i == last):
-                s = padding + '`'
-            else:
-                s = padding + '|'
+	    s = sc
         # If we have threads and c is the last element, it is a preformatted
         # string rather than a task
         if (i == last and threads):
@@ -283,11 +274,17 @@ def walk_children(t, top = False):
         else:
             for s1 in walk_children(c):
                 yield  s + s1
+                if (sc == p_end):
+		    s = p_blank
+		else:
+		    s = sc
+
+
 
             
-def pstree():
+def pstree(pid = 1):
     tt = TaskTable()
-    init = tt.getByPid(1)
+    init = tt.getByPid(pid)
     for s in walk_children(init, top = True):
         print s
         
@@ -332,10 +329,13 @@ if ( __name__ == '__main__'):
 	printTasks(reverse=True)
     elif (o.Summary):
 	tasksSummary()
+    elif (o.Pstree):
+	if (o.Pidinfo):
+	    pstree(o.Pidinfo)
+	else:
+	    pstree()
     elif (o.Pidinfo):
         find_and_print(o.Pidinfo)
-    elif (o.Pstree):
-        pstree()
     else:
         printTasks()
 
