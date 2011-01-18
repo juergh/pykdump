@@ -67,8 +67,12 @@ def printTaskDetails(t):
     # Do we belong to a thread group and are we the leader?
     threads = t.threads
     if (threads):
-        live = signal.live.counter
-        print "   -- Threads Info (%d threads, %d live)" % \
+	try:
+	    live = ', %d live' % signal.live.counter
+	except:
+	    # RHEL3
+	    live = ''
+        print "   -- Threads Info (%d threads%s)" % \
               (len(threads)+1, live)
         if (t.pid == t.tgid):
             print "\tI am the leader of a thread group"
@@ -232,7 +236,11 @@ def walk_children(t, top = False):
     sorted_c = sorted(t.taskChildren(), key=__getcomm)
     # If this task has threads, treat them as special children
     # printing something like 2*[{udisks-daemon}]
-    threads = t.threads
+    # We print threads _only if we are the group leader
+    if (t.pid == t.tgid):
+	threads = t.threads
+    else:
+	threads = 0
     if (threads):
         lt = len(threads)
         if (lt > 1):
