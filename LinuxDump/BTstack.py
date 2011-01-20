@@ -31,6 +31,11 @@ except ImportError:
 import string, re
 import time, os, sys
 
+# 5.1.0 started to show modules, e.g.
+ #3 [ffff8102d6551d50] nlm_lookup_host at ffffffff88639781 [lockd]
+
+# While 5.0.9 and earlier:
+ #3 [ffff8102d6551d50] nlm_lookup_host at ffffffff88639781
 
 # This class is for one thread only. Crash output says 'pid' even though
 # in reality this is LWP
