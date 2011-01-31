@@ -1,6 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# Time-stamp: <11/01/31 15:45:51 alexs>
+
+# Copyright (C) 2010-2011 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2010-2011 Hewlett-Packard Co., All rights reserved.
+
+# Print info about tasks
+
+
 from pykdump.API import *
 
 from LinuxDump import percpu
