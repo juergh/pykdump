@@ -117,15 +117,9 @@ def print_fib():
 
 # Print all routing tables, not just RT_TABLE_MAIN
 def print_fib_all():
-    # Works only if the following test is True
-    if (not symbol_exists("fib_tables")):
-	return
-    fib_tables = readSymbol("fib_tables")
-    for i, t in enumerate(fib_tables):
-	if (not t):
-	    continue
-	t = Deref(t)
-	print " \n===== ", t, " ====== Index", i
+    fib_tables = get_fib_tables_v26(True)
+    for t in fib_tables:
+        print "\n====", t, "ID", t.tb_id
 	g = get_fib_v26(t)
 	do_fib_print(g)
 
@@ -153,16 +147,33 @@ def do_fib_print(g):
                   (e.dev, e.dest, e.gw, e.flags, e.metric, e.mask, e.mtu)
                         
 
-
 def get_fib_v26(table = None):
-    if (table):
-	table_main = table
-    elif (symbol_exists("fib_tables")):
+    if (not table):
+        # Get MAIN
+        table = get_fib_tables_v26()
+    #     unsigned char tb_data[0];
+    #print "table_main=", table_main
+    fn_hash = readSU("struct fn_hash", table.tb_data)
+    fn_zone_list_addr = fn_hash.fn_zone_list
+
+    if (debug):
+        print "fn_zone_list_addr=0x%x" % fn_zone_list_addr
+
+    return walk_fn_zones_v26(fn_zone_list_addr)
+
+
+# Get fib_tables for v26, either just MAIN or all
+
+def get_fib_tables_v26(All= False):
+    if (symbol_exists("fib_tables")):
         #struct fn_hash *table = (struct fn_hash *) ip_fib_main_table->tb_data;
         RT_TABLE_MAIN = readSymbol("main_rule").r_table
         #print "RT_TABLE_MAIN=",RT_TABLE_MAIN
         fib_tables = readSymbol("fib_tables")
-        table_main = readSU("struct fib_table", fib_tables[RT_TABLE_MAIN])
+        if (All):
+            return [Deref(t) for t in fib_tables]
+        else:
+            return Deref(fib_tables[RT_TABLE_MAIN])
     else:
 	# Ignore optional 'table' argument for now
         if (symbol_exists("main_rule")):   # < 2.6.24
@@ -183,37 +194,44 @@ def get_fib_v26(table = None):
 
 	table_main = None
         # Warning: on 2.6.27 the size of fib_table_hash is defined by
-        # FIB_TABLE_HASHSZ (usually 2 for IPv4). As there is no way
-        # to obtain it from dump, we break out as soon as we find
-        # the main table
-        for b in fib_table_hash:
+        # FIB_TABLE_HASHSZ. It is 2 if CONFIG_IP_ROUTE_MULTIPATH and
+        # else 256. There is no way to obtain it from dump so we test
+        # for CONFIG_IP_ROUTE_MULTIPATH
+        FIB_TABLE_HASHSZ = 2
+        if (member_size("struct fib_info", "fib_power") == -1):
+            FIB_TABLE_HASHSZ = 256
+        out = []
+        table_main = None
+        for i in range(FIB_TABLE_HASHSZ):
+            b = fib_table_hash[i]
             first = b.first
             if (first):
                 for a in readList(first, 0):
                     tb = readSU("struct fib_table", a-offset)
-                    #print tb, tb.tb_id
+                    #print tb
+                    out.append(tb)
                     if (tb.tb_id == RT_TABLE_MAIN):
                         table_main = tb
-                        break
-                if (table_main): break
+                    
+        if (All):
+            return out
+        else:
+            return table_main
 
-    #     unsigned char tb_data[0];
-    #print "table_main=", table_main
-    fn_hash = readSU("struct fn_hash", table_main.tb_data)
 
+
+
+
+# Walk fn_zone list for v26
+def walk_fn_zones_v26(fn_zone_list_addr):
+    sn_fzone = "struct fn_zone"
+    fz_next_off = getStructInfo(sn_fzone)["fz_next"].offset
     hlist_head_sz = struct_size("struct hlist_head")
-    
-    fn_zone_list_addr = fn_hash.fn_zone_list
-    fz_next_off = getStructInfo("struct fn_zone")["fz_next"].offset
-
-    if (debug):
-        print "fn_zone_list_addr=0x%x" % fn_zone_list_addr
-
     b = Bunch()
-    
+
     # Walk all fn_zones
     for addr in readList(fn_zone_list_addr, fz_next_off):
-        fn_zone = readSU("struct fn_zone", addr)
+        fn_zone = readSU(sn_fzone, addr)
         b.mask = fn_zone.fz_mask
         hash_head = fn_zone.fz_hash     # This is a pointer to hlist_head
 	maxslot = fn_zone.fz_divisor    # Array dimension
@@ -257,7 +275,7 @@ def get_fib_v26(table = None):
                         b.gw = 0
                         b.metric = 0
                     yield b
-
+    
 
     
 
@@ -315,7 +333,7 @@ def get_fib_v24():
                     
 
 # --------- FIB Rules for policy routing (just for SLES10 at this moment)
-def print_fib_rules():
+def print_fib_rules_SLES10():
     for r in readStructNext(readSymbol("fib_rules"), "r_next"):
 	print ' =====', r, r.r_table
 	print '   r_src', ntodots(r.r_src), 'r_srcmask', \
@@ -324,7 +342,34 @@ def print_fib_rules():
 	    ntodots(r.r_dstmask), 'r_dst_len', r.r_dst_len
 	print '   r_action', r.r_action, 'r_tos', r.r_tos, \
 	    'r_ifindex', r.r_ifindex
-	    
+
+# ------- FIB Rules for new kernels - looping over namespaces
+def print_fib_rules():
+    if (symbol_exists("fib_rules")):
+        print_fib_rules_SLES10()
+        return
+    net_namespace_list = readSymbol("net_namespace_list")
+    nslist = readSUListFromHead(Addr(net_namespace_list), "list", "struct net")
+    for ns in nslist:
+        rules_ops = ns.ipv4.rules_ops
+        print '--', ns, rules_ops
+        rules_list = readSUListFromHead(Addr(rules_ops.rules_list), "list",
+                                        "struct fib_rule")
+        for r in rules_list:
+            # We support IPv4 only
+            r = r.castTo("struct fib4_rule")
+            c = r.common
+            print "    --", r, c.table
+            print '\tsrc', ntodots(r.src), 'srcmask', \
+                ntodots(r.srcmask), 'src_len', r.src_len
+            print '\tdst', ntodots(r.dst), 'dstmask', \
+                ntodots(r.dstmask), 'dst_len', r.dst_len
+            print '\taction', c.action, \
+                  'iifindex', c.iifindex, c.iifname,\
+                  'oifindex', c.oifindex, c.oifname
+
+            
+                                
 
 # Emulation of enums
 
