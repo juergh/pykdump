@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 # module LinuxDump.inet.routing
 #
-# Time-stamp: <09/03/12 15:35:12 alexs>
 #
-# Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2006-2011 Hewlett-Packard Co., All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -116,6 +115,20 @@ def print_fib():
     do_fib_print(g)
 
 
+# Print all routing tables, not just RT_TABLE_MAIN
+def print_fib_all():
+    # Works only if the following test is True
+    if (not symbol_exists("fib_tables")):
+	return
+    fib_tables = readSymbol("fib_tables")
+    for i, t in enumerate(fib_tables):
+	if (not t):
+	    continue
+	t = Deref(t)
+	print " \n===== ", t, " ====== Index", i
+	g = get_fib_v26(t)
+	do_fib_print(g)
+
 # Do the real printing, an Iterable passed as an argument
 def do_fib_print(g):
     cmdformat = True
@@ -141,14 +154,17 @@ def do_fib_print(g):
                         
 
 
-def get_fib_v26():
-    if (symbol_exists("fib_tables")):
+def get_fib_v26(table = None):
+    if (table):
+	table_main = table
+    elif (symbol_exists("fib_tables")):
         #struct fn_hash *table = (struct fn_hash *) ip_fib_main_table->tb_data;
         RT_TABLE_MAIN = readSymbol("main_rule").r_table
         #print "RT_TABLE_MAIN=",RT_TABLE_MAIN
         fib_tables = readSymbol("fib_tables")
         table_main = readSU("struct fib_table", fib_tables[RT_TABLE_MAIN])
     else:
+	# Ignore optional 'table' argument for now
         if (symbol_exists("main_rule")):   # < 2.6.24
             RT_TABLE_MAIN = readSymbol("main_rule").common.table
         else:
@@ -298,6 +314,17 @@ def get_fib_v24():
                 yield b
                     
 
+# --------- FIB Rules for policy routing (just for SLES10 at this moment)
+def print_fib_rules():
+    for r in readStructNext(readSymbol("fib_rules"), "r_next"):
+	print ' =====', r, r.r_table
+	print '   r_src', ntodots(r.r_src), 'r_srcmask', \
+	    ntodots(r.r_srcmask), 'r_src_len', r.r_src_len
+	print '   r_dst', ntodots(r.r_dst), 'r_dstmask', \
+	    ntodots(r.r_dstmask), 'r_dst_len', r.r_dst_len
+	print '   r_action', r.r_action, 'r_tos', r.r_tos, \
+	    'r_ifindex', r.r_ifindex
+	    
 
 # Emulation of enums
 

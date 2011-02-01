@@ -3,8 +3,8 @@
 
 # Time-stamp: <10/09/27 15:45:51 alexs>
 
-# Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2006-2011 Hewlett-Packard Co., All rights reserved.
 
 # Print info about connections and sockets 
 
@@ -630,13 +630,14 @@ def j_delay(ts, jiffies):
 
 if ( __name__ == '__main__'):
     import sys
-
-    experimental = os.environ.has_key('PYKDUMPDEV')
+    
+    __experimental = os.environ.has_key('PYKDUMPDEV')
     
     from optparse import OptionParser, SUPPRESS_HELP
 
     def e_help(help):
-        if (experimental):
+	global __experimental
+        if (__experimental):
             return help + " (experimental)"
         else:
             return SUPPRESS_HELP
@@ -747,9 +748,22 @@ if ( __name__ == '__main__'):
                   action="store_true",
                   help="Print 'xportshow' version and exit")
 
+    op.add_option("--routetables", dest="RouteTables", default = 0,
+                  action="store_true",
+                  help="print all routing tables")
+ 
+    op.add_option("--fibrules", dest="Fibrules", default = 0,
+                  action="store_true",
+                  help=e_help("print fib rules"))
+                   
+    op.add_option("--experimental", dest="Experimental", default = 0,
+                  action="store_true",
+                  help=e_help("Show experimental options"))
+
     op.add_option("--new", dest="New", default = 0,
                   action="store_true",
                   help=e_help("Test new Routines"))
+                  
     op.add_option("--sport", dest="sport", default = -1,
                   action="store", type="int",
                   help=e_help("Limit output to the specified sport"))
@@ -770,6 +784,7 @@ if ( __name__ == '__main__'):
     (o, args) = op.parse_args()
 
     details = o.Verbose
+    #__experimental = O.experimental
 
     if (o.Version):
         print "XPORTSHOW version %s" % __version__
@@ -839,6 +854,16 @@ if ( __name__ == '__main__'):
     if (o.Route):
         from LinuxDump.inet.routing import print_fib
         print_fib()
+        sys.exit(0)
+
+    if (o.RouteTables):
+        from LinuxDump.inet.routing import print_fib_all
+        print_fib_all()
+        sys.exit(0)
+
+    if (o.Fibrules):
+        from LinuxDump.inet.routing import print_fib_rules
+        print_fib_rules()
         sys.exit(0)
 
     if (o.rtcache):
