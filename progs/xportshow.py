@@ -857,8 +857,8 @@ if ( __name__ == '__main__'):
         sys.exit(0)
 
     if (o.RouteTables):
-        from LinuxDump.inet.routing import print_fib_all
-        print_fib_all()
+        from LinuxDump.inet.routing import print_fib
+        print_fib(All=True)
         sys.exit(0)
 
     if (o.Fibrules):

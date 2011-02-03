@@ -107,20 +107,15 @@ def print_rt_hash():
 
     print "\n", count, "entries"
 
-def print_fib():
-    if (member_offset("struct fib_node", "fn_alias") !=-1):
-        g = get_fib_v26()
-    else:
-        g = get_fib_v24()
-    do_fib_print(g)
 
 
-# Print all routing tables, not just RT_TABLE_MAIN
-def print_fib_all():
-    fib_tables = get_fib_tables_v26(True)
+# If All is True, print all routing tables, not just RT_TABLE_MAIN
+def print_fib(All = False):
+    fib_tables = get_fib_tables(All)
     for t in fib_tables:
-        print "\n====", t, "ID", t.tb_id
-	g = get_fib_v26(t)
+	if (All):
+	    print "\n====", t, "ID", t.tb_id
+	g = get_fib_entries(t)
 	do_fib_print(g)
 
 # Do the real printing, an Iterable passed as an argument
@@ -147,22 +142,18 @@ def do_fib_print(g):
                   (e.dev, e.dest, e.gw, e.flags, e.metric, e.mask, e.mtu)
                         
 
-def get_fib_v26(table = None):
-    if (not table):
-        # Get MAIN
-        table = get_fib_tables_v26()
-    #     unsigned char tb_data[0];
-    #print "table_main=", table_main
+def get_fib_entries(table):
     fn_hash = readSU("struct fn_hash", table.tb_data)
     fn_zone_list_addr = fn_hash.fn_zone_list
 
     if (debug):
         print "fn_zone_list_addr=0x%x" % fn_zone_list_addr
 
-    return walk_fn_zones_v26(fn_zone_list_addr)
+    return walk_fn_zones(fn_zone_list_addr)
 
 
 # Get fib_tables for v26, either just MAIN or all
+# Even for one table (MAIN) return it as a 1-element list
 
 def get_fib_tables_v26(All= False):
     if (symbol_exists("fib_tables")):
@@ -171,9 +162,9 @@ def get_fib_tables_v26(All= False):
         #print "RT_TABLE_MAIN=",RT_TABLE_MAIN
         fib_tables = readSymbol("fib_tables")
         if (All):
-            return [Deref(t) for t in fib_tables]
+            return [Deref(t) for t in fib_tables if t]
         else:
-            return Deref(fib_tables[RT_TABLE_MAIN])
+            return [Deref(fib_tables[RT_TABLE_MAIN])]
     else:
 	# Ignore optional 'table' argument for now
         if (symbol_exists("main_rule")):   # < 2.6.24
@@ -193,13 +184,19 @@ def get_fib_tables_v26(All= False):
         offset = member_offset("struct fib_table", "tb_hlist")
 
 	table_main = None
-        # Warning: on 2.6.27 the size of fib_table_hash is defined by
+        # On 2.6.27 and later fib_table_hash is not an array but
+        # rather a pointer to hlist_head. The real size is defined by
         # FIB_TABLE_HASHSZ. It is 2 if CONFIG_IP_ROUTE_MULTIPATH and
         # else 256. There is no way to obtain it from dump so we test
         # for CONFIG_IP_ROUTE_MULTIPATH
-        FIB_TABLE_HASHSZ = 2
-        if (member_size("struct fib_info", "fib_power") == -1):
-            FIB_TABLE_HASHSZ = 256
+        
+        # If fib_hash_table is an array, we do not need to guess
+        if (type(fib_table_hash) == type([])):
+	    FIB_TABLE_HASHSZ = len(fib_table_hash)
+	else:
+	    FIB_TABLE_HASHSZ = 2
+	    if (member_size("struct fib_info", "fib_power") == -1):
+		FIB_TABLE_HASHSZ = 256
         out = []
         table_main = None
         for i in range(FIB_TABLE_HASHSZ):
@@ -216,10 +213,7 @@ def get_fib_tables_v26(All= False):
         if (All):
             return out
         else:
-            return table_main
-
-
-
+            return [table_main]
 
 
 # Walk fn_zone list for v26
@@ -279,19 +273,23 @@ def walk_fn_zones_v26(fn_zone_list_addr):
 
     
 
-def get_fib_v24():
-    b = Bunch()                         # A container
+def get_fib_tables_v24(All = False):
     #struct fn_hash *table = (struct fn_hash *) ip_fib_main_table->tb_data;
     RT_TABLE_MAIN = readSymbol("main_rule").r_table
     #print "RT_TABLE_MAIN=",RT_TABLE_MAIN
     fib_tables = readSymbol("fib_tables")
-    table_main = readSU("struct fib_table", fib_tables[RT_TABLE_MAIN])
+    if (not All):
+	table_main = Deref(fib_tables[RT_TABLE_MAIN])
+	return [table_main]
+    else:
+	return [Deref(t) for t in fib_tables if t]
     #     unsigned char tb_data[0];
     
-    fn_hash = readSU("struct fn_hash", table_main.tb_data)
-    fn_zone_list_addr = fn_hash.fn_zone_list
-    fz_next_off = getStructInfo("struct fn_zone")["fz_next"].offset
 
+    
+def walk_fn_zones_v24(fn_zone_list_addr):    
+    fz_next_off = getStructInfo("struct fn_zone")["fz_next"].offset
+    b = Bunch()                         # A container
     if (debug):
         print "fn_zone_list_addr=0x%x" % fn_zone_list_addr
     
@@ -348,25 +346,40 @@ def print_fib_rules():
     if (symbol_exists("fib_rules")):
         print_fib_rules_SLES10()
         return
-    net_namespace_list = readSymbol("net_namespace_list")
-    nslist = readSUListFromHead(Addr(net_namespace_list), "list", "struct net")
-    for ns in nslist:
-        rules_ops = ns.ipv4.rules_ops
-        print '--', ns, rules_ops
-        rules_list = readSUListFromHead(Addr(rules_ops.rules_list), "list",
+    if (symbol_exists("net_namespace_list")):
+	# e.g. 2.6.35
+	net_namespace_list = readSymbol("net_namespace_list")
+	nslist = readSUListFromHead(Addr(net_namespace_list), "list", 
+				"struct net")
+	for ns in nslist:
+	    rules_ops = ns.ipv4.rules_ops
+	    print '--', ns, rules_ops
+	    rules_list = readSUListFromHead(Addr(rules_ops.rules_list), "list",
                                         "struct fib_rule")
-        for r in rules_list:
-            # We support IPv4 only
-            r = r.castTo("struct fib4_rule")
-            c = r.common
-            print "    --", r, c.table
-            print '\tsrc', ntodots(r.src), 'srcmask', \
-                ntodots(r.srcmask), 'src_len', r.src_len
-            print '\tdst', ntodots(r.dst), 'dstmask', \
-                ntodots(r.dstmask), 'dst_len', r.dst_len
-            print '\taction', c.action, \
-                  'iifindex', c.iifindex, c.iifname,\
-                  'oifindex', c.oifindex, c.oifname
+	    __print_rules_list(rules_list)
+    else:
+	# RHEL5 
+	rules_ops = readSymbol("fib4_rules_ops")
+	rules_list =readSUListFromHead(Addr(rules_ops.rules_list), "list",
+                                        "struct fib_rule")
+	__print_rules_list(rules_list)
+	
+def __print_rules_list(rules_list):
+    for r in rules_list:
+	# We support IPv4 only
+	r = r.castTo("struct fib4_rule")
+	c = r.common
+	print "    --", r, c.table
+	print '\tsrc', ntodots(r.src), 'srcmask', \
+	    ntodots(r.srcmask), 'src_len', r.src_len
+	print '\tdst', ntodots(r.dst), 'dstmask', \
+	    ntodots(r.dstmask), 'dst_len', r.dst_len
+	print '\taction', c.action,
+	if (c.hasField('iifindex')):
+	    print 'iifindex', c.iifindex, c.iifname,\
+		'oifindex', c.oifindex, c.oifname
+	else:
+	    print 'ifindex', c.ifindex, 'ifname', c.ifname
 
             
                                 
@@ -473,3 +486,12 @@ enum
 '''
 
 RTAX = CEnum(RTAX_c)
+
+
+# Set proper versions
+if (member_offset("struct fib_node", "fn_alias") !=-1):
+    walk_fn_zones = walk_fn_zones_v26
+    get_fib_tables = get_fib_tables_v26
+else:
+    walk_fn_zones = walk_fn_zones_v24
+    get_fib_tables = get_fib_tables_v24
