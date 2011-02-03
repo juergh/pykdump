@@ -142,6 +142,7 @@ def do_fib_print(g):
                   (e.dev, e.dest, e.gw, e.flags, e.metric, e.mask, e.mtu)
                         
 
+# get all entries from a table
 def get_fib_entries(table):
     fn_hash = readSU("struct fn_hash", table.tb_data)
     fn_zone_list_addr = fn_hash.fn_zone_list
@@ -271,8 +272,6 @@ def walk_fn_zones_v26(fn_zone_list_addr):
                     yield b
     
 
-    
-
 def get_fib_tables_v24(All = False):
     #struct fn_hash *table = (struct fn_hash *) ip_fib_main_table->tb_data;
     RT_TABLE_MAIN = readSymbol("main_rule").r_table
@@ -330,8 +329,8 @@ def walk_fn_zones_v24(fn_zone_list_addr):
                 yield b
                     
 
-# --------- FIB Rules for policy routing (just for SLES10 at this moment)
-def print_fib_rules_SLES10():
+# --------- FIB Rules for policy routing, older kernels
+def print_fib_rules_old():
     for r in readStructNext(readSymbol("fib_rules"), "r_next"):
 	print ' =====', r, r.r_table
 	print '   r_src', ntodots(r.r_src), 'r_srcmask', \
@@ -344,7 +343,7 @@ def print_fib_rules_SLES10():
 # ------- FIB Rules for new kernels - looping over namespaces
 def print_fib_rules():
     if (symbol_exists("fib_rules")):
-        print_fib_rules_SLES10()
+        print_fib_rules_old()
         return
     if (symbol_exists("net_namespace_list")):
 	# e.g. 2.6.35

@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Time-stamp: <10/09/27 15:45:51 alexs>
+# Time-stamp: <11/02/03 16:01:07 alexs>
 
 # Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2011 Hewlett-Packard Co., All rights reserved.
@@ -27,7 +27,7 @@ from LinuxDump.inet import summary
 import string
 from StringIO import StringIO
 
-__version__ = 0.6
+__version__ = 0.7
 
 debug = API_options.debug
 
@@ -633,7 +633,7 @@ if ( __name__ == '__main__'):
     
     __experimental = os.environ.has_key('PYKDUMPDEV')
     
-    from optparse import OptionParser, SUPPRESS_HELP
+    from optparse import OptionParser, OptionGroup, SUPPRESS_HELP
 
     def e_help(help):
 	global __experimental
@@ -655,7 +655,8 @@ if ( __name__ == '__main__'):
 
     op.add_option("-r", dest="Route", default = 0,
                   action="store_true",
-                  help="print routing table")
+                  help="Print routing table. Adding -v prints all"
+                  " routing tables and policies")
 
     op.add_option("--program", dest="Program", default = "",
                   action="store",
@@ -740,45 +741,37 @@ if ( __name__ == '__main__'):
                   help="Print sk_buff_head")
 
 
-    op.add_option("--everything", dest="Everything", default = 0,
-                  action="store_true",
-                  help="Run all functions available")
-
     op.add_option("--version", dest="Version", default = 0,
                   action="store_true",
                   help="Print 'xportshow' version and exit")
 
-    op.add_option("--routetables", dest="RouteTables", default = 0,
-                  action="store_true",
-                  help="print all routing tables")
- 
-    op.add_option("--fibrules", dest="Fibrules", default = 0,
-                  action="store_true",
-                  help=e_help("print fib rules"))
-                   
-    op.add_option("--experimental", dest="Experimental", default = 0,
-                  action="store_true",
-                  help=e_help("Show experimental options"))
 
-    op.add_option("--new", dest="New", default = 0,
-                  action="store_true",
-                  help=e_help("Test new Routines"))
-                  
-    op.add_option("--sport", dest="sport", default = -1,
+    # Expertimental options, not ready for general usgae yet
+    group = OptionGroup(op, "Experimental Options",
+                    "Caution: this is work in progress, "
+                    "not fully supported for all kernels yet.")
+
+    group.add_option("--sport", dest="sport", default = -1,
                   action="store", type="int",
-                  help=e_help("Limit output to the specified sport"))
+                  help="Limit output to the specified sport")
 
-    op.add_option("--dport", dest="dport", default = -1,
+    group.add_option("--dport", dest="dport", default = -1,
                   action="store", type="int",
-                  help=e_help("Limit output to the specified dport"))
+                  help="Limit output to the specified dport")
 
-    op.add_option("--ipsec", dest="ipsec", default = 0,
+    group.add_option("--ipsec", dest="ipsec", default = 0,
                   action="store_true",
-                  help=e_help("Print IPSEC stuff"))
+                  help="Print IPSEC stuff")
 
-    op.add_option("--profile", dest="Profile", default = 0,
+    op.add_option("--everything", dest="Everything", default = 0,
                   action="store_true",
-                  help=e_help("Run with profiler"))
+                  help="Run all functions available for regression testing")
+
+    group.add_option("--profile", dest="Profile", default = 0,
+                  action="store_true",
+                  help="Run with profiler")
+
+    op.add_option_group(group)
 
 
     (o, args) = op.parse_args()
@@ -815,11 +808,6 @@ if ( __name__ == '__main__'):
         sys.exit(0)
         
 
-        
-
-    if (o.New):
-        pass
-
     if (o.sport != -1):
 	sport_filter = o.sport
     if (o.dport != -1):
@@ -852,18 +840,14 @@ if ( __name__ == '__main__'):
         sys.exit(0)
 
     if (o.Route):
-        from LinuxDump.inet.routing import print_fib
-        print_fib()
-        sys.exit(0)
-
-    if (o.RouteTables):
-        from LinuxDump.inet.routing import print_fib
-        print_fib(All=True)
-        sys.exit(0)
-
-    if (o.Fibrules):
-        from LinuxDump.inet.routing import print_fib_rules
-        print_fib_rules()
+        from LinuxDump.inet.routing import print_fib, print_fib_rules
+        # In Verbose mode, print all routine tables and policy rules
+        if (details):
+            print_fib(True)
+            print "\n=== Policy Rules"
+            print_fib_rules()
+        else:
+            print_fib()
         sys.exit(0)
 
     if (o.rtcache):
