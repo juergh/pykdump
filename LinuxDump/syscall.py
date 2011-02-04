@@ -373,7 +373,12 @@ def __decode_sys_mount(args):
     dir_name = readmem(args[1], 256).split('\0')[0]
     print "\t dev_name=%s, dir_name=%s" % (dev_name, dir_name)
     
-
+def __decode_sys_mkdir(args):
+    # long sys_mkdir(const char __user * pathname, int mode)
+    pathname = readmem(args[0], 256).split('\0')[0]
+    inode = int(args[1])
+    print '\t mkdir(%s, %d)' % (pathname, inode)
+    
 def __decode_sys_nanosleep(args):
     # nanosleep(const struct timespec *req, struct timespec *rem)
     for i, name in enumerate(("req", "rem")):
