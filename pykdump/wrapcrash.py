@@ -5,11 +5,11 @@
 # There are several layers of API. Ideally, the end-users should only call
 # high-level functions that do not depend on internal
 
-# Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2006-2011 Hewlett-Packard Co., All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
+# it under the terms of the GNU General Pubic License as published by
 # the Free Software Foundation; either version 2 of the License, or
 # (at your option) any later version.
 #
@@ -38,7 +38,9 @@ experimental = True
 debug = False
 
 import Generic as Gen
-from Generic import Bunch, TypeInfo, VarInfo, SUInfo, ArtStructInfo
+from Generic import Bunch, TypeInfo, VarInfo, PseudoVarInfo, \
+     SUInfo, ArtStructInfo, \
+     memoize_cond, CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT
 
 hexl = Gen.hexl
 
@@ -238,6 +240,91 @@ class subStructResult(type):
         return rc
 
 
+# ------------Pseudoattributes------------------------------------------------
+        
+
+# Pseudoattributes.
+class PseudoAttr(object):
+    def __init__(self, fi, chain):
+        self.fi = fi
+        self.chain = chain
+    def __get__(self, obj, objtype):
+        if (self.chain == None):
+            return obj
+        val = pseudoAttrEvaluator(long(obj),  self.fi, self.chain)
+        return val
+
+# Procedural
+class PseudoAttrProc(object): 
+    def __init__(self, proc):
+        self.proc = proc
+    def __get__(self, obj, objtype):
+        return self.proc(obj)
+
+
+# Test the chain to see whether there were no pointers. In case
+# the chain is equivalent to a simple offset, add this field
+# to SUinfo for this type
+
+def __test_chain(sname, aname, fi, chain):
+    if (not chain):
+        return None
+    totoffset = 0
+    for ptr, off in chain:
+        if (ptr):
+            return None
+        totoffset += off
+    # Create a PseudoVarinfo and add it
+    vi = PseudoVarInfo(aname)
+    vi.ti = fi.ti
+    vi.addr = 0
+    vi.offset = totoffset
+    return vi
+    
+def structSetAttr(sname, aname, estrings, sextra = []):
+    if (type(estrings) == type("")):
+        estrings = [estrings]
+
+    try:
+        cls = StructResult(sname).__class__
+    except TypeError:
+        # This struct does not exist - return False
+        return False
+    #print sname, cls
+    for s in estrings:
+        # A special case - an empty string means "return ourself"
+        if (s == ""):
+            rc =  [None, None]
+        else:
+            rc = parseDerefString(sname, s)
+        if (rc):
+            fi, chain = rc
+	    pa = PseudoAttr(fi, chain)
+            setattr(cls,  aname, pa)
+            vi = __test_chain(sname, aname, fi, chain)
+            if (vi):
+                #print sname, vi, vi.offset
+                cls.PYT_sinfo[aname] = vi
+	    for extra in sextra:
+		ecls = StructResult(extra).__class__
+		setattr(ecls,  aname, pa)
+                if (vi):
+                    ecls.PYT_sinfo[aname] = vi
+            return True
+    return False
+
+# Set a general procedural attr        
+def structSetProcAttr(sname, aname, meth):
+    try:
+        cls = StructResult(sname).__class__
+    except TypeError:
+        # This struct does not exist - return False
+        return False
+
+    setattr(cls, aname, PseudoAttrProc(meth))
+    return True
+
+
 # Parse the derefence string
 def parseDerefString(sname, teststring):
     si = getStructInfo(sname)
@@ -292,8 +379,6 @@ def parseDerefString(sname, teststring):
     # as such - the reader knows better what to do
     out[-1] = (False, out[-1][1])
     return (fi, out)
-        
-
 
 def pseudoAttrEvaluator(addr, vi, chain):
     addr = long(addr)
@@ -305,24 +390,8 @@ def pseudoAttrEvaluator(addr, vi, chain):
     # Now read the variable as defined by fi from address addr
     return vi.reader(addr)
 
-# Pseudoattributes.
-class PseudoAttr(object):
-    def __init__(self, fi, chain):
-        self.fi = fi
-        self.chain = chain
-    def __get__(self, obj, objtype):
-        if (self.chain == None):
-            return obj
-        val = pseudoAttrEvaluator(long(obj),  self.fi, self.chain)
-        return val
+# ----------------------------------------------------------------------------
 
-# Procedural
-class PseudoAttrProc(object): 
-    def __init__(self, proc):
-        self.proc = proc
-    def __get__(self, obj, objtype):
-        return self.proc(obj)
-  
 class StructResult(long):
     __metaclass__ = subStructResult
     def __new__(cls, sname, addr = 0):
@@ -434,43 +503,6 @@ class StructResult(long):
         return StructResult(sname, long(self))
 
     Deref = property(getDeref)
-
-def structSetAttr(sname, aname, estrings, sextra = []):
-    if (type(estrings) == type("")):
-        estrings = [estrings]
-
-    try:
-        cls = StructResult(sname).__class__
-    except TypeError:
-        # This struct does not exist - return False
-        return False
-    #print sname, cls
-    for s in estrings:
-        # A special case - an empty string means "return ourself"
-        if (s == ""):
-            rc =  [None, None]
-        else:
-            rc = parseDerefString(sname, s)
-        if (rc):
-            fi, chain = rc
-	    pa = PseudoAttr(fi, chain)
-            setattr(cls,  aname, pa)
-	    for extra in sextra:
-		ecls = StructResult(extra).__class__
-		setattr(ecls,  aname, pa)
-            return True
-    return False
-
-# Set a general procedural attr        
-def structSetProcAttr(sname, aname, meth):
-    try:
-        cls = StructResult(sname).__class__
-    except TypeError:
-        # This struct does not exist - return False
-        return False
-
-    setattr(cls, aname, PseudoAttrProc(meth))
-    return True
 
 # A factory function for integer readers
 def ti_intReader(ti, bitoffset = None, bitsize = None):
@@ -995,6 +1027,9 @@ class ListHead(list):
 	
     def __getattr__(self, fname):
 	off = member_offset(self.sname, fname)
+        if (off == -1):
+            raise KeyError, "<%s> does not have a field <%s>" % \
+                  (self.sname, fname)
 	return [readSU(self.sname, a-off) for a in self]
 	
 	
@@ -1098,17 +1133,6 @@ def container_of(ptr, ctype, member):
 # .........................................................................
 import time
 
-
-# 8K - pages
-shift = 12
-psize = 1 << shift
-_page_cache = {}
-
-
-# Flush cache (for tools running on a live system)
-def flushCache():
-    _page_cache.clear()
-    
 # ..............................................................
     
 # Get a list of non-empty bucket addrs (ppointers) from a hashtable.
@@ -1266,6 +1290,7 @@ def struct_exists(sname):
     else:
         return True
     
+@memoize_cond(CU_LOAD | CU_PYMOD)
 def member_size(sname, fname):
     #print "++member_size", sname, fname
     sz = -1
@@ -1281,18 +1306,34 @@ def member_size(sname, fname):
 # best trying to find its offset checking intermediate structures as
 # needed
 
+@memoize_cond(CU_LOAD | CU_PYMOD)
 def member_offset(sname, fname):
     try:
         si = getStructInfo(sname)
-        if (fname.find('.') == -1):
+        chain = fname.split('.')
+        lc = len(chain)
+        if (lc == 1):
             return si[fname].offset
         else:
-            # We have dots in field name, try to walk the structures
-            return -1                   # Not done yet
+            # We have dots in field name, we can handle this as long
+            # as the chain consists of union/structs, only the last field can
+            # be of different type
+            #print "\t", chain
+            offset = 0
+            for i, f in enumerate(chain):
+                vi = si[f]
+                ti = vi.ti
+                offset += vi.offset
+                #print f, ti.codetype, ti.stype, vi.offset
+                # If this is the last element, there is no need to continue
+                if (i == lc-1):
+                    break
+                if (not ti.codetype in TYPE_CODE_SU):
+                    return -1
+                si = getStructInfo(ti.stype)
+            return offset                   # Not done yet
     except:
         return -1
-
-    
 
 
 # A cached version

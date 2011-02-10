@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module pykdump.API
 #
-# Time-stamp: <10/09/24 14:55:13 alexs>
+# Time-stamp: <11/02/09 12:22:01 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -9,8 +9,8 @@
 # end-user. In particular, this module decides what backends to use
 # depending on availability of low-level shared library dlopened from crash
 #
-# Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2006-2011 Hewlett-Packard Co., All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -48,7 +48,9 @@ require_cmod_version(pykdump.minimal_cmod_version)
 # visible to API
 
 import Generic as gen
-from Generic import Bunch, ArtStructInfo, EnumInfo, iterN
+from Generic import Bunch, ArtStructInfo, EnumInfo, iterN, \
+     memoize_cond, purge_memoize_cache, \
+     CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT
 
 hexl = gen.hexl
 unsigned16 = gen.unsigned16
@@ -92,7 +94,7 @@ from wrapcrash import readU8, readU16, readU32, readS32, \
      struct_size, union_size, member_offset, member_size, \
      getSizeOf, container_of, whatis, printObject,\
      exec_gdb_command, exec_crash_command, exec_command,\
-     flushCache, structSetAttr, structSetProcAttr, sdef2ArtSU
+     structSetAttr, structSetProcAttr, sdef2ArtSU
 
 gen.d = wrapcrash
 # Add all GDB-registered types as Generic and wrapcrash variables
@@ -161,7 +163,7 @@ def __epythonOptions():
     (o, args) = op.parse_args(aargs)
     wrapcrash.experimental = API_options.experimental = o.experimental
     global debug, __timeout_exec
-    debug = API_options.debug = o.debug
+    debug = API_options.debug = gen.debug = o.debug
 
     if (o.reload):
 	purge_memoize_cache(CU_PYMOD)
@@ -427,63 +429,6 @@ def _doSys():
         if (len(spl) == 2):
             sys_info.__setattr__(spl[0].strip(), spl[1].strip())
 
-
-# Memoize cache. Is mainly used for expensive exec_crash_command
-
-__memoize_cache = {}
-
-CU_LIVE = 1                             # Update on live
-CU_LOAD = 2                             # Update on crash 'mod' load
-CU_PYMOD = 4                            # Update on Python modules reload
-CU_TIMEOUT = 8				# Update on timeout change
-
-# CU_PYMOD is needed if we are reloading Python modules (by deleting it)
-# In this case we need to invalidate cache entries containing references
-# to classes defined in the deleted modules
-
-
-def memoize_cond(condition):
-    def deco(fn):
-        def newfunc(*args):
-            key = (condition, fn.__name__) + args
-	    # If CU_LIVE is set and we are on live kernel, do not
-	    # memoize
-	    if (condition & CU_LIVE and sys_info.livedump):
-		if (debug > 2):
-		    print "do not memoize: live kernel", key
-		return fn(*args)
-            try:
-                return __memoize_cache[key]
-            except KeyError:
-		if (debug > 1):
-                    print "Memoizing", key
-                val =  fn(*args)
-                __memoize_cache[key] = val
-                return val
-        return newfunc
-    return deco
-  
-def print_memoize_cache():
-    keys = __memoize_cache.keys()
-    keys.sort()
-    for k in keys:
-	v = __memoize_cache[k]
-	try:
-            print k, v
-	except Exception, val:
-	    print "\n\t", val, 'key=', k
-	
-# Purge those cache entries that have at least one of the specified 
-# flags	set
-def purge_memoize_cache(flags):
-    keys = __memoize_cache.keys()
-    keys.sort()
-    for k in keys:
-	ce_flags = k[0]
-	if (ce_flags & flags):
-	    if (debug > 1):
-		print "Purging cache entry", k
-	    del __memoize_cache[k]
     	
 # -----------  initializations ----------------
 
@@ -505,9 +450,9 @@ _doSys()
 
 # Check whether this is a live dump
 if (sys_info.DUMPFILE.find("/dev/") == 0):
-    sys_info.livedump = True
+    sys_info.livedump = gen.livedump = True
 else:
-    sys_info.livedump = False
+    sys_info.livedump = gen.livedump = False
 
 
 # Check the kernel version and set HZ

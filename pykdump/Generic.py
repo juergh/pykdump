@@ -1,8 +1,24 @@
+# -*- coding: utf-8 -*-
 #
-#  Code that does not depend on whether we use embedded API or PTY
+#  Generic classes and subroutines
 #
-# Time-stamp: <10/09/24 14:54:58 alexs>
+# Time-stamp: <11/02/10 10:46:03 alexs>
 #
+
+# Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2006-2011 Hewlett-Packard Co., All rights reserved.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Pubic License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+
+
 import string
 import pprint
 
@@ -18,6 +34,10 @@ pp = pprint.PrettyPrinter(indent=4)
 
 #import wrapcrash as d
 d = None
+
+# These options can be reset from API.py
+debug = 0
+livedump = False
 
 # GLobals used my this module
 
@@ -102,6 +122,64 @@ class MemoizeSU(type):
 	MemoizeSU.__cache.clear()
 	print "SU Cache purged, len=", len(MemoizeSU.__cache)
  
+
+
+# Memoize cache. Is mainly used for expensive exec_crash_command
+
+__memoize_cache = {}
+
+CU_LIVE = 1                             # Update on live
+CU_LOAD = 2                             # Update on crash 'mod' load
+CU_PYMOD = 4                            # Update on Python modules reload
+CU_TIMEOUT = 8				# Update on timeout change
+
+# CU_PYMOD is needed if we are reloading Python modules (by deleting it)
+# In this case we need to invalidate cache entries containing references
+# to classes defined in the deleted modules
+
+
+def memoize_cond(condition):
+    def deco(fn):
+        def newfunc(*args):
+            key = (condition, fn.__name__) + args
+	    # If CU_LIVE is set and we are on live kernel, do not
+	    # memoize
+	    if (condition & CU_LIVE and livedump):
+		if (debug > 2):
+		    print "do not memoize: live kernel", key
+		return fn(*args)
+            try:
+                return __memoize_cache[key]
+            except KeyError:
+		if (debug > 1):
+                    print "Memoizing", key
+                val =  fn(*args)
+                __memoize_cache[key] = val
+                return val
+        return newfunc
+    return deco
+  
+def print_memoize_cache():
+    keys = __memoize_cache.keys()
+    keys.sort()
+    for k in keys:
+	v = __memoize_cache[k]
+	try:
+            print k, v
+	except Exception, val:
+	    print "\n\t", val, 'key=', k
+	
+# Purge those cache entries that have at least one of the specified 
+# flags	set
+def purge_memoize_cache(flags):
+    keys = __memoize_cache.keys()
+    keys.sort()
+    for k in keys:
+	ce_flags = k[0]
+	if (ce_flags & flags):
+	    if (debug > 1):
+		print "Purging cache entry", k
+	    del __memoize_cache[k]
 
 # Limit a potentially infinite sequence so that while iterating
 # it we'll stop not later than after N elements
@@ -315,8 +393,9 @@ class VarInfo(object):
 	         out.append(("%s %s%s" % (astype, apref, asuff)).strip())
 	     stype = out[0]
 	     suff = "(" + string.join(out[1:], ", ") + ")" 
-         out = "VarInfo <%s%s %s%s> addr=0x%x" % (stype, pref,
-                                                 self.name, suff, self.addr)
+         out = "%s <%s%s %s%s> addr=0x%x" % (self.__class__.__name__,
+                                             stype, pref,
+                                             self.name, suff, self.addr)
          return out
 
      def getPtrlev(self):
@@ -346,7 +425,9 @@ class VarInfo(object):
      ptrlev = LazyEval("ptrlev", getPtrlev)
 
 
-    
+# Pseudo-variables - to map pseudo-attrs
+class PseudoVarInfo(VarInfo):
+    pass
 
 # This is unstubbed struct representation - showing all its fields.
 # Each separate field is represented as SFieldInfo and access to fields
@@ -361,7 +442,7 @@ class SUInfo(dict):
         # These three attributes will not be accessible via dict 
         object.__setattr__(self, "PYT_sname", sname)
         object.__setattr__(self, "PYT_body",  []) # For printing only
-        object.__setattr__(self, "PYT_dchains", {}) # Deref chains cache
+        #object.__setattr__(self, "PYT_dchains", {}) # Deref chains cache
         if (gdbinit):
             d.update_SUI_fromgdb(self, sname)
 
@@ -409,15 +490,15 @@ class SUInfo(dict):
         out.append("}")
         return string.join(out, "\n")
     # Is the derefence chain OK?
-    def chainOK(self, dstr):
-        try:
-            return self.PYT_dchains[dstr]
-        except KeyError:
-            pass
-        res = parseDerefString(self.PYT_sname, dstr)
+#     def chainOK(self, dstr):
+#         try:
+#             return self.PYT_dchains[dstr]
+#         except KeyError:
+#             pass
+#         res = parseDerefString(self.PYT_sname, dstr)
         
-        self.PYT_dchains[dstr] = res
-        return res
+#         self.PYT_dchains[dstr] = res
+#         return res
         
 
 
