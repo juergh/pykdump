@@ -1,6 +1,6 @@
 # module LinuxDump.fs
 #
-# Time-stamp: <10/11/25 16:32:45 alexs>
+# Time-stamp: <11/02/15 14:08:35 alexs>
 #
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -16,11 +16,11 @@
 # GNU General Public License for more details.
 
 # Vversion number
-__version__ = '0.1'
+__version__ = '0.2'
 
 # Copyright notice string
 __copyright__ = """\
-Copyright (c) 2006,2007 Alex Sidorenko; mailto:asid@hp.com
+Copyright (c) 2006-2011 Alex Sidorenko; mailto:asid@hp.com
     See the documentation for further information on copyrights,
     or contact the author. All Rights Reserved.
 """
@@ -28,6 +28,7 @@ Copyright (c) 2006,2007 Alex Sidorenko; mailto:asid@hp.com
 from pykdump.API import *
 
 import string
+import os.path
 
 #__all__ = ["proto", "routing"]
 
@@ -43,7 +44,7 @@ def getMount():
         vfsmount, superblk, fstype, devname, mnt = l.split()
         vfsmount = long(vfsmount, 16)
         superblk = long(superblk, 16)
-
+        mnt = os.path.normpath(mnt)
         mlist.append((vfsmount, superblk, fstype, devname, mnt))
     return mlist
 
@@ -85,7 +86,10 @@ def XXXget_pathname(dentry, vfsmnt, root, rootmnt):
 
 def get_dentry_name(dentry):
     namelen = dentry.d_name.len
-    return readmem(dentry.d_name.name, namelen)
+    if (namelen):
+        return readmem(dentry.d_name.name, namelen)
+    else:
+        return ""
     
 
 def IS_ROOT(x):

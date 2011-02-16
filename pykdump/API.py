@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module pykdump.API
 #
-# Time-stamp: <11/02/09 12:22:01 alexs>
+# Time-stamp: <11/02/15 11:41:53 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -204,15 +204,7 @@ def __preprocess(iargv,op):
 
     while(iargv):
         el = iargv.pop(0)
-        # All elements starting from '.' and '/' go to aargv - but only
-        # they match the existing directories. We can specify directories
-        # from command-line to make pykdump to search for vmcore/vmlinux
-        # files in them. But some options (e.g. output to a file) may
-        # use arguments like /tmp/t.out
-        
-        if (el[0] in ('/', '.') and os.path.isdir(el)):
-            aargv.append(el)
-        elif (el[:2] == '--' or el[0] == '-'):
+        if (el[:2] == '--' or el[0] == '-'):
             # Check whether this option is present in optparser's op
             optstr = el.split('=')[0]
             opt =  op.get_option(optstr)

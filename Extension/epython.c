@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <10/10/06 11:58:06 alexs>
+  Time-stamp: <11/02/15 11:32:42 alexs>
 
   Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -463,7 +463,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
 	fprintf(fp, " Cannot find the program <%s>\n", argv[0]);
     }
 
-    // Remove frim sys.path the 1st element, inserted by PySys_SetArgv
+    // Remove from sys.path the 1st element, inserted by PySys_SetArgv
     PySequence_DelItem(PySys_GetObject("path"), 0);
 
   } 

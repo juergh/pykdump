@@ -3,7 +3,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <10/09/27 15:45:32 alexs>
+# Time-stamp: <11/02/16 09:41:22 alexs>
 
 # Copyright (C) 2007-2009 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007-2009 Hewlett-Packard Co., All rights reserved.
@@ -1097,6 +1097,11 @@ op.add_option("--umem", dest="umem", default = "",
               action="store_true",
               help="Print User-space Memory Usage")
 	
+op.add_option("--ls", dest="ls", default = "",
+		action="store",
+		help="Emulate 'ls'. You can specify either dentry"
+              " address or full pathname")
+
 
 (o, args) = op.parse_args()
 
@@ -1159,10 +1164,16 @@ if (o.ext3):
     showExt3()
     sys.exit(0)
 
-if (o.filelock):
-    from LinuxDump.flock import print_locks
+if (o.ext3):
+    from LinuxDump.fs.ext3 import showExt3
 
-    print_locks()
+    showExt3()
+    sys.exit(0)
+
+if (o.ls):
+    from LinuxDump.fs.dcache import ls_pathname
+
+    ls_pathname(o.ls, verbose)
     sys.exit(0)
     
 if (o.stacksummary):

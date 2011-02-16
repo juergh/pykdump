@@ -1,6 +1,6 @@
 # module LinuxDump.fs.dcache
 #
-# Time-stamp: <11/02/11 14:51:21 alexs>
+# Time-stamp: <11/02/16 09:37:05 alexs>
 #
 # Copyright (C) 2011 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2011 Hewlett-Packard Co., All rights reserved.
@@ -66,10 +66,10 @@ __c_mode= '''
 #define S_IXOTH 00001
 '''
 
-MODE_BITS = CDefine(__c_mode)
+__MODE_BITS = CDefine(__c_mode)
 
 # Add all these bits to our module's namespace
-for k,v in MODE_BITS.items():
+for k,v in __MODE_BITS.items():
     g = globals()
     g[k] = v
 
@@ -96,9 +96,14 @@ def __mode_time(t):
     
 
 # Print info about dentry
-def print_dentry(dentry, v = 0):
+def print_dentry(dentry, v = 0, vfsmnt = 0):
     inode = dentry.d_inode
-    fname = get_dentry_name(dentry)
+    if (vfsmnt):
+        # For top-level entries we print their full name
+        fname = get_pathname(dentry, vfsmnt)
+    else:
+        # While listing dir contents, use short names
+        fname = get_dentry_name(dentry)
     if (not inode):
         if (v > 1):
             print " --", dentry, " (stale)", fname
@@ -106,7 +111,7 @@ def print_dentry(dentry, v = 0):
         mode = inode.i_mode
         extrasp = ''
         if (v):
-            print " --", dentry
+            print " --", dentry, fname
             print "      ", inode, "  mode=%08o" % mode
             extrasp = "      "
 
@@ -128,7 +133,7 @@ def print_dentry(dentry, v = 0):
         p_u =  list(__mbits[(obits>>6)&7])
         # Do we have a sticky bit set?
         if (obits & S_ISVTX):
-            if (p_o[2] == 'x'): p_g[2] = 't'
+            if (p_o[2] == 'x'): p_o[2] = 't'
             else: p_o[2] = 'T'
         # SUID
         if (obits & S_ISUID):
@@ -150,16 +155,23 @@ def __ls_sname(n):
     if ((not n in ('.', '..')) and n[0] == '.' ): n = n[1:]
     return n.upper()
 
-
-def print_directory(dentry, v = 0):
+# Read directory contents, returning  dentries . Do not sort
+def read_dir(dentry):
+    # Is dentry empty?
+    if (not dentry):
+        return []
     # Is this a directory?
     inode = dentry.d_inode
     if ((not inode) or (not S_ISDIR(inode.i_mode))):
-        print d, "is not a directory"
-    print "=== Listing directory", get_pathname(dentry, 0)
-    
+        return []
     dlist = ListHead(Addr(dentry.d_subdirs), dsn).D_child
+    return dlist
+    
 
+def __print_directory_contents(dentry, v = 0):
+    dlist = read_dir(dentry)
+    print "=== Listing Directory Contents"
+    
     # Linux's ls sorts without case sensitivity and skiiping the leading . for
     # hidden files
     
@@ -170,6 +182,152 @@ def print_directory(dentry, v = 0):
 
     for n,d in dsorted:
         print_dentry(d, v)
+
+
+
+# Try to resolve pathname to dentry, if we have enough dcache entries to walk
+
+# Returns (None, vfsmnt) or (dentry, vfsmnt)
+
+def pathname2dentry(pn):
+    # Normalize pn
+    pn = os.path.normpath(pn)
+    pmnt = ''
+    for mlist in getMount():
+        mnt = mlist[-1]
+        pref = os.path.normpath(os.path.commonprefix([pn, mnt]))
+        #print mnt, pref
+        if (pref == mnt and len(pref) >= len(pmnt)):
+            pmnt = mnt
+            vfsmount = mlist[0]
+    # OK, now try to walk starting from the root directory we found
+    if (not pmnt):
+        return (None, None)
+
+    vfsmnt = readSU("struct vfsmount", vfsmount)
+    dentry_mnt_root = vfsmnt.mnt_root
+    dcur = dentry_mnt_root
+    #print pmnt, hexl(vfsmount)
+    # Split the remainder of our path and try to walk
+    #print "pn=%s pmnt=%s" % (pn, pmnt)
+    spl = pn[len(pmnt):].split('/')[1:]
+    #print dcur, spl
+    d = dcur
+    for n in spl:
+        found = False
+        #print "dcur=", get_dentry_name(dcur), "search for", n
+        for d in read_dir(dcur):
+            dn = get_dentry_name(d)
+            #print " ...", dn
+            if (dn == n):
+                dcur = d
+                found = True
+                break
+        if (not found):
+            return False
+        print "   found", n
+    return (d, vfsmnt)
+
+# Analog of 'ls' command. 
+
+# ls_patname(path).
+# If path looks as a hexadecimal number, we intepret it as dentry addr
+
+def ls_pathname(pn, v = 0):
+    try:
+        daddr = int(pn, 16)
+        dentry = readSU("struct dentry", daddr)
+        vfsmnt = 0
+    except ValueError:
+        dentry, vfsmnt = pathname2dentry(pn)
+    if (not dentry):
+        print "Cannot list", pn
+        return
+    inode = dentry.d_inode
+    if (not inode):
+        print "Inode is unavailable"
+        return
+    # Is this a directory?
+
+    isdir = S_ISDIR(inode.i_mode)
+    # If this is a directory and we have 'd' option set, do not
+    # list the contents, just directory itself
+    print_dentry(dentry, v, vfsmnt)
+    if (isdir):
+        __print_directory_contents(dentry, v)
+    
+
+
+# Return (retcode, remainder)
+def __lcsubdir(mnt, d):
+    # If mnt is longer than our directory, it's no good
+    if (len(mnt) > len(d)):
+        return (False, d)
+    # if mnt=/, it shoukd match anything
+    lm = mnt.split("/")
+    ld = d.split("/")
+    #print lm, ld
+    # if mnt=/, it should match anything
+    if (mnt == '/'):
+        if (d == '/'):
+            return (True, [])
+        else:
+            return (True, ld[1:])
+    rc = 0
+    for i in range(min(len(lm), len(ld))):
+        #print i, lm[i], ld[i]
+        if (lm[i] != ld[i]):
+            break
+        rc = i+1
+    return (rc == len(lm), ld[rc:])
+    
+
+
+# Try to resolve pathname to dentry, if we have enough dcache entries to walk
+
+# Returns (None, vfsmnt) or (dentry, vfsmnt)
+
+def pathname2dentry(pn):
+    # Normalize pn
+    pn = os.path.normpath(pn)
+    pmnt = ''
+    spl = []
+    lpn = len(pn)
+    for mlist in getMount():
+        mnt = mlist[-1]
+        (rc, remainder) = __lcsubdir(mnt, pn)
+        if (rc and len(mnt) >= len(pmnt)):
+            pmnt = mnt
+            vfsmount = mlist[0]
+            spl = remainder
+    # OK, now try to walk starting from the root directory we found
+    if (not pmnt):
+        return (None, None)
+
+    vfsmnt = readSU("struct vfsmount", vfsmount)
+    dentry_mnt_root = vfsmnt.mnt_root
+    dcur = dentry_mnt_root
+
+    if (spl):
+        d = None
+    else:
+        d = dcur
+    #print dcur, spl
+    for n in spl:
+        found = False
+        #print "dcur=", get_dentry_name(dcur), "search for", n
+        for d in read_dir(dcur):
+            dn = get_dentry_name(d)
+            #print " ...", dn
+            if (dn == n):
+                dcur = d
+                found = True
+                break
+        if (not found):
+            return (None, vfsmnt)
+        #print "   found", n
+    return (d, vfsmnt)
+
 
 # Initialization    
 
