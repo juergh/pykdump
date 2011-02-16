@@ -232,7 +232,11 @@ __STEP = 4
 
 # Sort children by comm
 def __getcomm(t):
-    return t.comm
+    try:
+	return t.comm
+    except:
+	# Corrupted entry
+	return None
 
 def __t_str(t):
     return "%s(%d)" % (t.comm, t.pid)
@@ -241,7 +245,17 @@ def walk_children(t, top = False):
     parent_s = __t_str(t)
     if (not top):
         parent_s = '-' + parent_s
-    sorted_c = sorted(t.taskChildren(), key=__getcomm)
+    # Filter out corrupted entries
+    goodc = []
+    for c in t.taskChildren():
+	try:
+	    c.comm
+	    c.pid
+	    c.tgid
+	    goodc.append(c)
+	except:
+	    pass
+    sorted_c = sorted(goodc, key=__getcomm)
     # If this task has threads, treat them as special children
     # printing something like 2*[{udisks-daemon}]
     # We print threads _only if we are the group leader
