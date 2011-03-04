@@ -482,6 +482,26 @@ def printFH(fh, indent = 0):
     for ss in chunk(se, 76-indent - lFH):
         print ' ' * (indent + lFH + 1), ss
 
+
+# Print 'struct svc_serv' - or 2.6.18 kernel
+# On this kernel, sv_permsock is a listof svc_sock linked via sk_list
+def print_svc_serv(srv):
+    print " -- Permanent Sockets"
+    for s in ListHead(Addr(srv.sv_permsocks), "struct svc_sock").sk_list:
+	print s, "\n  ", IP_sock(s.sk_sk)
+    if (srv.sv_tmpcnt):
+	print " -- Temp Sockets"
+	for s in ListHead(Addr(srv.sv_tempsocks), "struct svc_sock").sk_list:
+	    print s, "\n  ", IP_sock(s.sk_sk)
+	
+
+# Print NLM stuff
+
+def print_nlm_serv():
+    nlmsvc_serv = readSymbol("nlmsvc_serv")
+    print nlmsvc_serv
+    print_svc_serv(nlmsvc_serv)
+
 # Print nlm_blocked list
 
 def print_nlm_blocked_clnt(nlm_blocked):
@@ -747,4 +767,5 @@ if ( __name__ == '__main__'):
 
     if (o.Locks):
 	print_nlm_files()
+	print_nlm_serv()
 	
