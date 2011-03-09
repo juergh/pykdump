@@ -99,8 +99,9 @@ def init_Structures():
     nfs_avail.clear()
 
     for m, sn in (("nfs", "struct rpc_task"),
-                 ("lockd", "struct nlm_wait"),
-                 ("nfsd", "struct svc_export")
+                  ("lockd", "struct nlm_wait"),
+                  ("nfsd", "struct svc_export"),
+                  ("sunrpc", "struct svc_sock")
                  ):
         nfs_avail[m] = False
         if (m in lsModules()):
@@ -261,6 +262,9 @@ def __init_attrs():
 
     sn = "struct nfs_client"
     structSetAttr(sn, "Saddr4", ["cl_addr.sin_addr.s_addr", "cl_addr.__data"])
+
+    sn = "struct svc_sock"
+    structSetAttr(sn, "SockList", ["sk_list", "sk_xprt.xpt_list"])
                                 
 
 # Decode and print info about XPRT
@@ -483,24 +487,47 @@ def printFH(fh, indent = 0):
         print ' ' * (indent + lFH + 1), ss
 
 
-# Print 'struct svc_serv' - or 2.6.18 kernel
-# On this kernel, sv_permsock is a listof svc_sock linked via sk_list
+# Print 'struct svc_serv'
+# 2.6.18 kernel
+#   On this kernel, sv_permsock is a list of svc_sock linked via sk_list
+# 2.6.35 kernel
+#   On this kernel, sv_permosck is a list of svc_sock linked via sk_xprt.xpt_list
 def print_svc_serv(srv):
-    print " -- Permanent Sockets"
-    for s in ListHead(Addr(srv.sv_permsocks), "struct svc_sock").sk_list:
-	print s, "\n  ", IP_sock(s.sk_sk)
+    print "  -- Sockets Used by NLM"
+    print "     -- Permanent Sockets"
+    for s in ListHead(Addr(srv.sv_permsocks), "struct svc_sock").SockList:
+	print "\t", s, "\n  ", IP_sock(s.sk_sk)
     if (srv.sv_tmpcnt):
 	print " -- Temp Sockets"
-	for s in ListHead(Addr(srv.sv_tempsocks), "struct svc_sock").sk_list:
-	    print s, "\n  ", IP_sock(s.sk_sk)
+        for s in ListHead(Addr(srv.sv_tempsocks), "struct svc_sock").SockList:
+	    print "\t", s, "\n  ", IP_sock(s.sk_sk)
 	
 
+# On 2.6.35 we have a list of registered transports
+# static LIST_HEAD(svc_xprt_class_list);
+
+def XXprint_nlm_serv():
+    # This exists on 2.6.18 but not on 2.6.35
+    addr = sym2addr("svc_xprt_class_list")
+    ll = ListHead(addr, "struct svc_xprt_class").xcl_list
+    for s in ll:
+        print s
+    for c in get_all_clients():
+        print c, c.cl_protname
+        
 # Print NLM stuff
 
 def print_nlm_serv():
-    nlmsvc_serv = readSymbol("nlmsvc_serv")
-    print nlmsvc_serv
-    print_svc_serv(nlmsvc_serv)
+    # This exists on 2.6.18 but not on 2.6.35
+    try:
+        svc_serv = readSymbol("nlmsvc_serv")
+    except TypeError:
+        # On 2.6.35 we have
+        # static struct svc_rqst		*nlmsvc_rqst;
+        nlmsvc_rqst = readSymbol("nlmsvc_rqst")
+        # Maybe we should print svc_rqst here?
+        svc_serv = nlmsvc_rqst.rq_server
+    print_svc_serv(svc_serv)
 
 # Print nlm_blocked list
 
@@ -754,18 +781,19 @@ if ( __name__ == '__main__'):
     
     (o, args) = op.parse_args()
     
-    if (o.Client):
+    if (o.Client or o.All):
         if (nfs_avail["nfs"] and get_nfs_mounts()):
 	    host_as_client()
 	     
-    if (o.Server):
+    if (o.Server or o.All):
 	if (nfs_avail["nfsd"]):
 	    host_as_server(o.Verbose)
     
-    if (o.Rpctasks):
+    if (o.Rpctasks or o.All):
 	print_all_rpc_tasks()
 
-    if (o.Locks):
+    if (o.Locks or o.All):
+        print '*'*20, " NLM(lockd) Info", '*'*20
 	print_nlm_files()
 	print_nlm_serv()
-	
+
