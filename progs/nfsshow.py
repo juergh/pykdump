@@ -156,6 +156,8 @@ def format_cl_addr(s):
         return "???"
 
 
+
+
 # Print NFS-exported directories
 def print_nfs_exports(v = 0):
     c = readSU("struct cache_detail",
@@ -171,12 +173,65 @@ def print_nfs_exports(v = 0):
         if (e):
             for h in readStructNext(e, "next"):
                 exp = container_of(h, "struct svc_export", "h")
-                print "    ", exp.ex_path, exp.ex_client.name,
+                # On older kernels we have exp.ex_mnt and exp.ex_dentry
+                # On newer ones exp.ex_path.mnt abd exp.exp_path.dentry
+                try:
+                    path = exp.ex_path
+                    pathname = get_pathname(path.dentry, path.mnt)
+                except:
+                    pathname = get_pathname(exp.ex_dentry, exp.ex_mnt)
+                print "    ", pathname, exp.ex_client.name,
                 if (v):
                     print "  ", exp
                 else:
                     print ""
 
+# Getting addr form ip_map.m_addr
+#struct in6_addr {
+#    union {
+#        __u8 u6_addr8[16];
+#        __be16 u6_addr16[8];
+#        __be32 u6_addr32[4];
+#    } in6_u;
+#}
+
+#define	CACHE_VALID	0	/* Entry contains valid data */
+#define	CACHE_NEGATIVE	1	/* Negative entry - there is no match for the key */
+#define	CACHE_PENDING	2	/* An upcall has been sent but no reply received yet*/
+
+__CACHE_VALID = 0
+__CACHE_NEGATIVE = 1
+
+def test_bit(nbit, val):
+    return ((val >> nbit) == 1)
+
+# IP Map Cache (as reported by /proc/net/rpc/auth.unix.ip/contents)
+def print_ip_map_cache():
+    ip_map_cache = readSymbol("ip_map_cache")
+    # static struct cache_head	*ip_table[IP_HASHMAX];
+    ip_table = readSymbol("ip_table")
+    print "-----IP Map (/proc/net/rpc/auth.unix.ip)------------"
+    #         nfsd              192.168.0.6  192.168.0/24
+    print "    #class              IP         domain"
+    for ch1 in ip_table:
+        if (not ch1):
+            continue
+        ch1 = Deref(ch1)
+        for ch in readStructNext(ch1, "next"):
+            #print ch, ch.flags
+            im = container_of(ch, "struct ip_map", "h")
+            dom = ""
+            #	if (test_bit(CACHE_VALID, &h->flags) &&
+	    #    !test_bit(CACHE_NEGATIVE, &h->flags))
+            if (test_bit(__CACHE_VALID, ch.flags) and not
+                test_bit(__CACHE_NEGATIVE, ch.flags)):
+                dom = im.m_client.h.name;
+            #print "mapped=", ipv6_addr_v4mapped(im.m_addr)
+            if (ipv6_addr_v4mapped(im.m_addr)):
+                addr_s =  ntodots(im.m_addr.in6_u.u6_addr32[3])
+            else:
+                addr_s = ntodots6(im.m_addr)
+            print "    %-8s %20s  %s" % (im.m_class, addr_s, dom)
 
 # On 2.4 and earlier 2.6:
 
@@ -706,6 +761,7 @@ def host_as_server(v = 0):
 
     # Exportes filesystems
     print_nfs_exports(1)
+    print_ip_map_cache()
 
     # Locks we are holding for clients
     print_nlm_files()

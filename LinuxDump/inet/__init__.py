@@ -13,7 +13,7 @@ Copyright (c) 2006,2007 Alex Sidorenko; mailto:asid@lhp.com
 #__all__ = ["proto", "routing"]
 
 import socket, struct, re
-from socket import ntohs
+from socket import ntohs, ntohl, htonl
 
 # Generic stuff, used both by all INET packages
 #----------------------------------------------------------------------
@@ -66,3 +66,14 @@ def ntodots6(n4, printzeroes=True):
     except ValueError:
         return __inet_ntopv6(saddr)
 
+
+#static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
+#{
+#	return ((a->s6_addr32[0] | a->s6_addr32[1] |
+#		 (a->s6_addr32[2] ^ htonl(0x0000ffff))) == 0);
+#}
+
+def ipv6_addr_v4mapped(in6_addr):
+    a = in6_addr.in6_u
+    return ((a.u6_addr32[0] | a.u6_addr32[1] | \
+             (a.u6_addr32[2] ^ htonl(0x0000ffff))) == 0)
