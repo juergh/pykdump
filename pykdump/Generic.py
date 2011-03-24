@@ -2,7 +2,7 @@
 #
 #  Generic classes and subroutines
 #
-# Time-stamp: <11/02/10 10:46:03 alexs>
+# Time-stamp: <11/03/24 15:36:16 alexs>
 #
 
 # Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
@@ -23,7 +23,6 @@ import string
 import pprint
 
 import os
-import tempfile
 import copy
 import types
 from types import *
@@ -574,42 +573,6 @@ def print2columns(left,right):
             r = ""
         print l.ljust(38), r
 
-class PYT_tmpfiles:
-    def __init__(self):
-        self.tempdir = tempfile.mkdtemp("pycrash")
-        self.flist = []
-    def mkfifo(self):
-        fifoname = self.tempdir + "/" + "PYT_fifo"
-        try:
-            os.mkfifo(fifoname)
-        except OSError, (err, errstr):
-            if (err == errno.EEXIST):
-                # Check whether it's FIFO and writable
-                st_mode = os.stat(fifoname)[0]
-                if (not stat.S_ISFIFO(st_mode)):
-                    print "FATAL: %s is not a FIFO" % fifoname
-                    fifoname = None             # To prevent cleanup
-                    sys.exit(1)
-            else:
-                print "FATAL: cannot mkfifo %s in the current directory" % fifoname
-                sys.exit(1)
-        self.flist.append(fifoname)
-        return fifoname
-    
-    def cleanup(self):
-        for f in self.flist:
-            try:
-                os.unlink(f)
-                #print "unlinking", f
-            except:
-                pass
-        os.rmdir(self.tempdir)
-        #print "rmdir", self.tempdir
-
-    def mkfile(self):
-        fd, fname = tempfile.mkstemp('', '', self.tempdir)
-        self.flist.append(fname)
-        return os.fdopen(fd, "w"), fname
 
 class KernelRev(str):
     def __init__(self, s):
