@@ -18,7 +18,6 @@ _abcoll.pyc
 functools.pyc
 abc.pyc
 gzip.pyc
-tempfile.pyc
 socket.pyc
 textwrap.pyc
 posixfile.pyc

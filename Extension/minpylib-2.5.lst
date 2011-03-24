@@ -15,7 +15,6 @@ os.pyc
 code.pyc
 UserDict.pyc
 gzip.pyc
-tempfile.pyc
 socket.pyc
 textwrap.pyc
 posixfile.pyc

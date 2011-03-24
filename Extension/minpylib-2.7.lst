@@ -18,7 +18,6 @@ _abcoll.pyo
 functools.pyo
 abc.pyo
 gzip.pyo
-tempfile.pyo
 socket.pyo
 textwrap.pyo
 posixfile.pyo
