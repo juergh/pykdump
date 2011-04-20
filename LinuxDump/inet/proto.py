@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # module LinuxDump.inet.proto
-# Time-stamp: <10/09/24 14:56:39 alexs>
+# Time-stamp: <11/04/20 16:16:57 alexs>
 
 #
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
@@ -497,8 +497,10 @@ def init_PseudoAttrs():
 
     structSetAttr(sn, "Src",
                   ["inet_rcv_saddr",
-                   "inet.rcv_saddr", "rcv_saddr"], extra)
-    structSetAttr(sn, "Dst", ["inet_daddr", "inet.daddr", "daddr"], extra)
+                   "inet.rcv_saddr", "rcv_saddr",
+                   "sk.__sk_common.skc_rcv_saddr"], extra)
+    structSetAttr(sn, "Dst", ["inet_daddr", "inet.daddr", "daddr",
+                              "sk.__sk_common.skc_daddr"], extra)
     structSetAttr(sn, "sport", ["inet_sport", "inet.sport", "sport"], extra)
     structSetAttr(sn, "dport", ["inet_dport", "inet.dport", "dport"], extra)
 
@@ -507,7 +509,8 @@ def init_PseudoAttrs():
 
     structSetAttr(sn, "rcvbuf", "sk.sk_rcvbuf", extra)
     structSetAttr(sn, "sndbuf", "sk.sk_sndbuf", extra)
-    structSetAttr(sn, "rmem_alloc_counter", "sk.sk_rmem_alloc.counter",
+    structSetAttr(sn, "rmem_alloc_counter",
+                  ["sk.sk_rmem_alloc.counter", "sk.sk_backlog.rmem_alloc.counter"],
                   extra)
     structSetAttr(sn, "wmem_alloc_counter", "sk.sk_wmem_alloc.counter",
                   extra)
@@ -581,8 +584,12 @@ def init_PseudoAttrs():
     extra = ["struct inet_timewait_sock"]
     structSetAttr(sn, "State", "tw_sk.__tw_common.skc_state")
     structSetAttr(sn, "Family", "tw_sk.__tw_common.skc_family")
-    structSetAttr(sn, "Src", "tw_sk.tw_rcv_saddr", extra)
-    structSetAttr(sn, "Dst", "tw_sk.tw_daddr", extra)
+    structSetAttr(sn, "Src",
+                  ["tw_sk.tw_rcv_saddr", "tw_sk.__tw_common.skc_rcv_saddr"],
+                  extra)
+    structSetAttr(sn, "Dst",
+                  ["tw_sk.tw_daddr","tw_sk.__tw_common.skc_daddr"],
+                  extra)
     structSetAttr(sn, "Sport", "tw_sk.tw_sport", extra)
     structSetAttr(sn, "Dport", "tw_sk.tw_dport", extra)
 
