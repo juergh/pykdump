@@ -70,7 +70,7 @@ def print_rt_hash():
     rthb_sz = rthb.size
 
     rtable_i = getStructInfo("struct rtable")
-    rt_next_off = rtable_i["u"].offset
+    rt_next_off = rtable_i["Dst"].offset
 
     
     buckets = getFullBuckets(rt_hash_table_addr, rthb_sz,
@@ -91,7 +91,7 @@ def print_rt_hash():
             #print "\t", hexl(rtaddr)
             count += 1
             r = readSU("struct rtable", rtaddr)
-            dst = r.u.dst
+            dst = r.Dst
             fl = r.fl
             addrfl = Addr(fl)
 
@@ -494,3 +494,5 @@ if (member_offset("struct fib_node", "fn_alias") !=-1):
 else:
     walk_fn_zones = walk_fn_zones_v24
     get_fib_tables = get_fib_tables_v24
+
+structSetAttr("struct rtable", "Dst", ["u.dst", "dst"])

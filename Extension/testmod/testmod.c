@@ -4,7 +4,7 @@
 #include <linux/module.h>
 
 #include <linux/version.h>
-#include <linux/autoconf.h>
+#include <generated/autoconf.h>
 
 #if LINUX_VERSION_CODE < KERNEL_VERSION(2,6,0)
 #ifdef CONFIG_SMP
@@ -108,6 +108,26 @@ struct estruct {
 
 struct estruct eStruct;
 enum ASID_ENUM asid_enum;
+
+// Testing anonymous multilevel
+struct ASID_ANON {
+  struct {
+    int a;			/* 0 */
+    union {
+      int b;			/* 4 */
+      struct {
+	int c;			/* 4 */
+	int d;			/* 8 */
+      };
+    };
+    struct {
+      int e;			/* 12 */
+    };
+  };
+};
+      
+struct ASID_ANON asid_anon;	
+      
 
 static int __init
 testmod_init(void) {

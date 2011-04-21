@@ -1,9 +1,9 @@
 # module LinuxDump.inet.snmpstats
 #
-# Time-stamp: <10/09/24 17:16:38 alexs>
+# Time-stamp: <11/04/21 16:28:21 alexs>
 #
-# Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2007-2011 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2007-2011 Hewlett-Packard Co., All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -131,7 +131,7 @@ def __getSnmpTable_24(tname):
         return None
     sinfo = table[0].PYT_sinfo
     #fnames = [e['fname'] for e in sinfo.body][:-1]
-    fnames = sinfo.PYT_body[:-1]
+    fnames = sinfo.getFnames[:-1]
     pref = tname.split('_')[0]
     # For all proto-specific tables (e.g. IP or TCP) the field names
     # in v2.4 have extra pref in the beginning of field names, compared

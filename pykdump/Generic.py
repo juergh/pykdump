@@ -2,7 +2,7 @@
 #
 #  Generic classes and subroutines
 #
-# Time-stamp: <11/03/24 15:36:16 alexs>
+# Time-stamp: <11/04/21 15:23:32 alexs>
 #
 
 # Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
@@ -338,11 +338,16 @@ class VarInfo(object):
              suff +=":%d" % self.bitsize
 
          if (self.ti.details):
-             rc = self.ti.details.fullstr(indent)+ ' ' + pref + \
-                  self.name + suff + ';'
+             if (self.name):
+                 rc = self.ti.details.fullstr(indent)+ ' ' + pref + \
+                      self.name + suff + '+;'
+             else:
+                 rc = self.ti.details.fullstr(indent)+  pref + suff + ';'
+                 
          else:
              rc =  ' ' * indent + "%s %s%s%s;" % \
                   (stype, pref, self.name, suff)
+                 
          #return rc
          # Add offset etc.
          size = self.ti.size * self.ti.elements
@@ -440,6 +445,10 @@ class SUInfo(dict):
 
         # These three attributes will not be accessible via dict 
         object.__setattr__(self, "PYT_sname", sname)
+        # PYT_body is needed for printing mainly. As we can have internal
+        # struct/union with empty names and there can be several of them,
+        # we cannot rely on name to save info.
+        #   As a result, each element is (name, ti)
         object.__setattr__(self, "PYT_body",  []) # For printing only
         #object.__setattr__(self, "PYT_dchains", {}) # Deref chains cache
         if (gdbinit):
@@ -450,31 +459,56 @@ class SUInfo(dict):
         object.__setattr__(self, name, value)
 
     def append(self, name, value):
-        self.PYT_body.append(name)
-        self[name] = value
         # A special case: empty name. We can meet this while
         # adding internal union w/o fname, e.g.
         # union {int a; char *b;}
-        if (not name):
-            #print "name <%s>, value <%s>" % (name, str(value))
-            ti = value.ti
-            if (ti.codetype == TYPE_CODE_UNION):      # Union
-                usi = SUInfo(ti.stype)
-                #print ti.stype, usi
-                for fn in usi.PYT_body:
-                    #print "Adding", fn, usi[fn].ti
-                    vi = VarInfo(fn)
-                    vi.ti = usi[fn].ti
-                    vi.addr = 0
-                    vi.offset = value.offset
+        self.PYT_body.append((name, value))
+        if (name):
+            self[name] = value
+        else:
+            self.__appendAnonymousSU(value)
+    # Append an anonymous SU. We add its members to our parent's namespace
+    # with appropriate offsets
+    def __appendAnonymousSU(self, value):
+        ti = value.ti
+        #print "name <%s>, value <%s>" % (name, str(value))
+        # Anonymous structs/unions can be embedded and multilevel
+        if (not ti.codetype in TYPE_CODE_SU):
+            raise TypeError, "field without a name " + str(value)
+        usi = SUInfo(ti.stype)
+        #print ti.stype, usi
+        if (ti.codetype == TYPE_CODE_UNION):
+            for fn, usi_v in usi.PYT_body:
+                #print "Adding", fn, usi[fn].ti
+                vi = VarInfo(fn)
+                vi.ti = usi_v.ti
+                vi.addr = 0
+                vi.offset = value.offset
+                if (fn):
                     self[fn] = vi
+                else:
+                    self.__appendAnonymousSU(vi)
+                    
+        elif (ti.codetype == TYPE_CODE_STRUCT):
+            for fn, usi_v in usi.PYT_body:
+                #print "Adding", fn, usi[fn].ti
+                vi = VarInfo(fn)
+                vi.ti = usi_v.ti
+                vi.addr = 0
+                vi.offset = value.offset + usi_v.offset
+                if (fn):
+                    self[fn] = vi
+                else:
+                    self.__appendAnonymousSU(vi)
+        
+        
         
     def fullstr(self, indent = 0):
         inds = ' ' * indent
         out = []
         out.append(inds + self.PYT_sname + " {")
-        for fn in self.PYT_body:
-            out.append(self[fn].fullstr(indent+4))
+        for fn, vi in self.PYT_body:
+            out.append(vi.fullstr(indent+4))
         out.append(inds+ "}")
         return string.join(out, "\n")
 
@@ -484,10 +518,14 @@ class SUInfo(dict):
     def __str__(self):
         out = ["<SUInfo>"]
         out.append(self.PYT_sname + " {")
-        for fn in self.PYT_body:
-            out.append("    " + self[fn].shortstr())
+        for fn, vi in self.PYT_body:
+            out.append("    " + vi.shortstr())
         out.append("}")
         return string.join(out, "\n")
+    # Get field names in the same order as present in struct
+    def getFnames(self):
+        return [e[0] for e in self.PYT_body]
+    
     # Is the derefence chain OK?
 #     def chainOK(self, dstr):
 #         try:
@@ -519,8 +557,8 @@ class ArtStructInfo(SUInfo):
     # adjusting their offsets
     def inline(self, si):
         osize = self.PYT_size
-        for f in si.PYT_body:
-            vi = copy.copy(si[f])
+        for f, tvi in si.PYT_body:
+            vi = copy.copy(tvi)
             vi.offset += osize
             vi.bitoffset += 8 *osize
             SUInfo.append(self, vi.name, vi)
