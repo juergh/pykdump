@@ -60,3 +60,19 @@ command
 rprog("taskinfo", "Detailed info about tasks",
       "-h   - list available optoions",
       help)
+
+help = '''
+Print information about NFS subsystem, both client and server.
+As NFS functionality is implemented in DLKMs, we need to access
+debuginfo for some of these modules. Depending on kernel version
+these modules are different. Sometimes just one or two files are
+enough; sometimes we need four of them:
+   "nfs", "lockd", "nfsd", "sunrpc".
+On a live kernel they are found automatically. With vmcore, you
+need to extract them and put in the same directory where vmcore
+is located.
+'''
+
+rprog("nfsshow", "Information about NFS subsystem",
+      "-h   - list available optoions",
+      help)

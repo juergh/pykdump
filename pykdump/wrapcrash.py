@@ -453,9 +453,8 @@ class StructResult(long):
     # Print all fields (without diving into structs/unions)
     def Dump(self, indent = 0):
 	sindent = ' ' * indent
-	for fn in self.PYT_sinfo.PYT_body:
+	for fn,fi in self.PYT_sinfo.PYT_body:
 	    # For big arrays, print just 4 first elements
-	    fi = self.PYT_sinfo[fn]
 	    elements = fi.ti.elements
 	    val = self.__getattr__(fn)
 	    if (not isinstance(val, SmartString) and elements > 3):

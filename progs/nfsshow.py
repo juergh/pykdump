@@ -186,6 +186,35 @@ def print_nfs_exports(v = 0):
                 else:
                     print ""
 
+# -- get a generator for a cache with a given name. We iterate
+# both through hash-table and its buckets and return non-null
+# 'struct cache_head'
+def getCache(cname):
+    details = None
+    cache_list = ListHead(sym2addr("cache_list"), "struct cache_detail")
+    
+    for c in cache_list.others:
+        if (c.name == cname):
+            details = c
+            break
+
+    if (not details):
+        return
+    
+    table = details.hash_table
+    size = details.hash_size
+    for i in range(size):
+        ch1 = table[i]
+        if (not ch1):
+            continue
+        ch1 = Deref(ch1)
+        for ch in readStructNext(ch1, "next"):
+            #print ch, ch.flags
+            yield ch
+
+
+
+
 # Getting addr form ip_map.m_addr
 #struct in6_addr {
 #    union {
@@ -207,31 +236,24 @@ def test_bit(nbit, val):
 
 # IP Map Cache (as reported by /proc/net/rpc/auth.unix.ip/contents)
 def print_ip_map_cache():
-    ip_map_cache = readSymbol("ip_map_cache")
-    # static struct cache_head	*ip_table[IP_HASHMAX];
-    ip_table = readSymbol("ip_table")
+    ip_table = getCache("auth.unix.ip")
     print "-----IP Map (/proc/net/rpc/auth.unix.ip)------------"
     #         nfsd              192.168.0.6  192.168.0/24
     print "    #class              IP         domain"
-    for ch1 in ip_table:
-        if (not ch1):
-            continue
-        ch1 = Deref(ch1)
-        for ch in readStructNext(ch1, "next"):
-            #print ch, ch.flags
-            im = container_of(ch, "struct ip_map", "h")
-            dom = ""
-            #	if (test_bit(CACHE_VALID, &h->flags) &&
-	    #    !test_bit(CACHE_NEGATIVE, &h->flags))
-            if (test_bit(__CACHE_VALID, ch.flags) and not
-                test_bit(__CACHE_NEGATIVE, ch.flags)):
-                dom = im.m_client.h.name;
-            #print "mapped=", ipv6_addr_v4mapped(im.m_addr)
-            if (ipv6_addr_v4mapped(im.m_addr)):
-                addr_s =  ntodots(im.m_addr.in6_u.u6_addr32[3])
-            else:
-                addr_s = ntodots6(im.m_addr)
-            print "    %-8s %20s  %s" % (im.m_class, addr_s, dom)
+    for ch in ip_table:
+        im = container_of(ch, "struct ip_map", "h")
+        dom = ""
+        #	if (test_bit(CACHE_VALID, &h->flags) &&
+        #    !test_bit(CACHE_NEGATIVE, &h->flags))
+        if (test_bit(__CACHE_VALID, ch.flags) and not
+            test_bit(__CACHE_NEGATIVE, ch.flags)):
+            dom = im.m_client.h.name;
+        #print "mapped=", ipv6_addr_v4mapped(im.m_addr)
+        if (ipv6_addr_v4mapped(im.m_addr)):
+            addr_s =  ntodots(im.m_addr.in6_u.u6_addr32[3])
+        else:
+            addr_s = ntodots6(im.m_addr)
+        print "    %-8s %20s  %s" % (im.m_class, addr_s, dom)
 
 # On 2.4 and earlier 2.6:
 
@@ -810,7 +832,7 @@ if ( __name__ == '__main__'):
     op =  OptionParser()
 
 
-    op.add_option("-a", dest="All", default = 0,
+    op.add_option("-a","--all", dest="All", default = 0,
                   action="store_true",
                   help="print all")
 		  
