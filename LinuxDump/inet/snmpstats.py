@@ -131,7 +131,7 @@ def __getSnmpTable_24(tname):
         return None
     sinfo = table[0].PYT_sinfo
     #fnames = [e['fname'] for e in sinfo.body][:-1]
-    fnames = sinfo.getFnames[:-1]
+    fnames = sinfo.getFnames()[:-1]
     pref = tname.split('_')[0]
     # For all proto-specific tables (e.g. IP or TCP) the field names
     # in v2.4 have extra pref in the beginning of field names, compared
