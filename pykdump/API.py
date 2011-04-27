@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module pykdump.API
 #
-# Time-stamp: <11/02/15 11:41:53 alexs>
+# Time-stamp: <11/04/27 12:29:46 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -63,6 +63,7 @@ print2columns = gen.print2columns
 
 import crash
 HZ = crash.HZ
+PAGESIZE = crash.PAGESIZE
 
 crash.WARNING = WARNING                 # To be used from C-code
 

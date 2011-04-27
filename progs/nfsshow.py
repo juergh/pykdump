@@ -1,5 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+# Time-stamp: <11/04/27 12:51:21 alexs>
+
+# Copyright (C) 2010-2011 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2010-2011 Hewlett-Packard Co., All rights reserved.
 
 # Print info about NFS/RPC
 
@@ -157,35 +161,6 @@ def format_cl_addr(s):
 
 
 
-
-# Print NFS-exported directories
-def print_nfs_exports(v = 0):
-    c = readSU("struct cache_detail",
-                              sym2addr("svc_export_cache"))
-
-    hs = c.hash_size
-    ht = c.hash_table
-    print "  -----NFS-exports ------"
-    #print c
-
-    for i in range(hs):
-        e = ht[i]
-        if (e):
-            for h in readStructNext(e, "next"):
-                exp = container_of(h, "struct svc_export", "h")
-                # On older kernels we have exp.ex_mnt and exp.ex_dentry
-                # On newer ones exp.ex_path.mnt abd exp.exp_path.dentry
-                try:
-                    path = exp.ex_path
-                    pathname = get_pathname(path.dentry, path.mnt)
-                except:
-                    pathname = get_pathname(exp.ex_dentry, exp.ex_mnt)
-                print "    ", pathname, exp.ex_client.name,
-                if (v):
-                    print "  ", exp
-                else:
-                    print ""
-
 # -- get a generator for a cache with a given name. We iterate
 # both through hash-table and its buckets and return non-null
 # 'struct cache_head'
@@ -234,6 +209,92 @@ __CACHE_NEGATIVE = 1
 def test_bit(nbit, val):
     return ((val >> nbit) == 1)
 
+def _test_cache(ch):
+    #	if (test_bit(CACHE_VALID, &h->flags) &&
+    #    !test_bit(CACHE_NEGATIVE, &h->flags))
+    return (test_bit(__CACHE_VALID, ch.flags) and not
+            test_bit(__CACHE_NEGATIVE, ch.flags))
+
+
+# static inline int key_len(int type)
+# {
+# 	switch(type) {
+# 	case FSID_DEV:		return 8;
+# 	case FSID_NUM: 		return 4;
+# 	case FSID_MAJOR_MINOR:	return 12;
+# 	case FSID_ENCODE_DEV:	return 8;
+# 	case FSID_UUID4_INUM:	return 8;
+# 	case FSID_UUID8:	return 8;
+# 	case FSID_UUID16:	return 16;
+# 	case FSID_UUID16_INUM:	return 24;
+# 	default: return 0;
+# 	}
+# }
+
+def key_len(t):
+    if (t == __F.FSID_DEV):   return 8
+    elif(t == __F.FSID_NUM):  return 4
+    elif(t == __F.FSID_MAJOR_MINOR):	return 12
+    elif(t == __F.FSID_ENCODE_DEV):	return 8
+    elif(t == __F.FSID_UUID4_INUM):	return 8
+    elif(t == __F.FSID_UUID8):	return 8
+    elif(t == __F.FSID_UUID16):	return 16
+    elif(t == __F.FSID_UUID16_INUM):	return 24
+    else: return 0
+
+# NFS Export Cache (as reported by /proc/net/rpc/nfsd.export/contents)
+# #domain fsidtype fsid [path]
+# 192.168.0/24 1 0x00000000 /
+# 192.168.0/24 6 0x4b47467c994212335620b49e04ab2baf /data
+
+def print_nfsd_fh(v=0):
+    ip_table = getCache("nfsd.fh")
+    print "----- NFS FH (/proc/net/rpc/nfsd.fh)------------"
+    print "#domain fsidtype fsid [path]"
+    for ch in ip_table:
+        ek = container_of(ch, "struct svc_expkey", "h")
+        out = []
+        out.append("%s %d 0x" %( ek.ek_client.name, ek.ek_fsidtype))
+        #for (i=0; i < key_len(ek->ek_fsidtype)/4; i++)
+	#	seq_printf(m, "%08x", ek->ek_fsid[i]);
+        for i in range(key_len(ek.ek_fsidtype)/4):
+            out.append("%08x" % ek.ek_fsid[i])
+
+        if (_test_cache(ch)):
+            # On older kernels we have ek.ek_mnt and ek.ek_dentry
+            # On newer ones exp.ek_path.mnt and ek.ek_path.dentry
+            try:
+                path = ek.ek_path
+                pathname = get_pathname(path.dentry, path.mnt)
+            except:
+                pathname = get_pathname(ek.ek_dentry, ek.ek_mnt)
+            
+            pathname = get_pathname(path.dentry, path.mnt)
+            out.append(" " + pathname)
+        s = "".join(out)
+        print s
+
+# NFS Export Cache (as reported by /proc/net/rpc/nfsd.export/contents)
+def print_nfsd_export(v=0):
+    ip_table = getCache("nfsd.export")
+    print "----- NFS Exports (/proc/net/rpc/nfsd.export)------------"
+    for ch in ip_table:
+        exp = container_of(ch, "struct svc_export", "h")
+        if (_test_cache(ch)):
+            # On older kernels we have exp.ex_mnt and exp.ex_dentry
+            # On newer ones exp.ex_path.mnt and exp.exp_path.dentry
+            try:
+                path = exp.ex_path
+                pathname = get_pathname(path.dentry, path.mnt)
+            except:
+                pathname = get_pathname(exp.ex_dentry, exp.ex_mnt)
+            print "    ", pathname, exp.ex_client.name,
+            if (v):
+                print "  ", exp
+            else:
+                print ""
+
+            
 # IP Map Cache (as reported by /proc/net/rpc/auth.unix.ip/contents)
 def print_ip_map_cache():
     ip_table = getCache("auth.unix.ip")
@@ -243,10 +304,7 @@ def print_ip_map_cache():
     for ch in ip_table:
         im = container_of(ch, "struct ip_map", "h")
         dom = ""
-        #	if (test_bit(CACHE_VALID, &h->flags) &&
-        #    !test_bit(CACHE_NEGATIVE, &h->flags))
-        if (test_bit(__CACHE_VALID, ch.flags) and not
-            test_bit(__CACHE_NEGATIVE, ch.flags)):
+        if (_test_cache(ch)):
             dom = im.m_client.h.name;
         #print "mapped=", ipv6_addr_v4mapped(im.m_addr)
         if (ipv6_addr_v4mapped(im.m_addr)):
@@ -255,6 +313,34 @@ def print_ip_map_cache():
             addr_s = ntodots6(im.m_addr)
         print "    %-8s %20s  %s" % (im.m_class, addr_s, dom)
 
+# /* access the groups "array" with this macro */
+# #define GROUP_AT(gi, i) \
+# 	((gi)->blocks[(i) / NGROUPS_PER_BLOCK][(i) % NGROUPS_PER_BLOCK])
+
+#define NGROUPS_PER_BLOCK	((unsigned int)(PAGE_SIZE / sizeof(gid_t)))
+
+NGROUPS_PER_BLOCK = PAGESIZE/struct_size("gid_t")
+def GROUP_AT(gi, i):
+    return gi.blocks[i/NGROUPS_PER_BLOCK][i % NGROUPS_PER_BLOCK]
+
+# Unix GID Cache (as reported by /proc/net/rpc/auth.unix.gid/contents)
+def print_unix_gid(v=0):
+    gid_table = getCache("auth.unix.gid")
+    print "-----GID Map (/proc/net/rpc/auth.unix.gid)------------"
+    print "#uid cnt: gids..."
+    for ch in gid_table:
+        ug = container_of(ch, "struct unix_gid", "h")
+        dom = ""
+        if (_test_cache(ch)):
+            glen = ug.gi.ngroups
+        else:
+            glen = 0
+        out = []
+        out.append("%u %d:" % (ug.uid, glen))
+        for i in range(glen):
+            out.append(" %d" % GROUP_AT(ug.gi, i))
+        print "".join(out)
+                   
 # On 2.4 and earlier 2.6:
 
 # struct rpc_task {
@@ -735,6 +821,7 @@ def print_nfsmount():
     cl_stats.Dump()
 
 init_Structures()
+__F = EnumInfo("enum nfsd_fsid")
 
 # There are two nlm_blocked lists: the 1st one declared in clntlock.c,
 # the 2nd one in svclock.c.
@@ -782,14 +869,20 @@ def host_as_server(v = 0):
     print '*'*20, " Host As A NFS-server ", '*'*20
 
     # Exportes filesystems
-    print_nfs_exports(1)
     print_ip_map_cache()
+    print ""
+    print_nfsd_export(v)
+    print ""
+    print_nfsd_fh(v)
+    print ""
+    print_unix_gid(v)
+    print ""
 
     # Locks we are holding for clients
     print_nlm_files()
 
-    # We are finished if we are in non-verbose mode
-    if (v ==0):
+    # Print RPC-reply cache only when verbosity>=2
+    if (v < 2):
 	return
     # Time in seconds - show only the recent ones
     new_enough = 10 * HZ
@@ -825,6 +918,7 @@ def host_as_server(v = 0):
                 print "   ", hc, prot, saddr, secago, hc.c_state
                 
 
+detail = 0
 
 if ( __name__ == '__main__'):
     from optparse import OptionParser, SUPPRESS_HELP
@@ -858,6 +952,8 @@ if ( __name__ == '__main__'):
 
     
     (o, args) = op.parse_args()
+
+    detail = o.Verbose
     
     if (o.Client or o.All):
         if (nfs_avail["nfs"] and get_nfs_mounts()):
@@ -865,7 +961,7 @@ if ( __name__ == '__main__'):
 	     
     if (o.Server or o.All):
 	if (nfs_avail["nfsd"]):
-	    host_as_server(o.Verbose)
+	    host_as_server(detail)
     
     if (o.Rpctasks or o.All):
 	print_all_rpc_tasks()
