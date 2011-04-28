@@ -105,7 +105,7 @@ def init_Structures():
     for m, sn in (("nfs", "struct rpc_task"),
                   ("lockd", "struct nlm_wait"),
                   ("nfsd", "struct svc_export"),
-                  ("sunrpc", "struct svc_sock")
+                  ("sunrpc", "struct ip_map")
                  ):
         nfs_avail[m] = False
         if (m in lsModules()):
@@ -242,6 +242,14 @@ def key_len(t):
     elif(t == __F.FSID_UUID16_INUM):	return 24
     else: return 0
 
+# Older kernels
+def key_len_old(t):
+    if (t == 0):   return 8
+    elif(t == 1):  return 4
+    elif(t == 2):	return 12
+    elif(t == 3):	return 8
+    else: return 0
+    
 # NFS Export Cache (as reported by /proc/net/rpc/nfsd.export/contents)
 # #domain fsidtype fsid [path]
 # 192.168.0/24 1 0x00000000 /
@@ -268,8 +276,6 @@ def print_nfsd_fh(v=0):
                 pathname = get_pathname(path.dentry, path.mnt)
             except:
                 pathname = get_pathname(ek.ek_dentry, ek.ek_mnt)
-            
-            pathname = get_pathname(path.dentry, path.mnt)
             out.append(" " + pathname)
         s = "".join(out)
         print s
@@ -306,11 +312,18 @@ def print_ip_map_cache():
         dom = ""
         if (_test_cache(ch)):
             dom = im.m_client.h.name;
-        #print "mapped=", ipv6_addr_v4mapped(im.m_addr)
-        if (ipv6_addr_v4mapped(im.m_addr)):
-            addr_s =  ntodots(im.m_addr.in6_u.u6_addr32[3])
-        else:
-            addr_s = ntodots6(im.m_addr)
+	# On new kernels, m_addr is 'strict in6_addr'
+	# On old (2.6.18) it is just 'struct in_addr'
+	addr = im.m_addr
+	if (addr.hasField("s_addr")):
+	    # IPv4-only
+	    addr_s = ntodots(addr.s_addr)
+	else:
+	    # IPv6
+	    if (ipv6_addr_v4mapped(im.m_addr)):
+		addr_s =  ntodots(im.m_addr.in6_u.u6_addr32[3])
+	    else:
+		addr_s = ntodots6(im.m_addr)
         print "    %-8s %20s  %s" % (im.m_class, addr_s, dom)
 
 # /* access the groups "array" with this macro */
@@ -821,7 +834,12 @@ def print_nfsmount():
     cl_stats.Dump()
 
 init_Structures()
-__F = EnumInfo("enum nfsd_fsid")
+# The following exists on new kernels but not on old (e.g. 2.6.18)
+try:
+    __F = EnumInfo("enum nfsd_fsid")
+except TypeError:
+    __F = None
+    key_len = key_len_old
 
 # There are two nlm_blocked lists: the 1st one declared in clntlock.c,
 # the 2nd one in svclock.c.

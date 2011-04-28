@@ -1,11 +1,11 @@
 """Crashlib Python API for CRASH Dumps Tool
 """
-# Vversion number
-__version__ = '0.2'
+# Version number
+__version__ = '0.3'
 
 # Copyright notice string
 __copyright__ = """\
-Copyright (c) 2006,2007 Alex Sidorenko; mailto:asid@lhp.com
+Copyright (c) 2006-2011 Alex Sidorenko; mailto:asid@lhp.com
     See the documentation for further information on copyrights,
     or contact the author. All Rights Reserved.
 """
@@ -77,3 +77,4 @@ def ipv6_addr_v4mapped(in6_addr):
     a = in6_addr.in6_u
     return ((a.u6_addr32[0] | a.u6_addr32[1] | \
              (a.u6_addr32[2] ^ htonl(0x0000ffff))) == 0)
+
