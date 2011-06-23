@@ -220,9 +220,15 @@ def printTasks(reverse = False):
 	#    print ' OOO', rlimit, pcount, "uid=%d" % uid
 	#else:
 	#    print '    ', rlimit, pcount, "uid=%d" % uid
-	print "%s %15s %2d %15d  %s %s" \
-		    % (pid_s, t.comm,  t.cpu,
-			int(ran_ms_ago), sstate, extra)
+	# Thread pointers might be corrupted
+	try:
+	    print "%s %15s %2d %15d  %s %s" \
+			% (pid_s, t.comm,  t.cpu,
+			    int(ran_ms_ago), sstate, extra)	    
+	except crash.error:
+	    print ERROR, "corrupted", t
+
+	    
 
 # Emulate pstree
 

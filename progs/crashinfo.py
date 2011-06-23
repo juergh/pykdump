@@ -192,9 +192,10 @@ def check_mem():
         pass
 	
     
-    # Now check user-space memory. Print anything > 25%
+    # Now check user-space memory. Print anything > 25% for thread group leaders
+    tt = get_tt()
     for pid, ppid, cpu, task, st, pmem, vsz, rss, comm in parse_ps():
-	if (pmem > 25.0):
+	if (pmem > 25.0 and tt.getByPid(pid)):
 	    print WARNING, "PID=%d CMD=%s uses %5.1f%% of total memory" %\
 	       (pid, comm, pmem)
     
@@ -995,7 +996,13 @@ def longChainOfPids(tt, nmin):
 	pid = t.pid
 	if (pid == 0):
 	    continue
-	ppid = t.parent.pid
+	# Thread pointers may get corrupted because of kernel bugs
+	try:
+	    ppid = t.parent.pid
+	except crash.error:
+	    print ERROR, "corrupted", t
+	    continue
+	
 	if (not ptree.has_key(pid)):
 	    ptree[pid] = (ppid, [])
     
