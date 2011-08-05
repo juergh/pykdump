@@ -590,6 +590,16 @@ def tasksSummary():
 	comm, state = k
 	print "%-15s %-40s  %4d" % (comm, state, v)
     return threadcount
+    
+    
+# IOCTX list of the task
+
+def get_ioctx_list(task):
+    # struct kioctx
+    head = task.mm.ioctx_list
+    return readStructNext(head, "next")
+    
+    
 
 if ( __name__ == '__main__'):
     tt = TaskTable()

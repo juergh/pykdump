@@ -9,6 +9,7 @@
 from pykdump.API import *
 from LinuxDump.BTstack import exec_bt
 from LinuxDump.Files import pidFiles, filesR
+from LinuxDump.Tasks import get_ioctx_list
 
 debug = API_options.debug
 
@@ -204,7 +205,7 @@ def generic_decoder(sc, args):
 # are changing too fast and we can easily get bogus values
 def decode_Stacks(stacks):
     # PID might be needed in decoders
-    global currentPID
+    global currentPID, __currentTask
     for stack in stacks:
 	currentPID = stack.pid
 	print stack
@@ -226,6 +227,7 @@ def decode_Stacks(stacks):
 	# On 2.4 socket calls are implemented via sys_socketcall
 
         #continue
+        __currentTask = stack.addr
 	set_readmem_task(stack.addr)
         generic_decoder(sc, args)
         try:
@@ -288,7 +290,7 @@ def __decode_sys_select(args):
     for i, name in enumerate(names):
 	addr = args[i+1]
 	if (addr):
-	    # Convert it tp physical
+	    # Convert it to physical
 	    fds = fdset2list(nfds, addr)
 	    print indent, name, fds
 
@@ -346,6 +348,31 @@ def __decode_sys_write(args):
 		    print pid,
 	    print ""
 
+# sys_io_submit(aio_context_t ctx_id, long nr, 
+#                 struct iocb __user * __user *iocbpp)
+def __decode_sys_io_submit(args):
+    ctx_id = int(args[0])
+    nr = int(args[1])
+    iocbpp = int(args[2])
+    #print iocbpp, readtPtr(iocbpp)
+    if (nr):
+	print "  --- Dumping %d requests" % nr
+    for i in range(nr):
+	#print "Reading", hexl(iocbpp + i * pointersize)
+	# readPtr does not work for some reason (why?)
+	#p = crash.readPtr(iocbpp + i * pointersize, crash.UVADDR)
+	s = readmem(iocbpp + i * pointersize, pointersize)
+	p = crash.mem2long(s)
+	si = readSU("struct iocb", p)
+	print "      --- i=%d"% i, si
+	si.Dump()
+	
+    set_readmem_task(0)
+    task = readSU("struct task_struct", __currentTask)
+    for k in get_ioctx_list(task):
+	if (not k.dead and k.user_id == ctx_id):
+	    print "  KIOCTX", k
+	    break
 	
 
 def __decode_sys_newstat(args):
