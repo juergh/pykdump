@@ -509,12 +509,18 @@ elif (_intsize == 8):
 else:
     raise TypeError, "Cannot find int size on this arch"
 
-if (_longsize == 8):
+if (_longsize == 4):
+    readLong = readS32
+    readULong = readU32
+    uLong = unsigned32
+    LONG_MASK = 0xffffffff
+    LONG_SIZE = 4
+elif (_longsize == 8):
     readLong = readS64
     readULong = readU64
     uLong = unsigned64
     LONG_MASK = 0xffffffffffffffff
-    LONG_SIZE = 8
+    LONG_SIZE = 8    
 else:
     raise TypeError, "Cannot find long size on this arch"
 
