@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module pykdump.API
 #
-# Time-stamp: <11/04/27 12:29:46 alexs>
+# Time-stamp: <11/10/24 10:46:13 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -55,6 +55,7 @@ from Generic import Bunch, ArtStructInfo, EnumInfo, iterN, \
 hexl = gen.hexl
 unsigned16 = gen.unsigned16
 unsigned32 = gen.unsigned32
+unsigned64 = gen.unsigned64
 
 dbits2str = gen.dbits2str
 print2columns = gen.print2columns
@@ -437,6 +438,8 @@ def _doSys():
 
 
 pointersize = getSizeOf("void *")
+_intsize = getSizeOf("int")
+_longsize = getSizeOf("long int")
 sys_info.pointersize = wrapcrash.pointersize = pointersize
 sys_info.pointermask = 2**(pointersize*8)-1
 _doSys()
@@ -485,22 +488,36 @@ debuginfo.append("/lib/modules/" + kname)
 sys_info.debuginfo = debuginfo
 
 if (pointersize == 4):
-    readLong = readS32
-    readULong = readU32
-    readInt = readS32
-    readUInt = readU32
-    INT_MASK = LONG_MASK = 0xffffffff
-    INT_SIZE = 4
-    PTR_SIZE = LONG_SIZE = 4
+    PTR_SIZE = 4
 elif (pointersize == 8):
+    PTR_SIZE = 8
+else:
+    raise TypeError, "Cannot find pointer size on this arch"
+
+if (_intsize == 4):
     readInt = readS32
     readUInt = readU32
+    uInt =  unsigned32
+    INT_MASK = 0xffffffff
+    INT_SIZE = 4
+elif (_intsize == 8):
+    readInt = readS64
+    readUInt = readU64
+    uInt =  unsigned64
+    INT_MASK = 0xffffffffffffffff
+    INT_SIZE = 8
+else:
+    raise TypeError, "Cannot find int size on this arch"
+
+if (_longsize == 8):
     readLong = readS64
     readULong = readU64
-    INT_MASK = 0xffffffff
+    uLong = unsigned64
     LONG_MASK = 0xffffffffffffffff
-    INT_SIZE = 4
-    PTR_SIZE = LONG_SIZE = 8
+    LONG_SIZE = 8
+else:
+    raise TypeError, "Cannot find long size on this arch"
+
 
 INT_MAX = ~0L&(INT_MASK)>>1
 LONG_MAX = ~0L&(LONG_MASK)>>1

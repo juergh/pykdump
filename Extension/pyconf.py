@@ -95,8 +95,8 @@ linkflags = string.join((
     ))
 
 libs = string.join((
-    extralibs,
     pylib,
+    extralibs,
     syslibs
     ))
 

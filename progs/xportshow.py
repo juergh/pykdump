@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Time-stamp: <11/04/20 15:34:17 alexs>
+# Time-stamp: <11/05/25 12:02:26 alexs>
 
 # Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2011 Hewlett-Packard Co., All rights reserved.
@@ -41,6 +41,15 @@ print_nolisten = True
 sport_filter = False
 dport_filter = False
 port_filter = False
+
+# Print a list of sk_buff
+def print_send_head(send_head):
+    skblist = readStructNext(send_head, "next")
+    if (not skblist):
+        return
+    print "    send_head:"
+    for skb in skblist:
+        print "\t", skb, skb.data_len
 
 
 def print_TCP_sock(o):
@@ -84,6 +93,10 @@ def print_TCP_sock(o):
 	    #print pstr.rcv_tstamp, pstr.lsndtime
 	    print "\trcv_tstamp=%s, lsndtime=%s  ago" %\
 	                               (j_delay(pstr.rcv_tstamp, jiffies),  j_delay(pstr.lsndtime, jiffies))
+
+            if (details > 1):
+                ss = o.castTo("struct sock")
+                print_send_head(ss.sk_send_head)
 
 
         elif (tcp_state == tcpState.TCP_LISTEN):

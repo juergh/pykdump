@@ -135,7 +135,7 @@ def do_fib_print(g):
             gw= ntodots(e.gw)
             genmask = ntodots(e.mask)
             oflags = flags2str(e.flags)
-            print "%-15s %-15s %-15s %-5s %-6s %-6s %-3s %-8s" % \
+            print "%-15s %-15s %-15s %-5s %-6s %-6s %3s %-8s" % \
                   (dest, gw, genmask, oflags, e.metric, e.ref, e.use, e.dev)
         else:
             print "%s\t%08X\t%08X\t%04X\t%d\t%08X\t%d" % \
@@ -152,7 +152,7 @@ def get_fib_entries(table):
 
     return walk_fn_zones(fn_zone_list_addr)
 
-
+    
 # Get fib_tables for v26, either just MAIN or all
 # Even for one table (MAIN) return it as a 1-element list
 
@@ -322,8 +322,7 @@ def walk_fn_zones_v24(fn_zone_list_addr):
                 fib_advmss = fi.fib_metrics[RTAX.RTAX_ADVMSS-1]
                 if (fib_advmss):
                     b.mtu =  fib_advmss + 40
-                dead = f.fn_state & FN.FN_S_ZOMBIE
-                b.flags = fib_flags_trans(f.fn_type, mask, fi, dead=dead)
+                b.flags = fib_flags_trans(f.fn_type, mask, fi)
                 b.dest = prefix
                 b.mask = mask
                 yield b
@@ -380,7 +379,192 @@ def __print_rules_list(rules_list):
 	else:
 	    print 'ifindex', c.ifindex, 'ifname', c.ifname
 
-            
+
+# ------- FIB-TRIE stuff (default in kernels 3.0 and later) ---------------
+#define T_TNODE 0
+#define T_LEAF  1
+#define NODE_TYPE_MASK	0x1UL
+#define NODE_TYPE(node) ((node)->parent & NODE_TYPE_MASK)
+
+#define IS_TNODE(n) (!(n->parent & T_LEAF))
+#define IS_LEAF(n) (n->parent & T_LEAF)
+
+T_NODE = 0
+T_LEAF = 1
+NODE_TYPE_MASK = 1
+
+KEYLENGTH = 8 * struct_size("t_key")
+
+
+def IS_LEAF(n):
+    return (n.parent & T_LEAF)
+
+def IS_TNODE(n):
+    return (not (n.parent & T_LEAF))
+
+def NODE_TYPE(node):
+    return (node.parent & NODE_TYPE_MASK)
+
+# static inline struct tnode *node_parent_rcu(const struct rt_trie_node *node)
+# {
+# 	unsigned long parent;
+
+# 	parent = rcu_dereference_index_check(node->parent, rcu_read_lock_held() ||
+# 							   lockdep_rtnl_is_held());
+
+# 	return (struct tnode *)(parent & ~NODE_TYPE_MASK);
+# }
+
+def node_parent_rcu(node):
+    return readSU("struct tnode", uLong(node.parent & ~NODE_TYPE_MASK))
+
+def tnode_get_child_rcu(p, idx):
+    return p.child[idx]
+
+def leaf_walk_rcu(p, c):
+    while (True):
+        if (c):
+            idx = tkey_extract_bits(c.key, p.pos, p.bits) + 1
+        else:
+            idx = 0
+
+        while (idx < (1 << p.bits)):
+            c = tnode_get_child_rcu(p, idx)
+            idx += 1
+            if (not c):
+                continue
+
+            if (IS_LEAF(c)):
+                return c.castTo("struct leaf")
+
+            # /* Rescan start scanning in new node */
+            p = c.castTo("struct tnode")
+            idx = 0
+
+        # /* Node empty, walk back up to parent */
+        c = p.castTo("struct rt_trie_node")
+
+        p = node_parent_rcu(c)
+        if (not p):
+            break
+
+    # Root of trie
+    return 0
+        
+
+
+def trie_firstleaf(t):
+    n = readSU("struct tnode", t.trie)
+    if (not n):
+        return None
+
+    if (IS_LEAF(n)):
+        return n.castTo("struct leaf")
+
+    return leaf_walk_rcu(n, 0)
+
+# static struct leaf *trie_nextleaf(struct leaf *l)
+# {
+# 	struct rt_trie_node *c = (struct rt_trie_node *) l;
+# 	struct tnode *p = node_parent_rcu(c);
+
+# 	if (!p)
+# 		return NULL;	/* trie with just one leaf */
+
+# 	return leaf_walk_rcu(p, c);
+# }
+
+
+def trie_nextleaf(l):
+    c = readSU("struct rt_trie_node", l)
+    p = node_parent_rcu(c)
+    
+    if (not p):
+        return None
+
+    return leaf_walk_rcu(p, c)
+
+
+# static inline t_key tkey_extract_bits(t_key a, unsigned int offset,
+#              unsigned int bits)
+# {
+# 	if (offset < KEYLENGTH)
+# 		return ((t_key)(a << offset)) >> (KEYLENGTH - bits);
+# 	else
+# 		return 0;
+# }
+
+# t_key = 'unsigned int'
+
+
+def tkey_extract_bits(a, off, bits):
+    if (off < KEYLENGTH):
+        return uInt(a << off) >> (KEYLENGTH - bits)
+    else:
+        return 0
+
+# static __inline__ __be32 inet_make_mask(int logmask)
+# {
+# 	if (logmask)
+# 		return htonl(~((1<<(32-logmask))-1));
+# 	return 0;
+# }
+
+def inet_make_mask(logmask):
+    if (logmask):
+        return htonl(uInt((~((1<<(32-logmask))-1))))
+    else:
+        return 0
+
+def process_one_leaf(leaf):
+    #print leaf
+    for li in hlist_for_each_entry("struct leaf_info", leaf.list, "hlist") :
+        #print li, li.falh
+        prefix = htonl(leaf.key)
+        mask = inet_make_mask(li.plen)
+
+        # list_for_each_entry_rcu(fa, &li->falh, fa_list)
+        for fa in  ListHead(long(li.falh), "struct fib_alias").fa_list:
+            b = Bunch()
+            fi = fa.fa_info
+            # First, fill-in fields from fib_info
+            if (fi):
+                #define fib_dev		fib_nh[0].nh_dev
+                dev = fi.fib_nh[0].nh_dev
+                if (dev):
+                    b.dev = dev.name
+                else:
+                    b.dev = '*'
+                b.gw = fi.fib_nh.nh_gw
+                b.metric = fi.fib_priority
+                b.mtu = 0
+                fib_advmss = fi.fib_metrics[RTAX.RTAX_ADVMSS-1]
+                if (fib_advmss):
+                    b.mtu =  fib_advmss + 40
+            else:
+                # fi = NULL
+                b.flags = fib_flags_trans(fa.fa_type, b.mask, 0)
+                b.gw = 0
+                b.metric = 0
+
+            b.flags = fib_flags_trans(fa.fa_type, mask, fi)
+            b.dest = prefix
+            b.mask = mask
+
+            yield b
+
+# get all entries from a table for kernels 3.0
+def get_fib_entries_v30(table):
+    trie = readSU("struct trie", table.tb_data)
+    #print trie
+    # FIrst leaf
+    leaf = trie_firstleaf(trie)
+    while (leaf):
+        for e in process_one_leaf(leaf):
+            yield e
+        leaf = trie_nextleaf(leaf)
+
+# --------end of FIB-TRIE--------------------------------------------------
                                 
 
 # Emulation of enums
@@ -491,8 +675,15 @@ RTAX = CEnum(RTAX_c)
 if (member_offset("struct fib_node", "fn_alias") !=-1):
     walk_fn_zones = walk_fn_zones_v26
     get_fib_tables = get_fib_tables_v26
-else:
+elif (symbol_exists("fib_tables")): 
     walk_fn_zones = walk_fn_zones_v24
     get_fib_tables = get_fib_tables_v24
+elif (struct_exists("struct rt_trie_node")):
+    #  kernels 3.0
+    get_fib_tables = get_fib_tables_v26
+    get_fib_entries = get_fib_entries_v30
+else:
+    raise TypeError, "Cannot work with this kernel yet"
+
 
 structSetAttr("struct rtable", "Dst", ["u.dst", "dst"])
