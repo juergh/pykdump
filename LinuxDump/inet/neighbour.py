@@ -1,6 +1,6 @@
 # module LinuxDump.inet.neighbour
 #
-# Time-stamp: <07/08/24 17:09:29 alexs>
+# Time-stamp: <11/10/26 12:29:23 alexs>
 #
 # Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
@@ -51,9 +51,14 @@ def print_neighbour_info():
     
 
 def print_neighbour_table(tbl):
-    hash_buckets = tbl.hash_buckets
+    # Kernel 3.0moved hash_buckets to struct neigh_hash_table *nht;
+    if (tbl.hasField("nht")):
+        nht = tbl.nht
+    else:
+        nht = tbl
+    hash_buckets = nht.hash_buckets
     try:
-        hashsize = tbl.hash_mask
+        hashsize = nht.hash_mask + 1
     except:
         hashsize = len(hash_buckets)
 
@@ -62,9 +67,8 @@ def print_neighbour_table(tbl):
     print "----------        -------    ----------           ------  -----"
     for i in range(hashsize):
         b = hash_buckets[i]
-        #print "++", type(hash_buckets)
         if (b != 0):
-            #print i, repr(b)
+            #print i, repr(Deref(b))
             for s in readStructNext(b, "next"):
                 if (family == P_FAMILIES.PF_INET):
                     ip = ntodots(readU32(s.primary_key))
@@ -89,6 +93,7 @@ def print_neighbour_table(tbl):
         nb = len(phash_buckets)
     except TypeError:
         nb = 0xf                        # PNEIGH_HASHMASK
+    # print " ------ Permanent ----------", nb
     printheader = True
     for i in range(nb):
         b = phash_buckets[i]
