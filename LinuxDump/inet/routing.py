@@ -70,16 +70,22 @@ def print_rt_hash():
     rthb_sz = rthb.size
 
     rtable_i = getStructInfo("struct rtable")
-    rt_next_off = rtable_i["Dst"].offset
 
+
+    rt_next_off = rtable_i["RT_next"].offset
+    #print rt_next_off
     
     buckets = getFullBuckets(rt_hash_table_addr, rthb_sz,
                              rt_hash_mask+1, rthb["chain"].offset)
+
     buckets.reverse()
 
     count = 0
     jiffies = readSymbol("jiffies")
     nl_u_off = member_offset("struct flowi", "nl_u")
+
+    # I don't remember why I decided to print flow fields. This should be rewritten
+    # to mimic either /proc/net/rt_cache or 'ip route show table cache'
     print "dev      rt_src            rt_dst          fl4_src         fl4_dst   sec ago"
     print "---   -------------    -------------    -------------    -----------  --------"
 
@@ -92,13 +98,23 @@ def print_rt_hash():
             count += 1
             r = readSU("struct rtable", rtaddr)
             dst = r.Dst
-            fl = r.fl
-            addrfl = Addr(fl)
 
-            fl4_dst = readU32(addrfl + nl_u_off)
-            fl4_src = readU32(addrfl + nl_u_off + 4)
+            if (r.hasField("fl")):
+                fl = r.fl
+                addrfl = Addr(fl)
 
-            print dst.dev.Deref.name.ljust(5), \
+                fl4_dst = readU32(addrfl + nl_u_off)
+                fl4_src = readU32(addrfl + nl_u_off + 4)
+            else:
+                fl4_dst = r.rt_key_dst
+                fl4_src = r.rt_key_src
+
+            if (dst.dev):
+                #print dst.dev
+                devnam = dst.dev.Deref.name
+            else:
+                devnam = '*'
+            print devnam.ljust(5), \
                   ntodots(r.rt_src).ljust(16), \
                   ntodots(r.rt_dst).ljust(16),\
                   ntodots(fl4_src).ljust(16), \
@@ -686,4 +702,13 @@ else:
     raise TypeError, "Cannot work with this kernel yet"
 
 
+sn = "struct rtable"
 structSetAttr("struct rtable", "Dst", ["u.dst", "dst"])
+
+# Next is defined as:
+# r->u.rt_next     (2.6.18)
+# r->u.dst.rt_next (2.6.24)
+# r->dst.rt_next   (3.0)
+
+structSetAttr("struct rtable", "RT_next",
+              ["u.rt_next", "u.dst.rt_next", "dst.rt_next"])

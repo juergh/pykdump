@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Time-stamp: <11/05/25 12:02:26 alexs>
+# Time-stamp: <11/10/26 12:39:46 alexs>
 
 # Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2011 Hewlett-Packard Co., All rights reserved.
@@ -854,7 +854,7 @@ if ( __name__ == '__main__'):
 
     if (o.Route):
         from LinuxDump.inet.routing import print_fib, print_fib_rules
-        # In Verbose mode, print all routine tables and policy rules
+        # In Verbose mode, print all routing tables and policy rules
         if (details):
             print_fib(True)
             print "\n=== Policy Rules"
