@@ -178,7 +178,7 @@ slmk="slocal.mk"
 # Check whether crash sourcetree is installed and compiled at this location
 try:
     re_target = re.compile(r'^TARGET=(\w+)$')
-    re_gdb = re.compile(r'^GDB=gdb-(\d).\d$')
+    re_gdb = re.compile(r'^GDB=gdb-(\d).\d.*$')
     re_crashvers = re.compile(r'^VERSION=([\.\d]+)\s*$')
     target = None
     gdb_major = None

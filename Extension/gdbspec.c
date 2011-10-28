@@ -19,7 +19,11 @@
 #include <errno.h>
 #include <setjmp.h>
 
+#if defined(ATTR_NORETURN)
 typedef NORETURN void (*ERROR_HOOK_TYPE) (void) ATTR_NORETURN;
+#else
+typedef void (*ERROR_HOOK_TYPE)(void);
+#endif
 
 /* GDB-7 specific stuff */
 #if defined(GDB7)
@@ -235,10 +239,22 @@ do_ftype(struct type *ftype, PyObject *item) {
     /* Multidimensional C-arrays are visible as arrays of arrays.
        We need to recurse or iterate to obtain all dimensions
     */
+    //printf("TYPE_CODE_ARRAY\n");
     do {
-      range_type = TYPE_FIELD_TYPE (ftype, 0);
+      LONGEST low_bound, high_bound;
+      int dim;
+      if (!get_array_bounds(ftype, &low_bound, &high_bound))
+	dim = 0;
+      else
+	dim = high_bound + 1;
+	
       ftype= TYPE_TARGET_TYPE(ftype);
-      dims[ndim++] = TYPE_FIELD_BITPOS(range_type, 1)+1;
+     /* The following worked with older GDB, but not with 7.3.1
+      range_type = TYPE_FIELD_TYPE (ftype, 0);
+       dims[ndim++] = TYPE_FIELD_BITPOS(range_type, 1)+1;
+      */
+      //printf(" ndim=%d l=%ld\n", ndim, high_bound);
+      dims[ndim++] = dim;
     } while (TYPE_CODE(ftype) == TYPE_CODE_ARRAY);
 
     /* Reduce typedefs of the target */

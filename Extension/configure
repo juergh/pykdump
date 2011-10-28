@@ -111,7 +111,7 @@ lastvers () {
 lastvers ${DIR32_64}/Python-2*
 PYTHONTOP=$dirfound
 
-lastvers ${DIR32_64}/crash-5*
+lastvers ${DIR32_64}/crash-*
 CRASHTOP=$dirfound
 
 TOPDIR=$PWD
