@@ -96,7 +96,11 @@ def print_TCP_sock(o):
 
             if (details > 1):
                 ss = o.castTo("struct sock")
-                print_send_head(ss.sk_send_head)
+                # Does not exist on 2.4 kernels
+                try:
+		    print_send_head(ss.sk_send_head)
+		except KeyError:
+		    pass
 
 
         elif (tcp_state == tcpState.TCP_LISTEN):
