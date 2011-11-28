@@ -106,29 +106,29 @@ def update_TI(f, e):
 
     f.size = t_size
 
-    if (e.has_key("dims")):
+    if ("dims" in e):
         f.dims = e["dims"]
 
-    if (e.has_key("stars")):
+    if ("stars" in e):
         f.ptrlev = e["stars"]
 
-    if (e.has_key("uint")):
+    if ("uint" in e):
         f.uint = e["uint"]
     else:
         f.uint = None
 
 
-    if (e.has_key("typedef")):
+    if ("typedef" in e):
         f.typedef = e["typedef"]        # The initial type
 
-    if (e.has_key("ptrbasetype")):
+    if ("ptrbasetype" in e):
         f.ptrbasetype = e["ptrbasetype"] # The base type of pointer
 
     # A special case is a struct/union without tag. In this case
     # we create an artifical name for it
 
     # If we have a body, get details
-    if (e.has_key("body")):
+    if ("body" in e):
         tag = e_to_tagname(e)
         # Add this typeinfo to cache
         ff = SUInfo(tag, False)
@@ -136,7 +136,7 @@ def update_TI(f, e):
             update_SUI(ff, e)
         f.details = ff
     # A function prototype
-    elif (e.has_key("prototype")):
+    elif ("prototype" in e):
 	prototype = f.prototype = []
 	for ee in e["prototype"]:
 	    fname = ee["fname"]
@@ -172,7 +172,7 @@ def update_EI_fromgdb(f, sname):
 # - otherwise, use the real type
 # - if the tag is non-descriptive (e.g. embedded structs), create a fakename
 def e_to_tagname(e):
-    if (e.has_key("typedef")):
+    if ("typedef" in e):
         tag = e["typedef"]        # The initial type
     else:
         tag = e["basetype"]
@@ -194,7 +194,7 @@ def update_SUI(f, e):
         f1.ti = ti
         f1.bitoffset = ee["bitoffset"]
         f1.offset = f1.bitoffset/8
-        if (ee.has_key("bitsize")):
+        if ("bitsize" in ee):
             f1.bitsize = ee["bitsize"]
 
         f.append(fname, f1)
@@ -211,7 +211,7 @@ def update_SUI_fromgdb(f, sname):
     except crash.error:
         raise TypeError, "no type " + sname
     # This can be a typedef to struct
-    if (not e.has_key("body")):
+    if (not "body" in e):
         e = crash.gdb_typeinfo(e["basetype"])
     update_SUI(f, e)
 
@@ -334,7 +334,7 @@ def parseDerefString(sname, teststring):
 	print '-------sname=%s, test=%s' % (sname, teststring)
     for f in teststring.split('.'):
         f = f.strip()
-        if (si and si.has_key(f)):
+        if (si and f in si):
             fi = si[f]
             offset = fi.offset
             if (debug):
@@ -471,7 +471,7 @@ class StructResult(long):
         return self.PYT_size
 
     def hasField(self, fname):
-        return self.PYT_sinfo.has_key(fname)
+        return fname in self.PYT_sinfo
         #return (self.PYT_sinfo.chainOK(fname) != False)
 
     def isNamed(self, sname):
@@ -1055,7 +1055,7 @@ def readList(start, offset=0, maxel = _MAXEL, inchead = True):
         # have already collected anyway
         try:
 	    next = readPtr(next + offset)
-	except crash.error, val:
+	except crash.error as val:
 	    print val
 	    break
         if (next == 0 or next == start):
@@ -1084,11 +1084,11 @@ def readBadList(start, offset=0, maxel = _MAXEL, inchead = True):
     while (count < maxel):
 	try:
             next = readPtr(next + offset)
-	except crash.error, err:
+	except crash.error as err:
 	    return (out, err)
         if (next == 0 or next == start):
             break
-	elif (ha.has_key(next)):
+	elif (next in ha):
 	    err = "Duplicate entry"
 	    return (out, err)
 	ha[next] = 1
@@ -1278,7 +1278,7 @@ def struct_size(sname):
     return sz
 
 def invalidate_cache_info(sname = None):
-    if (sname and __struct_size_cache.has_key(sname)):
+    if (sname and sname in __struct_size_cache):
 	del __struct_size_cache[sname]
     else:
 	__struct_size_cache.clear()

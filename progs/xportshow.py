@@ -1,12 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Time-stamp: <11/10/26 12:39:46 alexs>
+# Time-stamp: <11/11/28 12:31:57 alexs>
 
 # Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2011 Hewlett-Packard Co., All rights reserved.
 
 # Print info about connections and sockets 
+
+# To facilitate migration to Python-3, we start from using future statements/builtins
+from __future__ import print_function
 
 from pykdump.API import *
 
@@ -47,25 +50,25 @@ def print_send_head(send_head):
     skblist = readStructNext(send_head, "next")
     if (not skblist):
         return
-    print "    send_head:"
+    print ("    send_head:")
     for skb in skblist:
-        print "\t", skb, skb.data_len
+        print ("\t", skb, skb.data_len)
 
 
 def print_TCP_sock(o):
     try:
         pstr = IP_sock(o, details)
-    except KeyError, msg:
-	print WARNING, msg
+    except KeyError as msg:
+	print (WARNING, msg)
 	return
     jiffies = readSymbol("jiffies")
     if (port_filter):
 	if (pstr.sport != port_filter and pstr.dport != port_filter):
 	    return
     if (details):
-        print '-' * 78
-        print o, '\t\tTCP'
-    print pstr
+        print ('-' * 78)
+        print (o, '\t\tTCP')
+    print (pstr)
     tcp_state = pstr.state
     # Here we print things that are not kernel-dependent
     if (details):
@@ -80,19 +83,20 @@ def print_TCP_sock(o):
             nonagle = topt.nonagle
             rx_queue = topt.rcv_nxt - topt.copied_seq
             tx_queue = topt.write_seq - topt.snd_una
-            print "\twindows: rcv=%d, snd=%d  advmss=%d rcv_ws=%d snd_ws=%d" %\
+            print ("\twindows: rcv=%d, snd=%d  advmss=%d rcv_ws=%d snd_ws=%d" %\
                 (rcv_wnd, snd_wnd, advmss,
-                 pstr.rx_opt.rcv_wscale, pstr.rx_opt.snd_wscale)
-            print "\tnonagle=%d sack_ok=%d tstamp_ok=%d" %\
-                (nonagle, pstr.rx_opt.sack_ok, pstr.rx_opt.tstamp_ok)
-	    print "\trmem_alloc=%d, wmem_alloc=%d" % (pstr.rmem_alloc,
-                                                  pstr.wmem_alloc)
-	    print "\trx_queue=%d, tx_queue=%d" % (rx_queue,
-                                                  tx_queue)
-            print "\trcvbuf=%d, sndbuf=%d" % (pstr.rcvbuf, pstr.sndbuf)
-	    #print pstr.rcv_tstamp, pstr.lsndtime
-	    print "\trcv_tstamp=%s, lsndtime=%s  ago" %\
-	                               (j_delay(pstr.rcv_tstamp, jiffies),  j_delay(pstr.lsndtime, jiffies))
+                 pstr.rx_opt.rcv_wscale, pstr.rx_opt.snd_wscale))
+            print ("\tnonagle=%d sack_ok=%d tstamp_ok=%d" %\
+                (nonagle, pstr.rx_opt.sack_ok, pstr.rx_opt.tstamp_ok))
+	    print ("\trmem_alloc=%d, wmem_alloc=%d" % (pstr.rmem_alloc,
+                                                  pstr.wmem_alloc))
+	    print ("\trx_queue=%d, tx_queue=%d" % (rx_queue,
+                                                  tx_queue))
+            print ("\trcvbuf=%d, sndbuf=%d" % (pstr.rcvbuf, pstr.sndbuf))
+	    #print (pstr.rcv_tstamp, pstr.lsndtime)
+	    print ("\trcv_tstamp=%s, lsndtime=%s  ago" %\
+	                               (j_delay(pstr.rcv_tstamp, jiffies),
+                                        j_delay(pstr.lsndtime, jiffies)))
 
             if (details > 1):
                 ss = o.castTo("struct sock")
@@ -104,12 +108,12 @@ def print_TCP_sock(o):
 
 
         elif (tcp_state == tcpState.TCP_LISTEN):
-            print "\t family=%s" % sfamily
-	    print "\t backlog=%d(%d)" % (pstr.sk_ack_backlog,
-                                         pstr.sk_max_ack_backlog)
+            print ("\t family=%s" % sfamily)
+	    print ("\t backlog=%d(%d)" % (pstr.sk_ack_backlog,
+                                         pstr.sk_max_ack_backlog))
             l_opt = pstr.l_opt
-	    print "\t max_qlen_log=%d qlen=%d qlen_young=%d" %\
-		    (l_opt.max_qlen_log, l_opt.qlen, l_opt.qlen_young)
+	    print ("\t max_qlen_log=%d qlen=%d qlen_young=%d" %\
+		    (l_opt.max_qlen_log, l_opt.qlen, l_opt.qlen_young))
 	    #printObject(l_opt)
             if (pstr.sk_ack_backlog):
                 print_accept_queue(pstr)
@@ -118,8 +122,8 @@ def print_TCP_sock(o):
         # for RPC this is "struct rpc_xprt *"
         udaddr = pstr.user_data
         if (udaddr):
-            print "\t   |user_data|", hexl(udaddr),
-            decode_user_data(udaddr, long(o))
+            print ("\t   |user_data|", hexl(udaddr),
+            decode_user_data(udaddr, long(o)))
 
 
 # Try to decode user_data
@@ -164,24 +168,24 @@ def decode_user_data(addr, saddr):
     # Check whether this looks like svc_sock
     ptrsock = readPtr(addr + 4 * PTR_SIZE)
     ptrsk = readPtr(addr + 5 * PTR_SIZE)
-    #print hexl(ptrsock), hexl(ptrsk)
+    #print (hexl(ptrsock), hexl(ptrsk))
     if (ptrsk == saddr):
         # This is svc_sock
-        print " -> 'struct svc_sock'"
+        print (" -> 'struct svc_sock'")
         return
 
     # Check whether this looks like 2.6.9 rpc_xprt
     ptrsk = readPtr(addr + PTR_SIZE)
     if (ptrsk == saddr):
         # This is 2.6.9 rpc_xptr
-        print "-> 'struct rpc_xprt'"
+        print ("-> 'struct rpc_xprt'")
         return
 
     # On recent 2.6 kernels, we try to find the offset of sockaddr_storage
 
     
     offset = LONG_SIZE *2 + LONG_SIZE * 3 + INT_SIZE*2
-    #print "offset=", offset
+    #print ("offset=", offset)
     saname = None
     for sname in ("struct __kernel_sockaddr_storage",
                   "struct sockaddr_storage"):
@@ -191,11 +195,11 @@ def decode_user_data(addr, saddr):
     sas = readSU(saname, addr + offset)
     addrlen = readLong(addr + offset + struct_size(sname))
     prot = readInt(addr + offset + struct_size(sname) + PTR_SIZE)
-    #print sas.ss_family, addrlen, prot
+    #print (sas.ss_family, addrlen, prot)
     if (prot in (6, 17) and sas.ss_family in (2,10)):
-        print "-> 'struct rpc_xprt'"
+        print ("-> 'struct rpc_xprt'")
         return
-    print ''
+    print ('')
 
 
 # Print TCP info from TIMEWAIT buckets
@@ -208,13 +212,13 @@ def print_TCP_tw(tw):
 	if (pstr.sport != port_filter and pstr.dport != port_filter):
 	    return
     if (details):
-        print '-' * 78
-        print tw, '\t\tTCP'
+        print ('-' * 78)
+        print (tw, '\t\tTCP')
     
     
-    print pstr
+    print (pstr)
     if (details):
-        print "\ttw_timeout=%d, ttd=%d" % (pstr.tw_timeout, pstr.ttd)
+        print ("\ttw_timeout=%d, ttd=%d" % (pstr.tw_timeout, pstr.ttd))
     
 
 def print_TCP():
@@ -275,27 +279,27 @@ def print_UDP():
             if (not print_listen): continue
 
         if (details):
-            print '-' * 78
-            print o, '\t\tUDP'
-        print pstr
+            print ('-' * 78)
+            print (o, '\t\tUDP')
+        print (pstr)
 	if (details):
-	    print "\trx_queue=%d, tx_queue=%d" % (pstr.rmem_alloc,
-                                                  pstr.wmem_alloc)
-	    print "\trcvbuf=%d, sndbuf=%d" % (pstr.rcvbuf, pstr.sndbuf)
+	    print ("\trx_queue=%d, tx_queue=%d" % (pstr.rmem_alloc,
+                                                  pstr.wmem_alloc))
+	    print ("\trcvbuf=%d, sndbuf=%d" % (pstr.rcvbuf, pstr.sndbuf))
             pending = pstr.uopt.pending
             corkflag = pstr.uopt.corkflag
             ulen = pstr.uopt.len
-            print "\tpending=%d, corkflag=%d, len=%d" % (pending,
-                                                         corkflag, ulen)
+            print ("\tpending=%d, corkflag=%d, len=%d" % (pending,
+                                                         corkflag, ulen))
 	    # For special sockets only
 	    # e.g. for NFS this is "struct svc_sock"
 	    # for RPC this is "struct rpc_xprt *"
 	    udaddr = pstr.user_data
 	    if (udaddr):
-		print "\t   |user_data|", hexl(udaddr),
-		decode_user_data(udaddr, long(o))
+		print ("\t   |user_data|", hexl(udaddr),
+		decode_user_data(udaddr, long(o)))
     if (count == 0):
-	print WARNING, "Empty UDP-hash - dump is probably incomplete"						 
+	print (WARNING, "Empty UDP-hash - dump is probably incomplete")
 
 def tcp_state_name(state):
     # If the structure is corrupted, state will be bogus
@@ -308,8 +312,8 @@ def tcp_state_name(state):
 # print AF_UNIX
 
 def print_UNIX():
-    print "unix   State          i_ino   Path"
-    print "----------------------------------"
+    print ("unix   State          i_ino   Path")
+    print ("----------------------------------")
     for s in proto.get_AF_UNIX():
 	state, ino, path = proto.unix_sock(s)
         if (state == tcpState.TCP_LISTEN):
@@ -318,12 +322,11 @@ def print_UNIX():
             if (not print_nolisten):
                 continue
         if (details):
-            print '-' * 78
-            print s, '\t\tUnix'
+            print ('-' * 78)
+            print (s, '\t\tUnix')
          
 	statename = tcp_state_name(state)
-        print "unix   %-12s   %-6d  %s" % (statename,
-                                           ino, path)
+        print ("unix   %-12s   %-6d  %s" % (statename, ino, path))
 	if (details < 2):
 	    continue
 	# Check whether we have a peer
@@ -331,8 +334,7 @@ def print_UNIX():
 	if (peer):
 	    state, ino, path = proto.unix_sock(peer)
 	    statename = tcp_state_name(state)
-	    print "  Peer %-12s   %-6d  %s" % (statename,
-                                           ino, path)
+	    print ("  Peer %-12s   %-6d  %s" % (statename, ino, path))
 
   
 
@@ -340,33 +342,29 @@ def print_RAW():
     for o in list(proto.get_RAW()) + list(proto.get_RAW6()):
 	try:
             pstr = IP_sock(o, details)
-	except KeyError, msg:
-	   print "   Unexpected protocol in RAW table,", msg 
+	except KeyError as msg:
+	   print ("   Unexpected protocol in RAW table,", msg)
 	   continue
         if (not print_listen and pstr.state != tcpState.TCP_ESTABLISHED):
             continue
 
         if (details):
-            print '-' * 78
-            print o, '\t\tRAW'
-	print pstr
+            print ('-' * 78)
+            print (o, '\t\tRAW')
+	print (pstr)
 	if (details):
-	    print "\trx_queue=%d, tx_queue=%d" % (pstr.rmem_alloc,
-                                                  pstr.wmem_alloc)
-	    print "\trcvbuf=%d, sndbuf=%d" % (pstr.rcvbuf, pstr.sndbuf)
+	    print ("\trx_queue=%d, tx_queue=%d" % (pstr.rmem_alloc,
+                                                  pstr.wmem_alloc))
+	    print ("\trcvbuf=%d, sndbuf=%d" % (pstr.rcvbuf, pstr.sndbuf))
 
 
-    
-
-
-   
     
 def print_FragmentCache():
     pass
 
 def print_dev_pack():
     ptype_all = readSymbol("ptype_all")
-    #print "ptype_all=", ptype_all, "\n"
+    #print ("ptype_all=", ptype_all, "\n")
     # For 2.4 packet_type has next pointer, for 2.6 list_head is embedded
     newstyle = (whatis("ptype_base").ctype == "struct list_head")
     if (newstyle):
@@ -375,17 +373,17 @@ def print_dev_pack():
         offset = member_offset("struct packet_type", "next")
 
 
-    print "--------ptype_all-------------------------------------------"
+    print ("--------ptype_all-------------------------------------------")
     tt = TaskTable()
     if (newstyle):
         for pt in readSUListFromHead(Addr(ptype_all), "list",
                                      "struct packet_type"):
-            print pt
+            print (pt)
 
             ptype = ntohs(pt.type)
             pdev = pt.dev
             pfunc = addr2sym(pt.func)
-            print "\ttype=0x%04x dev=0x%x func=%s" % (ptype, pdev, pfunc)
+            print ("\ttype=0x%04x dev=0x%x func=%s" % (ptype, pdev, pfunc))
 
             # for SOCK_PACKET and AF_PACKET we can find PID
             if (pt.af_packet_priv == 0):
@@ -396,42 +394,42 @@ def print_dev_pack():
                 socket = Deref(sock.sk_socket)
                 filep = socket.file
                 for t in tt.getByFile(filep):
-                    print "\t    pid=%d, command=%s" %(t.pid, t.comm)
+                    print ("\t    pid=%d, command=%s" %(t.pid, t.comm))
     else:
         # 2.4
         for pa in readList(ptype_all, offset):
             pt = readSU("struct packet_type", pa)
-            print pt
+            print (pt)
 
             ptype = ntohs(pt.type)
             pdev = pt.dev
             pfunc = addr2sym(pt.func)
-            print "\ttype=0x%04x dev=0x%x func=%s" % (ptype, pdev, pfunc)
+            print ("\ttype=0x%04x dev=0x%x func=%s" % (ptype, pdev, pfunc))
 
 
-    print "\n--------ptype_base-------------------------------------------"
+    print ("\n--------ptype_base-------------------------------------------")
     bucket = 0
     for a in readSymbol("ptype_base"):
         if (newstyle):
             for pt in readSUListFromHead(Addr(a), "list", "struct packet_type"):
-                print pt, " (bucket=%d)" % bucket
+                print (pt, " (bucket=%d)" % bucket)
 
                 ptype = ntohs(pt.type)
                 pdev = pt.dev
                 pfunc = addr2sym(pt.func)
-                print "\ttype=0x%04x dev=0x%x func=%s" % (ptype, pdev, pfunc)
+                print ("\ttype=0x%04x dev=0x%x func=%s" % (ptype, pdev, pfunc))
         else:
             # 2.4
             if (a == 0):
                 continue
             for pa in readList(a, offset):
                 pt = readSU("struct packet_type", pa)
-                print pt, " (bucket=%d)" % bucket
+                print (pt, " (bucket=%d)" % bucket)
 
                 ptype = ntohs(pt.type)
                 pdev = pt.dev
                 pfunc = addr2sym(pt.func)
-                print "\ttype=0x%04x dev=0x%x func=%s" % (ptype, pdev, pfunc)
+                print ("\ttype=0x%04x dev=0x%x func=%s" % (ptype, pdev, pfunc))
         bucket += 1
 
 
@@ -450,9 +448,9 @@ def printTaskSockets(t):
 	nthreads = "  (%d threads)" % (len(threads) + 1)
     else:
 	nthreads = ""
-    print >>prn, "-----PID=%d  COMM=%s %s" % (t.pid, t.comm, nthreads)
-    print >>prn, " fd     file              socket"
-    print >>prn, " --     ----              ------"
+    print ("-----PID=%d  COMM=%s %s" % (t.pid, t.comm, nthreads), file=prn)
+    print (" fd     file              socket", file=prn)
+    print (" --     ----              ------", file=prn)
 
     strue = False
     for fd, filep, dentry, inode in t.taskFds():
@@ -472,16 +470,16 @@ def printTaskSockets(t):
 	if (not port_filter):
 	    strue = True
 	
-        print >>prn, ("%3d  0x%-16x  0x%-16x" % (fd, filep, socketaddr)),
+        print ("%3d  0x%-16x  0x%-16x" % (fd, filep, socketaddr), file=prn, end=' ')
         # Find family/type of this socket
-	print >>prn, " %-8s %-12s %-5s" % (P_FAMILIES.value2key(family),
-				    sockTypes[sktype], protoname)
+	print (" %-8s %-12s %-5s" % (P_FAMILIES.value2key(family),
+				    sockTypes[sktype], protoname), file=prn)
 
         if (inet):
 	    if (port_filter):
 		if (ips.sport != port_filter and ips.dport != port_filter):
 		    continue
-	    print >>prn, "     ", ips
+	    print ("     ", ips, file=prn)
 	    strue = True
 	if (details > 1 and family == P_FAMILIES.PF_FILE):
 	    # AF_UNIX. on 2.4 we have just 'struct sock',
@@ -489,28 +487,28 @@ def printTaskSockets(t):
 	    if (not sock_V1):
 		sock = sock.castTo("struct unix_sock")
 	    hdr = "     +" + '-' * 65
-	    print >>prn, hdr
-	    print >>prn, "     |      state          i_ino   Path"
-	    print >>prn, hdr
+	    print (hdr, file=prn)
+	    print ("     |      state          i_ino   Path", file=prn)
+	    print (hdr, file=prn)
 	    for us, h in zip((sock, sock.Peer), ("sock", "peer")):
 	       if (us):
 		    state, ino, path = proto.unix_sock(us)
 		    statename = tcp_state_name(state)
-		    print >>prn, "     |%s  %-12s   %-6d  %s" % (h,
-		                                  statename, ino, path)
+		    print ("     |%s  %-12s   %-6d  %s" % (h,
+		                                  statename, ino, path), file=prn)
 		    sock = us.Socket
 			
 		    if (h == "peer" and sock):
 			filep = sock.file
 			pids = tt.getByFile(filep)
-			print >>prn, "     |   ",filep, sock
+			print ("     |   ",filep, sock, file=prn)
 			for pid in pids:
-			    print >>prn, "     |   ", pid
-	            print >>prn, hdr
+			    print ("     |   ", pid, file=prn)
+	            print (hdr, file=prn)
 	    
-    print >>prn, ""
+    print ("")
     if (strue):
-	print prn.getvalue()
+	print (prn.getvalue())
     prn.close()
 
 def print_iface(if1="", details=False):
@@ -545,13 +543,13 @@ def print_sysctl():
     try:
         (dall, ddef) = get_net_sysctl()
     except crash.error:
-        print WARNING, "cannot get sysctl tables"
+        print (WARNING, "cannot get sysctl tables")
         return
     names = dall.keys()
     names.sort()
 
     for n in names:
-        print n.ljust(45), dall[n]
+        print (n.ljust(45), dall[n])
     #pp.pprint(ddef)
 
 # Print those values that are not equal to default ones (not implemented yet)
@@ -566,11 +564,11 @@ def print_sysctl_nodef():
 
     default_vals = default_vals_24
     for n in names:
-        if (not default_vals.has_key(n)):
+        if (not n in default_vals):
             continue
         cval = dall[n]
         dval = default_vals[n]
-        #print cval, dval
+        #print (cval, dval)
         nondef = False
         if (type(cval) == type([])):
             try:
@@ -583,14 +581,14 @@ def print_sysctl_nodef():
         else:
             nondef = (cval != dval)
         if (nondef):
-            print "[%s]  %s != default %s" %(n, repr(cval), repr(dval))
+            print ("[%s]  %s != default %s" %(n, repr(cval), repr(dval)))
             nondef = False
 
 def print_Stats():
     from LinuxDump.inet.snmpstats import SnmpTable, snmp4_tables
     for t in snmp4_tables:
 	t = SnmpTable(t)
-	print t
+	print (t)
 
 def print_softnet_data(details):
     from LinuxDump import percpu
@@ -598,18 +596,18 @@ def print_softnet_data(details):
     for cpu, a in enumerate(addrs):
 	sd = readSU("struct softnet_data", a)
 	# Print the completion queue
-	print " --CPU=%d" % cpu
+	print (" --CPU=%d" % cpu)
 	# Count entries in the queue, it starts from sk_buff_head
 	off = member_offset("struct sk_buff_head", "next")
 	nq = getListSize(sd.input_pkt_queue, off, 10000)
-	print "    ..input_pkt_queue has %d elements" % nq
+	print ("    ..input_pkt_queue has %d elements" % nq)
 	if (details > 1):
 	    skbhead = sd.input_pkt_queue.castTo("struct sk_buff")
 	    for skb in readStructNext(skbhead, "next", inchead = False):
-		print skb
+		print (skb)
 		decode_skbuf(skb)
 	
-	print "    ..Completion queue"
+	print ("    ..Completion queue")
 	print_skbuff_head(sd.completion_queue)
 	
 def print_Everything():
@@ -648,7 +646,7 @@ def j_delay(ts, jiffies):
 if ( __name__ == '__main__'):
     import sys
     
-    __experimental = os.environ.has_key('PYKDUMPDEV')
+    __experimental ='PYKDUMPDEV'in  os.environ
     
     from optparse import OptionParser, OptionGroup, SUPPRESS_HELP
 
@@ -797,7 +795,7 @@ if ( __name__ == '__main__'):
     #__experimental = O.experimental
 
     if (o.Version):
-        print "XPORTSHOW version %s" % __version__
+        print ("XPORTSHOW version %s" % __version__)
         sys.exit(0)
 
     if (o.Everything):
@@ -861,7 +859,7 @@ if ( __name__ == '__main__'):
         # In Verbose mode, print all routing tables and policy rules
         if (details):
             print_fib(True)
-            print "\n=== Policy Rules"
+            print ("\n=== Policy Rules")
             print_fib_rules()
         else:
             print_fib()
@@ -905,7 +903,7 @@ if ( __name__ == '__main__'):
 	    elif (o.Decode == 'th'):
 		decode_TCP_header(addr, details)
 	    else:
-		print "Cannot decode", o.Decode
+		print ("Cannot decode", o.Decode)
 		sys.exit(1)
 	sys.exit(0)
 

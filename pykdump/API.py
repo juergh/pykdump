@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module pykdump.API
 #
-# Time-stamp: <11/10/24 10:46:13 alexs>
+# Time-stamp: <11/11/28 11:44:23 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -22,10 +22,15 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+# To facilitate migration to Python-3, we start from using future statements/builtins
+from __future__ import print_function
+
+
 __doc__ = '''
 This is the toplevel API for Python/crash framework. Most programs should
 not call low-level functions directly but use this module instead.
 '''
+
 
 # Messages to be used for warnings and errors
 WARNING = "+++WARNING+++"
@@ -172,7 +177,7 @@ def __epythonOptions():
         for k, m in sys.modules.items()[:]:
             if(k.split('.')[0] == 'LinuxDump' and m):
                 del sys.modules[k]
-                print "--reloading", k
+                print ("--reloading", k)
     
     if  (o.timeout):
 	set_default_timeout(o.timeout)
@@ -187,7 +192,7 @@ def __epythonOptions():
         sys.stdout = open(o.filename, "w")
 
     sys.argv[1:] = uargs
-    #print "EPYTHON sys.argv=", sys.argv
+    #print ("EPYTHON sys.argv=", sys.argv)
 
     API_options.dumpcache = o.dumpcache
 
@@ -202,7 +207,7 @@ def __preprocess(iargv,op):
     aargv = []                              # API args
     uargv = []                              # Application args
 
-    #print "iargv=", iargv
+    #print ("iargv=", iargv)
 
     while(iargv):
         el = iargv.pop(0)
@@ -210,7 +215,7 @@ def __preprocess(iargv,op):
             # Check whether this option is present in optparser's op
             optstr = el.split('=')[0]
             opt =  op.get_option(optstr)
-            #print "el, opt", el, opt
+            #print ("el, opt", el, opt)
             if (opt):
                 nargs = opt.nargs
                 aargv.append(el)
@@ -221,8 +226,8 @@ def __preprocess(iargv,op):
                 uargv.append(el)
         else:
             uargv.append(el)
-    #print "aargv=", aargv
-    #print "uargv", uargv
+    #print ("aargv=", aargv)
+    #print ("uargv", uargv)
     return (aargv, uargv)
 
 # This function is called on every 'epython' invocation
@@ -253,7 +258,7 @@ def enter_epython():
     lpad = (77-len(text))/2
     # Print vmcore name/path when not on tty
     if (isfileoutput()):
-        print "\n", 'o' * lpad, text, 'o' * lpad
+        print ("\n", 'o' * lpad, text, 'o' * lpad)
     
     # Use KVADDR
     set_readmem_task(0)
@@ -271,9 +276,9 @@ def exit_epython():
 def cleanup():
     set_readmem_task(0)
     try:
-        print "\n ** Execution took %6.2fs (real) %6.2fs (CPU)" % \
+        print ("\n ** Execution took %6.2fs (real) %6.2fs (CPU)" % \
                                         (time.time() - t_starta,
-					 os.times()[0] - t_start)
+					 os.times()[0] - t_start))
     except IOError:
 	pass
 
@@ -302,7 +307,7 @@ def possibleModuleNames(topdir, fbase):
         return None
     exts = (".ko.debug", ".o.debug", ".ko", ".o")
     lfb = len(fbase)
-    #print "++ searching for", fbase, " at", topdir
+    #print ("++ searching for", fbase, " at", topdir)
 
     for d, dummy, files in os.walk(topdir):
         for f in files:
@@ -343,11 +348,11 @@ def loadModule(modname, ofile = None, altname = None):
         pass
 
     if (debug > 1):
-        print "Starting module search", modname
+        print ("Starting module search", modname)
     if (ofile == None):
         for t in sys_info.debuginfo:
             if (debug > 1):
-                print t
+                print (t)
             # Some modules use different names in file object and lsmod, e.g.:
             # dm_mod -> dm-mod.ko
 	    for mn in (modname, modname.replace("_", "-")):
@@ -357,16 +362,16 @@ def loadModule(modname, ofile = None, altname = None):
 	    if (ofile):
 		break
         if (debug > 1):
-            print "Loading", ofile
+            print ("Loading", ofile)
     if (ofile == None):
         return False
     # If we specify a non-loaded module, exec_crash_command does not return
     if (debug > 1):
-        print "Checking for altname"
+        print ("Checking for altname")
     if (not altname in lsModules()):
 	return False
     if (debug > 1):
-        print "Trying to insert", altname, ofile
+        print ("Trying to insert", altname, ofile)
     rc = exec_crash_command("mod -s %s %s" % (altname, ofile))
     success = (rc.find("MODULE") != -1)
     __loaded_Mods[modname] = success
@@ -384,7 +389,7 @@ def delModule(modname):
         del __loaded_Mods[modname]
         exec_crash_command("mod -d %s" % modname)
 	if (debug):
-	    print "Unloading", modname
+	    print ("Unloading", modname)
     except KeyError:
         pass
 
@@ -536,5 +541,5 @@ sys.enterepython = enter_epython
 sys.exitepython = exit_epython
 
 if (API_options.debug):
-    print "-------PyKdump %s-------------" % pykdump.__version__
+    print ("-------PyKdump %s-------------" % pykdump.__version__)
 #atexit.register(cleanup)

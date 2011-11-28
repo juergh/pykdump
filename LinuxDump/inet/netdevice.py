@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <10/09/27 15:36:19 alexs>
+# Time-stamp: <11/11/28 11:51:27 alexs>
 #
 # Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
@@ -749,7 +749,7 @@ def print_If(dev, details = 0):
         if (ifalabel != devname):
             ipwithmask = "%-20s  %s" % (ipwithmask, ifalabel)
         print "  inet4 addr: %s" % ipwithmask
-    if (if6devs.has_key(devname)):
+    if (devname in if6devs):
         for ifa in if6devs[devname]:
             print "  inet6 addr: %s/%d" % (ntodots6(ifa.addr),
                                            ifa.prefix_len)

@@ -241,7 +241,7 @@ class _TaskTable:
 		print WARNING, "corrupted task-list"
 		break
             task = Task(t, self)
-            if (not pids_d.has_key(pid)):
+            if (not pid in pids_d):
                 pids_d[pid] = []
             if (pid == tgid):
                 self.tt.append(task)

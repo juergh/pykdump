@@ -2,7 +2,7 @@
 #
 #  Generic classes and subroutines
 #
-# Time-stamp: <11/04/21 15:23:32 alexs>
+# Time-stamp: <11/11/28 12:17:36 alexs>
 #
 
 # Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
@@ -165,7 +165,7 @@ def print_memoize_cache():
 	v = __memoize_cache[k]
 	try:
             print k, v
-	except Exception, val:
+	except Exception as val:
 	    print "\n\t", val, 'key=', k
 	
 # Purge those cache entries that have at least one of the specified 

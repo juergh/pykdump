@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module LinuxDump.Dev
 #
-# Time-stamp: <10/03/05 12:19:22 alexs>
+# Time-stamp: <11/11/28 11:50:51 alexs>
 #
 # Copyright (C) 2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2008 Hewlett-Packard Co., All rights reserved.
@@ -86,7 +86,7 @@ def get_blkdevs_v1():
     pa = readSymbol('blkdevs')
     out = {}
     for major, s in enumerate(pa):
-	if (not m_bdevs.has_key(major)):
+	if (not major in m_bdevs):
 	    continue
 	bi = BlkDev(major, s.name, s.bdops, m_bdevs[major])
 	out[major] = bi
@@ -117,7 +117,7 @@ def get_blkdevs_v2():
 	    s = Deref(addr)
 	    addr = s.next
 	    major = s.major
-            if (not m_bdevs.has_key(major)):
+            if (not major in m_bdevs):
 		continue
 	    bd = m_bdevs[major]
 	    # There are cases when device is registered but bd_disk=0

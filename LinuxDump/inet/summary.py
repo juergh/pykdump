@@ -1,7 +1,7 @@
 
 # module LinuxDump.inet.summary
 #
-# Time-stamp: <10/09/27 15:44:20 alexs>
+# Time-stamp: <11/11/28 12:16:01 alexs>
 #
 # Copyright (C) 2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2008 Hewlett-Packard Co., All rights reserved.
@@ -64,7 +64,7 @@ def TCPIP_Summarize(quiet = False):
     for o in proto.get_TCP_ESTABLISHED():
 	try:
             pstr = IP_sock(o, True)
-	except KeyError, msg:
+	except KeyError as msg:
 	    print ERROR, msg
 	    continue
 	if (pstr.protocol != 6):
@@ -169,7 +169,7 @@ def TCPIP_Summarize(quiet = False):
     for o in list(proto.get_RAW()) + list(proto.get_RAW6()):
 	try:
             pstr = IP_sock(o, True)
-	except KeyError, msg:
+	except KeyError as msg:
 	    print ERROR, msg
 	    continue
 	

@@ -114,7 +114,7 @@ def getSyscallArgs_x8664(stack):
     args = [regs["RDI"], regs["RSI"], regs["RDX"], 
         regs["R10"], regs["R8"], regs["R9"]]
     nscall = regs["RAX"]
-    if (nscall > 1000 and regs.has_key("ORIG_RAX")):
+    if (nscall > 1000 and "ORIG_RAX" in regs):
 	nscall = regs["ORIG_RAX"]
     return (sct, nscall, args)
 
@@ -130,7 +130,7 @@ def getSyscall32Args_x8664(stack):
     args = [regs["RSI"], regs["RDX"], 
             regs["R10"], regs["R8"], regs["R9"]]
     nscall = regs["RAX"]
-    if (nscall > 1000 and regs.has_key("ORIG_RAX")):
+    if (nscall > 1000 and "ORIG_RAX" in regs):
 	nscall = regs["ORIG_RAX"]
     return (sct32, nscall, args)
 
@@ -213,7 +213,7 @@ def decode_Stacks(stacks):
 	print "    ....... Decoding Syscall Args ......."
 	try:
 	   sct, nscall, args = getSyscallArgs(stack)
-	except IndexError, val:
+	except IndexError as val:
 	    print val
 	    continue
         if (nscall == -1):
@@ -234,7 +234,7 @@ def decode_Stacks(stacks):
 	    exec '__decode_%s(args)' % sc in globals(), locals()
         except crash.error:
             print "  Cannot read userspace args"
-	except NameError, val:
+	except NameError as val:
 	    # There is no syscall-specific decoder defined
 	    pass
 	if (debug):
