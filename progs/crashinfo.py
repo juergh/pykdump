@@ -3,7 +3,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <11/11/28 12:14:42 alexs>
+# Time-stamp: <11/12/09 11:03:49 alexs>
 
 # Copyright (C) 2007-2009 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007-2009 Hewlett-Packard Co., All rights reserved.
@@ -31,6 +31,9 @@ import sys
 from stat import *
 from StringIO import StringIO
 from optparse import OptionParser
+
+__version__ = "0.8"
+__SVN_Id = "$Id$"
 
 WARNING = "+++WARNING+++"
 
@@ -1112,11 +1115,23 @@ op.add_option("--ls", dest="ls", default = "",
 		help="Emulate 'ls'. You can specify either dentry"
               " address or full pathname")
 
+op.add_option("--version", dest="Version", default = 0,
+              action="store_true",
+              help="Print program version and exit")
+
 
 (o, args) = op.parse_args()
 
 
 verbose = o.Verbose
+
+if (o.Version):
+    print ("CRASHINFO version %s,  %s" % (__version__, __SVN_Id))
+    if (details):
+        # Print C-module and API versions
+        print("C-Module version: %s" %(crash.version))
+    sys.exit(0)
+
 
 if (sys_info.machine == "ia64"):
     ia64 = 1
