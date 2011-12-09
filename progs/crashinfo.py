@@ -3,7 +3,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <11/12/09 11:03:49 alexs>
+# Time-stamp: <11/12/09 11:04:57 alexs>
 
 # Copyright (C) 2007-2009 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007-2009 Hewlett-Packard Co., All rights reserved.
@@ -1127,7 +1127,7 @@ verbose = o.Verbose
 
 if (o.Version):
     print ("CRASHINFO version %s,  %s" % (__version__, __SVN_Id))
-    if (details):
+    if (verbose):
         # Print C-module and API versions
         print("C-Module version: %s" %(crash.version))
     sys.exit(0)

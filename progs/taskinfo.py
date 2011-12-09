@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Time-stamp: <11/01/31 15:45:51 alexs>
+# Time-stamp: <11/12/09 11:07:23 alexs>
 
 # Copyright (C) 2010-2011 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2010-2011 Hewlett-Packard Co., All rights reserved.
@@ -13,6 +13,9 @@ from pykdump.API import *
 
 from LinuxDump import percpu
 from LinuxDump.Tasks import TaskTable, Task, tasksSummary, ms2uptime
+
+__version__ = "0.1"
+__SVN_Id = "$Id$"
 
 debug = API_options.debug
 
@@ -354,9 +357,21 @@ if ( __name__ == '__main__'):
     op.add_option("-r", "--reverse", dest="Reverse", default = 0,
                     action="store_true",
                     help="Reverse order while sorting")
+    op.add_option("--version", dest="Version", default = 0,
+                  action="store_true",
+                  help="Print program version and exit")
+
+    
     (o, args) = op.parse_args()
     
     verbose = o.Verbose
+    if (o.Version):
+        print ("TASKINFO version %s,  %s" % (__version__, __SVN_Id))
+        if (verbose):
+            # Print C-module and API versions
+            print("C-Module version: %s" %(crash.version))
+        sys.exit(0)
+  
 
     if (o.Taskfilter):
         taskstates_filter = re.split("\s*,\s*", o.Taskfilter)
