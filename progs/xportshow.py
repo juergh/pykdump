@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Time-stamp: <11/12/09 10:47:46 alexs>
+# Time-stamp: <11/12/09 10:59:25 alexs>
 
 # Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2011 Hewlett-Packard Co., All rights reserved.
@@ -31,7 +31,7 @@ import string
 from StringIO import StringIO
 
 __version__ = 0.8
-__SVN_Id = "SVN $Revision$"
+__SVN_Id = "$Id$"
 
 
 debug = API_options.debug
