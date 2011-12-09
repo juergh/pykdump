@@ -124,7 +124,7 @@ do
     mkdir $t
   fi
   cd $t
-  ln -sf ../pyconf.py ../minpylib* ../Makefile .
+  ln -sf ../pyconf.py ../writeREADME.py ../minpylib* ../Makefile .
   
   build_one_flavor
 

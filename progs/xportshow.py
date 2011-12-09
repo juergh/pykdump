@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Time-stamp: <11/12/09 10:59:25 alexs>
+# Time-stamp: <11/12/09 13:39:00 alexs>
 
 # Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2011 Hewlett-Packard Co., All rights reserved.
@@ -10,6 +10,10 @@
 
 # To facilitate migration to Python-3, we start from using future statements/builtins
 from __future__ import print_function
+
+__version__ = "0.8"
+__SVN_Id = "$Id$"
+
 
 from pykdump.API import *
 
@@ -29,9 +33,6 @@ from LinuxDump.inet import summary
 
 import string
 from StringIO import StringIO
-
-__version__ = 0.8
-__SVN_Id = "$Id$"
 
 
 debug = API_options.debug
@@ -760,7 +761,7 @@ if ( __name__ == '__main__'):
 
     op.add_option("--version", dest="Version", default = 0,
                   action="store_true",
-                  help="Print 'xportshow' version and exit")
+                  help="Print program version and exit")
 
 
     # Expertimental options, not ready for general usgae yet

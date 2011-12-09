@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module pykdump.API
 #
-# Time-stamp: <11/11/28 11:44:23 alexs>
+# Time-stamp: <11/12/09 13:36:23 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -42,6 +42,17 @@ import re, string
 import time
 import stat
 import atexit
+import inspect
+
+# It does not make sense to continue if C-module is unavailable
+try:
+    import crash
+except ImportError as e:
+    fabove = inspect.getouterframes(inspect.currentframe())[1][0]
+    g = fabove.f_globals
+    vers =" %s: %s, %s" % (g["__name__"], g["__version__"], g["__SVN_Id"])
+    raise ImportError, vers
+
 
 import pykdump                          # For version check
 require_cmod_version = pykdump.require_cmod_version
@@ -67,7 +78,6 @@ print2columns = gen.print2columns
 
 
 
-import crash
 HZ = crash.HZ
 PAGESIZE = crash.PAGESIZE
 

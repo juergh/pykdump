@@ -1,21 +1,24 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Time-stamp: <11/12/09 11:07:23 alexs>
+# Time-stamp: <11/12/09 13:52:50 alexs>
 
 # Copyright (C) 2010-2011 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2010-2011 Hewlett-Packard Co., All rights reserved.
 
 # Print info about tasks
 
+# To facilitate migration to Python-3, we start from using future statements/builtins
+from __future__ import print_function
+
+__version__ = "0.1"
+__SVN_Id = "$Id$"
 
 from pykdump.API import *
 
 from LinuxDump import percpu
 from LinuxDump.Tasks import TaskTable, Task, tasksSummary, ms2uptime
 
-__version__ = "0.1"
-__SVN_Id = "$Id$"
 
 debug = API_options.debug
 
@@ -54,23 +57,23 @@ def __rlim2str(v):
 
 def printTaskDetails(t):
     sstate = t.state[5:7]
-    print "---- %5d(%s) %s %s" % (t.pid, sstate, str(t.ts), t.comm)
+    print ("---- %5d(%s) %s %s" % (t.pid, sstate, str(t.ts), t.comm))
     parent = t.parent
     if (t.hasField("real_parent")):
 	real_parent = t.real_parent
     else:
 	real_parent = parent
     if (parent):
-        print "   -- Parent:", parent.pid, parent.comm
+        print ("   -- Parent:", parent.pid, parent.comm)
         if (real_parent != parent):
-            print "   -- Real Parent:", real_parent.pid, real_parent.comm
+            print ("   -- Real Parent:", real_parent.pid, real_parent.comm)
 
     children = t.taskChildren()
     if (children):
-        print "   -- Children: %d" % len(children)
+        print ("   -- Children: %d" % len(children))
         if (verbose):
 	    for c in children:
-		print "\t", c.pid, c.comm
+		print ("\t", c.pid, c.comm)
 
     # Stuff from 'struct signal_struct"
     signal = t.signal
@@ -83,16 +86,16 @@ def printTaskDetails(t):
 	except:
 	    # RHEL3
 	    live = ''
-        print "   -- Threads Info (%d threads%s)" % \
-              (len(threads)+1, live)
+        print ("   -- Threads Info (%d threads%s)" % \
+              (len(threads)+1, live))
         if (t.pid == t.tgid):
-            print "\tI am the leader of a thread group"
+            print ("\tI am the leader of a thread group")
             # Print all threads in verbose mode
             if (verbose):
                 tids = [t.pid for t in threads]
-                print "\tThreads:", tids
+                print ("\tThreads:", tids)
         else:
-            print "\tWe belong to a thread group with tgid=%d" % t.tgid
+            print ("\tWe belong to a thread group with tgid=%d" % t.tgid)
     # Credentials
     #
 
@@ -105,19 +108,19 @@ def printTaskDetails(t):
         job = [('Credentials', t)]
 
     for jh, c in job:
-        print "   --", jh
-        print "\t  uid=%-5d   gid=%-5d" % (c.uid, c.gid)
-        print "\t suid=%-5d  sgid=%-5d" % (c.suid, c.sgid)
-        print "\t euid=%-5d  egid=%-5d" % (c.euid, c.egid)
-        print "\tfsuid=%-5d fsgid=%-5d" % (c.fsuid, c.fsgid)
+        print ("   --", jh)
+        print ("\t  uid=%-5d   gid=%-5d" % (c.uid, c.gid))
+        print ("\t suid=%-5d  sgid=%-5d" % (c.suid, c.sgid))
+        print ("\t euid=%-5d  egid=%-5d" % (c.euid, c.egid))
+        print ("\tfsuid=%-5d fsgid=%-5d" % (c.fsuid, c.fsgid))
         u = c.user
-        print "     --user_struct", u
+        print ("     --user_struct", u)
         if (u.hasField("sigpending")):
 	    extra = " sigpending=%d" % u.sigpending.counter
 	else:
 	    extra = ""
-        print "\t  processes=%d files=%d%s" % \
-              (u.processes.counter, u.files.counter, extra)
+        print ("\t  processes=%d files=%d%s" % \
+              (u.processes.counter, u.files.counter, extra))
 	if (c.hasField("group_info")):
 	    g = c.group_info
 	    ngroups = g.ngroups
@@ -126,13 +129,13 @@ def printTaskDetails(t):
 	    ngroups = t.ngroups
 	    small_block = t.groups
 	    g = ""
-        print "     --group_info", g
+        print ("     --group_info", g)
 	            # Print only if we do not have more than NGROUPS_SMALL
         if (ngroups <= len(small_block)):
             out = []
             for i in range(ngroups):
                 out.append(str(small_block[i]))
-            print "     ", out
+            print ("     ", out)
                 
             
 
@@ -141,7 +144,7 @@ def printTaskDetails(t):
     if (sstate == 'DE'):
 	return
     # Rlimits
-    print "   -- Rlimits:"
+    print ("   -- Rlimits:")
     # On RHEL4 rlim is in task_struct, on later kernels in signal
     if t.hasField("rlim"):
 	rlim = t.rlim
@@ -149,9 +152,9 @@ def printTaskDetails(t):
 	rlim = signal.rlim
     for i, r in enumerate(rlim):
         s = __RLIMIT.value2key(i)
-        print"\t%02d (%s) cur=%s max=%s" % (i, s,
+        print ("\t%02d (%s) cur=%s max=%s" % (i, s,
                                             __rlim2str(r.rlim_cur),
-                                            __rlim2str(r.rlim_max))
+                                            __rlim2str(r.rlim_max)))
 
 def find_and_print(pid):
     tt = TaskTable()
@@ -160,7 +163,7 @@ def find_and_print(pid):
         # Do we have this pid in tt?
         t = readSU("struct task_struct", pid)
         if (not tt.getByTid(t.pid)):
-            print "Bogus addr"
+            print ("Bogus addr")
             return
         t = Task(t, tt)
     else:
@@ -168,7 +171,7 @@ def find_and_print(pid):
     if (t):
         printTaskDetails(t)
     else:
-        print "There is no task with pid=", pid
+        print ("There is no task with pid=", pid)
 
 
 def printTasks(reverse = False):
@@ -176,7 +179,7 @@ def printTasks(reverse = False):
     #quit()
     tt = TaskTable()
     if (debug):
-        print "Basems", tt.basems, "Uptime:",  ms2uptime(tt.basems)
+        print ("Basems", tt.basems, "Uptime:",  ms2uptime(tt.basems))
     
 
     out = []
@@ -187,18 +190,18 @@ def printTasks(reverse = False):
 	for mt in tt.allTasks():
 	    out.append((basems - mt.Last_ran, mt.pid, mt))
 	    for t in mt.threads:
-		#print "    struct thread_info 0x%x" % long(t)
+		#print ("    struct thread_info 0x%x" % long(t))
 		out.append((basems - t.Last_ran, t.pid, t))
-	print '==== Tasks in PID order, grouped by Thread Group leader =='
+	print ('==== Tasks in PID order, grouped by Thread Group leader ==')
     else:
     # Most recent first
 	for t in tt.allThreads():
 	    out.append((basems - t.Last_ran, t.pid, t))
 	out.sort()
-	print '==== Tasks in reverse order, scheduled recently first   =='
+	print ('==== Tasks in reverse order, scheduled recently first   ==')
 
-    print " PID          CMD       CPU   Ran ms ago   STATE"
-    print "--------   ------------  --  ------------- -----"
+    print (" PID          CMD       CPU   Ran ms ago   STATE")
+    print ("--------   ------------  --  ------------- -----")
 
     for ran_ms_ago, pid, t in out:
 	sstate = t.state[5:7]
@@ -220,16 +223,16 @@ def printTasks(reverse = False):
 	#pcount = t.user.processes.counter
 	uid = t.Uid
 	#if (pcount > rlimit - 20):
-	#    print ' OOO', rlimit, pcount, "uid=%d" % uid
+	#    print (' OOO', rlimit, pcount, "uid=%d" % uid)
 	#else:
-	#    print '    ', rlimit, pcount, "uid=%d" % uid
+	#    print ('    ', rlimit, pcount, "uid=%d" % uid)
 	# Thread pointers might be corrupted
 	try:
-	    print "%s %15s %2d %15d  %s %s" \
+	    print ("%s %15s %2d %15d  %s %s" \
 			% (pid_s, t.comm,  t.cpu,
-			    int(ran_ms_ago), sstate, extra)	    
+			    int(ran_ms_ago), sstate, extra))
 	except crash.error:
-	    print ERROR, "corrupted", t
+	    print (ERROR, "corrupted", t)
 
 	    
 
@@ -325,7 +328,7 @@ def pstree(pid = 1):
     tt = TaskTable()
     init = tt.getByPid(pid)
     for s in walk_children(init, top = True):
-        print s
+        print (s)
         
 taskstates_filter=None
 verbose = 0

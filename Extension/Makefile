@@ -32,7 +32,7 @@ MIN_PYLIST := $(SRCDIR)/$(MINPYLIB_FILES)
 EXT_C := pykdump_c.so
 EXT_CPY = mpykdump.so
 
-.PHONY: clean pycompile distclean
+.PHONY: clean pycompile distclean README
 .DELETE_ON_ERROR:
 
 all: $(EXT_CPY)
@@ -104,12 +104,18 @@ pycompile:
 	$(PYTHON) $(COMPALL) -f $(TOPDIR)/pykdump
 	$(PYTHON) $(COMPALL) -f $(TOPDIR)/LinuxDump
 
-$(EXT_CPY): $(EXT_C) $(PYFULL)
+$(EXT_CPY): $(EXT_C) $(PYFULL) README
 	cat  $(EXT_C) $(PYFULL) >$(EXT_CPY)
 	zip -A $(EXT_CPY)
+	zip $(EXT_CPY) README
 	chmod +x $(EXT_CPY)
 
 
+# Create a file with basic info about this build, to be added to mpykdump.so
+# for identification purposes
+
+README:
+	$(PYTHON) writeREADME.py  "$(CRASHVERS) $(TARGET)" "$(EXT_C)" >README
 
 clean:
 	rm -f $(OBJS) $(EXT_C) $(EXT_CPY) $(PYLIB) $(PYFULL) pyparsing.pyo

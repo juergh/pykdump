@@ -3,17 +3,21 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <11/12/09 11:04:57 alexs>
+# Time-stamp: <11/12/09 13:37:20 alexs>
 
 # Copyright (C) 2007-2009 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007-2009 Hewlett-Packard Co., All rights reserved.
 
-# 1st-pass dumpanalysis
 
 # To facilitate migration to Python-3, we start from using future statements/builtins
 from __future__ import print_function
 
+# 1st-pass dumpanalysis
+__version__ = "0.5"
+__SVN_Id = "$Id$"
+
 from pykdump.API import *
+
 from LinuxDump import BTstack
 from LinuxDump.BTstack import exec_bt, bt_summarize, bt_mergestacks
 from LinuxDump.kmem import parse_kmemf, print_Zone
@@ -32,8 +36,6 @@ from stat import *
 from StringIO import StringIO
 from optparse import OptionParser
 
-__version__ = "0.8"
-__SVN_Id = "$Id$"
 
 WARNING = "+++WARNING+++"
 
