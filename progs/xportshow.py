@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Time-stamp: <11/11/28 12:31:57 alexs>
+# Time-stamp: <11/12/09 10:47:46 alexs>
 
 # Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2011 Hewlett-Packard Co., All rights reserved.
@@ -30,7 +30,9 @@ from LinuxDump.inet import summary
 import string
 from StringIO import StringIO
 
-__version__ = 0.7
+__version__ = 0.8
+__SVN_Id = "SVN $Revision$"
+
 
 debug = API_options.debug
 
@@ -795,7 +797,10 @@ if ( __name__ == '__main__'):
     #__experimental = O.experimental
 
     if (o.Version):
-        print ("XPORTSHOW version %s" % __version__)
+        print ("XPORTSHOW version %s,  %s" % (__version__, __SVN_Id))
+        if (details):
+            # Print C-module and API versions
+            print("C-Module version: %s" %(crash.version))
         sys.exit(0)
 
     if (o.Everything):
