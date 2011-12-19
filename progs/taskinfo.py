@@ -18,7 +18,7 @@ from pykdump.API import *
 
 from LinuxDump import percpu
 from LinuxDump.Tasks import TaskTable, Task, tasksSummary, ms2uptime
-
+from LinuxDump.BTstack import exec_bt, bt_summarize
 
 debug = API_options.debug
 
@@ -231,6 +231,12 @@ def printTasks(reverse = False):
 	    print ("%s %15s %2d %15d  %s %s" \
 			% (pid_s, t.comm,  t.cpu,
 			    int(ran_ms_ago), sstate, extra))
+	    # In versbose mode, print stack as well
+	    if (verbose):
+		bt = exec_bt("bt %d" % pid)
+		print (bt[0])
+		print(" ....................................................................")
+		
 	except crash.error:
 	    print (ERROR, "corrupted", t)
 

@@ -882,7 +882,23 @@ def decode_semaphore(semaddr):
     for pid, comm in out:
 	print ("\t%8d  %s" % (pid, comm))
     
+# Decode struct mutex - waiting-list etc.
 
+def decode_mutex(addr):
+    s = readSU("struct mutex", addr)
+    print (s)
+    #wait_list elements are embedded in struct mutex_waiter
+    wait_list = readSUListFromHead(Addr(s.wait_list), "list",
+             "struct mutex_waiter")
+    out = []
+    for w in wait_list:
+	task = w.task
+	out.append([task.pid, task.comm])
+    # Sort on PID
+    out.sort()
+    for pid, comm in out:
+	print ("\t%8d  %s" % (pid, comm))
+	
 # WARNING: on some kernels (e.g. Ubuntu/Hardy, 2.6.24)
 # blkdev_requests is mapped to a general slab.
 # E.g. when struct request has size 188, it goes into "kmalloc-192"
@@ -1103,7 +1119,11 @@ op.add_option("--runq", dest="Runq", default = "",
 op.add_option("--semaphore", dest="Sema", default = 0,
 		type="long", action="store",
 		help="Print Semaphore info")
-		
+
+op.add_option("--mutex", dest="Mutex", default = 0,
+		type="long", action="store",
+		help="Print Mutex info")
+
 op.add_option("--gendisk", dest="gendisk", default = "",
               action="store_true",
               help="Print gendisk structures")
@@ -1183,6 +1203,10 @@ if (o.decodesyscalls):
 
 if (o.Sema):
     decode_semaphore(o.Sema)
+    sys.exit(0)
+
+if (o.Mutex):
+    decode_mutex(o.Mutex)
     sys.exit(0)
 
 if (o.ext3):
