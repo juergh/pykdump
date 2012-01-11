@@ -1002,7 +1002,7 @@ list_for_each_entry = readListByHead
 # struct list_head modules;
 # 
 # We can do the following:
-# ListHead(addr) - will return a list of all linked objects, excluding
+# ListHead(addr) - will return a list of all list_head objects, excluding
 # the head itself.
 #
 # ListHead(addr, "struct module").list - will return a list of
@@ -1012,7 +1012,7 @@ list_for_each_entry = readListByHead
 class ListHead(list):
     def __new__(cls, lhaddr, sname = None, maxel = _MAXEL):
 	return list.__new__(cls)
-    def __init__(self, lhaddr, sname, maxel = _MAXEL):
+    def __init__(self, lhaddr, sname = None, maxel = _MAXEL):
 	self.sname = sname
 	self.maxel = _MAXEL
 	count = 0
@@ -1021,7 +1021,11 @@ class ListHead(list):
             next = readPtr(next)
             if (next == 0 or next == lhaddr):
                 break
-            self.append(next)
+	    if (sname):
+		self.append(next)
+	    else:
+		# A special case - return list_head object, not just address
+		self.append(readSU("struct list_head", next))
             count += 1
 	
     def __getattr__(self, fname):
