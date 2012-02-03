@@ -1,15 +1,8 @@
 #!/usr/bin/env python
 #
-# Time-stamp: <07/06/26 16:23:38 alexs>
-
-
-# This is the only module from pykdump that should be directly imported
-# by applications. We want to hide the details of specific implementation from
-# end-user. In particular, this module decides what backends to use
-# depending on availability of low-level shared library dlopened from crash
 #
-# Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2007,2012 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2007,2012 Hewlett-Packard Co., All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -142,6 +135,36 @@ def check_kmemf(nodekmem):
 
     print warn_8k, warn_32k
 
+# 'kmem -z' parser
+'''
+NODE: 0  ZONE: 0  ADDR: ffff81000001a000  NAME: "DMA"
+  SIZE: 4096  PRESENT: 2623  MIN/LOW/HIGH: 3/3/4
+  NR_ACTIVE: 0  NR_INACTIVE: 0  FREE: 2720
+  VM_STAT:
+          NR_ANON_PAGES: 0
+         NR_FILE_MAPPED: 1
+          NR_FILE_PAGES: 0
+                NR_SLAB: 0
+           NR_PAGETABLE: 0
+          NR_FILE_DIRTY: 0
+           NR_WRITEBACK: 0
+        NR_UNSTABLE_NFS: 0
+              NR_BOUNCE: 0
+               NUMA_HIT: 1
+              NUMA_MISS: 0
+           NUMA_FOREIGN: 0
+    NUMA_INTERLEAVE_HIT: 0
+             NUMA_LOCAL: 1
+             NUMA_OTHER: 0
+  ALL_UNRECLAIMABLE: no  PAGES_SCANNED: 0  
+
+NODE: 0  ZONE: 1  ADDR: ffff81000001ab00  NAME: "DMA32"
+    ...
+
+NODE: 0  ZONE: 3  ADDR: ffff81000001c100  NAME: "HighMem"
+  [unpopulated]
+'''
+    
 if ( __name__ == '__main__'):
     nodekmem = parse_kmemf(text)
     check_kmemf(nodekmem)

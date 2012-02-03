@@ -13,7 +13,7 @@
 from __future__ import print_function
 
 # 1st-pass dumpanalysis
-__version__ = "0.5"
+__version__ = "0.5.1"
 __SVN_Id = "$Id$"
 
 from pykdump.API import *
@@ -144,7 +144,6 @@ def check_mem():
         kmemi = exec_crash_command("kmem -i")
 	if (kmemi):
             print (kmemi)
-            print ("")
 	else:
             # Timeout
 	    print ("")
@@ -199,6 +198,30 @@ def check_mem():
         # Timeout
         pass
 	
+    # Check whether NR_WRITEBACK is below vm_dirty_ratio
+    try:
+	kmemz = exec_crash_command("kmem -z")
+	nr_writeback = 0
+	for l in kmemz.splitlines():
+	    spl = l.split(':')
+	    if (len(spl) != 2): continue
+	    k = spl[0].strip()
+	    if (k != 'NR_WRITEBACK'): continue
+	    v = int(spl[1].strip())
+	    nr_writeback += v
+
+	total_pages = readSymbol("totalram_pages")
+	vm_dirty_ratio = readSymbol("vm_dirty_ratio")
+	wr_ratio = float(nr_writeback)/total_pages*100
+	if (wr_ratio > vm_dirty_ratio):
+	    print (WARNING, end='') 
+	    print (" NR_WRITEBACK/TOTALRAM=%5.2f%% > vm_dirty_ratio=%d%%" % \
+		(wr_ratio, vm_dirty_ratio))
+	elif (verbose):
+	    print (" NR_WRITEBACK/TOTALRAM=%5.2f%%, vm_dirty_ratio=%d%%" % \
+		(wr_ratio, vm_dirty_ratio))
+    except crash.error:
+	pass
     
     # Now check user-space memory. Print anything > 25% for thread group leaders
     tt = get_tt()
