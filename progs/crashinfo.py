@@ -76,7 +76,7 @@ def printHeader(format, *args, **kwargs):
     print ("")
 
 def print_basics():
-    printHeader("*** Crashinfo v0.4 ***", frame=1)
+    printHeader("*** Crashinfo v%s ***" % __version__, frame=1)
     print ("")
     if (not sys_info.livedump):
 	# Check whether this is a partial dump and if yes,
