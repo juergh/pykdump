@@ -478,8 +478,7 @@ def print_rpc_task(s):
 	
 	rqst = s.tk_rqstp
 	
-	retries = rqst.rq_retries
-	if (retries):
+	if (rqst and rqst.rq_retries):
 	   print "\t  rq_retries=", rqst.rq_retries, "rq_timeout=", rqst.rq_timeout,\
 	       "rq_majortimeo", rqst.rq_majortimeo
 	tk_callback = s.tk_callback
@@ -492,9 +491,11 @@ def print_rpc_task(s):
 def print_all_rpc_tasks():
     # Obtain all_tasks
     tasks = get_all_rpc_tasks()
+    flen = getListSize(sym2addr("all_tasks"), 0, 10000000)
     xprtlist = []
-    print "  ------- %d RPC Tasks ---------" % len(tasks)
+    print "  ------- %d RPC Tasks ---------" % flen
     for t in tasks:
+	print_rpc_task(t)
         # On a live kernel pointers may get invalid while we are processing
         try:
             xprt = t.tk_rqstp.rq_xprt
@@ -512,7 +513,7 @@ def print_all_rpc_tasks():
             print "  ...", xprt, "..."
             jiffies = readSymbol("jiffies")
             print "    last_used %s s ago" % __j_delay(xprt.last_used, jiffies)
-            for qn in ("binding", "sending", "resend", "pending", "backlog"):
+            for qn in ("binding", "sending","resend", "pending", "backlog"):
                 try:
                     print "    len(%s) queue is %d" % (qn,
                                                        getattr(xprt, qn).qlen)
@@ -541,6 +542,7 @@ def print_rpc_status():
     all_tasks = sym2addr("all_tasks")
     #l = readList(all_tasks, 0, maxel=100000, inchead=False)
     print "all_tasks has %d elements" % getListSize(all_tasks, 0, 10000000)
+    return
     for qname in ("schedq", "childq", "delay_queue"):
         tasks = readSU("struct rpc_wait_queue", sym2addr(qname)).tasks
 	print "Number of elements in %15s:" % qname,
