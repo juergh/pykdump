@@ -85,9 +85,13 @@ build_one_flavor () {
 	exit 1
     fi
 
-    ${PYTHON} pyconf.py -s --writefiles --crashdir=${CRASHDIR} \
-	--pythondir=${PYTHONDIR}
-
+    if test "${DIR32_64+set}" != set; then
+	${PYTHON} pyconf.py -s --writefiles --crashdir=${CRASHDIR} \
+	    --pythondir=${PYTHONDIR}
+    else
+	${PYTHON} pyconf.py -s --writefiles --crashdir=${CRASHDIR} \
+	    --pythondir=${PYTHONDIR} --subdirbuild
+     fi
 }
 
 # If DIR32_64 is set, we should have a special directory layout

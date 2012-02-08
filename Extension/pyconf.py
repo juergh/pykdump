@@ -20,7 +20,7 @@ opts, args = getopt.getopt(sys.argv[1:],
                             'crashdir=', "pythondir=",
 			    'static', 'cc', 'cflags', 'includes',
                             'linkflags', 'libs', 'srcdir', 'stdlib',
-                            'compileall', 'pyvers']
+                            'compileall', 'pyvers', 'subdirbuild']
                            )
 
 for o, a in opts:
@@ -126,6 +126,8 @@ if (debug):
 crashdir = None
 writefiles = False
 
+topdir = os.path.abspath(os.getcwd()+"/..") # Top dir of PyKdump
+
 for o, a in opts:
     if (o == '--cc'):
         print cc
@@ -151,6 +153,8 @@ for o, a in opts:
         pythondir = os.path.realpath(a)
     elif (o == '--writefiles'):
         writefiles = True
+    elif (o == '--subdirbuild'):
+        topdir = os.path.abspath(os.getcwd()+"/../..")
         
 
 if (not writefiles):
@@ -246,7 +250,7 @@ ol.append("CC := %s" % cc)
 ol.append("CFLAGS := %s" % cflags)
 ol.append("LIBS := %s" % libs)
 ol.append("LINKFLAGS := %s" % linkflags)
-ol.append("TOPDIR := %s" % os.path.abspath(os.getcwd()+"/../.."))
+ol.append("TOPDIR := %s" % topdir)
 
 # Extras for static build
 if (sourcetree):
