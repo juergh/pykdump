@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <10/09/27 16:20:07 alexs>
+# Time-stamp: <12/02/10 13:47:40 alexs>
 
 # Per-cpu functions
 
@@ -10,8 +10,12 @@ from pykdump.API import *
 # the whole array (list) of addresses for all CPUs
 
 def get_cpu_var_26(varname):
-    cpuvarname = "per_cpu__" + varname
-    saddr = sym2addr(cpuvarname)
+    if (isinstance(varname, str)):
+        cpuvarname = "per_cpu__" + varname
+        saddr = sym2addr(cpuvarname)
+    else:
+        saddr = varname
+    
     addrlist = []
     #print CPUS, per_cpu_offsets
     for cpu in range(CPUS):
@@ -20,8 +24,11 @@ def get_cpu_var_26(varname):
     return addrlist
 
 def get_cpu_var_26_new(varname):
-    cpuvarname = varname
-    saddr = sym2addr(cpuvarname)
+    if (isinstance(varname, str)):
+        cpuvarname = varname
+        saddr = sym2addr(cpuvarname)
+    else:
+        saddr = varname
     addrlist = []
     #print CPUS, per_cpu_offsets
     for cpu in range(CPUS):
@@ -30,7 +37,10 @@ def get_cpu_var_26_new(varname):
     return addrlist
 
 def get_cpu_var_24(varname, cpu = None):
-    saddr = sym2addr(varname)
+    if (isinstance(varname, str)):
+        saddr = sym2addr(varname)
+    else:
+        saddr = varname
     addrlist = []
     ctype =  whatis(varname).ctype
     ssize = struct_size(ctype)

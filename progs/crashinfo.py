@@ -3,7 +3,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <11/12/09 13:37:20 alexs>
+# Time-stamp: <12/02/10 13:58:06 alexs>
 
 # Copyright (C) 2007-2009 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007-2009 Hewlett-Packard Co., All rights reserved.
@@ -413,45 +413,67 @@ def get_interesting_symbols():
 	if (k in not_interested):
 	    del results[k]
     return results
+
+
     
 def get_important():
     results = get_interesting_symbols()
-	
+
     if (verbose > 2):
 	pp.pprint(results)
-    print (' -- semaphores with sleepers > 0 --')
-    for n in results["struct semaphore"]:
-	sem = readSymbol(n)
-	sleepers = sem.sleepers
-	if (sleepers):
-	   print (n, sem.sleepers)
+    # On older kernels, 'struct semaphore' has sleepers member, on newer ones
+    # it is called 'count'we have a waitqueue (and count==0)
+    ssn = "struct semaphore"
+    if (member_offset(ssn, "sleepers") != -1):
+        print (' -- semaphores with sleepers > 0 --')
+        for n in results[ssn]:
+            sem = readSymbol(n)
+            sleepers = sem.sleepers
+            if (sleepers):
+               print (n, sem.sleepers)
 
-    print (' -- semaphores with sleepers <= 0 --')
-    for n in results["struct semaphore"]:
-	sem = readSymbol(n)
-	sleepers = sem.sleepers
-	if (sleepers <= 0):
-	   print (n, sem.sleepers)
-    
+        print (' -- semaphores with sleepers <= 0 --')
+        for n in results[ssn]:
+            sem = readSymbol(n)
+            sleepers = sem.sleepers
+            if (sleepers <= 0):
+               print (n, sem.sleepers)
+
+    srws = 'struct rw_semaphore'
     print (' -- rw_semaphores with count > 0 --')
-    for n in results["struct rw_semaphore"]:
-	sem = readSymbol(n)
-	try:
-	   count = sem.count
-	except KeyError:
-	    count = sem.activity
-	if (count):
-	   print (n, count)
+    for n in results[srws]:
+        addr = sym2addr(n)
+        if (is_percpu_symbol(addr)):
+            li = percpu.get_cpu_var(addr)
+        else:
+            li = [addr]
+
+        for aa in li:
+            sem = readSU(srws, aa)
+            try:
+               count = sem.count
+            except KeyError:
+                count = sem.activity
+            if (count):
+               print ("    ", n, count)
 
     print (' -- rw_semaphores with count <= 0 --')
     for n in results["struct rw_semaphore"]:
-	sem = readSymbol(n)
-	try:
-	   count = sem.count
-	except KeyError:
-	    count = sem.activity
-	if (count <= 0):
-	   print (n, count)
+        addr = sym2addr(n)
+        if (is_percpu_symbol(addr)):
+            li = percpu.get_cpu_var(addr)
+        else:
+            li = [addr]
+
+        for aa in li:
+            sem = readSU(srws, aa)
+        
+            try:
+               count = sem.count
+            except KeyError:
+                count = sem.activity
+            if (count <= 0):
+               print ("    ", n, count)
  	
     print (' -- Non-empty wait_queue_head --')
     for n in results["wait_queue_head_t"]:
@@ -469,7 +491,8 @@ def get_important():
 	print (' -- Non-empty struct work_struct --')
 	for n in results["struct work_struct"]:
 	    # per_cpu_xxx should be processed in a different way
-	    if (n.find("per_cpu") == 0):
+            addr = sym2addr(n)
+	    if (n.find("per_cpu") == 0 or is_percpu_symbol(addr)):
 		continue
 	    addr = sym2addr(n)
 	    nel = getListSize(addr+off, 0, 1000000L)

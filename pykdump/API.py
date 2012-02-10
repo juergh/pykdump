@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module pykdump.API
 #
-# Time-stamp: <11/12/09 13:36:23 alexs>
+# Time-stamp: <12/02/10 13:58:33 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -543,6 +543,16 @@ else:
 INT_MAX = ~0L&(INT_MASK)>>1
 LONG_MAX = ~0L&(LONG_MASK)>>1
 HZ = sys_info.HZ
+
+# Is this a per_cpu symbol? At this moment we do not check for modules yet
+if (symbol_exists("__per_cpu_start") and symbol_exists("__per_cpu_end")):
+    __per_cpu_start = sym2addr("__per_cpu_start")
+    __per_cpu_end = sym2addr("__per_cpu_end")
+    def is_percpu_symbol(addr):
+        return (addr >= __per_cpu_start and addr < __per_cpu_end)
+else:
+    def is_percpu_symbol(addr):
+        return False
 
 enter_epython()
 
