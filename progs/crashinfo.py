@@ -220,7 +220,7 @@ def check_mem():
 	elif (verbose):
 	    print (" NR_WRITEBACK/TOTALRAM=%5.2f%%, vm_dirty_ratio=%d%%" % \
 		(wr_ratio, vm_dirty_ratio))
-    except crash.error:
+    except (crash.error, TypeError):
 	pass
     
     # Now check user-space memory. Print anything > 25% for thread group leaders
