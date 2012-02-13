@@ -125,8 +125,8 @@ def print_TCP_sock(o):
         # for RPC this is "struct rpc_xprt *"
         udaddr = pstr.user_data
         if (udaddr):
-            print ("\t   |user_data|", hexl(udaddr),
-            decode_user_data(udaddr, long(o)))
+            print ("\t   |user_data|", hexl(udaddr),end='')
+            decode_user_data(udaddr, long(o))
 
 
 # Try to decode user_data
@@ -299,8 +299,8 @@ def print_UDP():
 	    # for RPC this is "struct rpc_xprt *"
 	    udaddr = pstr.user_data
 	    if (udaddr):
-		print ("\t   |user_data|", hexl(udaddr),
-		decode_user_data(udaddr, long(o)))
+		print ("\t   |user_data|", hexl(udaddr), end='')
+		decode_user_data(udaddr, long(o))
     if (count == 0):
 	print (WARNING, "Empty UDP-hash - dump is probably incomplete")
 
