@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <11/11/28 11:51:27 alexs>
+# Time-stamp: <12/02/14 13:49:54 alexs>
 #
 # Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
@@ -291,7 +291,11 @@ def print_mc_list(dev):
     idev = readSU("struct in_device", dev.ip_ptr)
     if (idev):
 	for s in readStructNext(idev.mc_list, "next"):
-	    print "  inet:  %s" % ntodots(s.multiaddr)
+            try:
+                users = " users=%d" % s.users
+            except:
+                users = ""
+	    print "  inet:  %s%s" % (ntodots(s.multiaddr), users)
 
     # IPv6 stuff. In 2.4 kernels needs ipv6.ko
     ip6ptr = dev.ip6_ptr
