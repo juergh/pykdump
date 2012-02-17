@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
-# Copyright (C) 2006-2008 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006-2008 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2006-2012 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2006-2012 Hewlett-Packard Co., All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -75,6 +75,7 @@ enumlines = ZeroOrMore(enumline) + lastenumline
 Cenumdecl =  Suppress(dEnum) +  Suppress(Optional(Cid)) + \
             Lbracket + enumlines + Rbracket + Optional(Cid) + EndSimple
 Cenumdecl.ignore(cStyleComment)
+Cenumdecl.ignore(pythonStyleComment)
 # .............. A special aid for converting C #define block to Python ......
 
 defineStmt = Suppress("#define")+ \

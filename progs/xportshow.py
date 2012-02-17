@@ -108,6 +108,14 @@ def print_TCP_sock(o):
 		    print_send_head(ss.sk_send_head)
 		except KeyError:
 		    pass
+		
+	    # Extra details for SYN_SENT
+	    if (tcp_state == tcpState.TCP_SYN_SENT):
+		print("    -- info specific for SYN_SENT --")
+		# At this moment for RHEL5 only
+		icsk = o.castTo("struct inet_connection_sock")
+		print("       icsk_retransmits=%d, icsk_ca_state=%s" % (icsk.icsk_retransmits, 
+			proto.TCP_CA_STATE[icsk.icsk_ca_state]))
 
 
         elif (tcp_state == tcpState.TCP_LISTEN):
