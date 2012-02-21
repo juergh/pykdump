@@ -1,0 +1,7 @@
+# Do not include python-compiled, .o, .a and .so
+
+*.pyc
+*.pyo
+*.o
+*.a
+*.so
