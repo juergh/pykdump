@@ -486,7 +486,11 @@ def init_PseudoAttrs():
     structSetAttr(sn, "rcv_tstamp", "tp_pinfo.af_tcp.rcv_tstamp")
     structSetAttr(sn, "lsndtime", "tp_pinfo.af_tcp.lsndtime")
     structSetAttr(sn, "Socket", ["socket", "sk_socket"])
-
+    
+    # Retrans for 2.4 kernels
+    structSetAttr(sn, "Retransmits", "tp_pinfo.af_tcp.retransmits")
+    structSetAttr(sn, "CA_state", "tp_pinfo.af_tcp.ca_state")
+    
     sn = "struct inet_sock"
     extra = ["struct tcp_sock", "struct udp_sock", "struct raw_sock", 
                                 "struct unix_sock"]
@@ -530,6 +534,15 @@ def init_PseudoAttrs():
     structSetAttr(sn, "accept_queue",
                   ["inet_conn.icsk_accept_queue",
                    "tcp.accept_queue"], extra)
+                   
+    # Retransmits
+    structSetAttr(sn, "Retransmits",
+                  ["inet_conn.icsk_retransmits",
+                   "tcp.retransmits"], extra)
+    structSetAttr(sn, "CA_state",
+                  ["inet_conn.icsk_ca_state",
+                   "tcp.ca_state"], extra)
+   
 
     structSetAttr(sn, "l_opt",
                   ["inet_conn.icsk_accept_queue.listen_opt",

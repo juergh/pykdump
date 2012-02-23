@@ -1,18 +1,15 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Time-stamp: <11/12/09 13:39:00 alexs>
-
-# Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006-2011 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2006-2012 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2006-2012 Hewlett-Packard Co., All rights reserved.
 
 # Print info about connections and sockets 
 
 # To facilitate migration to Python-3, we start from using future statements/builtins
 from __future__ import print_function
 
-__version__ = "0.8"
-__SVN_Id = "$Id$"
+__version__ = "0.8.1"
 
 
 from pykdump.API import *
@@ -109,13 +106,11 @@ def print_TCP_sock(o):
 		except KeyError:
 		    pass
 		
-	    # Extra details for SYN_SENT
-	    if (tcp_state == tcpState.TCP_SYN_SENT):
-		print("    -- info specific for SYN_SENT --")
-		# At this moment for RHEL5 only
-		icsk = o.castTo("struct inet_connection_sock")
-		print("       icsk_retransmits=%d, icsk_ca_state=%s" % (icsk.icsk_retransmits, 
-			proto.TCP_CA_STATE[icsk.icsk_ca_state]))
+	    # Extra details when there are retransmissions
+	    if (pstr.Retransmits):
+		print("    -- Retransmissions --")
+		print("       retransmits=%d, ca_state=%s" % (pstr.Retransmits, 
+			proto.TCP_CA_STATE[pstr.CA_state]))
 
 
         elif (tcp_state == tcpState.TCP_LISTEN):
@@ -806,7 +801,7 @@ if ( __name__ == '__main__'):
     #__experimental = O.experimental
 
     if (o.Version):
-        print ("XPORTSHOW version %s,  %s" % (__version__, __SVN_Id))
+        print ("XPORTSHOW version %s" % (__version__))
         if (details):
             # Print C-module and API versions
             print("C-Module version: %s" %(crash.version))
