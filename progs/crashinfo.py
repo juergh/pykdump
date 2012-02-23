@@ -14,7 +14,6 @@ from __future__ import print_function
 
 # 1st-pass dumpanalysis
 __version__ = "0.5.1"
-__SVN_Id = "$Id$"
 
 from pykdump.API import *
 
@@ -1194,7 +1193,7 @@ op.add_option("--version", dest="Version", default = 0,
 verbose = o.Verbose
 
 if (o.Version):
-    print ("CRASHINFO version %s,  %s" % (__version__, __SVN_Id))
+    print ("CRASHINFO version %s" % (__version__))
     if (verbose):
         # Print C-module and API versions
         print("C-Module version: %s" %(crash.version))

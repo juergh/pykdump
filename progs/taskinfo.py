@@ -12,7 +12,6 @@
 from __future__ import print_function
 
 __version__ = "0.1"
-__SVN_Id = "$Id$"
 
 from pykdump.API import *
 
@@ -375,7 +374,7 @@ if ( __name__ == '__main__'):
     
     verbose = o.Verbose
     if (o.Version):
-        print ("TASKINFO version %s,  %s" % (__version__, __SVN_Id))
+        print ("TASKINFO version %s" % (__version__))
         if (verbose):
             # Print C-module and API versions
             print("C-Module version: %s" %(crash.version))

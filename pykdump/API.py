@@ -50,7 +50,7 @@ except ImportError as e:
     import inspect
     fabove = inspect.getouterframes(inspect.currentframe())[1][0]
     g = fabove.f_globals
-    vers =" %s: %s, %s" % (g["__name__"], g["__version__"], g["__SVN_Id"])
+    vers =" %s: %s, %s" % (g["__name__"], g["__version__"]
     raise ImportError, vers
 
 
