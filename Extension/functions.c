@@ -20,6 +20,8 @@
 
 #include "defs.h"    /* From the crash source top-level directory */
 
+#include "pykdump.h"
+
 /* Unfortuntely, we cannot replace that internal header with a nice <endian.h>
    as we need __cpu_to_le32
 */
@@ -30,9 +32,10 @@
 #include <sys/select.h>
 
 extern struct extension_table *epython_curext;
+extern int epython_execute_prog(int argc, char *argv[], int);
 
 extern int debug;
-static jmp_buf eenv, alarm_env;
+static jmp_buf alarm_env;
 static jmp_buf copy_pc_env;
 
 /* We save the version of crash against which we build */
@@ -129,6 +132,7 @@ py_crash_get_symbol_type(PyObject *self, PyObject *args) {
 
   printf("name=%s, member=%s\n", name, member);
   val = get_symbol_type(name, member, &req);
+  // BUG
   printf("val=%d, length=%d, name=%s, typename=%s, tagname=%s\n",
 	 val, (int)req.length, req.name, req.typename, req.tagname);
   
@@ -164,7 +168,16 @@ py_get_GDB_output(PyObject *self, PyObject *args) {
   rewind(pc->tmpfile);
   while (fgets(buf, BUFSIZE, pc->tmpfile)) {
     newpart = PyString_FromString(buf);
-    PyString_ConcatAndDel(&out, newpart);
+#if PY_MAJOR_VERSION >= 3    
+    // On Python3: PyObject* PyUnicode_Concat(PyObject *left, PyObject *right)
+    // and returns a new reference
+    out = PyUnicode_Concat(out, newpart);
+#else    
+    // On Python2: void PyString_Concat(PyObject **string, PyObject *newpart)
+    // The reference to the old value of string will be stolen
+    PyString_Concat(&out, newpart);
+#endif    
+    Py_DECREF(newpart);
     //fputs(buf, stderr);
   }
   
@@ -186,7 +199,7 @@ pykdump_except_handler(int sig) {
 static struct sigaction act;
 static struct sigaction oldact;
 
-static set_alarm(int secs) {
+static void set_alarm(int secs) {
   if (secs) {
     alarm(secs);
     BZERO(&act, sizeof(struct sigaction));
@@ -208,9 +221,10 @@ static int __default_timeout = 60;
 static PyObject *
 py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   char *cmd;
-  char buf[BUFSIZE];
+  // char buf[BUFSIZE];
   FILE *oldfp = fp;
   int flength;			/* Length of a temporary file */
+  int rlength;
   char *tmpbuf;
   PyObject *obj;
 
@@ -287,7 +301,7 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   flength = ftell(fp);
   fseek(fp, 0,0);
   tmpbuf = malloc(flength);
-  fread(tmpbuf, flength, 1, fp);
+  rlength =  fread(tmpbuf, 1, flength, fp);
   obj = PyString_FromStringAndSize(tmpbuf, flength);
   free(tmpbuf);
   
@@ -296,7 +310,7 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   set_alarm(0);
 
   // If there was an error, we raise an exception and pass obj to it
-  if (internal_error) {
+  if (internal_error || rlength == 0) {
     PyErr_SetObject(crashError, obj);
     return NULL;
   }
@@ -321,10 +335,11 @@ py_exec_epython_command(PyObject *self, PyObject *pyargs) {
   return Py_None;
 }
 
+#if 0
 static PyObject *
 oldpy_exec_crash_command(PyObject *self, PyObject *pyargs) {
   char *cmd;
-  char buf[BUFSIZE];
+  // char buf[BUFSIZE];
   FILE *oldfp = fp;
 
 
@@ -354,6 +369,8 @@ oldpy_exec_crash_command(PyObject *self, PyObject *pyargs) {
   Py_INCREF(Py_None);
   return Py_None;
 }
+#endif
+
 
 static PyObject *
 py_sym2addr(PyObject *self, PyObject *args) {
@@ -483,7 +500,7 @@ py_sym2_alladdr(PyObject *self, PyObject *args) {
       return NULL;
 
   // Are there additional symbols?
-  while (se = ssn(symbol, se))
+  while ((se = ssn(symbol, se)))
     if (PyList_Append(list,PyLong_FromUnsignedLong(se->value)) == -1)
       return NULL;
   // ASID
@@ -500,12 +517,14 @@ static conversion_func functable_signed[16];
 static conversion_func functable_usigned[16];
 
 
+#if 0
 // The following nu_xxxx routines are copied from Python's 'structmodule.c'
 static PyObject *
 nu_char(const char *p)
 {
         return PyString_FromStringAndSize(p, 1);
 }
+#endif
 
 static PyObject *
 nu_byte(const char *p)
@@ -589,6 +608,8 @@ nu_ulonglong(const char *p)
 }
 
 #endif
+
+#if 0
 static PyObject *
 nu_float(const char *p)
 {
@@ -604,15 +625,16 @@ nu_double(const char *p)
         memcpy((char *)&x, p, sizeof x);
         return PyFloat_FromDouble(x);
 }
+#endif
 
 static PyObject *
 nu_void_p(void *p)
 {
-        void *x;
-        //memcpy((char *)&x, p, sizeof x);
-	// The next line works incorrectly as it produces a signed value
-        //return PyLong_FromVoidPtr(x);
-	return functable_usigned[sizeof(void *)-1](p);
+  //void *x;
+  //memcpy((char *)&x, p, sizeof x);
+  // The next line works incorrectly as it produces a signed value
+  //return PyLong_FromVoidPtr(x);
+  return functable_usigned[sizeof(void *)-1](p);
 }
 
 static PyObject *
@@ -628,7 +650,7 @@ static PyObject *
 py_mem2long(PyObject *self, PyObject *args, PyObject *kwds) {
   char *str;
   int size;
-  unsigned long addr;
+  // unsigned long addr;
 
   static char *kwlist[] = {"source", "signed", "array", NULL};
   int array = 0;
@@ -677,11 +699,11 @@ static PyObject *
 py_readPtr(PyObject *self, PyObject *args) {
   void *p;
   ulonglong addr;
-  int size;
-  void *buffer;
+  // int size;
+  // void *buffer;
   char pb[256];
 
-  PyObject *out;
+  // PyObject *out;
 
   PyObject *arg1 = PyTuple_GetItem(args, 0);
   int mtype = default_mtype;
@@ -712,7 +734,7 @@ py_readPtr(PyObject *self, PyObject *args) {
 
 static PyObject *
 py_addr2sym(PyObject *self, PyObject *args) {
-  char *symbol;
+  // char *symbol;
   unsigned long addr;
   ulong offset;
 
@@ -734,10 +756,13 @@ py_addr2sym(PyObject *self, PyObject *args) {
 //int readmem(ulonglong addr, int memtype, void *buffer, long size,
 //	char *type, ulong error_handle)
 
+// With Python2, we return a 'str' object
+// With Python3, we return a 'bytes' object
+
 static PyObject *
 py_readmem(PyObject *self, PyObject *args) {
   char pb[256];
-  char *symbol;
+  // char *symbol;
   ulonglong addr;
   long size;
   void *buffer;
@@ -756,10 +781,15 @@ py_readmem(PyObject *self, PyObject *args) {
     return NULL;
   }
   */
+#if PY_MAJOR_VERSION < 3  
   if (PyInt_Check(arg1))
       addr = PyInt_AsLong(arg1);
   else
        addr = PyLong_AsUnsignedLongLong(arg1);
+#else
+  // Wtih Python3, integers are always long
+  addr = PyLong_AsUnsignedLongLong(arg1);
+#endif
   size = PyLong_AsLong(arg2);
 
   /* When we see a NULL pointer we raise not a crash-specific
@@ -774,7 +804,7 @@ py_readmem(PyObject *self, PyObject *args) {
   }
 
   buffer = (void *) malloc(size);
-  //printf("trying to read %ld bytes from %p %p\n", size, addr, buffer);
+  // printf("trying to read %ld bytes from %p %p\n", size, addr, buffer);
   if (readmem(addr, mtype, buffer, size, "Python",
 	      RETURN_ON_ERROR|QUIET) == FALSE) {
     sprintf(pb, "readmem error at addr 0x%llx, reading %ld bytes", addr, size);
@@ -782,7 +812,11 @@ py_readmem(PyObject *self, PyObject *args) {
     return NULL;
     
   }
+#if PY_MAJOR_VERSION < 3  
   out = PyString_FromStringAndSize(buffer, size);
+#else
+  out = PyBytes_FromStringAndSize(buffer, size);
+#endif
   free(buffer);
   return out;
   
@@ -796,14 +830,14 @@ py_readmem(PyObject *self, PyObject *args) {
 */
 static PyObject *
 py_readInt(PyObject *self, PyObject *args) {
-  char *symbol;
+  // char *symbol;
   ulonglong addr;
   long size;
   int signedvar = 0;		/* The default */
   int mtype = default_mtype;
   char buffer[32];
 
-  PyObject *out;
+  // PyObject *out;
 
   PyObject *arg1 = PyTuple_GetItem(args, 0);
   PyObject *arg2 = PyTuple_GetItem(args, 1);
@@ -930,7 +964,7 @@ py_uvtop(PyObject *self, PyObject *args) {
   if (!uvtop(task_to_context(tskaddr), vaddr, &physaddr, verbose)) {
     // We cannot convert
     char pb[256];
-    sprintf(pb, "uvtop error at vaddr 0x%llx", vaddr);
+    sprintf(pb, "uvtop error at vaddr 0x%llx", (long long unsigned) vaddr);
     PyErr_SetString(crashError, pb);
     return NULL;
   }
@@ -1095,6 +1129,7 @@ py_le16_to_cpu(PyObject *self, PyObject *args) {
   return PyLong_FromUnsignedLong(__le16_to_cpu(val));
 }
 
+#if 0
 static PyObject *
 py_cpu_to_le32(PyObject *self, PyObject *args) {
   ulong val;
@@ -1107,6 +1142,8 @@ py_cpu_to_le32(PyObject *self, PyObject *args) {
 
   return PyLong_FromUnsignedLong(__cpu_to_le32(val));
 }
+#endif
+
 
 /*
   Register epython program as crash extension. Both arguments are strings
@@ -1114,8 +1151,7 @@ py_cpu_to_le32(PyObject *self, PyObject *args) {
 */
 
 static void
-epython_subcommand() {
-  extern int epython_execute_prog(int argc, char *argv[], int);
+epython_subcommand(void) {
   epython_execute_prog(argcnt, args, 0);
 }
 
@@ -1125,15 +1161,15 @@ py_register_epython_prog(PyObject *self, PyObject *args) {
   //char *cmd, *short_description, *synopsis, *help;
   char *help_data[4];
   char *cmd;
-  long val;
+  // long val;
   int i;
   int totlen;
-  struct command_table_entry *cp;
+  // struct command_table_entry *cp;
 
   int nentries;
 
   struct command_table_entry *ct = epython_curext->command_table;
-  struct command_table_entry *ce, *newce;
+  struct command_table_entry *ce;
 
      
   if (!PyArg_ParseTuple(args, "ssss", &help_data[0],
@@ -1183,7 +1219,7 @@ py_register_epython_prog(PyObject *self, PyObject *args) {
     else {
       printf("malloc() failed in py_register_epython_prog\n");
       free(ct);
-      return;
+      return PyErr_NoMemory();
     }
     ce->func = epython_subcommand;
 
@@ -1197,7 +1233,7 @@ py_register_epython_prog(PyObject *self, PyObject *args) {
       char **aptr = ce->help_data;
       char *sptr = (char *) (aptr + 5);
       for (i=0; i < 4; i++) {
-	int l = strlen(help_data[i]);
+	// int l = strlen(help_data[i]);
 	*aptr++ = sptr;
 	strcpy(sptr, help_data[i]);
 	sptr += strlen(help_data[i]) + 1;
@@ -1309,18 +1345,41 @@ static PyMethodDef crashMethods[] = {
   {NULL,      NULL}        /* Sentinel */
 };
 
-void
-initcrash(const char *crash_version) {
+#if PY_MAJOR_VERSION >= 3
+    static struct PyModuleDef crashmodule = {
+        PyModuleDef_HEAD_INIT,
+        "crash",		/* m_name */
+        "Low-level Python API to crash internals",  /* m_doc */
+        -1,			/* m_size */
+        crashMethods,		/* m_methods */
+        NULL,			/* m_reload */
+        NULL,			/* m_traverse */
+        NULL,			/* m_clear */
+        NULL,			/* m_free */
+    };
+#endif
+
+extern const char * crashmod_version;
+
+static PyObject *
+initcrash23(void) {
   
   int i;
-  
+#if PY_MAJOR_VERSION >= 3
+    m = PyModule_Create(&crashmodule);
+#else  
   m = Py_InitModule("crash", crashMethods);
+#endif
+
+  if (m == NULL)
+        return NULL;
+  
   d = PyModule_GetDict(m);
   crashError = PyErr_NewException("crash.error", NULL, NULL);
   Py_INCREF(crashError);
   PyModule_AddObject(m, "error", crashError);
 
-  PyModule_AddObject(m, "version", PyString_FromString(crash_version));
+  PyModule_AddObject(m, "version", PyString_FromString(crashmod_version));
   
   PyModule_AddObject(m, "KVADDR", PyInt_FromLong(KVADDR));
   PyModule_AddObject(m, "UVADDR", PyInt_FromLong(UVADDR));
@@ -1360,4 +1419,18 @@ initcrash(const char *crash_version) {
   functable_usigned[sizeof(int)-1] = nu_uint;
   functable_usigned[sizeof(long)-1] = nu_ulong;
   functable_usigned[sizeof(long long)-1] = nu_ulonglong;
+
+  return m;
 }
+
+#if PY_MAJOR_VERSION < 3
+    PyMODINIT_FUNC initcrash(void)
+    {
+        initcrash23();
+    }
+#else
+    PyMODINIT_FUNC PyInit_crash(void)
+    {
+        return initcrash23();
+    }
+#endif

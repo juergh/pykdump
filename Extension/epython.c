@@ -1,9 +1,9 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <11/02/15 11:32:42 alexs>
+  Time-stamp: <12/03/07 14:22:18 alexs>
 
-  Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
-  Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
+  Copyright (C) 2006-2012 Alex Sidorenko <asid@hp.com>
+  Copyright (C) 2006-2012 Hewlett-Packard Co., All rights reserved.
  
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
@@ -27,16 +27,36 @@
 
 #include "defs.h"    /* From the crash source top-level directory */
 
+// In the header above, 'FILE *fp' is a file object used by crash.
+// If we want mix our output with crash's output, we need to connect stdout
+// to it.
+// But there is a potential problem - Python now has its own layer of buffering
+
 int debug = 0;
 
-static char crash_version[] = "@(#)pycrash 0.6.4";
+static char crashmod_version_s[] = "@(#)pycrash 0.6.5";
+const char * crashmod_version = crashmod_version_s + 12;
+
+#include "pykdump.h"
+
 
 static char *ext_filename = NULL;
 #define BUFLEN 1024
 
 
 /* Initialize the crashmodule stuff */
-void initcrash(const char *) ;
+#if PY_MAJOR_VERSION < 3
+PyMODINIT_FUNC initcrash(void);
+
+static int py_fclose(FILE *fp) {
+  return 0;
+}
+
+#else
+PyMODINIT_FUNC PyInit_crash(void);
+#endif
+
+void epython_execute_prog(int argc, char *argv[], int quiet);
 
 static int run_fromzip(const char *progname, const char* zipfile);
 
@@ -79,9 +99,10 @@ call_sys_enterepython(void)
                 }
                 Py_DECREF(enterfunc);
         }
-
+#if PY_MAJOR_VERSION < 3
         if (Py_FlushLine())
                 PyErr_Clear();
+#endif
 }
 
 // Exiting
@@ -103,24 +124,22 @@ call_sys_exitepython(void)
                 }
                 Py_DECREF(exitfunc);
         }
-
+#if PY_MAJOR_VERSION < 3
         if (Py_FlushLine())
                 PyErr_Clear();
+#endif
 }
 
-void cmd_epython();     /* Declare the commands and their help data. */
+void cmd_epython(void);     /* Declare the commands and their help data. */
 char *help_epython[];
 
 static struct command_table_entry command_table[] = {
-        "epython", cmd_epython, help_epython, 0,           /* One or more commands, */
-        NULL,                                     /* terminated by NULL, */
+  {"epython", cmd_epython, help_epython, 0}, /* One or more commands, */
+  { NULL,}			/* terminated by NULL, */
 };
 
 struct extension_table *epython_curext;
 
-static int py_fclose(FILE *fp) {
-  return 0;
-}
 
 /* There is a problem when unloading the extension built with Python
    shared library. In this case we load other .so files as needed.
@@ -132,9 +151,10 @@ static int py_fclose(FILE *fp) {
 /* Old-style constructrs/destructors for dlopen. */
 void _init(void)  {
 //void __attribute__((constructor)) n_init(void) {
-  PyObject *syspath, *sysm;
+  //PyObject *syspath;
   char buffer[BUFLEN];
-  PyObject *s;
+  wchar_t wbuffer[BUFLEN];
+  //PyObject *s;
 
   struct command_table_entry *ct_copy;
     
@@ -189,30 +209,29 @@ void _init(void)  {
     Py_NoSiteFlag = 1;
     Py_FrozenFlag = 1;
     Py_IgnoreEnvironmentFlag = 1;
-    Py_SetPythonHome("");
+    Py_SetPythonHome(EMPTYS);
 #endif
     if (debug)
       fprintf(fp, "     *** Initializing Embedded Python %s ***\n",
-	      crash_version+12);
+	      crashmod_version);
+    strcpy(buffer, ".:");
+    strcat(buffer, ext_filename);
+    strcat(buffer, ":");
+    strcat(buffer, ext_filename);
+    strcat(buffer, "/pylib");
+#if PY_MAJOR_VERSION >= 3
+    PyImport_AppendInittab("crash", PyInit_crash);
+    mbstowcs(wbuffer, buffer, BUFLEN);
+    Py_SetPath(wbuffer);
+#endif
     Py_Initialize();
     PyEval_InitThreads();
-    initcrash(crash_version+12);
+#if PY_MAJOR_VERSION < 3    
+    PySys_SetPath(buffer);
+    initcrash();
+#endif    
     //sysm = PyImport_ImportModule("sys");
     // For static builds, reset sys.path from scratch
-#if defined(STATICBUILD)
-    PySys_SetPath("");
-    syspath = PySys_GetObject("path");
-    s = PyString_FromString(ext_filename);
-    PyList_Append(syspath, s);
-    //PyList_SetItem(syspath, 0, s);
-    Py_DECREF(s);
-    strcpy(buffer, ext_filename);
-    strcat(buffer, "/pylib");
-    s = PyString_FromString(buffer);
-    PyList_Append(syspath, s);
-    //Py_DECREF(syspath);
-    Py_DECREF(s);
-#endif
   } else {
     if (debug)
       printf("Trying to Py_Initialize() twice\n");
@@ -275,10 +294,10 @@ void _fini(void) {
 
 static int
 run_fromzip(const char *progname, const char *zipfilename) {
-  PyObject *main, *m, *importer;
-  PyCodeObject *code;
+  PyObject  *m, *importer;
+  evalPyObject *code;
   PyObject *d, *v;
-  PyObject *ZipImportError;
+  //PyObject *ZipImportError;
   m = PyImport_ImportModule("zipimport");
   if (!m) {
     printf("Cannot import <zipimport> module\n");
@@ -287,7 +306,7 @@ run_fromzip(const char *progname, const char *zipfilename) {
   importer = PyObject_CallMethod(m, "zipimporter", "s", zipfilename);
   Py_DECREF(m);
 
-  code = (PyCodeObject *) PyObject_CallMethod(importer, "get_code", "s",
+  code = (evalPyObject *) PyObject_CallMethod(importer, "get_code", "s",
 					      progname);
   Py_DECREF(importer);
   if (!code) {
@@ -352,14 +371,14 @@ run_fromzip(const char *progname, const char *zipfilename) {
 
 const char *path;
 const char *find_pyprog(const char *prog) {
-    char progpy[BUFSIZE];
-    char buf2[BUFSIZE];
-    static char buf1[BUFSIZE];
-    char *tok;
+  //char progpy[BUFSIZE];
+  char buf2[BUFSIZE];
+  static char buf1[BUFSIZE];
+  char *tok;
 
-    //If prognames start from '/', no need to search
-    if (prog[0] == '/')
-        return prog;
+  //If prognames start from '/', no need to search
+  if (prog[0] == '/')
+    return prog;
 
     if (path) {
         strcpy(buf2, ".:");
@@ -397,13 +416,13 @@ const char *find_pyprog(const char *prog) {
   This is used for one-time initialiation script
 */
 
-int
+void
 epython_execute_prog(int argc, char *argv[], int quiet) {
   FILE *scriptfp = NULL;
   PyObject *crashfp;
   PyObject *sysm;
-  static long TICKSPS;
-  const char *pypath;
+  //static long TICKSPS;
+  //const char *pypath;
   const char *prog;
   char buffer[BUFLEN];
 
@@ -431,12 +450,15 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
   sysm = PyImport_ImportModule("sys");
   
   // Connect sys.stdout to fp
+#if PY_MAJOR_VERSION >= 3
+  crashfp = PyFile_FromFd(fileno(fp), "<crash fp>", "w",
+			  -1, NULL, NULL, NULL, 0);
+#else  
   crashfp = PyFile_FromFile(fp, "<crash fp>", "w", py_fclose);
-
+#endif
   // We should add handling exceptions here to prevent 'crash' from exiting
   if (argc > 0) {
-    /* PySys_SetArgv prepends to sys.path, don't forget to remove it later */
-    PySys_SetArgv(argc, argv);
+    PySys_SetArgvEx(argc, argvType argv, 0);
     PyModule_AddObject(sysm, "stdout", crashfp);
 
     /* The function will be available only on the 2nd and further invocations
@@ -462,9 +484,6 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
       if (!rc && !quiet)
 	fprintf(fp, " Cannot find the program <%s>\n", argv[0]);
     }
-
-    // Remove from sys.path the 1st element, inserted by PySys_SetArgv
-    PySequence_DelItem(PySys_GetObject("path"), 0);
 
   } 
   // Run epython exitfuncs (if registered)

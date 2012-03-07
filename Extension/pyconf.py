@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # Find different python locations that we need to use in Makefile
+from __future__ import print_function
 
 import sys
 import string
@@ -18,7 +19,7 @@ opts, args = getopt.getopt(sys.argv[1:],
                            'ds',
                            ['sourcetree', 'writefiles',
                             'crashdir=', "pythondir=",
-			    'static', 'cc', 'cflags', 'includes',
+                            'static', 'cc', 'cflags', 'includes',
                             'linkflags', 'libs', 'srcdir', 'stdlib',
                             'compileall', 'pyvers', 'subdirbuild']
                            )
@@ -34,15 +35,26 @@ for o, a in opts:
 # Python version (major), e.g. 2.5 for 2.5.2
 pv = sys.version_info
 pyvers = "%d.%d" % (pv[0], pv[1])
+pymajor = pv[0]
+pythondir = os.path.realpath(a)
+
+import pprint
+#pprint.pprint(get_config_vars())
 
 # System libraries we need to link with
 testprog = get_config_var('TESTPROG')
 extralibs = get_config_var('LIBS')
 syslibs = get_config_var('SYSLIBS')
 cc = get_config_var('CC')
-cflags = get_config_var('CFLAGSFORSHARED')
+cflags = get_config_var('CFLAGS')
 ldflags = get_config_var('LINKFORSHARED')
+# This is where local (not system-wide!) Python library is installed
+#   Depending on Python version/distribution, this can be one of the following:
+# 'LIBP', 'LIBDEST', 'DESTLIB'
 stdlib = get_config_var('LIBP')
+if (not stdlib):
+    stdlib = get_config_var('LIBDEST')
+stdlib = os.path.join(pythondir, 'Lib')
 compileall = os.path.join(stdlib, "compileall.py")
 # Strip2 levels
 #for i in range(2):
@@ -56,7 +68,7 @@ compileall = os.path.join(stdlib, "compileall.py")
 
 config_h = get_config_h_filename()
 if (debug):
-    print " *** pyconfig.h at %s ***" % config_h
+    print(" *** pyconfig.h at %s ***" % config_h)
 
 srcdir = ''
 
@@ -64,7 +76,7 @@ if (sourcetree):
     # We did not run 'make install' and are using the sourcetree
     sourcetree = os.path.dirname(get_makefile_filename())
     if (debug):
-        print " *** Source-tree Python at %s ***" % sourcetree
+        print(" *** Source-tree Python at %s ***" % sourcetree)
 
     # We need the directory where pyconfig.h is located
     inc1 = get_python_inc()
@@ -77,7 +89,7 @@ if (sourcetree):
 else:
     # A properly-installed Python
     if (debug):
-        print " *** A Properly Installed Python ***"
+        print(" *** A Properly Installed Python ***")
     includes = "-I%s" % get_python_inc()
 
     if (staticbuild):
@@ -89,12 +101,12 @@ else:
         pylib =  get_config_var('BLDLIBRARY')
 
 
-linkflags = string.join((
+linkflags = " ".join((
     ' -nostartfiles -shared',
     ldflags
     ))
 
-libs = string.join((
+libs = " ".join((
     pylib,
     extralibs,
     syslibs
@@ -102,51 +114,52 @@ libs = string.join((
 
 
 if (debug):
-    print "\t INCLUDES=%s" % includes
-    print "\t PYLIBRARY=%s" % pylib
-    print "\t EXTRALIBS=%s" % extralibs
-    print "\t CC=%s" % cc
-    print "\t CFLAGS=%s" % cflags
-    print "\t LDFLAGS=%s" % ldflags
-    print "\t --------------------"
-    print "\t LINLKFLAGS=%s" % linkflags
-    print "\t LIBS=%s" % libs
+    print("\t INCLUDES=%s" % includes)
+    print("\t PYLIBRARY=%s" % pylib)
+    print("\t EXTRALIBS=%s" % extralibs)
+    print("\t CC=%s" % cc)
+    print("\t CFLAGS=%s" % cflags)
+    print("\t LDFLAGS=%s" % ldflags)
+    print("\t --------------------")
+    print("\t LINLKFLAGS=%s" % linkflags)
+    print("\t LIBS=%s" % libs)
 
 
-    print "\n"
-    print get_python_inc()
-    print get_python_lib()
+    print("\n")
+    print(get_python_inc())
+    print(get_python_lib())
 
-    print get_config_var('LINKFORSHARED')
-    print get_config_var('LIBPL')
-    print get_config_var('INCLUDEPY')
-    print get_config_var('LIBRARY')
-    print get_config_var('LIBS')
+    print(get_config_var('LINKFORSHARED'))
+    print(get_config_var('LIBPL'))
+    print(get_config_var('INCLUDEPY'))
+    print(get_config_var('LIBRARY'))
+    print(get_config_var('LIBS'))
 
 crashdir = None
 writefiles = False
 
 topdir = os.path.abspath(os.getcwd()+"/..") # Top dir of PyKdump
 
+
 for o, a in opts:
     if (o == '--cc'):
-        print cc
+        print(cc)
     elif (o == '--cflags'):
-        print cflags
+        print(cflags)
     elif (o == '--includes'):
-        print includes
+        print(includes)
     elif (o == '--linkflags'):
-        print linkflags
+        print(linkflags)
     elif (o == '--libs'):
-        print libs      
+        print(libs)      
     elif (o == '--srcdir'):
-        print srcdir     
+        print(srcdir)     
     elif (o == '--stdlib'):
-        print stdlib     
+        print(stdlib)     
     elif (o == '--compileall'):
-        print compileall
+        print(compileall)
     elif (o == '--pyvers'):
-        print pyvers
+        print(pyvers)
     elif (o == '--crashdir'):
         crashdir = os.path.realpath(a)
     elif (o == '--pythondir'):
@@ -167,7 +180,7 @@ if (sourcetree):
 else:
     btype = "dynamic"
     
-print "\n *** Creating configuration files for a %s build ***" %btype
+print("\n *** Creating configuration files for a %s build ***" %btype)
 
 cmk="crash.mk"
 lmk="local.mk"
@@ -194,18 +207,18 @@ try:
         m = re_gdb.match(l)
         if (m):
             gdb_major = int(m.group(1))
-	m = re_crashvers.match(l)
-	if (m):
-	    crash_vers = m.group(1)
-		
+        m = re_crashvers.match(l)
+        if (m):
+            crash_vers = m.group(1)
+                
 except:
-    print "Cannot find Makefile in the specified CRASHDIR", crashdir
+    print("Cannot find Makefile in the specified CRASHDIR", crashdir)
     sys.exit(0)
 
 if (not target):
-    print "Bad Makefile in ", crashdir
+    print("Bad Makefile in ", crashdir)
 
-print "target=%s" % target
+print("target=%s" % target)
 
 fd = open(cmk, "w+")
 ol = []
@@ -214,7 +227,7 @@ ol.append("CRASHDIR := %s" % crashdir)
 try:
     gdbdir = glob.glob("%s/gdb*/gdb" % crashdir)[0]
 except:
-    print "Cannot find GDB directory in crash sourcetree"
+    print("Cannot find GDB directory in crash sourcetree")
     sys.exit(2)
 ol.append("GDBDIR := %s" % gdbdir)
 ol.append("GDBINCL =  -I$(GDBDIR)  -I$(GDBDIR)/config  -I$(GDBDIR)/../bfd \\")
@@ -224,7 +237,7 @@ if (gdb_major == 7):
     ol.append("EXTRA := -DGDB7 -I$(GDBDIR)/common")
 ol.append("TARGET := %s" % target)
 ol.append("CRASHVERS := %s" % crash_vers)
-fd.write(string.join(ol, "\n"))
+fd.write("\n".join(ol))
 fd.write("\n")
 
 fd.close()
@@ -251,14 +264,18 @@ ol.append("CFLAGS := %s" % cflags)
 ol.append("LIBS := %s" % libs)
 ol.append("LINKFLAGS := %s" % linkflags)
 ol.append("TOPDIR := %s" % topdir)
+ol.append("PYMAJOR := %s" % pymajor)
 
 # Extras for static build
 if (sourcetree):
     ol.append("STDLIBP :=  %s" % stdlib)
-    ol.append("COMPALL :=  %s" % compileall)
+    if (pymajor == 3):
+        ol.append("COMPALL :=  %s -b" % compileall)
+    else:
+        ol.append("COMPALL :=  %s" % compileall)
     ol.append("MINPYLIB_FILES := minpylib-%s.lst" % pyvers)
 
-fd.write(string.join(ol, "\n"))
+fd.write("\n".join(ol))
 fd.write("\n")
 fd.close()
               

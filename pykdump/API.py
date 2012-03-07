@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module pykdump.API
 #
-# Time-stamp: <12/02/10 13:58:33 alexs>
+# Time-stamp: <12/03/07 16:29:03 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -43,6 +43,9 @@ import time
 import stat
 import atexit
 
+# Python2 vs Python3
+_Pym = sys.version_info[0]
+
 # It does not make sense to continue if C-module is unavailable
 try:
     import crash
@@ -51,7 +54,7 @@ except ImportError as e:
     fabove = inspect.getouterframes(inspect.currentframe())[1][0]
     g = fabove.f_globals
     vers =" %s: %s" % (g["__name__"], g["__version__"])
-    raise ImportError, vers
+    raise ImportError(vers)
 
 
 import pykdump                          # For version check
@@ -63,8 +66,8 @@ require_cmod_version(pykdump.minimal_cmod_version)
 # Here we make some pieces of other modules classes/functions/varibles
 # visible to API
 
-import Generic as gen
-from Generic import Bunch, ArtStructInfo, EnumInfo, iterN, \
+from . import Generic as gen
+from .Generic import Bunch, ArtStructInfo, EnumInfo, iterN, \
      memoize_cond, purge_memoize_cache, \
      CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT
 
@@ -90,12 +93,12 @@ try:
     set_default_timeout = crash.set_default_timeout
 except AttributeError:
     def set_default_timeout(timeout):
-	return None
+        return None
 
 
-import wrapcrash
+from . import wrapcrash
 
-from wrapcrash import readU8, readU16, readU32, readS32, \
+from .wrapcrash import readU8, readU16, readU32, readS32, \
      readU64, readS64, readInt, readPtr, \
      readSymbol, readSU, \
      sLong, le32_to_cpu, cpu_to_le32, le16_to_cpu, \
@@ -123,7 +126,7 @@ for n in dir(crash):
     setattr(gen, 'TYPE_CODE_SU', TYPE_CODE_SU)
     setattr(wrapcrash, 'TYPE_CODE_SU', TYPE_CODE_SU)
 
-from tparser import CEnum, CDefine
+from .tparser import CEnum, CDefine
 
 # API module globals
 sys_info = Bunch()
@@ -137,7 +140,7 @@ __timeout_exec = 0
 
 def isfileoutput():
     if (sys.stdout.isatty()):
-	return False
+        return False
     mode = os.fstat(sys.stdout.fileno())[stat.ST_MODE]
     return stat.S_ISREG(mode)
     
@@ -183,21 +186,21 @@ def __epythonOptions():
     debug = API_options.debug = gen.debug = o.debug
 
     if (o.reload):
-	purge_memoize_cache(CU_PYMOD)
+        purge_memoize_cache(CU_PYMOD)
         for k, m in sys.modules.items()[:]:
             if(k.split('.')[0] == 'LinuxDump' and m):
                 del sys.modules[k]
                 print ("--reloading", k)
     
     if  (o.timeout):
-	set_default_timeout(o.timeout)
-	# Purge the CU_TIMEOUT caches if we _increase_ the timeout
-	# This makes sense if some commands did not complete and we
-	# re-run with bigger timeout
-	if (o.timeout > __timeout_exec):
-	    purge_memoize_cache(CU_TIMEOUT)
-	__timeout_exec = o.timeout
-	
+        set_default_timeout(o.timeout)
+        # Purge the CU_TIMEOUT caches if we _increase_ the timeout
+        # This makes sense if some commands did not complete and we
+        # re-run with bigger timeout
+        if (o.timeout > __timeout_exec):
+            purge_memoize_cache(CU_TIMEOUT)
+        __timeout_exec = o.timeout
+        
     if (o.filename):
         sys.stdout = open(o.filename, "w")
 
@@ -288,9 +291,9 @@ def cleanup():
     try:
         print ("\n ** Execution took %6.2fs (real) %6.2fs (CPU)" % \
                                         (time.time() - t_starta,
-					 os.times()[0] - t_start))
+                                         os.times()[0] - t_start))
     except IOError:
-	pass
+        pass
 
 
 
@@ -351,7 +354,7 @@ def loadModule(modname, ofile = None, altname = None):
     # In this case modname is the original name (used to search for debug)
     # and altname is the name in 'mod' output
     if (not altname):
-	altname = modname
+        altname = modname
     try:
         return __loaded_Mods[modname]
     except KeyError:
@@ -365,12 +368,12 @@ def loadModule(modname, ofile = None, altname = None):
                 print (t)
             # Some modules use different names in file object and lsmod, e.g.:
             # dm_mod -> dm-mod.ko
-	    for mn in (modname, modname.replace("_", "-")):
-	       ofile = possibleModuleNames(t, mn)
-	       if (ofile):
-		   break
-	    if (ofile):
-		break
+            for mn in (modname, modname.replace("_", "-")):
+               ofile = possibleModuleNames(t, mn)
+               if (ofile):
+                   break
+            if (ofile):
+                break
         if (debug > 1):
             print ("Loading", ofile)
     if (ofile == None):
@@ -379,7 +382,7 @@ def loadModule(modname, ofile = None, altname = None):
     if (debug > 1):
         print ("Checking for altname")
     if (not altname in lsModules()):
-	return False
+        return False
     if (debug > 1):
         print ("Trying to insert", altname, ofile)
     rc = exec_crash_command("mod -s %s %s" % (altname, ofile))
@@ -398,8 +401,8 @@ def delModule(modname):
     try:
         del __loaded_Mods[modname]
         exec_crash_command("mod -d %s" % modname)
-	if (debug):
-	    print ("Unloading", modname)
+        if (debug):
+            print ("Unloading", modname)
     except KeyError:
         pass
 
@@ -407,24 +410,24 @@ def delModule(modname):
 __mod_list = []
 def lsModules():
     if (len(__mod_list) > 1):
-	return __mod_list
+        return __mod_list
     
     try:
-	# On older kernels, we have module_list
-	kernel_module = sym2addr("kernel_module")
-	if (kernel_module):
-	    module_list = readSymbol("module_list")    
-	    for m in readStructNext(module_list, "next", inchead = False):
-		if (long(m) != kernel_module):
-		    __mod_list.append(m.name)
-	else:
-	    # On new kernels, we have a listhead
-	    lh = ListHead(sym2addr("modules"), "struct module")
-	    for m in lh.list:
-	       __mod_list.append(m.name)
+        # On older kernels, we have module_list
+        kernel_module = sym2addr("kernel_module")
+        if (kernel_module):
+            module_list = readSymbol("module_list")    
+            for m in readStructNext(module_list, "next", inchead = False):
+                if (long(m) != kernel_module):
+                    __mod_list.append(m.name)
+        else:
+            # On new kernels, we have a listhead
+            lh = ListHead(sym2addr("modules"), "struct module")
+            for m in lh.list:
+               __mod_list.append(m.name)
     except:
-	# If anything went wrong, return a partial list	
-	pass
+        # If anything went wrong, return a partial list 
+        pass
     return __mod_list
 
 
@@ -438,7 +441,7 @@ def _doSys():
         if (len(spl) == 2):
             sys_info.__setattr__(spl[0].strip(), spl[1].strip())
 
-    	
+        
 # -----------  initializations ----------------
 
 # What happens if we use 'epython' command several times without 
@@ -502,12 +505,15 @@ else:
 debuginfo.append("/lib/modules/" + kname)
 sys_info.debuginfo = debuginfo
 
+
+# As we cannnot analyze 32-bit dump with a 32-bit crash, Python
+# is built for the same arch. So on Python 2, 'int matches' C-int size
 if (pointersize == 4):
     PTR_SIZE = 4
 elif (pointersize == 8):
     PTR_SIZE = 8
 else:
-    raise TypeError, "Cannot find pointer size on this arch"
+    raise TypeError("Cannot find pointer size on this arch")
 
 if (_intsize == 4):
     readInt = readS32
@@ -522,7 +528,7 @@ elif (_intsize == 8):
     INT_MASK = 0xffffffffffffffff
     INT_SIZE = 8
 else:
-    raise TypeError, "Cannot find int size on this arch"
+    raise TypeError("Cannot find int size on this arch")
 
 if (_longsize == 4):
     readLong = readS32
@@ -537,11 +543,12 @@ elif (_longsize == 8):
     LONG_MASK = 0xffffffffffffffff
     LONG_SIZE = 8    
 else:
-    raise TypeError, "Cannot find long size on this arch"
+    raise TypeError("Cannot find long size on this arch")
 
 
-INT_MAX = ~0L&(INT_MASK)>>1
-LONG_MAX = ~0L&(LONG_MASK)>>1
+INT_MAX = ~0&(INT_MASK)>>1
+LONG_MAX = ~0&(LONG_MASK)>>1
+
 HZ = sys_info.HZ
 
 # Is this a per_cpu symbol? At this moment we do not check for modules yet

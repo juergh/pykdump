@@ -13,6 +13,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+from __future__ import print_function
+
 __doc__ = '''
 This is a parser for processing C-like declarations.
 Its main purpose is to substitute real info in case when this info is
@@ -28,7 +30,7 @@ import types
 
 pp = pprint.PrettyPrinter(indent=4)
 
-from Generic import hexl, Bunch
+from .Generic import hexl, Bunch
 
 FieldInfo = Bunch
 
@@ -80,7 +82,7 @@ Cenumdecl.ignore(pythonStyleComment)
 
 defineStmt = Suppress("#define")+ \
              Group(Cid + (Cid|intval))
-#defineStmt.ignore(cStyleComment)	     
+#defineStmt.ignore(cStyleComment)            
 defineBlock = OneOrMore(defineStmt).ignore(cStyleComment)
 
 
@@ -128,10 +130,10 @@ class CDefine(dict):
     # Find and return a key based on value
     # Makes sense if we have 1-1 mapping
     def oldvalue2key(self, value):
-	for k,v in self.items():
-	    if (v == value):
-		return k
-	return None
+        for k,v in self.items():
+            if (v == value):
+                return k
+        return None
     def value2key(self, value):
         try:
             return self.__reversedict[value]
@@ -263,11 +265,11 @@ if __name__ == '__main__':
     t_start = os.times()[0]
     t_starta = time.time()
     def cleanup():
-        print "Execution took %6.2fs (real) %6.2fs (CPU)" % (time.time() - t_starta,
-                                                         os.times()[0] - t_start)
+        print ("Execution took %6.2fs (real) %6.2fs (CPU)" % (time.time() - t_starta,
+                                                         os.times()[0] - t_start))
     atexit.register(cleanup)
 
-    print CDefine(__test_defs)
-    print CEnum(__test_enum_1)
-    print CEnum(__test_enum_2)
+    print(CDefine(__test_defs))
+    print(CEnum(__test_enum_1))
+    print(CEnum(__test_enum_2))
     pp.pprint(parseSUDef(__test_struct))

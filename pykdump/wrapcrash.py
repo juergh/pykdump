@@ -19,28 +19,40 @@
 # GNU General Public License for more details.
 
 
+from __future__ import print_function
 
 import sys
 import string, re
 import struct
 
 import types
-from StringIO import StringIO
+
 import pprint
-
 pp = pprint.PrettyPrinter(indent=4)
-
-from tparser import parseSUDef
 
 experimental = False
 experimental = True
 
 debug = False
 
-import Generic as Gen
-from Generic import Bunch, TypeInfo, VarInfo, PseudoVarInfo, \
-     SUInfo, ArtStructInfo, \
-     memoize_cond, CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT
+# Python2 vs Python3
+_Pym = sys.version_info[0]
+if (_Pym == 2):
+    from StringIO import StringIO
+    from tparser import parseSUDef
+    import Generic as Gen
+    from Generic import Bunch, TypeInfo, VarInfo, PseudoVarInfo, \
+         SUInfo, ArtStructInfo, \
+         memoize_cond, CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT
+else:
+    from io import StringIO
+    from .tparser import parseSUDef
+    from . import Generic as Gen
+    from .Generic import Bunch, TypeInfo, VarInfo, PseudoVarInfo, \
+         SUInfo, ArtStructInfo, \
+         memoize_cond, CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT
+    long = int
+
 
 hexl = Gen.hexl
 
@@ -58,7 +70,7 @@ def unique(s):
     u = {}
     for x in s:
         u[x] = 1
-    return u.keys()
+    return list(u.keys())
 
 # An auxiliary function: create a multi-dim list based on index list,
 # e.g. [2,3,4] =>  a[2][3][4] filled with None
@@ -91,7 +103,7 @@ def _arr1toM(dims, arr1):
                 for k in range(K):
                     out[i][j] = arr1[i*J*K+j*K +k]
     else:
-        raise TypeError, "Array with dim >3"
+        raise TypeError("Array with dim >3")
     return out
 
     
@@ -137,12 +149,12 @@ def update_TI(f, e):
         f.details = ff
     # A function prototype
     elif ("prototype" in e):
-	prototype = f.prototype = []
-	for ee in e["prototype"]:
-	    fname = ee["fname"]
-	    ti = TypeInfo('', False)
+        prototype = f.prototype = []
+        for ee in e["prototype"]:
+            fname = ee["fname"]
+            ti = TypeInfo('', False)
             update_TI(ti, ee)
-	    prototype.append(ti)
+            prototype.append(ti)
 
 def update_TI_fromgdb(f, sname):
     e = crash.gdb_typeinfo(sname)
@@ -158,9 +170,9 @@ def update_EI_fromgdb(f, sname):
         else:
             e = crash.gdb_typeinfo(sname)
     except crash.error:
-        raise TypeError, "cannot find enum <%s>" % sname
+        raise TypeError("cannot find enum <%s>" % sname)
     if (e["codetype"] != TYPE_CODE_ENUM): # TYPE_CODE_ENUM
-        raise TypeError, "%s is not a enum"
+        raise TypeError("%s is not a enum")
     f._Lst = e["edef"]
     for n, v in f._Lst:
         f[n] = v
@@ -209,7 +221,7 @@ def update_SUI_fromgdb(f, sname):
     try:
         e = crash.gdb_typeinfo(sname)
     except crash.error:
-        raise TypeError, "no type " + sname
+        raise TypeError("no type " + sname)
     # This can be a typedef to struct
     if (not "body" in e):
         e = crash.gdb_typeinfo(e["basetype"])
@@ -228,7 +240,7 @@ class subStructResult(type):
             classname = classname.replace(' ', '_').replace('-', '_')
             execstr = 'class %s(%s): pass' % (classname, supername)
             #print '===', execstr
-            exec execstr
+            exec(execstr)
             ncls = locals()[classname]
             ncls.PYT_symbol = sname
             ncls.PYT_sinfo = SUInfo(sname)
@@ -299,15 +311,15 @@ def structSetAttr(sname, aname, estrings, sextra = []):
             rc = parseDerefString(sname, s)
         if (rc):
             fi, chain = rc
-	    pa = PseudoAttr(fi, chain)
+            pa = PseudoAttr(fi, chain)
             setattr(cls,  aname, pa)
             vi = __test_chain(sname, aname, fi, chain)
             if (vi):
                 #print sname, vi, vi.offset
                 cls.PYT_sinfo[aname] = vi
-	    for extra in sextra:
-		ecls = StructResult(extra).__class__
-		setattr(ecls,  aname, pa)
+            for extra in sextra:
+                ecls = StructResult(extra).__class__
+                setattr(ecls,  aname, pa)
                 if (vi):
                     ecls.PYT_sinfo[aname] = vi
             return True
@@ -331,14 +343,14 @@ def parseDerefString(sname, teststring):
     out =[]
     codetype = -1
     if (debug):
-	print '-------sname=%s, test=%s' % (sname, teststring)
+        print ('-------sname=%s, test=%s' % (sname, teststring))
     for f in teststring.split('.'):
         f = f.strip()
         if (si and f in si):
             fi = si[f]
             offset = fi.offset
             if (debug):
-                print f, "offset=%d" % offset
+                print (f, "offset=%d" % offset)
             ti = fi.ti
             codetype = ti.codetype
             isptr= False
@@ -350,26 +362,24 @@ def parseDerefString(sname, teststring):
                 else:
                     tti = ti.getTargetType()
                     tcodetype = ti.getTargetCodeType()
-                if (debug):
-                    print "    pointer:",
                 if (tcodetype in TYPE_CODE_SU):
                     si = getStructInfo(tti.stype)
                     if (debug):
-                        print tti.stype
+                        print("   pointer:", tti.stype)
                     isptr = True
             elif (codetype in TYPE_CODE_SU):
                 # Struct/Union
                 if (debug):
-                    print "    SU:", ti.stype
+                    print ("    SU:", ti.stype)
                 si = getStructInfo(ti.stype)
             else:
                 si = None
                 if (debug):
-                    print "    codetype=%d" % codetype
+                    print ("    codetype=%d" % codetype)
             out.append((isptr, offset))
         else:
             if (debug):
-                print "Cannot continue f=<%s>, codetype=%d" % (f, codetype)
+                print ("Cannot continue f=<%s>, codetype=%d" % (f, codetype))
             return False
 
     # If we reached this place, we have been able to dereference
@@ -398,7 +408,7 @@ class StructResult(long):
         return long.__new__(cls, addr)
     
     #def __init__(self, sname, addr = 0):
-    #	pass
+    #   pass
 
     # The next two methods implement pointer arithmetic, i.e.
     # stype *p
@@ -431,18 +441,18 @@ class StructResult(long):
             ind = name.find('__')
             if (ind > 0):
                 name = name[ind:]
-	    try:
+            try:
                 fi = self.PYT_sinfo[name]
-	    except KeyError:
+            except KeyError:
                 msg = "<%s> does not have a field <%s>" % \
                       (self.PYT_symbol, name)
-                raise KeyError, msg
+                raise KeyError(msg)
 
         #print fi, fi.offset, fi.reader
         return fi.reader(long(self) + fi.offset)
 
     def __eq__(self, cmp):
-	return (long(self) == cmp)
+        return (long(self) == cmp)
     def __str__(self):
         return "<%s 0x%x>" % \
                (self.PYT_symbol, long(self))
@@ -452,16 +462,16 @@ class StructResult(long):
                (self.PYT_symbol, long(self), self.PYT_size)
     # Print all fields (without diving into structs/unions)
     def Dump(self, indent = 0):
-	sindent = ' ' * indent
-	for fn,fi in self.PYT_sinfo.PYT_body:
-	    # For big arrays, print just 4 first elements
-	    elements = fi.ti.elements
-	    val = self.__getattr__(fn)
-	    if (not isinstance(val, SmartString) and elements > 3):
-	       val = str(val[:4])[:-1] + ", ..."
-	    print sindent, "    %18s " % fn, val
-	
-	
+        sindent = ' ' * indent
+        for fn,fi in self.PYT_sinfo.PYT_body:
+            # For big arrays, print just 4 first elements
+            elements = fi.ti.elements
+            val = self.__getattr__(fn)
+            if (not isinstance(val, SmartString) and elements > 3):
+               val = str(val[:4])[:-1] + ", ..."
+            print (sindent, "    %18s " % fn, val)
+        
+        
     
     # Backwards compatibility
     #def __nonzero__(self):
@@ -531,7 +541,7 @@ def ti_intReader(ti, bitoffset = None, bitsize = None):
         return val
 
     def charArray(addr):
-	s = readmem(addr, dim1)
+        s = readmem(addr, dim1)
         val = SmartString(s, addr, None)
         return val
 
@@ -546,13 +556,13 @@ def ti_intReader(ti, bitoffset = None, bitsize = None):
     def unsignedArrayReader(addr):
         s = readmem(addr, totsize)
         val =  mem2long(s, array = elements)
-	# A subtle problem: for array=1 mem2long returns and
-	# integer, not a list. This is bad for declarations like
-	# in bits[1]
+        # A subtle problem: for array=1 mem2long returns and
+        # integer, not a list. This is bad for declarations like
+        # in bits[1]
         if (len(dims) > 1):
             val = _arr1toM(dims, val)
-	elif (elements == 1):
-	    val = [val]
+        elif (elements == 1):
+            val = [val]
         return val
 
     # A special case like unsigned char tb_data[0];
@@ -567,22 +577,22 @@ def ti_intReader(ti, bitoffset = None, bitsize = None):
     elements = ti.elements
     totsize = size * elements
     if (debug):
-        print "Creating an intReader size=%d" % size, \
+        print ("Creating an intReader size=%d" % size, \
               "uint=", uint, \
-              "bitsize=", bitsize, "bitoffset=", bitoffset
+              "bitsize=", bitsize, "bitoffset=", bitoffset)
 
     #print "dims=", dims
     if (dims != None and len(dims) == 1 and ti.stype == 'char'):
         # CharArray
         dim1 = dims[0]
-	# If dimension is zero, return the address. Some structs
-	# have this at the end, e.g. 
-	# struct Qdisc {
-	# ...
-	#     char data[0];
-	# };
-	if (dim1 == 0):
-	    return zeroArrayReader
+        # If dimension is zero, return the address. Some structs
+        # have this at the end, e.g. 
+        # struct Qdisc {
+        # ...
+        #     char data[0];
+        # };
+        if (dim1 == 0):
+            return zeroArrayReader
         else:
             return charArray
     elif (dims != None and  len(dims) == 1 and dims[0] == 0):
@@ -657,18 +667,18 @@ def ptrReader(vi, ptrlev):
         # 256 is a reasonable number but small strings at the end of pages
         # trigger "Cannot access memory" in some rare cases
         try:
-	    s = readmem(ptr, 256)
-	except crash.error:
-	    bytes = (((ptr>>8) +1)<<8) - ptr
-	    s = readmem(ptr, bytes)
+            s = readmem(ptr, 256)
+        except crash.error:
+            bytes = (((ptr>>8) +1)<<8) - ptr
+            s = readmem(ptr, bytes)
         return SmartString(s, addr, ptr)
     def genPtr(addr):
         return tPtr(readPtr(addr), vi)
 
     def funcPtr(addr):
         ptr = readPtr(addr)
-	if (ptr and machine == "ia64"):
-	    ptr = readPtr(ptr)
+        if (ptr and machine == "ia64"):
+            ptr = readPtr(ptr)
         return ptr
 
     def ptrArray(addr):
@@ -697,10 +707,10 @@ def ptrReader(vi, ptrlev):
     if (ptrlev == 1 and stype == 'char'):
         reader = strPtr
     elif (ti.ptrbasetype == 6):      # A pointer to function
-	reader = funcPtr
+        reader = funcPtr
     elif (ptrlev == 1 and ti.ptrbasetype in (3, 4) \
           and dims == None): #A pointer to struct/union
-	reader = ptrSU
+        reader = ptrSU
     else:
         if (dims != None):
             if (len(dims) == 1 and elements <= 1):
@@ -726,7 +736,7 @@ def Addr(obj, extra = None):
     elif (isinstance(obj, SmartString) or isinstance(obj, SmartList)):
           return obj.addr
     else:
-        raise TypeError, type(obj)
+        raise TypeError(type(obj))
 
 # Dereference a tPtr object - at this moment 1-dim pointers to SU only
 def Deref(obj):
@@ -736,7 +746,7 @@ def Deref(obj):
         # This is needed for backwards compatibility only!
         return obj
     else:
-        raise TypeError, "Trying to dereference a non-pointer " + str(obj)
+        raise TypeError("Trying to dereference a non-pointer " + str(obj))
 
 
 # When we do readSymbol and have pointers to struct, we need a way
@@ -760,7 +770,7 @@ class tPtr(long):
         ptrlev = self.ptrlev
         if (addr == 0):
             msg = "\nNULL pointer %s" % repr(self)
-            raise IndexError, msg
+            raise IndexError(msg)
 
         if (ptrlev == 1):
             dereferencer = self.vi.dereferencer # sets vi.tsize as well
@@ -778,7 +788,7 @@ class tPtr(long):
         addr = long(self)
         if (addr == 0):
             msg = "\nNULL pointer %s" % repr(self)
-            raise IndexError, msg
+            raise IndexError(msg)
 
         if (self.ptrlev == 1):
             return self.vi.dereferencer(addr)
@@ -808,9 +818,9 @@ class SmartString(str):
     def __long__(self):
         return self.ptr
     def __getslice__(  self, i, j):
-	return self.__fullstr.__getslice__(i, j)
+        return self.__fullstr.__getslice__(i, j)
     def __getitem__(self, key):
-	return self.__fullstr.__getitem__(key)
+        return self.__fullstr.__getitem__(key)
 
 class SmartList(list):
     def __new__(cls, l = [], addr = None):
@@ -827,12 +837,12 @@ class SmartList(list):
 def printObject(obj):
     if (isinstance(obj, StructResult)):
         cmd = "p *(%s *)0x%x" %(obj.PYT_symbol, long(obj))
-        print cmd
+        print (cmd)
         s = exec_gdb_command(cmd)
         # replace the 1st line with something moe useful
         first, rest = s.split("\n", 1)
-	print "%s 0x%x {" %(obj.PYT_symbol, long(obj))
-        print rest
+        print ("%s 0x%x {" %(obj.PYT_symbol, long(obj)))
+        print (rest)
     else:
         raise TypeError
         
@@ -931,10 +941,10 @@ def readSUListFromHead(headaddr, listfieldname, mystruct, maxel=_MAXEL,
 
 def readStructNext(shead, nextname, inchead = True):
     if (not isinstance(shead, StructResult)):
-	# This should be tPtr
+        # This should be tPtr
         if (shead == 0):
             return []
-	shead = Deref(shead)
+        shead = Deref(shead)
     stype = shead.PYT_symbol
     offset = shead.PYT_sinfo[nextname].offset
     out = []
@@ -959,7 +969,7 @@ class intDimensionlessArray(long):
         addr = long(self) + i * self.isize
         return readIntN(addr, self.isize, self.signed)
     def __repr__(self):
-	return "<intDimensionlessArray addr=0x%x, sz=%d, signed=%d>" %\
+        return "<intDimensionlessArray addr=0x%x, sz=%d, signed=%d>" %\
             (long(self), self.isize, self.signed)
 
 
@@ -1011,31 +1021,31 @@ list_for_each_entry = readListByHead
 
 class ListHead(list):
     def __new__(cls, lhaddr, sname = None, maxel = _MAXEL):
-	return list.__new__(cls)
+        return list.__new__(cls)
     def __init__(self, lhaddr, sname = None, maxel = _MAXEL):
-	self.sname = sname
-	self.maxel = _MAXEL
-	count = 0
-	next = lhaddr
-	while (count < maxel):
+        self.sname = sname
+        self.maxel = _MAXEL
+        count = 0
+        next = lhaddr
+        while (count < maxel):
             next = readPtr(next)
             if (next == 0 or next == lhaddr):
                 break
-	    if (sname):
-		self.append(next)
-	    else:
-		# A special case - return list_head object, not just address
-		self.append(readSU("struct list_head", next))
+            if (sname):
+                self.append(next)
+            else:
+                # A special case - return list_head object, not just address
+                self.append(readSU("struct list_head", next))
             count += 1
-	
+        
     def __getattr__(self, fname):
-	off = member_offset(self.sname, fname)
+        off = member_offset(self.sname, fname)
         if (off == -1):
-            raise KeyError, "<%s> does not have a field <%s>" % \
-                  (self.sname, fname)
-	return [readSU(self.sname, a-off) for a in self]
-	
-	
+            raise KeyError("<%s> does not have a field <%s>" % \
+                  (self.sname, fname))
+        return [readSU(self.sname, a-off) for a in self]
+        
+        
 
 # readList returns the addresses of all linked structures, including
 # the start address. If the start address is 0, it returns an empty list
@@ -1058,10 +1068,10 @@ def readList(start, offset=0, maxel = _MAXEL, inchead = True):
         # If we get an error while reading lists, report it but return what we
         # have already collected anyway
         try:
-	    next = readPtr(next + offset)
-	except crash.error as val:
-	    print val
-	    break
+            next = readPtr(next + offset)
+        except crash.error as val:
+            print (val)
+            break
         if (next == 0 or next == start):
             break
         out.append(next)
@@ -1080,22 +1090,22 @@ def readBadList(start, offset=0, maxel = _MAXEL, inchead = True):
     if (inchead):
         count = 1
         out = [start]
-	ha[start] = 1
+        ha[start] = 1
     else:
         out = []
         count = 0
     next = start
     while (count < maxel):
-	try:
+        try:
             next = readPtr(next + offset)
-	except crash.error as err:
-	    return (out, err)
+        except crash.error as err:
+            return (out, err)
         if (next == 0 or next == start):
             break
-	elif (next in ha):
-	    err = "Duplicate entry"
-	    return (out, err)
-	ha[next] = 1
+        elif (next in ha):
+            err = "Duplicate entry"
+            return (out, err)
+        ha[next] = 1
         out.append(next)
         count += 1
     return (out, None)
@@ -1187,13 +1197,13 @@ __whatis_cache = {}
 
 def whatis(symbol):
     try:
-	return __whatis_cache[symbol]
+        return __whatis_cache[symbol]
     except KeyError:
-	pass
+        pass
     try:
         e = crash.gdb_whatis(symbol)
     except crash.error:
-        raise TypeError, "There's no symbol <%s>" % symbol
+        raise TypeError("There's no symbol <%s>" % symbol)
 
     # Return Varinfo
     vi = VarInfo(e["fname"])
@@ -1214,37 +1224,37 @@ def sdef2ArtSU(sdef):
     uas = ArtStructInfo(sname)
     uas.__init__(sname)
     for ftype, fn in finfo:
-	#print ftype, fn
-	try:
-	    ti = TypeInfo(ftype)
-	except crash.error:
-	    #print "  Cannot get typeinfo for %s" % ftype
-	    sp = ftype.find('*')
-	    if (sp != -1):
-		btype = ftype[:sp].strip()
-		#print "    btype=<%s>" % btype
-		# Check whether StructInfo exists for btype
-		#si = getStructInfo(btype)
-		#print si
-		# Yes, replace the name with something existing and try again
-		newftype = ftype.replace(btype, "struct list_head", 1)
-		#print "     new ftype=<%s>" % newftype
-		ti = TypeInfo(newftype)
-		# Force the evaluation of lazy eval attributes
-		ti.tcodetype
-		ti.elements
-		ti.stype = btype
-		#ti.dump()
-	    
-	vi = VarInfo(fn)
-	vi.ti = ti
-	vi.offset = uas.PYT_size
-	vi.bitoffset = vi.offset * 8
+        #print ftype, fn
+        try:
+            ti = TypeInfo(ftype)
+        except crash.error:
+            #print "  Cannot get typeinfo for %s" % ftype
+            sp = ftype.find('*')
+            if (sp != -1):
+                btype = ftype[:sp].strip()
+                #print "    btype=<%s>" % btype
+                # Check whether StructInfo exists for btype
+                #si = getStructInfo(btype)
+                #print si
+                # Yes, replace the name with something existing and try again
+                newftype = ftype.replace(btype, "struct list_head", 1)
+                #print "     new ftype=<%s>" % newftype
+                ti = TypeInfo(newftype)
+                # Force the evaluation of lazy eval attributes
+                ti.tcodetype
+                ti.elements
+                ti.stype = btype
+                #ti.dump()
+            
+        vi = VarInfo(fn)
+        vi.ti = ti
+        vi.offset = uas.PYT_size
+        vi.bitoffset = vi.offset * 8
 
-	SUInfo.append(uas, fn, vi)
-	# Adjust the size
-	uas.PYT_size += vi.size
-	uas.size = uas.PYT_size
+        SUInfo.append(uas, fn, vi)
+        # Adjust the size
+        uas.PYT_size += vi.size
+        uas.size = uas.PYT_size
     return uas
     
 
@@ -1270,9 +1280,9 @@ __struct_size_cache = {}
 # when we load/unload modules
 def struct_size(sname):
     try:
-	return __struct_size_cache[sname]
+        return __struct_size_cache[sname]
     except KeyError:
-	pass
+        pass
     try:
         si = TypeInfo(sname)
         sz = si.size
@@ -1283,9 +1293,9 @@ def struct_size(sname):
 
 def invalidate_cache_info(sname = None):
     if (sname and sname in __struct_size_cache):
-	del __struct_size_cache[sname]
+        del __struct_size_cache[sname]
     else:
-	__struct_size_cache.clear()
+        __struct_size_cache.clear()
 
 def struct_exists(sname):
     if (struct_size(sname) == -1):
@@ -1358,7 +1368,7 @@ def exec_command(cmdline):
         # shell-like syntax (i.e. using shlex), but this is probably an overkill
         crash.exec_epython_command(*argv)
     else:
-        print crash.exec_crash_command(cmdline)
+        print(crash.exec_crash_command(cmdline))
 
 
 # Aliases
@@ -1393,4 +1403,4 @@ Gen.parseDerefString = parseDerefString
 
 
 def print_stats():
-    print "count_cached_attr=%d (%d)" % (count_cached_attr, count_total_attr)
+    print ("count_cached_attr=%d (%d)" % (count_cached_attr, count_total_attr))

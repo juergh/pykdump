@@ -2,7 +2,7 @@
 #
 #  Generic classes and subroutines
 #
-# Time-stamp: <11/11/28 12:17:36 alexs>
+# Time-stamp: <12/03/07 16:45:44 alexs>
 #
 
 # Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
@@ -18,16 +18,25 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+from __future__ import print_function
 
 import string
 import pprint
 
-import os
+import os, sys
 import copy
 import types
 from types import *
 
-from StringIO import StringIO
+# Python2 vs Python3
+_Pym = sys.version_info[0]
+
+if (_Pym < 3):
+    from StringIO import StringIO
+else:
+    from io import StringIO
+    from functools import reduce
+    long = int
 
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -86,10 +95,9 @@ class Bunch(dict):
         return Bunch(dict.copy(self))
     def __str__(self):
         prn = StringIO()
-        keys = self.keys()
-        keys.sort()
+        keys = sorted(self.keys())
         for k in keys:
-            print >> prn, "  ", k.ljust(12), self[k]
+            print ("  ", k.ljust(12), self[k], file=prn)
         rc = prn.getvalue()
         prn.close()
         return rc
@@ -118,8 +126,8 @@ class MemoizeSU(type):
             return rc
     @staticmethod
     def purgecache():
-	MemoizeSU.__cache.clear()
-	print "SU Cache purged, len=", len(MemoizeSU.__cache)
+        MemoizeSU.__cache.clear()
+        print ("SU Cache purged, len=", len(MemoizeSU.__cache))
  
 
 
@@ -130,7 +138,7 @@ __memoize_cache = {}
 CU_LIVE = 1                             # Update on live
 CU_LOAD = 2                             # Update on crash 'mod' load
 CU_PYMOD = 4                            # Update on Python modules reload
-CU_TIMEOUT = 8				# Update on timeout change
+CU_TIMEOUT = 8                          # Update on timeout change
 
 # CU_PYMOD is needed if we are reloading Python modules (by deleting it)
 # In this case we need to invalidate cache entries containing references
@@ -141,17 +149,17 @@ def memoize_cond(condition):
     def deco(fn):
         def newfunc(*args):
             key = (condition, fn.__name__) + args
-	    # If CU_LIVE is set and we are on live kernel, do not
-	    # memoize
-	    if (condition & CU_LIVE and livedump):
-		if (debug > 2):
-		    print "do not memoize: live kernel", key
-		return fn(*args)
+            # If CU_LIVE is set and we are on live kernel, do not
+            # memoize
+            if (condition & CU_LIVE and livedump):
+                if (debug > 2):
+                    print ("do not memoize: live kernel", key)
+                return fn(*args)
             try:
                 return __memoize_cache[key]
             except KeyError:
-		if (debug > 1):
-                    print "Memoizing", key
+                if (debug > 1):
+                    print ("Memoizing", key)
                 val =  fn(*args)
                 __memoize_cache[key] = val
                 return val
@@ -159,26 +167,25 @@ def memoize_cond(condition):
     return deco
   
 def print_memoize_cache():
-    keys = __memoize_cache.keys()
-    keys.sort()
+    keys = sorted(__memoize_cache.keys())
     for k in keys:
-	v = __memoize_cache[k]
-	try:
-            print k, v
-	except Exception as val:
-	    print "\n\t", val, 'key=', k
-	
+        v = __memoize_cache[k]
+        try:
+            print (k, v)
+        except Exception as val:
+            print ("\n\t", val, 'key=', k)
+        
 # Purge those cache entries that have at least one of the specified 
-# flags	set
+# flags set
 def purge_memoize_cache(flags):
-    keys = __memoize_cache.keys()
-    keys.sort()
+    keys = sorted(__memoize_cache.keys())
+
     for k in keys:
-	ce_flags = k[0]
-	if (ce_flags & flags):
-	    if (debug > 1):
-		print "Purging cache entry", k
-	    del __memoize_cache[k]
+        ce_flags = k[0]
+        if (ce_flags & flags):
+            if (debug > 1):
+                print ("Purging cache entry", k)
+            del __memoize_cache[k]
 
 # Limit a potentially infinite sequence so that while iterating
 # it we'll stop not later than after N elements
@@ -266,26 +273,26 @@ class TypeInfo(object):
 
     def __repr__(self):
         stype, pref, suff = self.fullname()
-	if (stype == "(func)"):
-	    out = []
-	    for ati in self.prototype:
-		astype, apref, asuff = ati.fullname()
-	        out.append(("%s %s%s" % (astype, apref, asuff)).strip())
-	    stype = out[0]
-	    suff = "(func)(" + string.join(out[1:], ", ") + ")" 
+        if (stype == "(func)"):
+            out = []
+            for ati in self.prototype:
+                astype, apref, asuff = ati.fullname()
+                out.append(("%s %s%s" % (astype, apref, asuff)).strip())
+            stype = out[0]
+            suff = "(func)(" + string.join(out[1:], ", ") + ")" 
 
         out = "TypeInfo <%s %s%s> size=%d" % (stype, pref, suff, self.size)
         return out
     # For debugging purposes
     def dump(self):
-	print " -------Dumping all attrs of TypeInfo %s" % self.stype
-	for n in dir(self):
-	    if (n in ('__doc__', '__module__', '__weakref__')):
-		continue
-	    a = getattr(self, n)
-	    if (type(a) in (StringType, IntType, NoneType, ListType)):
-	       print "  fn=%-12s " % n, a
-	print " -----------------------------------------------"
+        print (" -------Dumping all attrs of TypeInfo %s" % self.stype)
+        for n in dir(self):
+            if (n in ('__doc__', '__module__', '__weakref__')):
+                continue
+            a = getattr(self, n)
+            if (type(a) in (StringType, IntType, NoneType, ListType)):
+               print ("  fn=%-12s " % n, a)
+        print (" -----------------------------------------------")
     elements = LazyEval("elements", getElements)
     tcodetype = LazyEval("tcodetype", getTargetCodeType)
 
@@ -382,21 +389,21 @@ class VarInfo(object):
              if (ptrlev == None):
                  ptrlev = ti.ptrlev
              return d.ptrReader(self, ptrlev)
-	 elif (codetype == TYPE_CODE_ENUM):     # TYPE_CODE_ENUM
-	     return d.ti_intReader(ti, bitoffset, self.bitsize)
+         elif (codetype == TYPE_CODE_ENUM):     # TYPE_CODE_ENUM
+             return d.ti_intReader(ti, bitoffset, self.bitsize)
          else:
-             raise TypeError, "don't know how to read codetype "+str(codetype)
+             raise TypeError("don't know how to read codetype "+str(codetype))
 
 
      def __repr__(self):
          stype, pref, suff = self.ti.fullname()
-	 if (stype == "(func)"):
-	     out = []
-	     for ati in self.ti.prototype:
-		 astype, apref, asuff = ati.fullname()
-	         out.append(("%s %s%s" % (astype, apref, asuff)).strip())
-	     stype = out[0]
-	     suff = "(" + string.join(out[1:], ", ") + ")" 
+         if (stype == "(func)"):
+             out = []
+             for ati in self.ti.prototype:
+                 astype, apref, asuff = ati.fullname()
+                 out.append(("%s %s%s" % (astype, apref, asuff)).strip())
+             stype = out[0]
+             suff = "(" + string.join(out[1:], ", ") + ")" 
          out = "%s <%s%s %s%s> addr=0x%x" % (self.__class__.__name__,
                                              stype, pref,
                                              self.name, suff, self.addr)
@@ -474,7 +481,7 @@ class SUInfo(dict):
         #print "name <%s>, value <%s>" % (name, str(value))
         # Anonymous structs/unions can be embedded and multilevel
         if (not ti.codetype in TYPE_CODE_SU):
-            raise TypeError, "field without a name " + str(value)
+            raise TypeError("field without a name " + str(value))
         usi = SUInfo(ti.stype)
         #print ti.stype, usi
         if (ti.codetype == TYPE_CODE_UNION):
@@ -609,7 +616,7 @@ def print2columns(left,right):
             l = ""
         if (r == None):
             r = ""
-        print l.ljust(38), r
+        print (l.ljust(38), r)
 
 
 class KernelRev(str):

@@ -1,6 +1,8 @@
 #include <Python.h>
 
 #include "defs.h"
+#include "pykdump.h"
+
 #include "gdb_obstack.h"
 #include "bfd.h"		/* Binary File Description */
 #include "symtab.h"
@@ -35,16 +37,16 @@ ERROR_HOOK_TYPE error_hook;
 extern int debug;
 
 extern PyObject *crashError;
-static void ptype_command (char *typename, int from_tty);
-static void whatis_exp (char *exp, int show);
+//static void ptype_command (char *typename, int from_tty);
+//static void whatis_exp (char *exp, int show);
 
 static sigjmp_buf eenv;
 
-static ERROR_HOOK_TYPE old_error_hook;
+//static ERROR_HOOK_TYPE old_error_hook;
 
 static FILE *nullfp = NULL;
 
-static void my_cleanups() {
+static void my_cleanups(void) {
   error_hook = NULL; \
   //printf("mycleanups\n");
   
@@ -78,6 +80,9 @@ myDict_SetCharChar(PyObject *v, const char *key, const char *item) {
 
 /* Prepare to run a function calling directly GDB internals. We substitute
  */
+
+extern void replace_ui_file_FILE(struct ui_file *, FILE *);
+
 #define GDB2PY_ENTER \
   do { \
     if (!nullfp) \
@@ -121,7 +126,7 @@ static void do_enum(struct type *type, PyObject *pitem);
 static void
 do_ftype(struct type *ftype, PyObject *item) {
   char *tagname = TYPE_TAG_NAME(ftype);
-  struct type *range_type;
+  //struct type *range_type;
   struct type *tmptype;
 
   PyObject *v;
@@ -374,7 +379,7 @@ do_enum(struct type *type, PyObject *pitem) {
 
   for (i=0; i < nfields; i++) {
     PyObject *item = PyList_New(0);
-    struct type *ftype = TYPE_FIELD_TYPE(type, i);
+    //struct type *ftype = TYPE_FIELD_TYPE(type, i);
     char *fname = TYPE_FIELD_NAME(type, i);
     long bp = TYPE_FIELD_BITPOS (type, i);
     n = PyString_FromString(fname);

@@ -31,6 +31,7 @@ MIN_PYLIST := $(SRCDIR)/$(MINPYLIB_FILES)
 
 EXT_C := pykdump_c.so
 EXT_CPY = mpykdump.so
+EXT_TEST = crashtest.so
 
 .PHONY: clean pycompile distclean README
 .DELETE_ON_ERROR:
@@ -45,7 +46,7 @@ PYCOMPILE = pycompile
 
 vpath %.c ..
 
-%o: %c
+%o: %c pykdump.h
 	$(CC) -c $(CFLAGS) $(DEFINES) $(INCLUDES) $< -o $@
 
 gdbspec.o: gdbspec.c
@@ -76,15 +77,21 @@ PYLIBPREF = pylib
 PYFULL = pyfull.zip
 PYFULLPATH = $(PWD)/$(PYFULL)
 
-pyparsing.pyo: pyparsing.py
-	$(PYTHON) -O -c 'import py_compile;py_compile.compile("$^", "$@")'
+pyparsing.pyo: pyparsing_py$(PYMAJOR).py
+	$(PYTHON) -O -c 'import py_compile;py_compile.compile("$^", "./$@")'
 
-$(PYLIB): $(MIN_PYLIST) pyparsing.pyo $(PYTHONDIR)/python
+OLDPYLIB: $(MIN_PYLIST) pyparsing.pyo $(PYTHONDIR)/python
 	ln -sf  $(STDLIBP) $(PYLIBPREF)
 	rm -f $(PYLIB)
-	sed -e "s|^|$(PYLIBPREF)/|"  $(MIN_PYLIST) | zip $(PYLIB) -@
+	+sed -e "s|^|$(PYLIBPREF)/|"  $(MIN_PYLIST) | zip $(PYLIB) -@
 	zip $@ pyparsing.pyo
 	rm -f $(PYLIBPREF)
+
+$(PYLIB): $(MIN_PYLIST) pyparsing.pyo $(PYTHONDIR)/python
+	$(PYTHON) -O makestdlib.py $(STDLIBP) $(PYLIBPREF)  $(MIN_PYLIST)
+	#(cd $(PYLIBPREF); zip -r ../$(PYLIB) .)
+	zip -r $(PYLIB) $(PYLIBPREF)
+	zip $@ pyparsing.pyo
 
 FIND = find $(1) -name \*.pyc -o -type d -not \( -name .svn\* -prune \)
 
@@ -103,6 +110,31 @@ pycompile:
 	find $(TOPDIR)/LinuxDump -name \*.pyc | xargs rm -f
 	$(PYTHON) $(COMPALL) -f $(TOPDIR)/pykdump
 	$(PYTHON) $(COMPALL) -f $(TOPDIR)/LinuxDump
+
+# API only - no LinuxDump
+pycompapi:
+	find $(TOPDIR)/pykdump -name \*.pyc | xargs rm -f
+	$(PYTHON) $(COMPALL) -f $(TOPDIR)/pykdump
+
+PYAPI = pyapi.zip
+
+$(PYAPI):  $(PYLIB) pycompapi
+	cp $(PYLIB) $(PYAPI)
+	cd $(TOPDIR); $(call FIND, pykdump)  |  zip  $(PWD)/$(PYAPI) -@
+
+APISO = API.so
+
+$(APISO): $(PYAPI)  $(EXT_C)
+	cat  $(EXT_C) $(PYAPI) >$(APISO)
+	zip -A $(APISO)
+	chmod +x $(APISO)
+
+# For testing of crash module only - our API + Python stdlib
+$(EXT_TEST):  $(EXT_C) $(PYLIB)
+	cat  $(EXT_C) $(PYLIB) >$(EXT_TEST)
+	zip -A $(EXT_TEST)
+	chmod +x $(EXT_TEST)
+
 
 $(EXT_CPY): $(EXT_C) $(PYFULL) README
 	cat  $(EXT_C) $(PYFULL) >$(EXT_CPY)

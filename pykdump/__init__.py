@@ -1,3 +1,6 @@
+from __future__ import print_function
+
+
 """PyKdump Python API for CRASH Dumpanalysis Tool
 """
 # Version number
@@ -51,8 +54,8 @@ def require_cmod_version(vers, c_mod_version =__c_mod_version ):
     spl_cmod = __split_version(c_mod_version)
     spl_python = __split_version(vers)
     if (spl_cmod[0] < spl_python[0]):
-        print "You need to upgrade your C-module"
-        print "Python API requires at least", vers,\
-              "and your C-module is", c_mod_version
+        print ("You need to upgrade your C-module")
+        print ("Python API requires at least", vers,\
+              "and your C-module is", c_mod_version)
         sys.exit(0)
     
