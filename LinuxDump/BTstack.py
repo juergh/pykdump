@@ -14,6 +14,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+from __future__ import print_function
+
 __doc__ = '''
 This is a module for working with stack traces/frames as obtained
 from 'bt' command. At this moment we are just parsing results (text) obtained
@@ -70,18 +72,18 @@ class BTStack:
             reverse = False
 
         negate = False
-	res = {}
+        res = {}
         n = len(funcs)
         frames = self.frames[:]
         if (reverse):
             frames.reverse()
         for f in frames:
-	    for t in funcs:
-		if (type(t) == type("")):
+            for t in funcs:
+                if (type(t) == type("")):
                     if (t[0] == '!'):
                         t = t[1:]
                         negate = True
-		    # Check whether we need to compile it
+                    # Check whether we need to compile it
                     try:
                         tc = BTStack.__regexps[t]
                     except KeyError:
@@ -105,8 +107,8 @@ class BTStack:
                         return m2.group(0)
                     res[t] = m2.group(0)
         if (len(res) == n):
-	    return True
-	else:
+            return True
+        else:
             return False
 
     # Returns False or (framenum, func) tuple
@@ -256,15 +258,15 @@ def bt_summarize(btlist):
         top = k[0]
         bot = k[1]
         if (top != ctop):
-            print "  =====", top
+            print ("  =====", top)
             ctop = top
         if (bot != cbot):
-            print " \t=====", bot
+            print (" \t=====", bot)
             cbot = bot
-        print "\t\t", k[2:], out[k]
+        print ("\t\t", k[2:], out[k])
 
     for f in bt_un:
-        print f
+        print (f)
 
     
 
@@ -307,9 +309,9 @@ def exec_bt(crashcmd = None, text = None):
         # Execute a crash command...
         text = memoize_cond(CU_LIVE | CU_TIMEOUT)(exec_crash_command)(crashcmd)
         #print "Got results from crash", crashcmd
-	if (not text):
-	    # Got timeout
-	    return btslist
+        if (not text):
+            # Got timeout
+            return btslist
 
 
     # Split text into one-thread chunks
@@ -321,8 +323,8 @@ def exec_bt(crashcmd = None, text = None):
         pidline = lines[0]
         #print pidline
         m = re_pid.match(pidline)
-	if (not m):
-	    continue
+        if (not m):
+            continue
         pid = int(m.group(1))
         addr = int(m.group(2), 16)
         cpu = int(m.group(3))
@@ -331,22 +333,22 @@ def exec_bt(crashcmd = None, text = None):
         bts = BTStack()
         bts.pid = pid
         bts.cmd = cmd
-	bts.addr = addr
-	bts.cpu = cpu
+        bts.addr = addr
+        bts.cpu = cpu
         bts.frames = []
 
         #print "%d 0x%x %d <%s>" % (pid, addr, cpu, cmd)
         f = None
         level = 0
         for fl in lines[1:]:
-	    # Before doing anything else, remove (via funcname) and remember it
-	    m = re_rmvia.search(fl)
-	    if (m):
-		fls = re_rmvia.sub('', fl)
-		viafunc = m.group(1)
-	    else:
-		viafunc = ''
-		fls = fl
+            # Before doing anything else, remove (via funcname) and remember it
+            m = re_rmvia.search(fl)
+            if (m):
+                fls = re_rmvia.sub('', fl)
+                viafunc = m.group(1)
+            else:
+                viafunc = ''
+                fls = fl
             m = (re_f1.match(fls) or re_f1_t.match(fls))
             #print '-- <%s>' % fls, m, viafunc
 
@@ -355,13 +357,13 @@ def exec_bt(crashcmd = None, text = None):
                 f.level = level
                 level += 1
                 f.func = m.group(2)
-		# For 'bt -at' we can have START instead of frameaddr
-		try:
-		    f.frame = int(m.group(1), 16)
-		except ValueError:
-		    f.frame = None
-		
-		f.via = viafunc
+                # For 'bt -at' we can have START instead of frameaddr
+                try:
+                    f.frame = int(m.group(1), 16)
+                except ValueError:
+                    f.frame = None
+                
+                f.via = viafunc
 
                 # If we have a pattern like 'error_code (via page_fault)'
                 # it makes more sense to use 'via' func as a name
@@ -388,7 +390,7 @@ def bt_mergestacks(btlist, precise = False,
     # Leave only those frames that have CMD=mss.1
 
     if (tt):
-	basems = tt.basems
+        basems = tt.basems
     smap = {}
     for i, s in enumerate(btlist):
         if (precise):
@@ -410,48 +412,48 @@ def bt_mergestacks(btlist, precise = False,
     for nel, val in sorted:
         # Count programs with the same name
         cmds = {}
-	sch_young = None
-	sch_old = None
+        sch_young = None
+        sch_old = None
 
         pidlist = []
         for i in val:
             p = btlist[i]
-	    pid = p.pid
-	    pidlist.append(pid)
-	    if (tt):
-		task = tt.getByTid(pid)
-		if (not task):
-		    continue
-		ran_ms_ago = basems - task.Last_ran
-		if (sch_old == None or ran_ms_ago > sch_old):
-		    sch_old = ran_ms_ago
-		    pid_old = pid
-		if (sch_young == None or ran_ms_ago < sch_young):
-		    sch_young = ran_ms_ago
-		    pid_young = pid
+            pid = p.pid
+            pidlist.append(pid)
+            if (tt):
+                task = tt.getByTid(pid)
+                if (not task):
+                    continue
+                ran_ms_ago = basems - task.Last_ran
+                if (sch_old == None or ran_ms_ago > sch_old):
+                    sch_old = ran_ms_ago
+                    pid_old = pid
+                if (sch_young == None or ran_ms_ago < sch_young):
+                    sch_young = ran_ms_ago
+                    pid_young = pid
             cmds[p.cmd] = cmds.setdefault(p.cmd, 0) + 1
-        print "\n------- %d stacks like that: ----------" % nel
+        print ("\n------- %d stacks like that: ----------" % nel)
         cmdnames = cmds.keys()
         cmdnames.sort()
         if (precise):
-            print p
+            print (p)
         else:
-            print p.simplerepr()
-	if (tt and sch_young != None and sch_old != None):
-	    print "    youngest=%ds(pid=%d), oldest=%ds(pid=%d)" % \
-	       (sch_young/1000, pid_young,  sch_old/1000, pid_old)
-        print "\n   ........................"
+            print (p.simplerepr())
+        if (tt and sch_young != None and sch_old != None):
+            print ("    youngest=%ds(pid=%d), oldest=%ds(pid=%d)" % \
+               (sch_young/1000, pid_young,  sch_old/1000, pid_old))
+        print ("\n   ........................")
         for cmd in cmdnames:
-            print "     %-30s %d times" % (cmd, cmds[cmd])
-	if (verbose):
-	    # Print PIDs
-	    pidlist.sort()
-	    print "\n   ... PIDs ...",
-	    for i, pid in enumerate(pidlist):
-		if (i%10 == 0):
-		    print "\n    ",
-		print str(pid).rjust(6),
-	    print ""
+            print ("     %-30s %d times" % (cmd, cmds[cmd]))
+        if (verbose):
+            # Print PIDs
+            pidlist.sort()
+            print ("\n   ... PIDs ...",)
+            for i, pid in enumerate(pidlist):
+                if (i%10 == 0):
+                    print ("\n    ",)
+                print (str(pid).rjust(6), end='')
+            print ("")
 
     
 

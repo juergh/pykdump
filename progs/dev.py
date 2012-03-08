@@ -1,8 +1,10 @@
 #!/usr/bin/env python
-# Time-stamp: <08/03/28 13:59:10 alexs>
+# Time-stamp: <12/03/08 16:01:37 alexs>
 
 # Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
+
+from __future__ import print_function
 
 from pykdump.API import *
 
@@ -18,19 +20,19 @@ def printdevs():
     
 def dump_mounts():
     for vfsmount, superblk, fstype, devname, mnt in getMount():
-	superblock = readSU("struct super_block", superblk)
-	#s_bdev = superblock.s_bdev
-	#if (s_bdev):
-	   #print fstype, mnt, superblock.s_bdev.bd_disk
+        superblock = readSU("struct super_block", superblk)
+        #s_bdev = superblock.s_bdev
+        #if (s_bdev):
+           #print fstype, mnt, superblock.s_bdev.bd_disk
         s_op = superblock.s_op
-	print mnt
-	if (s_op):
-	    # Check whether all pointers are reasonable
-	    print s_op
+        print (mnt)
+        if (s_op):
+            # Check whether all pointers are reasonable
+            print (s_op)
 
 def dump_chrdevs():
     pa = readSymbol('chrdevs')
-    print 'CHRDEV    NAME         OPERATIONS'
+    print ('CHRDEV    NAME         OPERATIONS')
 
     # Depending on whether we have char_device_struct, we proceed
     # in a different way
@@ -41,24 +43,24 @@ def dump_chrdevs():
                 major = s.major
                 name = s.name
                 addr = s.next
-                print "%3d       %-11s" % (major, name)
+                print ("%3d       %-11s" % (major, name))
     else:
         for major, s in enumerate(pa):
-            print repr(s)
+            print (repr(s))
             continue
             ops = s.fops
             if (ops == 0):
                 continue
             name = s.name
-            print " %3d      %-11s   %x  <%s>" % \
-                  (major, name, ops, addr2sym(ops))
+            print (" %3d      %-11s   %x  <%s>" % \
+                  (major, name, ops, addr2sym(ops)))
 
 
 
 if ( __name__ == '__main__'):
     #Dev.print_blkdevs(1)
-    print "Start"
-    print "mod=<%s>" % exec_crash_command("mod")
-    print "After"
+    print ("Start")
+    print ("mod=<%s>" % exec_crash_command("mod"))
+    print ("After")
     dump_mounts()
 

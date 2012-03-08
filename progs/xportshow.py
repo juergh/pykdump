@@ -59,12 +59,12 @@ def print_TCP_sock(o):
     try:
         pstr = IP_sock(o, details)
     except KeyError as msg:
-	print (WARNING, msg)
-	return
+        print (WARNING, msg)
+        return
     jiffies = readSymbol("jiffies")
     if (port_filter):
-	if (pstr.sport != port_filter and pstr.dport != port_filter):
-	    return
+        if (pstr.sport != port_filter and pstr.dport != port_filter):
+            return
     if (details):
         print ('-' * 78)
         print (o, '\t\tTCP')
@@ -88,39 +88,39 @@ def print_TCP_sock(o):
                  pstr.rx_opt.rcv_wscale, pstr.rx_opt.snd_wscale))
             print ("\tnonagle=%d sack_ok=%d tstamp_ok=%d" %\
                 (nonagle, pstr.rx_opt.sack_ok, pstr.rx_opt.tstamp_ok))
-	    print ("\trmem_alloc=%d, wmem_alloc=%d" % (pstr.rmem_alloc,
+            print ("\trmem_alloc=%d, wmem_alloc=%d" % (pstr.rmem_alloc,
                                                   pstr.wmem_alloc))
-	    print ("\trx_queue=%d, tx_queue=%d" % (rx_queue,
+            print ("\trx_queue=%d, tx_queue=%d" % (rx_queue,
                                                   tx_queue))
             print ("\trcvbuf=%d, sndbuf=%d" % (pstr.rcvbuf, pstr.sndbuf))
-	    #print (pstr.rcv_tstamp, pstr.lsndtime)
-	    print ("\trcv_tstamp=%s, lsndtime=%s  ago" %\
-	                               (j_delay(pstr.rcv_tstamp, jiffies),
+            #print (pstr.rcv_tstamp, pstr.lsndtime)
+            print ("\trcv_tstamp=%s, lsndtime=%s  ago" %\
+                                       (j_delay(pstr.rcv_tstamp, jiffies),
                                         j_delay(pstr.lsndtime, jiffies)))
 
             if (details > 1):
                 ss = o.castTo("struct sock")
                 # Does not exist on 2.4 kernels
                 try:
-		    print_send_head(ss.sk_send_head)
-		except KeyError:
-		    pass
-		
-	    # Extra details when there are retransmissions
-	    if (pstr.Retransmits):
-		print("    -- Retransmissions --")
-		print("       retransmits=%d, ca_state=%s" % (pstr.Retransmits, 
-			proto.TCP_CA_STATE[pstr.CA_state]))
+                    print_send_head(ss.sk_send_head)
+                except KeyError:
+                    pass
+                
+            # Extra details when there are retransmissions
+            if (pstr.Retransmits):
+                print("    -- Retransmissions --")
+                print("       retransmits=%d, ca_state=%s" % (pstr.Retransmits, 
+                        proto.TCP_CA_STATE[pstr.CA_state]))
 
 
         elif (tcp_state == tcpState.TCP_LISTEN):
             print ("\t family=%s" % sfamily)
-	    print ("\t backlog=%d(%d)" % (pstr.sk_ack_backlog,
+            print ("\t backlog=%d(%d)" % (pstr.sk_ack_backlog,
                                          pstr.sk_max_ack_backlog))
             l_opt = pstr.l_opt
-	    print ("\t max_qlen_log=%d qlen=%d qlen_young=%d" %\
-		    (l_opt.max_qlen_log, l_opt.qlen, l_opt.qlen_young))
-	    #printObject(l_opt)
+            print ("\t max_qlen_log=%d qlen=%d qlen_young=%d" %\
+                    (l_opt.max_qlen_log, l_opt.qlen, l_opt.qlen_young))
+            #printObject(l_opt)
             if (pstr.sk_ack_backlog):
                 print_accept_queue(pstr)
         # For special sockets only
@@ -135,33 +135,33 @@ def print_TCP_sock(o):
 # Try to decode user_data
 
 # struct svc_sock {
-# 	struct list_head	sk_ready;	/* list of ready sockets */
-# 	struct list_head	sk_list;	/* list of all sockets */
-# 	struct socket *		sk_sock;	/* berkeley socket layer */
-# 	struct sock *		sk_sk;		/* INET layer */
+#       struct list_head        sk_ready;       /* list of ready sockets */
+#       struct list_head        sk_list;        /* list of all sockets */
+#       struct socket *         sk_sock;        /* berkeley socket layer */
+#       struct sock *           sk_sk;          /* INET layer */
 #         ...
 # }
 
 # On 2.6.9 and 2.4
 # struct rpc_xprt {
-# 	struct socket *		sock;		/* BSD socket layer */
-# 	struct sock *		inet;		/* INET layer */
+#       struct socket *         sock;           /* BSD socket layer */
+#       struct sock *           inet;           /* INET layer */
 
-# 	struct rpc_timeout	timeout;	/* timeout parms */
-# 	struct sockaddr_in	addr;		/* server address */
-# 	int			prot;		/* IP protocol */
+#       struct rpc_timeout      timeout;        /* timeout parms */
+#       struct sockaddr_in      addr;           /* server address */
+#       int                     prot;           /* IP protocol */
 #         ...
 # }
 
 # On 2.6.22
 # struct rpc_xprt {
-# 	struct kref		kref;		/* Reference count */
-# 	struct rpc_xprt_ops *	ops;		/* transport methods */
+#       struct kref             kref;           /* Reference count */
+#       struct rpc_xprt_ops *   ops;            /* transport methods */
 
-# 	struct rpc_timeout	timeout;	/* timeout parms */
-# 	struct sockaddr_storage	addr;		/* server address */
-# 	size_t			addrlen;	/* size of server address */
-# 	int			prot;		/* IP protocol */
+#       struct rpc_timeout      timeout;        /* timeout parms */
+#       struct sockaddr_storage addr;           /* server address */
+#       size_t                  addrlen;        /* size of server address */
+#       int                     prot;           /* IP protocol */
 #         ...
 # }
 
@@ -215,8 +215,8 @@ def print_TCP_tw(tw):
     pstr = proto.IP_conn_tw(tw, details)
 
     if (port_filter):
-	if (pstr.sport != port_filter and pstr.dport != port_filter):
-	    return
+        if (pstr.sport != port_filter and pstr.dport != port_filter):
+            return
     if (details):
         print ('-' * 78)
         print (tw, '\t\tTCP')
@@ -237,12 +237,12 @@ def print_TCP():
     #        struct sock       sk;
     # for 2.6.15
     # struct tcp_sock {
-    #	/* inet_connection_sock has to be the first member of tcp_sock */
-    #	struct inet_connection_sock	inet_conn;
+    #   /* inet_connection_sock has to be the first member of tcp_sock */
+    #   struct inet_connection_sock     inet_conn;
     #...
     # struct inet_connection_sock {
-    #	/* inet_sock has to be the first member! */
-    #	struct inet_sock	  icsk_inet;
+    #   /* inet_sock has to be the first member! */
+    #   struct inet_sock          icsk_inet;
     #
     # As a result, the easiest way to print non-kernel specific info
     # is to cast all 2.6 tcp_sock to inet_sock (the headers say expicitly that
@@ -262,7 +262,7 @@ def print_TCP():
     
     for o in proto.get_TCP_ESTABLISHED():
         print_TCP_sock(o)
-	
+        
    
     # Print TIME_WAIT
     jiffies = readSymbol("jiffies")
@@ -274,7 +274,7 @@ def print_TCP():
 def print_UDP():
     count = 0
     for o in proto.get_UDP():
-	count += 1
+        count += 1
         pstr = IP_sock(o, details)
         # If we do not want LISTEN sockets only, ignore everything but
         # ESTABLISHED (there is no real LISTEN state for UDP)
@@ -288,31 +288,31 @@ def print_UDP():
             print ('-' * 78)
             print (o, '\t\tUDP')
         print (pstr)
-	if (details):
-	    print ("\trx_queue=%d, tx_queue=%d" % (pstr.rmem_alloc,
+        if (details):
+            print ("\trx_queue=%d, tx_queue=%d" % (pstr.rmem_alloc,
                                                   pstr.wmem_alloc))
-	    print ("\trcvbuf=%d, sndbuf=%d" % (pstr.rcvbuf, pstr.sndbuf))
+            print ("\trcvbuf=%d, sndbuf=%d" % (pstr.rcvbuf, pstr.sndbuf))
             pending = pstr.uopt.pending
             corkflag = pstr.uopt.corkflag
             ulen = pstr.uopt.len
             print ("\tpending=%d, corkflag=%d, len=%d" % (pending,
                                                          corkflag, ulen))
-	    # For special sockets only
-	    # e.g. for NFS this is "struct svc_sock"
-	    # for RPC this is "struct rpc_xprt *"
-	    udaddr = pstr.user_data
-	    if (udaddr):
-		print ("\t   |user_data|", hexl(udaddr), end='')
-		decode_user_data(udaddr, long(o))
+            # For special sockets only
+            # e.g. for NFS this is "struct svc_sock"
+            # for RPC this is "struct rpc_xprt *"
+            udaddr = pstr.user_data
+            if (udaddr):
+                print ("\t   |user_data|", hexl(udaddr), end='')
+                decode_user_data(udaddr, long(o))
     if (count == 0):
-	print (WARNING, "Empty UDP-hash - dump is probably incomplete")
+        print (WARNING, "Empty UDP-hash - dump is probably incomplete")
 
 def tcp_state_name(state):
     # If the structure is corrupted, state will be bogus
     try:
-	statename = tcpState[state][4:]
+        statename = tcpState[state][4:]
     except KeyError:
-	statename = "|%d|" % state
+        statename = "|%d|" % state
     return statename
     
 # print AF_UNIX
@@ -321,7 +321,7 @@ def print_UNIX():
     print ("unix   State          i_ino   Path")
     print ("----------------------------------")
     for s in proto.get_AF_UNIX():
-	state, ino, path = proto.unix_sock(s)
+        state, ino, path = proto.unix_sock(s)
         if (state == tcpState.TCP_LISTEN):
             if (not print_listen): continue
         else:
@@ -331,37 +331,37 @@ def print_UNIX():
             print ('-' * 78)
             print (s, '\t\tUnix')
          
-	statename = tcp_state_name(state)
+        statename = tcp_state_name(state)
         print ("unix   %-12s   %-6d  %s" % (statename, ino, path))
-	if (details < 2):
-	    continue
-	# Check whether we have a peer
-	peer = s.Peer
-	if (peer):
-	    state, ino, path = proto.unix_sock(peer)
-	    statename = tcp_state_name(state)
-	    print ("  Peer %-12s   %-6d  %s" % (statename, ino, path))
+        if (details < 2):
+            continue
+        # Check whether we have a peer
+        peer = s.Peer
+        if (peer):
+            state, ino, path = proto.unix_sock(peer)
+            statename = tcp_state_name(state)
+            print ("  Peer %-12s   %-6d  %s" % (statename, ino, path))
 
   
 
 def print_RAW():
     for o in list(proto.get_RAW()) + list(proto.get_RAW6()):
-	try:
+        try:
             pstr = IP_sock(o, details)
-	except KeyError as msg:
-	   print ("   Unexpected protocol in RAW table,", msg)
-	   continue
+        except KeyError as msg:
+           print ("   Unexpected protocol in RAW table,", msg)
+           continue
         if (not print_listen and pstr.state != tcpState.TCP_ESTABLISHED):
             continue
 
         if (details):
             print ('-' * 78)
             print (o, '\t\tRAW')
-	print (pstr)
-	if (details):
-	    print ("\trx_queue=%d, tx_queue=%d" % (pstr.rmem_alloc,
+        print (pstr)
+        if (details):
+            print ("\trx_queue=%d, tx_queue=%d" % (pstr.rmem_alloc,
                                                   pstr.wmem_alloc))
-	    print ("\trcvbuf=%d, sndbuf=%d" % (pstr.rcvbuf, pstr.sndbuf))
+            print ("\trcvbuf=%d, sndbuf=%d" % (pstr.rcvbuf, pstr.sndbuf))
 
 
     
@@ -441,19 +441,19 @@ def print_dev_pack():
 
 def testFiles(tasks):
     for t in tasks:
-	fds = t.taskFds()
-	continue
-	for fd, filep, dentry, inode in t.taskFds():
-	    pass
+        fds = t.taskFds()
+        continue
+        for fd, filep, dentry, inode in t.taskFds():
+            pass
     
 
 def printTaskSockets(t):
     prn = StringIO()
     threads = t.threads
     if (threads):
-	nthreads = "  (%d threads)" % (len(threads) + 1)
+        nthreads = "  (%d threads)" % (len(threads) + 1)
     else:
-	nthreads = ""
+        nthreads = ""
     print ("-----PID=%d  COMM=%s %s" % (t.pid, t.comm, nthreads), file=prn)
     print (" fd     file              socket", file=prn)
     print (" --     ----              ------", file=prn)
@@ -463,58 +463,58 @@ def printTaskSockets(t):
         socketaddr = proto.inode2socketaddr(inode)
         if (not socketaddr): continue
 
-	socket = readSU("struct socket", socketaddr)
+        socket = readSU("struct socket", socketaddr)
         #sock = socket.Deref.sk
-	sock = Deref(socket.sk)
-	family, sktype, protoname, inet = decodeSock(sock)
+        sock = Deref(socket.sk)
+        family, sktype, protoname, inet = decodeSock(sock)
 
-
-	if (inet):
-	    ips = IP_sock(sock)
-
-        # If we are not using port-filters, we print all families
-	if (not port_filter):
-	    strue = True
-	
-        print ("%3d  0x%-16x  0x%-16x" % (fd, filep, socketaddr), file=prn, end=' ')
-        # Find family/type of this socket
-	print (" %-8s %-12s %-5s" % (P_FAMILIES.value2key(family),
-				    sockTypes[sktype], protoname), file=prn)
 
         if (inet):
-	    if (port_filter):
-		if (ips.sport != port_filter and ips.dport != port_filter):
-		    continue
-	    print ("     ", ips, file=prn)
-	    strue = True
-	if (details > 1 and family == P_FAMILIES.PF_FILE):
-	    # AF_UNIX. on 2.4 we have just 'struct sock',
-	    # on 2.6 'struct unix_sock'
-	    if (not sock_V1):
-		sock = sock.castTo("struct unix_sock")
-	    hdr = "     +" + '-' * 65
-	    print (hdr, file=prn)
-	    print ("     |      state          i_ino   Path", file=prn)
-	    print (hdr, file=prn)
-	    for us, h in zip((sock, sock.Peer), ("sock", "peer")):
-	       if (us):
-		    state, ino, path = proto.unix_sock(us)
-		    statename = tcp_state_name(state)
-		    print ("     |%s  %-12s   %-6d  %s" % (h,
-		                                  statename, ino, path), file=prn)
-		    sock = us.Socket
-			
-		    if (h == "peer" and sock):
-			filep = sock.file
-			pids = tt.getByFile(filep)
-			print ("     |   ",filep, sock, file=prn)
-			for pid in pids:
-			    print ("     |   ", pid, file=prn)
-	            print (hdr, file=prn)
-	    
+            ips = IP_sock(sock)
+
+        # If we are not using port-filters, we print all families
+        if (not port_filter):
+            strue = True
+        
+        print ("%3d  0x%-16x  0x%-16x" % (fd, filep, socketaddr), file=prn, end=' ')
+        # Find family/type of this socket
+        print (" %-8s %-12s %-5s" % (P_FAMILIES.value2key(family),
+                                    sockTypes[sktype], protoname), file=prn)
+
+        if (inet):
+            if (port_filter):
+                if (ips.sport != port_filter and ips.dport != port_filter):
+                    continue
+            print ("     ", ips, file=prn)
+            strue = True
+        if (details > 1 and family == P_FAMILIES.PF_FILE):
+            # AF_UNIX. on 2.4 we have just 'struct sock',
+            # on 2.6 'struct unix_sock'
+            if (not sock_V1):
+                sock = sock.castTo("struct unix_sock")
+            hdr = "     +" + '-' * 65
+            print (hdr, file=prn)
+            print ("     |      state          i_ino   Path", file=prn)
+            print (hdr, file=prn)
+            for us, h in zip((sock, sock.Peer), ("sock", "peer")):
+               if (us):
+                    state, ino, path = proto.unix_sock(us)
+                    statename = tcp_state_name(state)
+                    print ("     |%s  %-12s   %-6d  %s" % (h,
+                                                  statename, ino, path), file=prn)
+                    sock = us.Socket
+                        
+                    if (h == "peer" and sock):
+                        filep = sock.file
+                        pids = tt.getByFile(filep)
+                        print ("     |   ",filep, sock, file=prn)
+                        for pid in pids:
+                            print ("     |   ", pid, file=prn)
+                    print (hdr, file=prn)
+            
     print ("")
     if (strue):
-	print (prn.getvalue())
+        print (prn.getvalue())
     prn.close()
 
 def print_iface(if1="", details=False):
@@ -593,29 +593,29 @@ def print_sysctl_nodef():
 def print_Stats():
     from LinuxDump.inet.snmpstats import SnmpTable, snmp4_tables
     for t in snmp4_tables:
-	t = SnmpTable(t)
-	print (t)
+        t = SnmpTable(t)
+        print (t)
 
 def print_softnet_data(details):
     from LinuxDump import percpu
     addrs = percpu.get_cpu_var("softnet_data")
     for cpu, a in enumerate(addrs):
-	sd = readSU("struct softnet_data", a)
-	# Print the completion queue
-	print (" --CPU=%d" % cpu)
-	# Count entries in the queue, it starts from sk_buff_head
-	off = member_offset("struct sk_buff_head", "next")
-	nq = getListSize(sd.input_pkt_queue, off, 10000)
-	print ("    ..input_pkt_queue has %d elements" % nq)
-	if (details > 1):
-	    skbhead = sd.input_pkt_queue.castTo("struct sk_buff")
-	    for skb in readStructNext(skbhead, "next", inchead = False):
-		print (skb)
-		decode_skbuf(skb)
-	
-	print ("    ..Completion queue")
-	print_skbuff_head(sd.completion_queue)
-	
+        sd = readSU("struct softnet_data", a)
+        # Print the completion queue
+        print (" --CPU=%d" % cpu)
+        # Count entries in the queue, it starts from sk_buff_head
+        off = member_offset("struct sk_buff_head", "next")
+        nq = getListSize(sd.input_pkt_queue, off, 10000)
+        print ("    ..input_pkt_queue has %d elements" % nq)
+        if (details > 1):
+            skbhead = sd.input_pkt_queue.castTo("struct sk_buff")
+            for skb in readStructNext(skbhead, "next", inchead = False):
+                print (skb)
+                decode_skbuf(skb)
+        
+        print ("    ..Completion queue")
+        print_skbuff_head(sd.completion_queue)
+        
 def print_Everything():
     print_listen = True
     nf()
@@ -637,14 +637,14 @@ def print_Everything():
 # Even though on 64-bit hosts jiffies is
 # volatile long unsigned int jiffies;
 # TCP code uses
-# #define tcp_time_stamp		((__u32)(jiffies))
+# #define tcp_time_stamp                ((__u32)(jiffies))
 
 def j_delay(ts, jiffies):
     v = (jiffies - ts) & INT_MASK
     if (v > INT_MAX):
         v = "n/a"
     elif (v > HZ*3600*10):
-	v = "%d hours" % (v/HZ/3600)
+        v = "%d hours" % (v/HZ/3600)
     else:
         v = "%1.1f s" % (float(v)/HZ)
     return v
@@ -657,7 +657,7 @@ if ( __name__ == '__main__'):
     from optparse import OptionParser, OptionGroup, SUPPRESS_HELP
 
     def e_help(help):
-	global __experimental
+        global __experimental
         if (__experimental):
             return help + " (experimental)"
         else:
@@ -833,11 +833,11 @@ if ( __name__ == '__main__'):
         
 
     if (o.sport != -1):
-	sport_filter = o.sport
+        sport_filter = o.sport
     if (o.dport != -1):
-	dport_filter = o.dport
+        dport_filter = o.dport
     if (o.port != -1):
-	port_filter = o.port
+        port_filter = o.port
 
     if (o.Netfilter):
         from LinuxDump.inet.netfilter import nf
@@ -845,7 +845,7 @@ if ( __name__ == '__main__'):
         sys.exit(0)
 
     if (o.Softnet):
-	print_softnet_data(details)
+        print_softnet_data(details)
         sys.exit(0)
 
     # First, check for options that are not netstat-like. If any is present, do
@@ -903,27 +903,27 @@ if ( __name__ == '__main__'):
         sys.exit(0)
 
     if (o.Decode):
-	for a in args:
-	    addr = int(a, 16)
-	    if (o.Decode == 'skb'):
-		decode_skbuf(addr, details)
-	    elif (o.Decode == 'iph'):
-		decode_IP_header(addr)
-	    elif (o.Decode == 'th'):
-		decode_TCP_header(addr, details)
-	    else:
-		print ("Cannot decode", o.Decode)
-		sys.exit(1)
-	sys.exit(0)
+        for a in args:
+            addr = int(a, 16)
+            if (o.Decode == 'skb'):
+                decode_skbuf(addr, details)
+            elif (o.Decode == 'iph'):
+                decode_IP_header(addr)
+            elif (o.Decode == 'th'):
+                decode_TCP_header(addr, details)
+            else:
+                print ("Cannot decode", o.Decode)
+                sys.exit(1)
+        sys.exit(0)
 
     if (o.Program):
         tt = TaskTable()
-	if (o.Program == '*'):
-	    tasks = tt.allTasks()
-	    #testFiles(tasks)
-	    #sys.exit(0)
-	else:
-	    tasks = tt.getByComm(o.Program)
+        if (o.Program == '*'):
+            tasks = tt.allTasks()
+            #testFiles(tasks)
+            #sys.exit(0)
+        else:
+            tasks = tt.getByComm(o.Program)
         for task in  tasks:
             printTaskSockets(task)
         sys.exit(0)

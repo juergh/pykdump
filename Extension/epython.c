@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <12/03/07 14:22:18 alexs>
+  Time-stamp: <12/03/08 17:58:47 alexs>
 
   Copyright (C) 2006-2012 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2012 Hewlett-Packard Co., All rights reserved.
@@ -140,6 +140,14 @@ static struct command_table_entry command_table[] = {
 
 struct extension_table *epython_curext;
 
+// We can specify extra path to search for modules and progs
+// by setting PYKDUMPPATH environment variable.
+// The order of search is like that:
+// 1. Current directory
+// 2. PYKDUMPPATH (if set, syntax the same as for normal shell PATH)
+// 3. ZIP-archive embedded in our pykdump.so
+const char *extrapath;
+
 
 /* There is a problem when unloading the extension built with Python
    shared library. In this case we load other .so files as needed.
@@ -154,6 +162,7 @@ void _init(void)  {
   //PyObject *syspath;
   char buffer[BUFLEN];
   wchar_t wbuffer[BUFLEN];
+
   //PyObject *s;
 
   struct command_table_entry *ct_copy;
@@ -214,14 +223,22 @@ void _init(void)  {
     if (debug)
       fprintf(fp, "     *** Initializing Embedded Python %s ***\n",
 	      crashmod_version);
+    extrapath = getenv("PYKDUMPPATH");
+    // To be able debug sources, we need real FS to be searched
+    // before ZIP. So if PYKDUMPPATH is set, we insert it _before_ our
+    // ZIP-archive
     strcpy(buffer, ".:");
+    if (extrapath) {
+      strcat(buffer, extrapath);
+      strcat(buffer, ":");
+    }
     strcat(buffer, ext_filename);
     strcat(buffer, ":");
     strcat(buffer, ext_filename);
     strcat(buffer, "/pylib");
+    mbstowcs(wbuffer, buffer, BUFLEN);
 #if PY_MAJOR_VERSION >= 3
     PyImport_AppendInittab("crash", PyInit_crash);
-    mbstowcs(wbuffer, buffer, BUFLEN);
     Py_SetPath(wbuffer);
 #endif
     Py_Initialize();
@@ -369,7 +386,6 @@ run_fromzip(const char *progname, const char *zipfilename) {
 	       after appending it to the specified name
 */
 
-const char *path;
 const char *find_pyprog(const char *prog) {
   //char progpy[BUFSIZE];
   char buf2[BUFSIZE];
@@ -380,9 +396,9 @@ const char *find_pyprog(const char *prog) {
   if (prog[0] == '/')
     return prog;
 
-    if (path) {
+    if (extrapath) {
         strcpy(buf2, ".:");
-        strcat(buf2, path);
+        strcat(buf2, extrapath);
     } else
         strcpy(buf2, ".");
 
@@ -426,9 +442,6 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
   const char *prog;
   char buffer[BUFLEN];
 
-  
-  // Search in PYKDUMPPATH. If there is no '.py' suffix try to append it
-  path = getenv("PYKDUMPPATH");
   if (argc < 1) {
     fprintf(fp, " You need to specify a program file\n");
     // No arguments passed

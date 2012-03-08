@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Time-stamp: <11/12/09 13:52:50 alexs>
+# Time-stamp: <12/03/08 15:58:15 alexs>
 
-# Copyright (C) 2010-2011 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2010-2011 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2010-2012 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2010-2012 Hewlett-Packard Co., All rights reserved.
 
 # Print info about tasks
 
@@ -23,25 +23,25 @@ debug = API_options.debug
 
 # The following is for x86/x86_64
 __RLIMIT_c_def = '''
-#define RLIMIT_CPU		0	/* CPU time in sec */
-#define RLIMIT_FSIZE		1	/* Maximum filesize */
-#define RLIMIT_DATA		2	/* max data size */
-#define RLIMIT_STACK		3	/* max stack size */
-#define RLIMIT_CORE		4	/* max core file size */
-#define RLIMIT_RSS		5	/* max resident set size */
-#define RLIMIT_NPROC		6	/* max number of processes */
-#define RLIMIT_NOFILE		7	/* max number of open files */
-#define RLIMIT_MEMLOCK		8	/* max locked-in-memory address space */
-#define RLIMIT_AS		9	/* address space limit */
+#define RLIMIT_CPU              0       /* CPU time in sec */
+#define RLIMIT_FSIZE            1       /* Maximum filesize */
+#define RLIMIT_DATA             2       /* max data size */
+#define RLIMIT_STACK            3       /* max stack size */
+#define RLIMIT_CORE             4       /* max core file size */
+#define RLIMIT_RSS              5       /* max resident set size */
+#define RLIMIT_NPROC            6       /* max number of processes */
+#define RLIMIT_NOFILE           7       /* max number of open files */
+#define RLIMIT_MEMLOCK          8       /* max locked-in-memory address space */
+#define RLIMIT_AS               9       /* address space limit */
 
-#define RLIMIT_LOCKS		10	/* maximum file locks held */
-#define RLIMIT_SIGPENDING	11	/* max number of pending signals */
-#define RLIMIT_MSGQUEUE		12	/* maximum bytes in POSIX mqueues */
-#define RLIMIT_NICE		13	/* max nice prio allowed to raise to
-					   0-39 for nice level 19 .. -20 */
-#define RLIMIT_RTPRIO		14	/* maximum realtime priority */
-#define RLIMIT_RTTIME		15	/* timeout for RT tasks in us */
-#define RLIM_NLIMITS		16
+#define RLIMIT_LOCKS            10      /* maximum file locks held */
+#define RLIMIT_SIGPENDING       11      /* max number of pending signals */
+#define RLIMIT_MSGQUEUE         12      /* maximum bytes in POSIX mqueues */
+#define RLIMIT_NICE             13      /* max nice prio allowed to raise to
+                                           0-39 for nice level 19 .. -20 */
+#define RLIMIT_RTPRIO           14      /* maximum realtime priority */
+#define RLIMIT_RTTIME           15      /* timeout for RT tasks in us */
+#define RLIM_NLIMITS            16
 '''
 __RLIMIT = CDefine(__RLIMIT_c_def)
 
@@ -59,9 +59,9 @@ def printTaskDetails(t):
     print ("---- %5d(%s) %s %s" % (t.pid, sstate, str(t.ts), t.comm))
     parent = t.parent
     if (t.hasField("real_parent")):
-	real_parent = t.real_parent
+        real_parent = t.real_parent
     else:
-	real_parent = parent
+        real_parent = parent
     if (parent):
         print ("   -- Parent:", parent.pid, parent.comm)
         if (real_parent != parent):
@@ -71,8 +71,8 @@ def printTaskDetails(t):
     if (children):
         print ("   -- Children: %d" % len(children))
         if (verbose):
-	    for c in children:
-		print ("\t", c.pid, c.comm)
+            for c in children:
+                print ("\t", c.pid, c.comm)
 
     # Stuff from 'struct signal_struct"
     signal = t.signal
@@ -80,11 +80,11 @@ def printTaskDetails(t):
     # Do we belong to a thread group and are we the leader?
     threads = t.threads
     if (threads):
-	try:
-	    live = ', %d live' % signal.live.counter
-	except:
-	    # RHEL3
-	    live = ''
+        try:
+            live = ', %d live' % signal.live.counter
+        except:
+            # RHEL3
+            live = ''
         print ("   -- Threads Info (%d threads%s)" % \
               (len(threads)+1, live))
         if (t.pid == t.tgid):
@@ -115,21 +115,21 @@ def printTaskDetails(t):
         u = c.user
         print ("     --user_struct", u)
         if (u.hasField("sigpending")):
-	    extra = " sigpending=%d" % u.sigpending.counter
-	else:
-	    extra = ""
+            extra = " sigpending=%d" % u.sigpending.counter
+        else:
+            extra = ""
         print ("\t  processes=%d files=%d%s" % \
               (u.processes.counter, u.files.counter, extra))
-	if (c.hasField("group_info")):
-	    g = c.group_info
-	    ngroups = g.ngroups
-	    small_block = g.small_block
-	else:
-	    ngroups = t.ngroups
-	    small_block = t.groups
-	    g = ""
+        if (c.hasField("group_info")):
+            g = c.group_info
+            ngroups = g.ngroups
+            small_block = g.small_block
+        else:
+            ngroups = t.ngroups
+            small_block = t.groups
+            g = ""
         print ("     --group_info", g)
-	            # Print only if we do not have more than NGROUPS_SMALL
+                    # Print only if we do not have more than NGROUPS_SMALL
         if (ngroups <= len(small_block)):
             out = []
             for i in range(ngroups):
@@ -141,14 +141,14 @@ def printTaskDetails(t):
         
     # for EXIT_DEAD processes, it does not make sense to continue
     if (sstate == 'DE'):
-	return
+        return
     # Rlimits
     print ("   -- Rlimits:")
     # On RHEL4 rlim is in task_struct, on later kernels in signal
     if t.hasField("rlim"):
-	rlim = t.rlim
+        rlim = t.rlim
     else:
-	rlim = signal.rlim
+        rlim = signal.rlim
     for i, r in enumerate(rlim):
         s = __RLIMIT.value2key(i)
         print ("\t%02d (%s) cur=%s max=%s" % (i, s,
@@ -185,61 +185,61 @@ def printTasks(reverse = False):
     basems = tt.basems
     
     if (not reverse):
-	# Natural order (task followed by its threads)
-	for mt in tt.allTasks():
-	    out.append((basems - mt.Last_ran, mt.pid, mt))
-	    for t in mt.threads:
-		#print ("    struct thread_info 0x%x" % long(t))
-		out.append((basems - t.Last_ran, t.pid, t))
-	print ('==== Tasks in PID order, grouped by Thread Group leader ==')
+        # Natural order (task followed by its threads)
+        for mt in tt.allTasks():
+            out.append((basems - mt.Last_ran, mt.pid, mt))
+            for t in mt.threads:
+                #print ("    struct thread_info 0x%x" % long(t))
+                out.append((basems - t.Last_ran, t.pid, t))
+        print ('==== Tasks in PID order, grouped by Thread Group leader ==')
     else:
     # Most recent first
-	for t in tt.allThreads():
-	    out.append((basems - t.Last_ran, t.pid, t))
-	out.sort()
-	print ('==== Tasks in reverse order, scheduled recently first   ==')
+        for t in tt.allThreads():
+            out.append((basems - t.Last_ran, t.pid, t))
+        out.sort()
+        print ('==== Tasks in reverse order, scheduled recently first   ==')
 
     print (" PID          CMD       CPU   Ran ms ago   STATE")
     print ("--------   ------------  --  ------------- -----")
 
     for ran_ms_ago, pid, t in out:
-	sstate = t.state[5:7]
-	if (taskstates_filter and not (sstate in taskstates_filter)):
-	    continue
+        sstate = t.state[5:7]
+        if (taskstates_filter and not (sstate in taskstates_filter)):
+            continue
         
-	tgid = t.tgid
-	if (pid != tgid):
-	    pid_s =  "  %5d" % pid
-	    extra = " (tgid=%d)" % tgid
-	else:
-	    pid_s =  " %5d " % pid
-	    extra = ""
+        tgid = t.tgid
+        if (pid != tgid):
+            pid_s =  "  %5d" % pid
+            extra = " (tgid=%d)" % tgid
+        else:
+            pid_s =  " %5d " % pid
+            extra = ""
         uid = t.Uid
         extra = "%13s UID=%d" % (extra, uid)
 
-	#RLIMIT_NPROC = 6
-	#rlimit = t.signal.rlim[RLIMIT_NPROC].rlim_cur
-	#pcount = t.user.processes.counter
-	uid = t.Uid
-	#if (pcount > rlimit - 20):
-	#    print (' OOO', rlimit, pcount, "uid=%d" % uid)
-	#else:
-	#    print ('    ', rlimit, pcount, "uid=%d" % uid)
-	# Thread pointers might be corrupted
-	try:
-	    print ("%s %15s %2d %15d  %s %s" \
-			% (pid_s, t.comm,  t.cpu,
-			    int(ran_ms_ago), sstate, extra))
-	    # In versbose mode, print stack as well
-	    if (verbose):
-		bt = exec_bt("bt %d" % pid)
-		print (bt[0])
-		print(" ....................................................................")
-		
-	except crash.error:
-	    print (ERROR, "corrupted", t)
+        #RLIMIT_NPROC = 6
+        #rlimit = t.signal.rlim[RLIMIT_NPROC].rlim_cur
+        #pcount = t.user.processes.counter
+        uid = t.Uid
+        #if (pcount > rlimit - 20):
+        #    print (' OOO', rlimit, pcount, "uid=%d" % uid)
+        #else:
+        #    print ('    ', rlimit, pcount, "uid=%d" % uid)
+        # Thread pointers might be corrupted
+        try:
+            print ("%s %15s %2d %15d  %s %s" \
+                        % (pid_s, t.comm,  t.cpu,
+                            int(ran_ms_ago), sstate, extra))
+            # In versbose mode, print stack as well
+            if (verbose):
+                bt = exec_bt("bt %d" % pid)
+                print (bt[0])
+                print(" ....................................................................")
+                
+        except crash.error:
+            print (ERROR, "corrupted", t)
 
-	    
+            
 
 # Emulate pstree
 
@@ -250,10 +250,10 @@ __STEP = 4
 # Sort children by comm
 def __getcomm(t):
     try:
-	return t.comm
+        return t.comm
     except:
-	# Corrupted entry
-	return None
+        # Corrupted entry
+        return None
 
 def __t_str(t):
     return "%s(%d)" % (t.comm, t.pid)
@@ -265,21 +265,21 @@ def walk_children(t, top = False):
     # Filter out corrupted entries
     goodc = []
     for c in t.taskChildren():
-	try:
-	    c.comm
-	    c.pid
-	    c.tgid
-	    goodc.append(c)
-	except:
-	    pass
+        try:
+            c.comm
+            c.pid
+            c.tgid
+            goodc.append(c)
+        except:
+            pass
     sorted_c = sorted(goodc, key=__getcomm)
     # If this task has threads, treat them as special children
     # printing something like 2*[{udisks-daemon}]
     # We print threads _only if we are the group leader
     if (t.pid == t.tgid):
-	threads = t.threads
+        threads = t.threads
     else:
-	threads = 0
+        threads = 0
     if (threads):
         lt = len(threads)
         if (lt > 1):
@@ -298,14 +298,14 @@ def walk_children(t, top = False):
     p_end =  padding + '`'
 
     for i, c in enumerate(sorted_c):
-	if (i == last):
-	    if (newl == 1):
-		sc = padding + ' '
-	    else:
-		sc = p_end
-	else:
-	    sc = padding + '|'
-	
+        if (i == last):
+            if (newl == 1):
+                sc = padding + ' '
+            else:
+                sc = p_end
+        else:
+            sc = padding + '|'
+        
         if (i == 0):
             if (newl == 1):
                 s = parent_s + "--"
@@ -313,7 +313,7 @@ def walk_children(t, top = False):
                 s = parent_s + "-+"
             ll = len(s)
         else:
-	    s = sc
+            s = sc
         # If we have threads and c is the last element, it is a preformatted
         # string rather than a task
         if (i == last and threads):
@@ -322,9 +322,9 @@ def walk_children(t, top = False):
             for s1 in walk_children(c):
                 yield  s + s1
                 if (sc == p_end):
-		    s = p_blank
-		else:
-		    s = sc
+                    s = p_blank
+                else:
+                    s = sc
 
 
 
@@ -343,24 +343,24 @@ if ( __name__ == '__main__'):
     op =  OptionParser()
 
     op.add_option("-v", dest="Verbose", default = 0,
-		action="count",
-		help="verbose output")
+                action="count",
+                help="verbose output")
     
     op.add_option("--summary", dest="Summary", default = 0,
-		action="store_true",
-		help="Summary")
+                action="store_true",
+                help="Summary")
     
     op.add_option("--pidinfo", dest="Pidinfo", default = 0,
-		action="store", type="int",
-		help="Display details for a given PID")
+                action="store", type="int",
+                help="Display details for a given PID")
 
     op.add_option("--taskfilter", dest="Taskfilter", default = None,
-		action="store",
-		help="A list of 2-letter task states to print, e.g. UN")
+                action="store",
+                help="A list of 2-letter task states to print, e.g. UN")
 
     op.add_option("--pstree", dest="Pstree", default = False,
-		action="store_true",
-		help="Emulate user-space 'pstree' output")
+                action="store_true",
+                help="Emulate user-space 'pstree' output")
 
     op.add_option("-r", "--reverse", dest="Reverse", default = 0,
                     action="store_true",
@@ -385,14 +385,14 @@ if ( __name__ == '__main__'):
         taskstates_filter = re.split("\s*,\s*", o.Taskfilter)
 
     if (o.Reverse):
-	printTasks(reverse=True)
+        printTasks(reverse=True)
     elif (o.Summary):
-	tasksSummary()
+        tasksSummary()
     elif (o.Pstree):
-	if (o.Pidinfo):
-	    pstree(o.Pidinfo)
-	else:
-	    pstree()
+        if (o.Pidinfo):
+            pstree(o.Pidinfo)
+        else:
+            pstree()
     elif (o.Pidinfo):
         find_and_print(o.Pidinfo)
     else:

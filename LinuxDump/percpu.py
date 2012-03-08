@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <12/02/10 13:47:40 alexs>
+# Time-stamp: <12/03/08 16:06:03 alexs>
 
 # Per-cpu functions
 
@@ -19,7 +19,7 @@ def get_cpu_var_26(varname):
     addrlist = []
     #print CPUS, per_cpu_offsets
     for cpu in range(CPUS):
-        addr = (saddr + per_cpu_offsets[cpu])  & 0xffffffffffffffffL
+        addr = (saddr + per_cpu_offsets[cpu])  & long(0xffffffffffffffff)
         addrlist.append(addr)
     return addrlist
 
@@ -32,7 +32,7 @@ def get_cpu_var_26_new(varname):
     addrlist = []
     #print CPUS, per_cpu_offsets
     for cpu in range(CPUS):
-        addr = (saddr + per_cpu_offsets[cpu])  & 0xffffffffffffffffL
+        addr = (saddr + per_cpu_offsets[cpu])  & long(0xffffffffffffffff)
         addrlist.append(addr)
     return addrlist
 
@@ -60,21 +60,21 @@ def __percpu_disguise(pdata):
     
 #({                                                        \
 #        struct percpu_data *__p = __percpu_disguise(ptr); \
-#        (__typeof__(ptr))__p->ptrs[(cpu)];	          \
+#        (__typeof__(ptr))__p->ptrs[(cpu)];               \
 #})
 
 # On 2.6.27 instead of NR_CPU sized array we have ptrs[1]:
 
 # struct percpu_data {
-# 	void *ptrs[1];
+#       void *ptrs[1];
 # };
 
 # On 2.6.31 we can configure CONFIG_HAVE_DYNAMIC_PER_CPU_AREA
 
 #extern unsigned long __per_cpu_offset[NR_CPUS];
 #define per_cpu_offset(x) (__per_cpu_offset[x])
-#define per_cpu_ptr(ptr, cpu)	SHIFT_PERCPU_PTR((ptr), per_cpu_offset((cpu)))
-#define SHIFT_PERCPU_PTR(__p, __offset)	RELOC_HIDE((__p), (__offset))
+#define per_cpu_ptr(ptr, cpu)   SHIFT_PERCPU_PTR((ptr), per_cpu_offset((cpu)))
+#define SHIFT_PERCPU_PTR(__p, __offset) RELOC_HIDE((__p), (__offset))
 
 
 def get_percpu_ptr_26_dynamic(ptr, cpu):
@@ -107,7 +107,7 @@ def percpu_counter_sum(fbc):
     try:
         counters = fbc.counters
     except KeyError:
-	return count
+        return count
     for cpu in range(sys_info.CPUS):
         #count = Deref(percpu_ptr(counters, cpu))
         count += readS32(percpu_ptr(counters, cpu))
@@ -123,9 +123,9 @@ if (symbol_exists("per_cpu__runqueues")):
     pda_addr = None
     if (symbol_exists("cpu_pda")):
         # AMD64, older kernels.
-	# struct x8664_pda cpu_pda[NR_CPUS] __cacheline_aligned; 
-	pda_addr = sym2addr("cpu_pda")
-	
+        # struct x8664_pda cpu_pda[NR_CPUS] __cacheline_aligned; 
+        pda_addr = sym2addr("cpu_pda")
+        
         per_cpu_offsets = []
         size = struct_size("struct x8664_pda")
         for cpu in range(0, sys_info.CPUS):
@@ -134,12 +134,12 @@ if (symbol_exists("per_cpu__runqueues")):
             per_cpu_offsets.append(offset)
  
     elif(symbol_exists("_cpu_pda") and not symbol_exists("__per_cpu_offset")):
-	# This symbol exists both on AMD64 (newer kernels) and I386,
+        # This symbol exists both on AMD64 (newer kernels) and I386,
         # but on I386 it does not contain offsets...
-	# extern struct x8664_pda *_cpu_pda[];
+        # extern struct x8664_pda *_cpu_pda[];
         # struct i386_pda *_cpu_pda[8];
 
-	pda_ptr_arr = readSymbol("_cpu_pda")
+        pda_ptr_arr = readSymbol("_cpu_pda")
 
         per_cpu_offsets = []
         for cpu in range(0, sys_info.CPUS):
@@ -169,4 +169,4 @@ elif (symbol_exists("runqueues")):
         get_cpu_var = get_cpu_var_24
         percpu_ptr = None
 else:
-    raise TypeError, "Cannot process runqueues on this kernel"
+    raise TypeError("Cannot process runqueues on this kernel")

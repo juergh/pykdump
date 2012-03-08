@@ -2,8 +2,8 @@
 # -*- coding: utf-8 -*-
 # module LinuxDump.Tasks
 #
-# Copyright (C) 2006-2009 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006-2009 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2006-2012 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2006-2012 Hewlett-Packard Co., All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,6 +14,8 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
+
+from __future__ import print_function
 
 __doc__ = '''
 This is a package providing generic access to 'struct task_struct'
@@ -32,21 +34,21 @@ debug = API_options.debug
 PIDTYPE_c = '''
 enum pid_type
 {
-	PIDTYPE_PID,
-	PIDTYPE_TGID,
-	PIDTYPE_PGID,
-	PIDTYPE_SID,
-	PIDTYPE_MAX
+        PIDTYPE_PID,
+        PIDTYPE_TGID,
+        PIDTYPE_PGID,
+        PIDTYPE_SID,
+        PIDTYPE_MAX
 };
 '''
 
 PIDTYPE_26_c = '''
 enum pid_type
 {
-	PIDTYPE_PID,
-	PIDTYPE_PGID,
-	PIDTYPE_SID,
-	PIDTYPE_MAX
+        PIDTYPE_PID,
+        PIDTYPE_PGID,
+        PIDTYPE_SID,
+        PIDTYPE_MAX
 };
 '''
 
@@ -71,7 +73,7 @@ class Task:
     # We start from 'struct task_struct'
     def __init__(self, ts, ttable):
         self.ts = ts
-	self.ttable = ttable
+        self.ttable = ttable
     # -- Get the timestamp when last ran by scheduler, converted to ms --
     # We use the same algorithm as 'crash' does
     def __get_last_ran(self):
@@ -93,10 +95,10 @@ class Task:
     # -- Get Task State in a symbolic format --
     def __get_state(self):
         try:
-	    st = task_state2str(self.ts.state)
-	except:
-	    st = '??'
-	    print ERROR, 'corrupted task ', self.ts
+            st = task_state2str(self.ts.state)
+        except:
+            st = '??'
+            print (ERROR, 'corrupted task ', self.ts)
         return st
     state = property(__get_state)
 
@@ -105,56 +107,56 @@ class Task:
         saddr = Addr(self.ts) + Task.tgoffset
         threads = []
         for a in readList(saddr, inchead = False):
-	    addr = a-Task.tgoffset
-	    # Can we read from this addr? 
-	    # This can be due to corruption or missing pages
-	    try:
-		readInt(addr)
-		threads.append(Task(readSU("struct task_struct", addr), self))
-	    except crash.error:
-		print WARNING, " missing page"
-	return threads
+            addr = a-Task.tgoffset
+            # Can we read from this addr? 
+            # This can be due to corruption or missing pages
+            try:
+                readInt(addr)
+                threads.append(Task(readSU("struct task_struct", addr), self))
+            except crash.error:
+                print (WARNING, " missing page")
+        return threads
     def __get_threads_fast_265(self):
-        return self.__get_threads_fast()[:-1]	
+        return self.__get_threads_fast()[:-1]   
     def __get_threads_fast_24(self):
-	return self.ttable.pids[self.pid][1:]
+        return self.ttable.pids[self.pid][1:]
     def __get_threads(self):
         tgoffset = member_offset("struct task_struct", "thread_group")
-	fast_method = Task.__get_threads_fast	
+        fast_method = Task.__get_threads_fast   
         if (tgoffset != -1):
             # New 2.6
             Task.tgoffset = tgoffset
         elif (sys_info.kernel < "2.6.0"):
             # 2.4 - threads are processes
-	    fast_method = Task.__get_threads_fast_24
+            fast_method = Task.__get_threads_fast_24
         else:
             # Older 2.6. We have either
-	    # struct pid      pids[PIDTYPE_MAX];
-	    # then we need pids[PIDTYPE_TGID].pid_list
-	    # 
-	    # Or, we have
-	    # struct pid_link pids[PIDTYPE_MAX];
-	    # then we need pids[PIDTYPE_TGID].pid.task_list
+            # struct pid      pids[PIDTYPE_MAX];
+            # then we need pids[PIDTYPE_TGID].pid_list
+            # 
+            # Or, we have
+            # struct pid_link pids[PIDTYPE_MAX];
+            # then we need pids[PIDTYPE_TGID].pid.task_list
 
-	    si = getStructInfo("struct task_struct")
-	    sn = si["pids"].ti.stype
-	    if (sn == "struct pid"):
-		pl_off = member_offset(sn, "pid_list")
-	    elif (sn == "struct pid_link"):
-		#pl_off = member_offset(sn, "pid") + \
-		#          member_offset("struct pid", "task_list")
-		pl_off = member_offset(sn, "pid_chain")
-		fast_method = Task.__get_threads_fast_265
+            si = getStructInfo("struct task_struct")
+            sn = si["pids"].ti.stype
+            if (sn == "struct pid"):
+                pl_off = member_offset(sn, "pid_list")
+            elif (sn == "struct pid_link"):
+                #pl_off = member_offset(sn, "pid") + \
+                #          member_offset("struct pid", "task_list")
+                pl_off = member_offset(sn, "pid_chain")
+                fast_method = Task.__get_threads_fast_265
             else:
-		raise TypeError, "Don't know how to find threads"
+                raise TypeError("Don't know how to find threads")
  
             pl_off += struct_size(sn)
-	    #print sn, "pl_off=", pl_off
+            #print sn, "pl_off=", pl_off
             Task.tgoffset = member_offset("struct task_struct", "pids") + \
                            pl_off
             #print "tgoffset=", Task.tgoffset
         Task.threads = property(fast_method)
-	return self.threads
+        return self.threads
         
     threads = property(__get_threads)
 
@@ -163,54 +165,54 @@ class Task:
         return getattr(self.ts, attr)
     
     def __repr__(self):
-	return "PID=%d <struct task_struct 0x%x> CMD=%s" % (self.ts.pid,
+        return "PID=%d <struct task_struct 0x%x> CMD=%s" % (self.ts.pid,
                                                      Addr(self.ts), 
-						     self.ts.comm)
+                                                     self.ts.comm)
 
     __str__ = __repr__
     
     def __nonzero__(self):
-	return True
+        return True
     
     # Get fds from 'task_struct'
     def taskFds(self, short = False):
-	out = []
-	task = self
-	if (task.files):
-	    files = Deref(task.files)
-	    try:
-		# 2.6
-		fdt = Deref(files.fdt)
-		fd = fdt.fd
-		max_fds = fdt.max_fds
-		open_fds = fdt.open_fds
-	    except KeyError:
-		# 2.4
-		fd = files.fd
-		max_fds = files.max_fds
-		open_fds = files.open_fds
-		# print open_fds
-	    if (max_fds):
-	       fileparray = readmem(open_fds, struct_size("fd_set"))
-	    for i in range(max_fds):
-		if (FD_ISSET(i, fileparray)):
-		    filep = readPtr(fd + pointersize * i)
-		else:
-		    filep = None
-		if (filep):
-		    #print FD_ISSET(i, fileparray)
-		    if (short):
-			out.append(filep)
+        out = []
+        task = self
+        if (task.files):
+            files = Deref(task.files)
+            try:
+                # 2.6
+                fdt = Deref(files.fdt)
+                fd = fdt.fd
+                max_fds = fdt.max_fds
+                open_fds = fdt.open_fds
+            except KeyError:
+                # 2.4
+                fd = files.fd
+                max_fds = files.max_fds
+                open_fds = files.open_fds
+                # print open_fds
+            if (max_fds):
+               fileparray = readmem(open_fds, struct_size("fd_set"))
+            for i in range(max_fds):
+                if (FD_ISSET(i, fileparray)):
+                    filep = readPtr(fd + pointersize * i)
+                else:
+                    filep = None
+                if (filep):
+                    #print FD_ISSET(i, fileparray)
+                    if (short):
+                        out.append(filep)
 
-		    sfile = readSU("struct file", filep)
-		    # On 2.6.20 f_dentry is really f_path.dentry
-		    try:
-			dentry = Deref(sfile.f_dentry)
-		    except KeyError:
-			dentry = Deref(sfile.f_path.dentry)
-		    inode = Deref(dentry.d_inode)
-		    out.append((i, filep, dentry, inode))
-	return out
+                    sfile = readSU("struct file", filep)
+                    # On 2.6.20 f_dentry is really f_path.dentry
+                    try:
+                        dentry = Deref(sfile.f_dentry)
+                    except KeyError:
+                        dentry = Deref(sfile.f_path.dentry)
+                    inode = Deref(dentry.d_inode)
+                    out.append((i, filep, dentry, inode))
+        return out
     # Get children
     def taskChildren(self):
         clist = readSUListFromHead(self.ts.children, "sibling",
@@ -230,16 +232,16 @@ class _TaskTable:
         pids_d = {}
 
         self.tt = []
-	self.comms = {}
-	
+        self.comms = {}
+        
         for t in tt:
-	    # In case we get a corrupted list
-	    try:
-	        pid = t.pid
-	        tgid = t.tgid
-	    except:
-		print WARNING, "corrupted task-list"
-		break
+            # In case we get a corrupted list
+            try:
+                pid = t.pid
+                tgid = t.tgid
+            except:
+                print (WARNING, "corrupted task-list")
+                break
             task = Task(t, self)
             if (not pid in pids_d):
                 pids_d[pid] = []
@@ -248,13 +250,13 @@ class _TaskTable:
                 pids_d[pid].insert(0, task)
             else:
                 pids_d[tgid].append(task)
-		
-	    self.comms.setdefault(t.comm, []).append(task)
+                
+            self.comms.setdefault(t.comm, []).append(task)
 
         self.pids = pids_d
-	
-	# A dict of all threads - we compute only if needed
-	self.tids = {}
+        
+        # A dict of all threads - we compute only if needed
+        self.tids = {}
  
         self.filepids = {}
         self.toffset = member_offset("struct task_struct", "thread_group")
@@ -264,36 +266,36 @@ class _TaskTable:
             self.__init_tids()
 
         self.basems = get_schedclockbase()
-	
-	# File objects cache
-	self.files_cache = {}
+        
+        # File objects cache
+        self.files_cache = {}
 
     # Fill-in all tids
     def __init_tids(self):
-	if (self.tids):
-	    return
-	out = {}
-	for mt in self.tt:
-	    out[mt.pid] = mt
-	    for t in mt.threads:
-	        # If it is corrupted, report and reparent to 1
-	        try:
-		    out[t.pid] = t
-		except:
-		    print ERROR, "corrupted thread", hexl(t)
+        if (self.tids):
+            return
+        out = {}
+        for mt in self.tt:
+            out[mt.pid] = mt
+            for t in mt.threads:
+                # If it is corrupted, report and reparent to 1
+                try:
+                    out[t.pid] = t
+                except:
+                    print (ERROR, "corrupted thread", hexl(t))
 
         tids = out.keys()
-	tids.sort()    # sort by tids
-	self.tids = out
-	self.allthreads = [out[tid] for  tid in tids]
+        tids.sort()    # sort by tids
+        self.tids = out
+        self.allthreads = [out[tid] for  tid in tids]
     # Get all tasks
     def allTasks(self):
-	return self.tt
+        return self.tt
     
     # Get all threads
     def allThreads(self):
-	self.__init_tids()
-	return self.allthreads
+        self.__init_tids()
+        return self.allthreads
 
     # get task by pid
     def getByPid(self, pid):
@@ -303,11 +305,11 @@ class _TaskTable:
             return None
     # get thread by tid
     def getByTid(self, tid):
-	self.__init_tids()
-	try:
-	    return self.tids[tid]
-	except KeyError:
-	    return None
+        self.__init_tids()
+        try:
+            return self.tids[tid]
+        except KeyError:
+            return None
                 
     # get task by comm
     def getByComm(self, comm):
@@ -346,23 +348,23 @@ def TaskTable():
 
 
 TASK_STATE_c_26 = '''
-#define TASK_RUNNING		0
-#define TASK_INTERRUPTIBLE	1
-#define TASK_UNINTERRUPTIBLE	2
-#define TASK_STOPPED		4
-#define TASK_TRACED		8
-#define EXIT_ZOMBIE		16
-#define EXIT_DEAD		32
-#define TASK_NONINTERACTIVE	64
+#define TASK_RUNNING            0
+#define TASK_INTERRUPTIBLE      1
+#define TASK_UNINTERRUPTIBLE    2
+#define TASK_STOPPED            4
+#define TASK_TRACED             8
+#define EXIT_ZOMBIE             16
+#define EXIT_DEAD               32
+#define TASK_NONINTERACTIVE     64
 '''
 
 TASK_STATE_c_24 = '''
-#define TASK_RUNNING		0
-#define TASK_INTERRUPTIBLE	1
-#define TASK_UNINTERRUPTIBLE	2
-#define TASK_STOPPED		4
-#define TASK_ZOMBIE		8
-#define TASK_DEAD		16
+#define TASK_RUNNING            0
+#define TASK_INTERRUPTIBLE      1
+#define TASK_UNINTERRUPTIBLE    2
+#define TASK_STOPPED            4
+#define TASK_ZOMBIE             8
+#define TASK_DEAD               16
 '''
 
 TASK_STATE_24 = CDefine(TASK_STATE_c_24)
@@ -389,7 +391,7 @@ def jiffies2ms(jiffies):
         #print "++", jiffies,
         # We have really passed jiffies_64
         if (sys_info.kernel >= "2.6.0"):
-            wrapped = jiffies & 0xffffffff00000000L
+            wrapped = jiffies & long(0xffffffff00000000)
             #print "wrapped=", hex(wrapped), "HZ=", HZ
             if (wrapped):
                 wrapped -= 0x100000000
@@ -409,7 +411,7 @@ def jiffies2ms(jiffies):
 # 2.6.15/i386 - we usually return jiffies_64 converted to ns
 # unsigned long long sched_clock(void)
 # {
-# 	return (unsigned long long)jiffies_64 * (1000000000 / HZ);
+#       return (unsigned long long)jiffies_64 * (1000000000 / HZ);
 # }
 # But if use_tsc == 1, we are using TSC ! (not done yet)
 
@@ -455,10 +457,10 @@ def get_uptime():
 def tsc_clock_base():
     recent = 0
     for cpu in range(sys_info.CPUS):
-	rq = readSU(rqtype, sys_info.runqueues_addrs[cpu])
+        rq = readSU(rqtype, sys_info.runqueues_addrs[cpu])
         #print rq, rq.Timestamp
-	if (rq.Timestamp > recent):
-	    recent = rq.Timestamp
+        if (rq.Timestamp > recent):
+            recent = rq.Timestamp
 #     try:
 #         recent = rq_cpu0.timestamp_last_tick
 #     except KeyError:
@@ -495,20 +497,20 @@ HZ = sys_info.HZ
 # Older 2.6 kernels do not have it, but those using TSC define __vxtime
 if (symbol_exists("sched_clock")):
     if (debug):
-        print "Using sched_clock"
+        print ("Using sched_clock")
     # last_ran is in ns, derived from TSC
     get_schedclockbase = tsc_clock_base
     sched_clock2ms = sched_clock2ms_26_tsc
 else:
     # last_ran is in ticks, derived from jiffies
     if (debug):
-        print "Using jiffies for clock base"
+        print ("Using jiffies for clock base")
     get_schedclockbase = jiffie_clock_base
 
     if (sys_info.kernel >= "2.6.0"):
-	sched_clock2ms = sched_clock2ms_26_jiffies
+        sched_clock2ms = sched_clock2ms_26_jiffies
     else:
-	sched_clock2ms = sched_clock2ms_24
+        sched_clock2ms = sched_clock2ms_24
 
 runqueues_addrs = percpu.get_cpu_var("runqueues") 
 sys_info.runqueues_addrs = runqueues_addrs
@@ -547,48 +549,48 @@ def tasksSummary():
     d_counts = {}
     acounts = [0, 0, 0]
     def update_acounts(v):
-	if (v <= 1):
-	    acounts[0] += 1
-	if (v <= 5):
-	    acounts[1] += 1
-	if (v <= 60):
-	    acounts[2] += 1
-	   
+        if (v <= 1):
+            acounts[0] += 1
+        if (v <= 5):
+            acounts[1] += 1
+        if (v <= 60):
+            acounts[2] += 1
+           
     for mt in tt.allTasks():
-	#print mt.pid, mt.comm, mt.state
-	state = mt.state
-	comm = mt.comm
-	counts[state] = counts.setdefault(state, 0) + 1
-	d_counts[(comm, state)] = d_counts.setdefault((comm, state), 0) + 1
-	update_acounts((basems - mt.Last_ran)/1000)
-	threadcount += 1
-	for t in mt.threads:
-	    #print "\t", t.pid, t.state
-	    state = t.state
-	    counts[state] = counts.setdefault(state, 0) + 1
-	    d_counts[(comm, state)] = d_counts.setdefault((comm, state), 0)+1
-	    update_acounts((basems - t.Last_ran)/1000)
-	    threadcount += 1
-    print "Number of Threads That Ran Recently"
-    print "-----------------------------------"
-    print "   last second   %5d" % acounts[0]
-    print "   last     5s   %5d" % acounts[1]
-    print "   last    60s   %5d" % acounts[2]
-    print ""
-    print " ----- Total Numbers of Threads per State ------"
+        #print mt.pid, mt.comm, mt.state
+        state = mt.state
+        comm = mt.comm
+        counts[state] = counts.setdefault(state, 0) + 1
+        d_counts[(comm, state)] = d_counts.setdefault((comm, state), 0) + 1
+        update_acounts((basems - mt.Last_ran)/1000)
+        threadcount += 1
+        for t in mt.threads:
+            #print "\t", t.pid, t.state
+            state = t.state
+            counts[state] = counts.setdefault(state, 0) + 1
+            d_counts[(comm, state)] = d_counts.setdefault((comm, state), 0)+1
+            update_acounts((basems - t.Last_ran)/1000)
+            threadcount += 1
+    print ("Number of Threads That Ran Recently")
+    print ("-----------------------------------")
+    print ("   last second   %5d" % acounts[0])
+    print ("   last     5s   %5d" % acounts[1])
+    print ("   last    60s   %5d" % acounts[2])
+    print ("")
+    print (" ----- Total Numbers of Threads per State ------")
     for k,v in counts.items():
-	print "  %-40s  %4d" %  (k, v)
-    print ""
+        print ("  %-40s  %4d" %  (k, v))
+    print ("")
     return threadcount
-    print "       === # of Threads Sorted by CMD+State ==="
-    print "CMD               State                                 Threads"
-    print "--------------- ------------------                      -------"
+    print ("       === # of Threads Sorted by CMD+State ===")
+    print ("CMD               State                                 Threads")
+    print ("--------------- ------------------                      -------")
     keys = d_counts.keys()
     keys.sort()
     for k in keys:
-	v = d_counts[k]
-	comm, state = k
-	print "%-15s %-40s  %4d" % (comm, state, v)
+        v = d_counts[k]
+        comm, state = k
+        print ("%-15s %-40s  %4d" % (comm, state, v))
     return threadcount
     
     
@@ -605,7 +607,7 @@ if ( __name__ == '__main__'):
     tt = TaskTable()
     t = tt.getByComm("kicker")
     for t in tt.tt:
-        print t.comm, t.pid
+        print (t.comm, t.pid)
         #threads = tt.getThreads(t)
             
 

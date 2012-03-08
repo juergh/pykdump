@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module LinuxDump.Dev
 #
-# Time-stamp: <11/11/28 11:50:51 alexs>
+# Time-stamp: <12/03/08 16:04:50 alexs>
 #
 # Copyright (C) 2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2008 Hewlett-Packard Co., All rights reserved.
@@ -16,6 +16,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+from __future__ import print_function
+
 __doc__ = '''
 This is a package providing generic access to block devices
 '''
@@ -29,33 +31,33 @@ import re
 # major, minor = decode_devt(dev)
 def decode_devt(dev):
     if (dev >>16):
-	# New-style
-	major = dev >> 20
-	minor = dev ^ (major<<20)
+        # New-style
+        major = dev >> 20
+        minor = dev ^ (major<<20)
     else:
-	# Old-style
-	major = dev >>8
-	minor = dev & 0xff
+        # Old-style
+        major = dev >>8
+        minor = dev & 0xff
     return (int(major), int(minor))
 
 # ================= Block Device Tables =================
 
 class BlkDev(object):
     def __init__(self, major, name, ops, bdevs):
-	minors = [m for m, bds in bdevs]
-	minors.sort()
-	self.major = major
-	self.minors = minors
-	self.name = name
-	self.ops = ops
-	self.opsname = addr2sym(self.ops)
-	self.bdevs = bdevs
+        minors = [m for m, bds in bdevs]
+        minors.sort()
+        self.major = major
+        self.minors = minors
+        self.name = name
+        self.ops = ops
+        self.opsname = addr2sym(self.ops)
+        self.bdevs = bdevs
     def __str__(self):
-	#prn = StringIO()
-	return " %3d  %-11s   %x  <%s>" % \
+        #prn = StringIO()
+        return " %3d  %-11s   %x  <%s>" % \
               (self.major, self.name, self.ops, self.opsname)
     def shortstr(self):
-	return "driver=%s, bdops=<%s>" % (self.name, self.opsname)
+        return "driver=%s, bdops=<%s>" % (self.name, self.opsname)
 
 
 
@@ -74,22 +76,22 @@ def get_blkdevs_v1():
     # and heads are embedded in 'struct block_device'
     
     m_bdevs = {}
-    out_bddev = {}	# a dict with bd_dev key
+    out_bddev = {}      # a dict with bd_dev key
     for h in readSymbol("bdev_hashtable"):
-	for s in readSUListFromHead(h, 'bd_hash',
-	     'struct block_device'):
-	    # We have one block_device structure per minor
-	    major, minor =  decode_devt(s.bd_dev)
-	    out_bddev[s.bd_dev] = s
-	    m_bdevs.setdefault(major, []).append((minor, s))
+        for s in readSUListFromHead(h, 'bd_hash',
+             'struct block_device'):
+            # We have one block_device structure per minor
+            major, minor =  decode_devt(s.bd_dev)
+            out_bddev[s.bd_dev] = s
+            m_bdevs.setdefault(major, []).append((minor, s))
     
     pa = readSymbol('blkdevs')
     out = {}
     for major, s in enumerate(pa):
-	if (not major in m_bdevs):
-	    continue
-	bi = BlkDev(major, s.name, s.bdops, m_bdevs[major])
-	out[major] = bi
+        if (not major in m_bdevs):
+            continue
+        bi = BlkDev(major, s.name, s.bdops, m_bdevs[major])
+        out[major] = bi
     
     return out, out_bddev
 
@@ -97,12 +99,12 @@ def get_blkdevs_v1():
 def get_blkdevs_v2():
     # We need unique values only, so we use a dictionary to achieve this
     m_bdevs = {}
-    out_bddev = {}	# a dict with bd_dev key
+    out_bddev = {}      # a dict with bd_dev key
     for s in readSUListFromHead(sym2addr('all_bdevs'), 
-	   'bd_list', 'struct block_device'):
-	major, minor =  decode_devt(s.bd_dev)
-	out_bddev[s.bd_dev] = s
-	m_bdevs.setdefault(major, []).append((minor, s))
+           'bd_list', 'struct block_device'):
+        major, minor =  decode_devt(s.bd_dev)
+        out_bddev[s.bd_dev] = s
+        m_bdevs.setdefault(major, []).append((minor, s))
   
     # When we register a device, it can grab several major
     # numbers just in case - even if it does not need them
@@ -114,20 +116,20 @@ def get_blkdevs_v2():
     out = {}
     for addr in readSymbol('major_names'):
         while(addr):
-	    s = Deref(addr)
-	    addr = s.next
-	    major = s.major
+            s = Deref(addr)
+            addr = s.next
+            major = s.major
             if (not major in m_bdevs):
-		continue
-	    bd = m_bdevs[major]
-	    # There are cases when device is registered but bd_disk=0
-	    # E.g. this happens when CD is not present in CD-ROM
-	    bd_disk = bd[0][1].bd_disk
-	    if (bd_disk):
-	       bdops = bd_disk.fops
-	       #print bd_disk.kobj.name
-	    else:
-		bdops = 0
+                continue
+            bd = m_bdevs[major]
+            # There are cases when device is registered but bd_disk=0
+            # E.g. this happens when CD is not present in CD-ROM
+            bd_disk = bd[0][1].bd_disk
+            if (bd_disk):
+               bdops = bd_disk.fops
+               #print bd_disk.kobj.name
+            else:
+                bdops = 0
             out[major] = BlkDev(major, s.name, bdops, bd)
     return out, out_bddev
 
@@ -137,34 +139,34 @@ def print_blkdevs(v = 0):
     majors.sort()
     sep = '-' * 70
     if (v):
-	print sep
+        print (sep)
     if (v > 1):
-	devs = sorted(out_bddev.keys())
-	for dev in devs:
-	    bd = out_bddev[dev]
-	    print hexl(dev), bd
-	    bd_holder = bd.bd_holder
-	    print " ", bd.bd_openers, hexl(bd_holder)
-	    if (bd_holder):
-		si = exec_gdb_command("x/i 0x%x" % bd_holder).rstrip()
-		ss = exec_gdb_command("x/s 0x%x" % bd_holder).rstrip()
-		print "  ", si
-		print "  ", ss
+        devs = sorted(out_bddev.keys())
+        for dev in devs:
+            bd = out_bddev[dev]
+            print (hexl(dev), bd)
+            bd_holder = bd.bd_holder
+            print (" ", bd.bd_openers, hexl(bd_holder))
+            if (bd_holder):
+                si = exec_gdb_command("x/i 0x%x" % bd_holder).rstrip()
+                ss = exec_gdb_command("x/s 0x%x" % bd_holder).rstrip()
+                print ("  ", si)
+                print ("  ", ss)
     
     for major in majors:
-	bi = out[major]
-	#name, ops, bdevs = out[major]
-	minors = bi.minors
-	ops= bi.ops
-	bdevs = bi.bdevs
-        print " %3d    %-14s   %x  <%s>" % \
-              (major, bi.name, ops, addr2sym(ops))
-	if (v):
-	   print "\tMinors:", minors
-	   print "\t", bdevs[0][1]
+        bi = out[major]
+        #name, ops, bdevs = out[major]
+        minors = bi.minors
+        ops= bi.ops
+        bdevs = bi.bdevs
+        print (" %3d    %-14s   %x  <%s>" % \
+              (major, bi.name, ops, addr2sym(ops)))
+        if (v):
+           print ("\tMinors:", minors)
+           print ("\t", bdevs[0][1])
 
-	if (v):
-	   print sep
+        if (v):
+           print (sep)
 
 
 # ================= Device-Mapper =======================
@@ -184,27 +186,27 @@ def print_dm_devices(verbose = 0):
     sn = "struct hash_cell"
     # Check whether this struct info is present
     if (not struct_exists(sn)):
-	loadModule("dm_mod")
+        loadModule("dm_mod")
     if (not struct_exists(sn)):
-	print "To decode DeviceMapper structures, you need a debuggable dm_mod"
-	return
+        print ("To decode DeviceMapper structures, you need a debuggable dm_mod")
+        return
     nameb = readSymbol("_name_buckets")
     out = []
     off = member_offset(sn, "name_list")
     for b in nameb:
-	for a in readListByHead(b):
-	    hc = readSU("struct hash_cell", a - off)
-	    out.append((hc.md.disk.first_minor, hc.name, hc.md.map))
+        for a in readListByHead(b):
+            hc = readSU("struct hash_cell", a - off)
+            out.append((hc.md.disk.first_minor, hc.name, hc.md.map))
     
     out.sort()      # sort on minor
-    print " ========== Devicemapper devices ============"
+    print (" ========== Devicemapper devices ============")
     for minor, name, dm in out:
-	if (verbose):
-	   print '-'*70
-	print "%-40s  minor=%d" % (name, minor)
-	if (verbose):
-	    print "  ", dm
-	    decode_dm_table(dm)
+        if (verbose):
+           print ('-'*70)
+        print ("%-40s  minor=%d" % (name, minor))
+        if (verbose):
+            print ("  ", dm)
+            decode_dm_table(dm)
 
 # Decode struct dm_table
 #  list entries are embedded in
@@ -218,7 +220,7 @@ def print_dm_devices(verbose = 0):
 
 def decode_dm_table(dm, verbose = 0):
     def round4k(s):
-	return s/4096*4096
+        return s/4096*4096
     devices = dm.devices   # This points to 'list' field in dm_dev
     # On newer kernels (e.g. 2.6.31)
     #
@@ -235,30 +237,30 @@ def decode_dm_table(dm, verbose = 0):
         off = member_offset(sn_i, "list") - member_offset(sn_i, "dm_dev")
     mtable, out_bddev = get_blkdevs()
     num_targets = dm.num_targets
-    print " -- %d targets" % num_targets
+    print (" -- %d targets" % num_targets)
     targets = dm.targets
     for nt in range(num_targets):
-	target = targets + nt
-	ttype = target.type
-	t_begin = target.begin
-	t_len = target.len
-	t_end = t_begin + t_len - 1
-	
-	print "  %d" % nt, target, ttype.name
-	print "       | logical  sectors %d->%d" %(t_begin, t_end)
-	if (ttype.name == "linear"):
-	    lc = readSU("struct linear_c", target.private)
-	    lc_begin = lc.start
-	    lc_end = lc.start + t_len -1
-	    print "       | physical sectors %d->%d" %(lc_begin, lc_end)
-	    print "       |    device used", lc.dev
+        target = targets + nt
+        ttype = target.type
+        t_begin = target.begin
+        t_len = target.len
+        t_end = t_begin + t_len - 1
+        
+        print ("  %d" % nt, target, ttype.name)
+        print ("       | logical  sectors %d->%d" %(t_begin, t_end))
+        if (ttype.name == "linear"):
+            lc = readSU("struct linear_c", target.private)
+            lc_begin = lc.start
+            lc_end = lc.start + t_len -1
+            print ("       | physical sectors %d->%d" %(lc_begin, lc_end))
+            print ("       |    device used", lc.dev)
     
-    print " -- Block Devices Used By This Mapping"
+    print (" -- Block Devices Used By This Mapping")
     for a in readListByHead(devices):
-	dmdev = readSU(sn, a - off)
-	major, minor = decode_devt(dmdev.bdev.bd_dev)
-	print "     ", dmdev, "major=%-3d minor=%-3d" % (major, minor)
-	print "\t   ", mtable[major].shortstr()
+        dmdev = readSU(sn, a - off)
+        major, minor = decode_devt(dmdev.bdev.bd_dev)
+        print ("     ", dmdev, "major=%-3d minor=%-3d" % (major, minor))
+        print ("\t   ", mtable[major].shortstr())
 
 
 # ================ gendisk stuff =============================
@@ -273,7 +275,7 @@ def get_gendisks():
             data = p.data
             dev = p.dev
             if (data and long(p.get) in good_gets):
-		#print '--', hexl(dev), p
+                #print '--', hexl(dev), p
                 gd = readSU("struct gendisk", data)
                 out.append((dev, gd))
 
@@ -285,52 +287,52 @@ def print_disk_stats(gd):
     ptr = gd.dkstats
     # gd.dkstats is a per-cpu pointer
     for cpu in range(sys_info.CPUS):
-	pcpu = percpu_ptr(ptr, cpu)
-        print "  ", cpu, pcpu
-	#printObject(pcpu)
-	
-	
+        pcpu = percpu_ptr(ptr, cpu)
+        print ("  ", cpu, pcpu)
+        #printObject(pcpu)
+        
+        
 # Print gendisk structures with some checking.
 # If v=0, print errors only
 __re_good_diskname = re.compile(r'^[-\w:/]+$')
 def print_gendisk(v = 1):
     try:
-	gdlist = get_gendisks()
+        gdlist = get_gendisks()
     except TypeError:
-	if (v):
-	    print "print_gendisk is not implemented for 2.4 kernels yet"
-	return
+        if (v):
+            print ("print_gendisk is not implemented for 2.4 kernels yet")
+        return
     # To get block_device based on dev_t
     dummy, bd_devs = get_blkdevs()
     #
     for dev, gd in gdlist:
-	if (v > 1):
-	    print '#' * 50
-	disk_name = gd.disk_name
-	# Check whether name is alphanum
-	if (not __re_good_diskname.match(disk_name)):
-	    disk_name = '???'
-	#kname = gd.kobj.name
-	openname = None
-	try:
-	    owner = gd.fops.owner
-	    badfops = False
-	except crash.error:
-	    badfops = True
-	
-	try:
-	    openptr = gd.fops.open
-	    if (openptr):
-		openname = addr2sym(openptr)
+        if (v > 1):
+            print ('#' * 50)
+        disk_name = gd.disk_name
+        # Check whether name is alphanum
+        if (not __re_good_diskname.match(disk_name)):
+            disk_name = '???'
+        #kname = gd.kobj.name
+        openname = None
+        try:
+            owner = gd.fops.owner
+            badfops = False
         except crash.error:
-	    pass
+            badfops = True
         
-	if (v):
-	   print  "  %12s dev=0x%x" % (disk_name, dev), gd, openname
-	if (badfops):
-	    print ERROR, gd, "corrupted fops, disk_name=%s dev=0x%x"% \
-	           (disk_name, dev)
-	outparts = []
+        try:
+            openptr = gd.fops.open
+            if (openptr):
+                openname = addr2sym(openptr)
+        except crash.error:
+            pass
+        
+        if (v):
+           print  ("  %12s dev=0x%x" % (disk_name, dev), gd, openname)
+        if (badfops):
+            print (ERROR, gd, "corrupted fops, disk_name=%s dev=0x%x"% \
+                   (disk_name, dev))
+        outparts = []
         # < 2.6.28
         # struct hd_struct **part;
         # 2.6.28
@@ -348,21 +350,21 @@ def print_gendisk(v = 1):
         except KeyError:
             np = gd.minors - 1
             tbl = gd.part
-	for i in range(np):
+        for i in range(np):
             hd = tbl[i]
 
-	    try:
-		if (hd and hd.nr_sects):
-		    if (v):
-			print "\t\t", i, hd
-	    except crash.error:
-		outparts.append(i)
-	        if (v):
-		    print ERROR, "corrupted", hd
-	if (outparts):
-	    print ERROR, gd, "corrupted part list", outparts
-	
-	if (v < 2):
-	    continue
-	
-	
+            try:
+                if (hd and hd.nr_sects):
+                    if (v):
+                        print ("\t\t", i, hd)
+            except crash.error:
+                outparts.append(i)
+                if (v):
+                    print (ERROR, "corrupted", hd)
+        if (outparts):
+            print (ERROR, gd, "corrupted part list", outparts)
+        
+        if (v < 2):
+            continue
+        
+        

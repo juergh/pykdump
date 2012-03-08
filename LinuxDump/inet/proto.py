@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
 # module LinuxDump.inet.proto
-# Time-stamp: <11/04/20 16:16:57 alexs>
+# Time-stamp: <12/03/08 16:33:35 alexs>
 
 #
-# Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2006-2012 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2006-2012 Hewlett-Packard Co., All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -16,6 +16,8 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
+
+from __future__ import print_function
 
 __doc__ = '''
 This is a package providing generic access to INET protocol structures.
@@ -131,26 +133,26 @@ def formatIPv6(ip, port, printstar=True):
 
 class IP_sock(object):
     def __init__(self, o, details=False):
-	if (sock_V1):
-	    s = o
-	elif (o.isNamed("struct sock")):
+        if (sock_V1):
+            s = o
+        elif (o.isNamed("struct sock")):
             s = o.castTo("struct inet_sock")
-	elif (o.isNamed("struct tcp_sock")):
-	    s = o
-	    if (s.protocol != 6):
-		raise KeyError,str(o)+' incorrect protocol=%d' %  s.protocol
-	elif (o.isNamed("struct udp_sock")):
-	    s = o
-	    if (s.protocol != 17):
-		raise KeyError,str(o)+' incorrect protocol=%d' %  s.protocol
-	elif (o.isNamed("struct raw_sock")):
-	    s = o
-	    if (s.protocol in (6,17)):
-		raise KeyError,str(o)+' incorrect protocol=%d' %  s.protocol
-	    
+        elif (o.isNamed("struct tcp_sock")):
+            s = o
+            if (s.protocol != 6):
+                raise KeyError(str(o)+' incorrect protocol=%d' %  s.protocol)
+        elif (o.isNamed("struct udp_sock")):
+            s = o
+            if (s.protocol != 17):
+                raise KeyError(str(o)+' incorrect protocol=%d' %  s.protocol)
+        elif (o.isNamed("struct raw_sock")):
+            s = o
+            if (s.protocol in (6,17)):
+                raise KeyError(str(o)+' incorrect protocol=%d' %  s.protocol)
+            
         else:
             s = o
-	self.__casted_sock = s
+        self.__casted_sock = s
         #print o, s
         self.left = self.right = ''
         self.family = family = s.family
@@ -159,55 +161,55 @@ class IP_sock(object):
         self.user_data = s.user_data
         self.state =  s.state   # Makes sense mainly for TCP
         
-	if (family == P_FAMILIES.PF_INET):
-	    self.src = s.Src
-	    self.sport = ntohs(s.sport)
-	    self.dst = s.Dst
-	    self.dport = ntohs(s.dport)
+        if (family == P_FAMILIES.PF_INET):
+            self.src = s.Src
+            self.sport = ntohs(s.sport)
+            self.dst = s.Dst
+            self.dport = ntohs(s.dport)
         elif (family == P_FAMILIES.PF_INET6):
-	    self.src = s.Src6
-	    self.sport = ntohs(s.sport)
-	    self.dst = s.Dst6
-	    self.dport = ntohs(s.dport)
-	    self.state =  s.state   # Makes sense mainly
+            self.src = s.Src6
+            self.sport = ntohs(s.sport)
+            self.dst = s.Dst6
+            self.dport = ntohs(s.dport)
+            self.state =  s.state   # Makes sense mainly
         else:
-            raise TypeError, "family=%d o=%s" % (family, str(o))
+            raise TypeError("family=%d o=%s" % (family, str(o)))
             
-	# Protocol-specific details
-	if (not details):
-	    return
-	# The following parameters make sense for most sockets
-	self.rcvbuf = s.rcvbuf
-	self.sndbuf = s.sndbuf
-	self.rmem_alloc = s.rmem_alloc_counter
-	self.wmem_alloc = s.wmem_alloc_counter
+        # Protocol-specific details
+        if (not details):
+            return
+        # The following parameters make sense for most sockets
+        self.rcvbuf = s.rcvbuf
+        self.sndbuf = s.sndbuf
+        self.rmem_alloc = s.rmem_alloc_counter
+        self.wmem_alloc = s.wmem_alloc_counter
 
-	if (self.protocol == 6):    # TCP
-	    # Details are different for TCP in different states
-	    if (self.state != tcpState.TCP_LISTEN \
-		and self.state != tcpState.TCP_TIME_WAIT):
+        if (self.protocol == 6):    # TCP
+            # Details are different for TCP in different states
+            if (self.state != tcpState.TCP_LISTEN \
+                and self.state != tcpState.TCP_TIME_WAIT):
                 self.Tcp = Bunch()
-		self.rx_opt =  s.rx_opt
-		self.topt = s.topt
+                self.rx_opt =  s.rx_opt
+                self.topt = s.topt
                 #self.Tcp.nonagle = s.Nonagle
-	    elif (self.state == tcpState.TCP_LISTEN):
-		self.sk_max_ack_backlog = s.max_ack_backlog
-		self.sk_ack_backlog = s.ack_backlog
-		self.l_opt= s.l_opt
-		self.accept_queue = s.accept_queue
+            elif (self.state == tcpState.TCP_LISTEN):
+                self.sk_max_ack_backlog = s.max_ack_backlog
+                self.sk_ack_backlog = s.ack_backlog
+                self.l_opt= s.l_opt
+                self.accept_queue = s.accept_queue
 
-	elif (self.protocol == 17): # UDP
-	    self.uopt = s.uopt
-	elif (self.sktype == sockTypes.SOCK_RAW): # RAW (mostly ICMP)
-	    pass
+        elif (self.protocol == 17): # UDP
+            self.uopt = s.uopt
+        elif (self.sktype == sockTypes.SOCK_RAW): # RAW (mostly ICMP)
+            pass
 
 
-	if (not details):
-	    return
-	
+        if (not details):
+            return
+        
     # For all unknown attrs, proxy to s
     def __getattr__(self, fname):
-	return getattr(self.__casted_sock, fname)
+        return getattr(self.__casted_sock, fname)
 
 
     def __str__(self):
@@ -303,7 +305,7 @@ def format_sockaddr_in(sin):
     if (family == P_FAMILIES.PF_INET):
         return "%s:%d" % (ntodots(addr.s_addr), port)
     else:
-        raise TypeError, "family=%d o=%s" % (family, str(sin))
+        raise TypeError("family=%d o=%s" % (family, str(sin)))
         
 
 
@@ -319,30 +321,30 @@ def inode2socketaddr(inode):
 
 def decodeSock(sock):
     if (sock_V1):
-	family = sock.family
-	# For old kernels prot is NULL for AF_UNIX
-	if (sock.prot):
-	    protoname = sock.prot.name
-	else:
-	    protoname = "UNIX"
-	sktype = sock.type
+        family = sock.family
+        # For old kernels prot is NULL for AF_UNIX
+        if (sock.prot):
+            protoname = sock.prot.name
+        else:
+            protoname = "UNIX"
+        sktype = sock.type
     else:
-	skcomm = sock.__sk_common
-	family = skcomm.skc_family
-	try:
-	    protoname =  skcomm.skc_prot.Deref.name
-	except KeyError:
-	    try:
-		protoname = sock.sk_prot.Deref.name
-	    except IndexError:
-		protoname= '???'
-	    except crash.error:
-		protoname='???'
-	sktype = sock.sk_type
+        skcomm = sock.__sk_common
+        family = skcomm.skc_family
+        try:
+            protoname =  skcomm.skc_prot.Deref.name
+        except KeyError:
+            try:
+                protoname = sock.sk_prot.Deref.name
+            except IndexError:
+                protoname= '???'
+            except crash.error:
+                protoname='???'
+        sktype = sock.sk_type
     if (family == P_FAMILIES.PF_INET or family == P_FAMILIES.PF_INET6):
-	inet = True
+        inet = True
     else:
-	inet = False
+        inet = False
     return family, sktype, protoname, inet
 
 # ...........................................................................
@@ -366,7 +368,7 @@ def check_inet_sock():
     if (symbol_exists("tcpv6_protocol") or 
         symbol_exists("secure_tcpv6_sequence_number")):
         if (debug):
-            print "Adding struct ipv6_pinfo *pinet6;"
+            print ("Adding struct ipv6_pinfo *pinet6;")
         aS.append("struct ipv6_pinfo *", "pinet6")
     iopti = getStructInfo("struct inet_opt")
     aS.inline(iopti)
@@ -409,40 +411,40 @@ def init_INET_Stuff():
     # tcp_hashinfo is as table of inet_ehash_bucket, each bucket
     # has two chains: normal and tw
     #     struct inet_hashinfo {
-    #        struct inet_ehash_bucket	*ehash;
-    #        struct inet_bind_hashbucket	*bhash;
-    # 	     int				bhash_size;
-    # 	     unsigned int			ehash_size;
-    # 	     struct hlist_head		listening_hash[INET_LHTABLE_SIZE];
+    #        struct inet_ehash_bucket   *ehash;
+    #        struct inet_bind_hashbucket        *bhash;
+    #        int                                bhash_size;
+    #        unsigned int                       ehash_size;
+    #        struct hlist_head          listening_hash[INET_LHTABLE_SIZE];
 
     # On 2.6.35 there is no ehash_size, we have ehash_mask instead
     # ehash_size will be ehash_mask+1
 
     try:
-	ehash_size = tcp_hashinfo.__tcp_ehash_size
-	ehash_btype = tcp_hashinfo["__tcp_ehash"].basetype
-	ehash_addr = tcp_hashinfo.__tcp_ehash
+        ehash_size = tcp_hashinfo.__tcp_ehash_size
+        ehash_btype = tcp_hashinfo["__tcp_ehash"].basetype
+        ehash_addr = tcp_hashinfo.__tcp_ehash
 
-	tcp_listening_hash = tcp_hashinfo.__tcp_listening_hash
-	tw_type = "struct tcp_tw_bucket"
+        tcp_listening_hash = tcp_hashinfo.__tcp_listening_hash
+        tw_type = "struct tcp_tw_bucket"
     except KeyError:
         if (tcp_hashinfo.hasField("ehash_mask")):
             ehash_size = tcp_hashinfo.ehash_mask + 1
         else:
             ehash_size = tcp_hashinfo.ehash_size
-	ehash_btype = tcp_hashinfo["ehash"].basetype
-	ehash_addr = tcp_hashinfo.ehash
+        ehash_btype = tcp_hashinfo["ehash"].basetype
+        ehash_addr = tcp_hashinfo.ehash
 
-	tcp_listening_hash = tcp_hashinfo.listening_hash
-	tw_type = "struct tcp_timewait_sock"
+        tcp_listening_hash = tcp_hashinfo.listening_hash
+        tw_type = "struct tcp_timewait_sock"
     
     if (struct_size("struct sock_common") == -1):
-	# 2.4
-	sockname = "struct sock"
+        # 2.4
+        sockname = "struct sock"
         Kernel24 = True
     else:
-	# 2.6
-	sockname = "struct inet_sock"
+        # 2.6
+        sockname = "struct inet_sock"
         Kernel24 = False
     eb_info = getStructInfo(ehash_btype)
     eb_size = eb_info.size
@@ -462,8 +464,8 @@ def init_INET_Stuff():
     try:
         UNIX_HASH_SIZE = whatis("unix_socket_table") - 1
     except:
-	UNIX_HASH_SIZE = 256
-	
+        UNIX_HASH_SIZE = 256
+        
     # Now copy locals to INET_Stuff
     INET_Stuff.__dict__.update(locals())
 
@@ -633,7 +635,7 @@ def init_PseudoAttrs():
     if (not structSetAttr("struct tcp6_timewait_sock", "Dst6",
                       "tw_v6_daddr.in6_u.u6_addr32", extra)):
         structSetProcAttr(sn, "Dst6", getDst6)
-	
+        
     # AF_UNIX
     
     sn = "struct socket"
@@ -665,20 +667,20 @@ def init_PseudoAttrs():
     # #define unix_peer(sk) ((sk)->pair)            2.4, sock 
     
     def getPeer26(s):
-	return s.peer.castTo("struct unix_sock")
+        return s.peer.castTo("struct unix_sock")
     
     def getPeer26old(s):
-	return s.sk.sk_pair.castTo("struct unix_sock")    
+        return s.sk.sk_pair.castTo("struct unix_sock")    
     
     if (not structSetAttr("struct sock", "Peer", "pair")):
         # 2.6
-	sn = "struct unix_sock"
-	if (member_size(sn, "peer") != -1):
-	   structSetProcAttr(sn, "Peer", getPeer26)
-	else:
-	   structSetProcAttr(sn, "Peer", getPeer26old)
+        sn = "struct unix_sock"
+        if (member_size(sn, "peer") != -1):
+           structSetProcAttr(sn, "Peer", getPeer26)
+        else:
+           structSetProcAttr(sn, "Peer", getPeer26old)
 
-	
+        
 # TCP structures are quite different for 2.4 and 2.6 kernels, it makes sense to
 # have two different versions of code
 
@@ -720,7 +722,7 @@ def get_TCP_ESTABLISHED():
             while (next):
                 s = readSU(t.sockname, next)
                 next = s.next
-	    yield s
+            yield s
     else:
         # 2.6
         for b in getFullBuckets(t.ehash_addr, t.eb_size, t.ehash_size, t.chain_off):
@@ -761,16 +763,16 @@ def get_TCP_TIMEWAIT():
 
 def get_UDP():
     if (INET_Stuff.Kernel24):
-	# 2.4
-	for b in readSymbol("udp_hash"):
-	    next = b
-	    while (next):
-		s = readSU('struct sock', next)
-		next = s.next
-		yield s
-	
+        # 2.4
+        for b in readSymbol("udp_hash"):
+            next = b
+            while (next):
+                s = readSU('struct sock', next)
+                next = s.next
+                yield s
+        
     else:
-	# 2.6
+        # 2.6
         try:
             udphash =  readSymbol("udp_hash")
         except TypeError:
@@ -778,15 +780,15 @@ def get_UDP():
 
             # On older 2.6:
             #struct udp_table {
-            #  struct udp_hslot	hash[UDP_HTABLE_SIZE];
+            #  struct udp_hslot hash[UDP_HTABLE_SIZE];
             #};
 
             # Newer
             #struct udp_table {
-            #   struct udp_hslot	*hash;
-            #   struct udp_hslot	*hash2;
-            #   unsigned int		mask;
-            #   unsigned int		log;
+            #   struct udp_hslot        *hash;
+            #   struct udp_hslot        *hash2;
+            #   unsigned int            mask;
+            #   unsigned int            log;
             #};
 
             udphash =  readSymbol("udp_table").hash
@@ -796,28 +798,28 @@ def get_UDP():
 
 
         for s in udphash:
-	    try:
-		first = s.first
-	    except KeyError:
-		first = s.head.first
-	    if (first):
-		for a in  inet_sk_for_each(first):
-		    s = readSU("struct udp_sock", a)
-		    yield s
+            try:
+                first = s.first
+            except KeyError:
+                first = s.head.first
+            if (first):
+                for a in  inet_sk_for_each(first):
+                    s = readSU("struct udp_sock", a)
+                    yield s
 
 # -------------------- RAW ------------------------------------------
 def get_RAW():
     if (INET_Stuff.Kernel24):
-	# 2.4
-	for b in readSymbol("raw_v4_htable"):
-	    next = b
-	    while (next):
-		s = readSU('struct sock', next)
-		next = s.next
-		yield s
-	
+        # 2.4
+        for b in readSymbol("raw_v4_htable"):
+            next = b
+            while (next):
+                s = readSU('struct sock', next)
+                next = s.next
+                yield s
+        
     else:
-	# 2.6
+        # 2.6
         #
         # 2.6.27
         try:
@@ -825,16 +827,16 @@ def get_RAW():
             # older
         except TypeError:
             table = readSymbol("raw_v4_htable")
-	for s in table:
-	    first = s.first
-	    if (first):
-		for a in  sk_for_each(first):
-		    s = readSU("struct raw_sock", a)
-		    yield s
+        for s in table:
+            first = s.first
+            if (first):
+                for a in  sk_for_each(first):
+                    s = readSU("struct raw_sock", a)
+                    yield s
 
 def get_RAW6():
     if (INET_Stuff.Kernel24):
-	# 2.4 - not implemented yet
+        # 2.4 - not implemented yet
         return
 
     elif (symbol_exists("raw_v6_hashinfo")):
@@ -842,22 +844,22 @@ def get_RAW6():
         raw_v6_hashinfo = readSU("struct raw_hashinfo",
                                  sym2addr("raw_v6_hashinfo"))
         table = raw_v6_hashinfo.ht
-	for s in table:
-	    first = s.first
-	    if (first):
-		for a in  sk_for_each(first):
-		    s = readSU("struct inet_sock", a)
-		    yield s
+        for s in table:
+            first = s.first
+            if (first):
+                for a in  sk_for_each(first):
+                    s = readSU("struct inet_sock", a)
+                    yield s
 
     else:
-	# Older 2.6
+        # Older 2.6
         # Unfortunately, the default kernel does not have "raw_v6_htable"
         # definition (it's in ipv6 DLKM...). And we don't have
         # 'struct raw6_sock' either...
         addr = sym2addr("raw_v6_htable")
-	# If addr ==0, there is no v6 support enabled
-	if (addr == 0):
-	    return
+        # If addr ==0, there is no v6 support enabled
+        if (addr == 0):
+            return
         # struct hlist_head raw_v6_htable[RAWV6_HTABLE_SIZE];
         # RAWV6_HTABLE_SIZE = 256, but try to obtain this programmatically
         si = whatis("inet_protos")
@@ -867,14 +869,14 @@ def get_RAW6():
         szhead = struct_size("struct hlist_head")
         for i in range(RAWV6_HTABLE_SIZE):
             s = readSU("struct hlist_head", addr+i*szhead)
-	    first = s.first
-	    if (first):
-		for a in  sk_for_each(first):
+            first = s.first
+            if (first):
+                for a in  sk_for_each(first):
                     # In reality we return 'raw6_sock', but it
                     # has 'inet_sock' as the first field (new 2.6) or
                     # inet_sock similar layout for old 2.6
-		    s = readSU("struct inet_sock", a)
-		    yield s
+                    s = readSU("struct inet_sock", a)
+                    yield s
                     
 # ------------------- AF_UNIX ---------------------------------------
 
@@ -886,22 +888,22 @@ def unix_sock(s):
     ino = 0
     sk_socket = s.socket
     if (sk_socket):
-	ino = sk_socket.Ino
-	
+        ino = sk_socket.Ino
+        
     uaddr = s.Uaddr
 
 
     if (uaddr):
-	try:
-	    path =  uaddr.name.sun_path
-	except crash.error:
-	    path = "!Cannot read memory!"
-	#
-	if (uaddr.hash != INET_Stuff.UNIX_HASH_SIZE):
-	    ulen = uaddr.len - 2
-	    # ABSTRACT
-	    path = '@' + path[1:ulen]
-	    path = path.split('\0')[0]
+        try:
+            path =  uaddr.name.sun_path
+        except crash.error:
+            path = "!Cannot read memory!"
+        #
+        if (uaddr.hash != INET_Stuff.UNIX_HASH_SIZE):
+            ulen = uaddr.len - 2
+            # ABSTRACT
+            path = '@' + path[1:ulen]
+            path = path.split('\0')[0]
     return state, ino, path
 
 
@@ -915,10 +917,10 @@ def get_AF_UNIX():
         for b in unix_socket_table:
             next = b
             while (next):
-		#print hexl(next)
+                #print hexl(next)
                 s = readSU('struct sock', next)
                 next = s.next
-		yield s
+                yield s
     else:
         # New-style AF_UNIX sockets, using hash buckets
         usocks_addrs = []
@@ -929,8 +931,8 @@ def get_AF_UNIX():
             unix_socket_table = readSymbol("unix_socket_table")
         except:
             descr = "struct hlist_head unix_socket_table[257];"
-            print "We don't have symbolic access to unix_socket_table, assuming"
-            print descr
+            print ("We don't have symbolic access to unix_socket_table, assuming")
+            print (descr)
             unix_socket_table = readSymbol("unix_socket_table", descr)
             #return
 
@@ -953,7 +955,7 @@ def get_AF_UNIX():
 def print_accept_queue(pstr):
     accept_queue = pstr.accept_queue
     syn_table = pstr.l_opt.syn_table
-    print "    --- Accept Queue", accept_queue
+    print ("    --- Accept Queue", accept_queue)
     if (accept_queue.hasField("rskq_accept_head")):
         qhead = accept_queue.rskq_accept_head
     else:
@@ -968,11 +970,11 @@ def print_accept_queue(pstr):
                 inet_sock = rq.sk.castTo("struct inet_sock")
                 laddr = inet_sock.rcv_saddr
                 raddr = inet_sock.daddr
-            print '\t  laddr=%s raddr=%s' % (ntodots(laddr), ntodots(raddr))
+            print ('\t  laddr=%s raddr=%s' % (ntodots(laddr), ntodots(raddr)))
     # Now print syn_table. It can be either an explicitly-sized array, e.g.
-    # 	struct open_request	*syn_table[TCP_SYNQ_HSIZE];
+    #   struct open_request     *syn_table[TCP_SYNQ_HSIZE];
     # or zero-sized array with hashsize in nr_table_entries
-    # 	struct open_request	*syn_table[0];
+    #   struct open_request     *syn_table[0];
 
     if (type(syn_table) == type([])):
         entries = len(syn_table)
@@ -983,7 +985,7 @@ def print_accept_queue(pstr):
         for rq in readStructNext(syn_table[i], "dl_next"):
             synq.append(rq)
     if (synq):
-        print "    --- SYN-Queue"
+        print ("    --- SYN-Queue")
         for rq in synq:
             if (rq.hasField("af")):
                 v4_req = rq.af.v4_req
@@ -998,42 +1000,42 @@ def print_accept_queue(pstr):
                 laddr = irq.loc_addr
                 raddr = irq.rmt_addr
             else:
-                print "Don't know how to print synq for this kernel"
-            print '\t  laddr=%-20s raddr=%-20s' % (ntodots(laddr), ntodots(raddr))
+                print ("Don't know how to print synq for this kernel")
+            print ('\t  laddr=%-20s raddr=%-20s' % (ntodots(laddr), ntodots(raddr)))
             
 
 #  Protocol families
 P_FAMILIES_c = '''
-#define	PF_UNSPEC	0	/* Unspecified.  */
-#define	PF_LOCAL	1	/* Local to host (pipes and file-domain).  */
-#define	PF_UNIX		PF_LOCAL /* Old BSD name for PF_LOCAL.  */
-#define	PF_FILE		PF_LOCAL /* Another non-standard name for PF_LOCAL.  */
-#define	PF_INET		2	/* IP protocol family.  */
-#define	PF_AX25		3	/* Amateur Radio AX.25.  */
-#define	PF_IPX		4	/* Novell Internet Protocol.  */
-#define	PF_APPLETALK	5	/* Appletalk DDP.  */
-#define	PF_NETROM	6	/* Amateur radio NetROM.  */
-#define	PF_BRIDGE	7	/* Multiprotocol bridge.  */
-#define	PF_ATMPVC	8	/* ATM PVCs.  */
-#define	PF_X25		9	/* Reserved for X.25 project.  */
-#define	PF_INET6	10	/* IP version 6.  */
-#define	PF_ROSE		11	/* Amateur Radio X.25 PLP.  */
-#define	PF_DECnet	12	/* Reserved for DECnet project.  */
-#define	PF_NETBEUI	13	/* Reserved for 802.2LLC project.  */
-#define	PF_SECURITY	14	/* Security callback pseudo AF.  */
-#define	PF_KEY		15	/* PF_KEY key management API.  */
-#define	PF_NETLINK	16
-#define	PF_ROUTE	PF_NETLINK /* Alias to emulate 4.4BSD.  */
-#define	PF_PACKET	17	/* Packet family.  */
-#define	PF_ASH		18	/* Ash.  */
-#define	PF_ECONET	19	/* Acorn Econet.  */
-#define	PF_ATMSVC	20	/* ATM SVCs.  */
-#define	PF_SNA		22	/* Linux SNA Project */
-#define	PF_IRDA		23	/* IRDA sockets.  */
-#define	PF_PPPOX	24	/* PPPoX sockets.  */
-#define	PF_WANPIPE	25	/* Wanpipe API sockets.  */
-#define	PF_BLUETOOTH	31	/* Bluetooth sockets.  */
-#define	PF_MAX		32	/* For now..  */
+#define PF_UNSPEC       0       /* Unspecified.  */
+#define PF_LOCAL        1       /* Local to host (pipes and file-domain).  */
+#define PF_UNIX         PF_LOCAL /* Old BSD name for PF_LOCAL.  */
+#define PF_FILE         PF_LOCAL /* Another non-standard name for PF_LOCAL.  */
+#define PF_INET         2       /* IP protocol family.  */
+#define PF_AX25         3       /* Amateur Radio AX.25.  */
+#define PF_IPX          4       /* Novell Internet Protocol.  */
+#define PF_APPLETALK    5       /* Appletalk DDP.  */
+#define PF_NETROM       6       /* Amateur radio NetROM.  */
+#define PF_BRIDGE       7       /* Multiprotocol bridge.  */
+#define PF_ATMPVC       8       /* ATM PVCs.  */
+#define PF_X25          9       /* Reserved for X.25 project.  */
+#define PF_INET6        10      /* IP version 6.  */
+#define PF_ROSE         11      /* Amateur Radio X.25 PLP.  */
+#define PF_DECnet       12      /* Reserved for DECnet project.  */
+#define PF_NETBEUI      13      /* Reserved for 802.2LLC project.  */
+#define PF_SECURITY     14      /* Security callback pseudo AF.  */
+#define PF_KEY          15      /* PF_KEY key management API.  */
+#define PF_NETLINK      16
+#define PF_ROUTE        PF_NETLINK /* Alias to emulate 4.4BSD.  */
+#define PF_PACKET       17      /* Packet family.  */
+#define PF_ASH          18      /* Ash.  */
+#define PF_ECONET       19      /* Acorn Econet.  */
+#define PF_ATMSVC       20      /* ATM SVCs.  */
+#define PF_SNA          22      /* Linux SNA Project */
+#define PF_IRDA         23      /* IRDA sockets.  */
+#define PF_PPPOX        24      /* PPPoX sockets.  */
+#define PF_WANPIPE      25      /* Wanpipe API sockets.  */
+#define PF_BLUETOOTH    31      /* Bluetooth sockets.  */
+#define PF_MAX          32      /* For now..  */
 '''
 
 P_FAMILIES = CDefine(P_FAMILIES_c)
@@ -1051,7 +1053,7 @@ enum {
   TCP_CLOSE_WAIT,
   TCP_LAST_ACK,
   TCP_LISTEN,
-  TCP_CLOSING,	 /* now a valid state */
+  TCP_CLOSING,   /* now a valid state */
 
   TCP_MAX_STATES /* Leave at the end! */
 };
@@ -1061,13 +1063,13 @@ tcpState = CEnum(tcp_state_c)
 
 sock_type_c = '''
 enum sock_type {
-	SOCK_STREAM	= 1,
-	SOCK_DGRAM	= 2,
-	SOCK_RAW	= 3,
-	SOCK_RDM	= 4,
-	SOCK_SEQPACKET	= 5,
-	SOCK_DCCP	= 6,
-	SOCK_PACKET	= 10
+        SOCK_STREAM     = 1,
+        SOCK_DGRAM      = 2,
+        SOCK_RAW        = 3,
+        SOCK_RDM        = 4,
+        SOCK_SEQPACKET  = 5,
+        SOCK_DCCP       = 6,
+        SOCK_PACKET     = 10
 };
 '''
 
@@ -1097,55 +1099,55 @@ def protoName(proto):
 __devhdrs = ["dev", "input_dev", "real_dev"]
 def print_skbuff_head(skb, v = 0):
     if (skb.isNamed("struct sk_buff_head")):
-	skb = skb.castTo("struct sk_buff")
-	skblist = readStructNext(skb, "next", inchead = False)
+        skb = skb.castTo("struct sk_buff")
+        skblist = readStructNext(skb, "next", inchead = False)
     else:
-	skblist = readStructNext(skb, "next")
+        skblist = readStructNext(skb, "next")
 
     for skb in skblist:
-	if (v > 0):
-	   print skb, skb.sk
-	# Check for corruption
-	sk = skb.sk
-	family = "n/a"
-	if (sk):
-	    family = sk.family
-		
-	if (family == P_FAMILIES.PF_INET):
-	    isock = IP_sock(sk)
-	    print "\t", isock
+        if (v > 0):
+           print (skb, skb.sk)
+        # Check for corruption
+        sk = skb.sk
+        family = "n/a"
+        if (sk):
+            family = sk.family
+                
+        if (family == P_FAMILIES.PF_INET):
+            isock = IP_sock(sk)
+            print ("\t", isock)
 
-	elif (sk):
-	    print "\tFamily:", family, skb
-	else:
-	    print WARNING, 'sk=NULL'
-	    decode_skbuf(skb, v)
-	devs = [skb.dev]
-	# real_dev and input_dev do not exist anymore on newer kernels
-	try:
-	    inout =  skb.input_dev
-	except KeyError:
-	    input_dev = None
-	devs.append(input_dev)
+        elif (sk):
+            print ("\tFamily:", family, skb)
+        else:
+            print (WARNING, 'sk=NULL')
+            decode_skbuf(skb, v)
+        devs = [skb.dev]
+        # real_dev and input_dev do not exist anymore on newer kernels
+        try:
+            inout =  skb.input_dev
+        except KeyError:
+            input_dev = None
+        devs.append(input_dev)
             
-	try:
-	    real_dev =  skb.real_dev
-	except KeyError:
-	    real_dev = None
-	devs.append(real_dev)
-	print "\t\t",
-	for h, dev in zip(__devhdrs, devs):
-	    if (dev):
-		ndev = dev.name
-	    else:
-		ndev = '0x0'
-	    print "%s=%s " %(h, ndev),
-	print ''
-	
+        try:
+            real_dev =  skb.real_dev
+        except KeyError:
+            real_dev = None
+        devs.append(real_dev)
+        print ("\t\t", end ='')
+        for h, dev in zip(__devhdrs, devs):
+            if (dev):
+                ndev = dev.name
+            else:
+                ndev = '0x0'
+            print ("%s=%s " %(h, ndev), end='')
+        print ('')
+        
 
 # Generate a 1-liner based on L3 header and L4 header.
 # Here protocol is ETH protocol, e.g.
-#define ETH_P_IP	0x0800		/* Internet Protocol packet	*/
+#define ETH_P_IP        0x0800          /* Internet Protocol packet     */
 # and nh and h are addresses of L3 and L4 headers
 ETH_P_IP = 0x0800
 def IP_oneliner(nh, h):
@@ -1155,13 +1157,13 @@ def IP_oneliner(nh, h):
     daddr = iphdr.daddr
     ipversion = iphdr.version
     if (proto == 6):          #TCP
-	tcphdr = readSU("struct tcphdr", h)
-	sport = ntohs(tcphdr.source)
-	dport = ntohs(tcphdr.dest)
-	left = "tcp".ljust(5)
+        tcphdr = readSU("struct tcphdr", h)
+        sport = ntohs(tcphdr.source)
+        dport = ntohs(tcphdr.dest)
+        left = "tcp".ljust(5)
     return left + formatIPv4(saddr, sport) + formatIPv4(daddr, dport)
 
-	
+        
 # Decode and print skbuf as well as we can, taking into account different
 # fields
 def decode_skbuf(addr, v = 0):
@@ -1169,34 +1171,34 @@ def decode_skbuf(addr, v = 0):
     nh = skb.nh.raw
     ETH_protocol = ntohs(skb.protocol)
     if (nh == 0):
-	# Data contains our headers
-	nh = skb.data
-	if (ETH_protocol != ETH_P_IP):
-	   print "Cannot decode protocol=%d" % ETH_protocol
-	   return skb
-	iphdr = readSU("struct iphdr", nh)
-	hlen = 1 << iphdr.ihl
-	h = long(iphdr) + hlen
+        # Data contains our headers
+        nh = skb.data
+        if (ETH_protocol != ETH_P_IP):
+           print ("Cannot decode protocol=%d" % ETH_protocol)
+           return skb
+        iphdr = readSU("struct iphdr", nh)
+        hlen = 1 << iphdr.ihl
+        h = long(iphdr) + hlen
     else:
-	h = skb.h.raw
+        h = skb.h.raw
 
     if (v == 0):
-	# 1-liner
-	print IP_oneliner(nh, h)
-	return skb
+        # 1-liner
+        print (IP_oneliner(nh, h))
+        return skb
     if (v > 1):
-	print " ===== Decoding", skb, "===="
+        print (" ===== Decoding", skb, "====")
  
     iph = decode_IP_header(nh, v)
     # Now check whether we can decode L4
     proto = iph.protocol
     if (h == 0):
-	# Try to decode data
-	print "Need to decode raw L4 data, is not implemented yet"
-	return skb	
+        # Try to decode data
+        print ("Need to decode raw L4 data, is not implemented yet")
+        return skb      
     if (proto == 6):
-	# TCP
-	print decode_TCP_header(h, v)
+        # TCP
+        print (decode_TCP_header(h, v))
     return skb
 
 # Decode and print IP header as received from network
@@ -1209,9 +1211,9 @@ def decode_IP_header(addr, v = 0):
     saddr = ntodots(iphdr.saddr)
     daddr = ntodots(iphdr.daddr)
     proto = iphdr.protocol
-    print "IPv%d" % iphdr.version
-    print "  tos=%d id=%d fl=%d frag=%d ttl=%d proto=%d saddr=%s daddr=%s" %\
-        (iphdr.tos, id, flags, frag_off, iphdr.ttl, proto, saddr, daddr)
+    print ("IPv%d" % iphdr.version)
+    print ("  tos=%d id=%d fl=%d frag=%d ttl=%d proto=%d saddr=%s daddr=%s" %\
+        (iphdr.tos, id, flags, frag_off, iphdr.ttl, proto, saddr, daddr))
     return iphdr
     
 # Decode and print TCP header as received from network
@@ -1223,8 +1225,8 @@ def decode_TCP_header(addr, v = 0):
     if (v < 1):
         return tcpstr
     else:
-	flags = readU8(long(addr) + 12)
-	return tcpstr + "\n" + decode_TCP_flags(flags)
+        flags = readU8(long(addr) + 12)
+        return tcpstr + "\n" + decode_TCP_flags(flags)
 
 __TCP_flags_template = '''
     Flags: 0x%02x (%s)
@@ -1243,19 +1245,19 @@ def decode_TCP_flags(flags):
     fstr = []
     flags_copy = flags
     for i in range(8):
-	f = (flags & 0x1)
-	ind = 2 * (7-i)
-	bits[ind] = f
-	if (f):
-	    fstr.append(__TCP_flags_names[7-i])
-	    bits[ind+1] = "Set"
-	else:
-	    bits[ind+1] = "Not set"
-	flags >>= 1
+        f = (flags & 0x1)
+        ind = 2 * (7-i)
+        bits[ind] = f
+        if (f):
+            fstr.append(__TCP_flags_names[7-i])
+            bits[ind+1] = "Set"
+        else:
+            bits[ind+1] = "Not set"
+        flags >>= 1
     fstr = string.join(fstr, ',')
     args = tuple([flags_copy, fstr] + bits)
     return __TCP_flags_template % args
-	
+        
 
 
 # TCP ca states

@@ -1,6 +1,6 @@
 # module LinuxDump.fs
 #
-# Time-stamp: <11/02/15 14:08:35 alexs>
+# Time-stamp: <12/03/08 16:02:19 alexs>
 #
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -14,6 +14,8 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
+
+from __future__ import print_function
 
 # Vversion number
 __version__ = '0.2'
@@ -69,7 +71,7 @@ def XXXget_pathname(dentry, vfsmnt, root, rootmnt):
             break
 
         if (dentry == vfsmnt.Deref.mnt_root or IS_ROOT(dentry)):
-            print "Traversing mount point"
+            print ("Traversing mount point")
             # Global root?
             if (vfsmnt.Deref.mnt_parent == vfsmnt):
                 # Yes, global root

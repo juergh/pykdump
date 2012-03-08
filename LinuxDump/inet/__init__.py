@@ -5,7 +5,7 @@ __version__ = '0.3'
 
 # Copyright notice string
 __copyright__ = """\
-Copyright (c) 2006-2011 Alex Sidorenko; mailto:asid@lhp.com
+Copyright (c) 2006-2012 Alex Sidorenko; mailto:asid@lhp.com
     See the documentation for further information on copyrights,
     or contact the author. All Rights Reserved.
 """
@@ -36,16 +36,16 @@ def __inet_ntopv6(n4):
     p96 = 0
     for i in range(8):
         v = ord(n4[i*2])*256+ord(n4[i*2+1])
-	if (i <= 5):
-	    p96 = (p96 << 16) + v
-	ni.append(v)
+        if (i <= 5):
+            p96 = (p96 << 16) + v
+        ni.append(v)
         out.append('%x' % v)
 
     if (False and p96 == 0 and ni[7]):
-	# IPv4-Compatible IPv6 Addresses
+        # IPv4-Compatible IPv6 Addresses
         return '::' + socket.inet_ntoa(n4[12:])
     elif (p96 == 0xffff):
-	return '::ffff:' + socket.inet_ntoa(n4[12:])
+        return '::ffff:' + socket.inet_ntoa(n4[12:])
     s = ":".join(out)
     if (s == "0:0:0:0:0:0:0:0"):
         return '::'
@@ -69,8 +69,8 @@ def ntodots6(n4, printzeroes=True):
 
 #static inline int ipv6_addr_v4mapped(const struct in6_addr *a)
 #{
-#	return ((a->s6_addr32[0] | a->s6_addr32[1] |
-#		 (a->s6_addr32[2] ^ htonl(0x0000ffff))) == 0);
+#       return ((a->s6_addr32[0] | a->s6_addr32[1] |
+#                (a->s6_addr32[2] ^ htonl(0x0000ffff))) == 0);
 #}
 
 def ipv6_addr_v4mapped(in6_addr):

@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module pykdump.API
 #
-# Time-stamp: <12/03/07 16:29:03 alexs>
+# Time-stamp: <12/03/08 17:09:48 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -45,6 +45,9 @@ import atexit
 
 # Python2 vs Python3
 _Pym = sys.version_info[0]
+
+if (_Pym > 2):
+    long = int
 
 # It does not make sense to continue if C-module is unavailable
 try:

@@ -711,7 +711,6 @@ py_readPtr(PyObject *self, PyObject *args) {
     mtype = PyInt_AsLong(PyTuple_GetItem(args, 1));
 
   addr = PyLong_AsUnsignedLongLong(arg1);
-
   /* When we see a NULL pointer we raise not a crash-specific
      exception but rather IndexError. This is useful as we often
      need to detect NULL pointers, e.g. the end of list marker

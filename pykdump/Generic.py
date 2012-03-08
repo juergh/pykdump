@@ -2,7 +2,7 @@
 #
 #  Generic classes and subroutines
 #
-# Time-stamp: <12/03/07 16:45:44 alexs>
+# Time-stamp: <12/03/08 12:22:49 alexs>
 #
 
 # Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
@@ -250,13 +250,13 @@ class TypeInfo(object):
             out.append('*' * self.ptrlev)
 
         # Here we will insert the varname
-        pref = string.join(out, '')
+        pref = ''.join(out)
         
         out = []
         if (self.dims != None):
             for i in self.dims:
                 out.append("[%d]" % i)
-        suff = string.join(out, '')
+        suff = ''.join(out)
         return (self.stype, pref,suff)
   
         
@@ -279,7 +279,7 @@ class TypeInfo(object):
                 astype, apref, asuff = ati.fullname()
                 out.append(("%s %s%s" % (astype, apref, asuff)).strip())
             stype = out[0]
-            suff = "(func)(" + string.join(out[1:], ", ") + ")" 
+            suff = "(func)(" + ", ".join(out[1:]) + ")" 
 
         out = "TypeInfo <%s %s%s> size=%d" % (stype, pref, suff, self.size)
         return out
@@ -310,7 +310,7 @@ class EnumInfo(dict):
         out = []
         for n, v in self._Lst:
             out.append("%s = %d" % (n, v))
-        return self.stype + " {" + string.join(out, " ,") +"}"
+        return self.stype + " {" + " ,".join(out) +"}"
     def getnam(self, v1):
         for n,v in self.items():
             if (v == v1):
@@ -403,7 +403,7 @@ class VarInfo(object):
                  astype, apref, asuff = ati.fullname()
                  out.append(("%s %s%s" % (astype, apref, asuff)).strip())
              stype = out[0]
-             suff = "(" + string.join(out[1:], ", ") + ")" 
+             suff = "(" + ", ".join(out[1:]) + ")" 
          out = "%s <%s%s %s%s> addr=0x%x" % (self.__class__.__name__,
                                              stype, pref,
                                              self.name, suff, self.addr)
@@ -517,7 +517,7 @@ class SUInfo(dict):
         for fn, vi in self.PYT_body:
             out.append(vi.fullstr(indent+4))
         out.append(inds+ "}")
-        return string.join(out, "\n")
+        return "\n".join(out)
 
     def __repr__(self):
         return self.fullstr()
@@ -528,7 +528,7 @@ class SUInfo(dict):
         for fn, vi in self.PYT_body:
             out.append("    " + vi.shortstr())
         out.append("}")
-        return string.join(out, "\n")
+        return "\n".join(out)
     # Get field names in the same order as present in struct
     def getFnames(self):
         return [e[0] for e in self.PYT_body]

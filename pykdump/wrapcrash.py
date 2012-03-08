@@ -44,6 +44,8 @@ if (_Pym == 2):
     from Generic import Bunch, TypeInfo, VarInfo, PseudoVarInfo, \
          SUInfo, ArtStructInfo, \
          memoize_cond, CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT
+    def b2str(s): return s
+
 else:
     from io import StringIO
     from .tparser import parseSUDef
@@ -52,7 +54,8 @@ else:
          SUInfo, ArtStructInfo, \
          memoize_cond, CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT
     long = int
-
+    def b2str(s):
+        return  str(s, 'latin1')
 
 hexl = Gen.hexl
 
@@ -205,7 +208,7 @@ def update_SUI(f, e):
         update_TI(ti, ee)
         f1.ti = ti
         f1.bitoffset = ee["bitoffset"]
-        f1.offset = f1.bitoffset/8
+        f1.offset = f1.bitoffset//8
         if ("bitsize" in ee):
             f1.bitsize = ee["bitsize"]
 
@@ -227,7 +230,7 @@ def update_SUI_fromgdb(f, sname):
         e = crash.gdb_typeinfo(e["basetype"])
     update_SUI(f, e)
 
-class subStructResult(type):
+class XXXsubStructResult(type):
     __cache = {}
     def __call__(cls, *args):
         sname = args[0]
@@ -246,11 +249,37 @@ class subStructResult(type):
             ncls.PYT_sinfo = SUInfo(sname)
             ncls.PYT_size = ncls.PYT_sinfo.PYT_size;
 
+        print("ncls=", ncls)
         rc =  ncls.__new__(ncls, *args)
         rc.__init__(*args)
         subStructResult.__cache[sname] = ncls
         return rc
 
+class subStructResult(type):
+    __cache = {}
+    def __call__(cls, *args):
+        sname = args[0]
+        try:
+            ncls = subStructResult.__cache[sname]
+        except KeyError:
+            supername = cls.__name__
+            classname = '%s_%s' % (supername, sname)
+            # Class names cannot contain spaces or -
+            classname = classname.replace(' ', '_').replace('-', '_')
+            #execstr = 'class %s(%s): pass' % (classname, supername)
+            #print '===', execstr
+            #exec(execstr)
+            #ncls = locals()[classname]
+            ncls = type(classname, (StructResult,), {})
+            ncls.PYT_symbol = sname
+            ncls.PYT_sinfo = SUInfo(sname)
+            ncls.PYT_size = ncls.PYT_sinfo.PYT_size;
+
+        #print("ncls=", ncls)
+        rc =  ncls.__new__(ncls, *args)
+        rc.__init__(*args)
+        subStructResult.__cache[sname] = ncls
+        return rc
 
 # ------------Pseudoattributes------------------------------------------------
         
@@ -402,13 +431,38 @@ def pseudoAttrEvaluator(addr, vi, chain):
 
 # ----------------------------------------------------------------------------
 
+
+_testcache = {}
+
 class StructResult(long):
-    __metaclass__ = subStructResult
+#class StructResult(long):
+    #__metaclass__ = subStructResult
     def __new__(cls, sname, addr = 0):
         return long.__new__(cls, addr)
     
-    #def __init__(self, sname, addr = 0):
-    #   pass
+    def __init__(self, sname, addr = 0):
+        # Create a new class and change our instance to point to it
+        try:
+            ncls = _testcache[sname]
+        except:
+            supername = "StructResult"
+            classname = '%s_%s' % (supername, sname)
+            # Class names cannot contain spaces or -
+            classname = classname.replace(' ', '_').replace('-', '_')
+            d = {}
+            d["PYT_symbol"] = sname
+            d["PYT_sinfo"] = SUInfo(sname)
+            d["PYT_size"] = d["PYT_sinfo"].PYT_size
+
+            ncls = type(classname, (StructResult,), {})
+            setattr(ncls, "PYT_symbol", sname)
+            si = SUInfo(sname)
+            setattr(ncls, "PYT_sinfo", si)
+            setattr(ncls, "PYT_size", si.PYT_size)
+            _testcache[sname] = ncls
+        self.__class__ = ncls
+
+
 
     # The next two methods implement pointer arithmetic, i.e.
     # stype *p
@@ -448,7 +502,8 @@ class StructResult(long):
                       (self.PYT_symbol, name)
                 raise KeyError(msg)
 
-        #print fi, fi.offset, fi.reader
+        #print( fi, fi.offset, fi.reader)
+        #print("addr to read: 0x%x" % (long(self) + fi.offset), type(fi.offset))
         return fi.reader(long(self) + fi.offset)
 
     def __eq__(self, cmp):
@@ -512,6 +567,10 @@ class StructResult(long):
         return StructResult(sname, long(self))
 
     Deref = property(getDeref)
+
+# This should work _both_ in Python2 and Python3, see
+# http://mikewatkins.ca/2008/11/29/python-2-and-3-metaclasses/
+#StructResult = subStructResult('StructResult', (object, ), {})
 
 # A factory function for integer readers
 def ti_intReader(ti, bitoffset = None, bitsize = None):
@@ -654,6 +713,7 @@ def suReader(vi):
 def ptrReader(vi, ptrlev):
     # Struct/Union reader
     def ptrSU(addr):
+        #print("ptrSU: 0x%x" % addr, type(addr))
         ptr = readPtr(addr)
         return StructResult(stype, ptr)
     def strPtr(addr):
@@ -808,9 +868,12 @@ class tPtr(long):
     ptype = property(getPtype)
 
 
+# With Python2 readmem() returns 'str', with Python3 'bytes'
+
 class SmartString(str):
     def __new__(cls, s, addr, ptr):
-        return str.__new__(cls, s.split('\0')[0])
+        ss = b2str(s)
+        return str.__new__(cls, ss.split('\0')[0])
     def __init__(self, s, addr, ptr):
         self.addr = addr
         self.ptr = ptr
@@ -928,7 +991,7 @@ def readSUListFromHead(headaddr, listfieldname, mystruct, maxel=_MAXEL,
                      inchead = False):
     msi = getStructInfo(mystruct)
     offset = msi[listfieldname].offset
-    if (type(headaddr) == types.StringType):
+    if (type(headaddr) == type("")):
         headaddr = sym2addr(headaddr) + offset
     out = []
     for p in readList(headaddr, 0, maxel, inchead):
