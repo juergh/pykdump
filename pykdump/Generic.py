@@ -2,7 +2,7 @@
 #
 #  Generic classes and subroutines
 #
-# Time-stamp: <12/03/09 17:35:54 alexs>
+# Time-stamp: <12/03/09 17:59:23 alexs>
 #
 
 # Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
@@ -444,11 +444,12 @@ class VarInfo(object):
 class PseudoVarInfo(VarInfo):
     pass
 
+
 # This is unstubbed struct representation - showing all its fields.
 # Each separate field is represented as SFieldInfo and access to fields
 # is possible both via attibutes and dictionary
 #class SUInfo(dict, metaclass = MemoizeSU):
-class SUInfo(dict):
+class bSUInfo(dict):
     __metaclass__ = MemoizeSU
     __cache = {}
     @classmethod
@@ -560,8 +561,11 @@ class SUInfo(dict):
         
 #         self.PYT_dchains[dstr] = res
 #         return res
-        
 
+if (_Pym < 3):        
+    SUInfo = type('SUInfo', (bSUInfo,), {})
+else:
+    SUInfo = MemoizeSU('SUInfo', (bSUInfo,), {})
 
 class ArtStructInfo(SUInfo):
     def __init__(self, sname):
