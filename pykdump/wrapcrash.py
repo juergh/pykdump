@@ -46,6 +46,7 @@ if (_Pym == 2):
          memoize_cond, CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT
     def b2str(s): return s
 
+    _bjoin = ''
 else:
     from io import StringIO
     from .tparser import parseSUDef
@@ -56,7 +57,7 @@ else:
     long = int
     def b2str(s):
         return  str(s, 'latin1')
-
+    _bjoin = b''
 hexl = Gen.hexl
 
 
@@ -877,7 +878,7 @@ class SmartString(str):
     def __init__(self, s, addr, ptr):
         self.addr = addr
         self.ptr = ptr
-        self.__fullstr = s
+        self.__fullstr = b2str(s)
     def __long__(self):
         return self.ptr
     def __getslice__(  self, i, j):
@@ -975,7 +976,7 @@ def readProcessMem(taskaddr, uvaddr, size):
         out.append(readmem(paddr, cnt, crash.PHYSADDR))
         uvaddr += cnt
         size -= cnt
-    return string.join(out)
+    return _bjoin.join(out)
     
 #          ======== read lists  =========
 

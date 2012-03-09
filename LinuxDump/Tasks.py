@@ -284,8 +284,7 @@ class _TaskTable:
                 except:
                     print (ERROR, "corrupted thread", hexl(t))
 
-        tids = out.keys()
-        tids.sort()    # sort by tids
+        tids = sorted(out.keys())       # sort by tids
         self.tids = out
         self.allthreads = [out[tid] for  tid in tids]
     # Get all tasks
@@ -585,8 +584,7 @@ def tasksSummary():
     print ("       === # of Threads Sorted by CMD+State ===")
     print ("CMD               State                                 Threads")
     print ("--------------- ------------------                      -------")
-    keys = d_counts.keys()
-    keys.sort()
+    keys = sorted(d_counts.keys())
     for k in keys:
         v = d_counts[k]
         comm, state = k

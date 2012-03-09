@@ -1,6 +1,6 @@
 # module LinuxDump.fs.dcache
 #
-# Time-stamp: <11/02/16 09:37:05 alexs>
+# Time-stamp: <12/03/09 12:22:22 alexs>
 #
 # Copyright (C) 2011 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2011 Hewlett-Packard Co., All rights reserved.
@@ -176,9 +176,7 @@ def __print_directory_contents(dentry, v = 0):
     # hidden files
     
         
-    dsorted = [(__ls_sname(get_dentry_name(d)), d) for d in dlist]
-
-    dsorted.sort()
+    dsorted = sorted([(__ls_sname(get_dentry_name(d)), d) for d in dlist])
 
     for n,d in dsorted:
         print_dentry(d, v)

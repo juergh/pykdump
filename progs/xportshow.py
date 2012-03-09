@@ -26,11 +26,14 @@ from LinuxDump.inet.proto import tcpState, sockTypes, \
 from LinuxDump.Tasks import TaskTable
 from LinuxDump.inet import summary
 
-
-
 import string
-from StringIO import StringIO
 
+# Python2 vs Python3
+_Pym = sys.version_info[0]
+if (_Pym < 3):
+    from StringIO import StringIO
+else:
+    from io import StringIO
 
 debug = API_options.debug
 
@@ -526,8 +529,7 @@ def get_net_sysctl():
     from LinuxDump import sysctl
     re_if = re.compile(r'^net\.ipv[46]\.\w+\.(eth\d+)\..*$')
     ctbl = sysctl.getCtlTables()
-    names = ctbl.keys()
-    names.sort()
+    names = sorted(ctbl.keys())
     # Leave only those starting from 'net.'
     names = [n for n in names if n.find("net.") == 0]
     # Create a dictionary of those values that we can use as defaults
@@ -551,8 +553,7 @@ def print_sysctl():
     except crash.error:
         print (WARNING, "cannot get sysctl tables")
         return
-    names = dall.keys()
-    names.sort()
+    names = sorted(dall.keys())
 
     for n in names:
         print (n.ljust(45), dall[n])
@@ -564,8 +565,7 @@ def print_sysctl_nodef():
 
     #pp.pprint(ddef)
     #return
-    names = dall.keys()
-    names.sort()
+    names = sorted(dall.keys())
 
 
     default_vals = default_vals_24

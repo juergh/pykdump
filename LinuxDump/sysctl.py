@@ -1,6 +1,6 @@
 # module LinuxDump.sysctl
 #
-# Time-stamp: <11/04/20 15:37:30 alexs>
+# Time-stamp: <12/03/09 11:33:46 alexs>
 #
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -35,7 +35,7 @@ from pykdump.API import *
 # register_sysctl_table() and can be found from
 #
 # static struct ctl_table_header root_table_header =
-#	{ root_table, LIST_HEAD_INIT(root_table_header.ctl_entry) };
+#       { root_table, LIST_HEAD_INIT(root_table_header.ctl_entry) };
 
 
 # Some kernels have two completely unrelated root_table variables,
@@ -98,7 +98,7 @@ def getCtlTables():
         #print ct, hexl(ctp), ct.Deref.ctl_table.procname
         ctl_table = readSUArray(stype, ctp)
         #print '-' * 70
-	readCtlTable(ctl_table)
+        readCtlTable(ctl_table)
     return __entries
     
 
@@ -112,7 +112,7 @@ def getCtlData(ct):
     if (data == 0):
         return "(?)"
     out = []
-    sz = maxlen/intsize
+    sz = maxlen//intsize
     if (sz == 1):
         return int(readU32(data))
     for i in range(sz):

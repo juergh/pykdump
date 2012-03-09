@@ -1,9 +1,9 @@
 # module LinuxDump.inet.neighbour
 #
-# Time-stamp: <11/10/26 12:29:23 alexs>
+# Time-stamp: <12/03/09 11:25:02 alexs>
 #
-# Copyright (C) 2006-2007 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006-2007 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2006-2012 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2006-2012 Hewlett-Packard Co., All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,6 +14,9 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
+
+
+from __future__ import print_function
 
 __doc__ = '''
 This is a package providing useful tables and functions for neighbouring
@@ -26,17 +29,17 @@ from LinuxDump.inet.netdevice import hwaddr2str, ARP_HW
 from LinuxDump.inet.proto import P_FAMILIES
 
 _NUD_c = '''
-#define NUD_INCOMPLETE	0x01
-#define NUD_REACHABLE	0x02
-#define NUD_STALE	0x04
-#define NUD_DELAY	0x08
-#define NUD_PROBE	0x10
-#define NUD_FAILED	0x20
+#define NUD_INCOMPLETE  0x01
+#define NUD_REACHABLE   0x02
+#define NUD_STALE       0x04
+#define NUD_DELAY       0x08
+#define NUD_PROBE       0x10
+#define NUD_FAILED      0x20
 
 /* Dummy states */
-#define NUD_NOARP	0x40
-#define NUD_PERMANENT	0x80
-#define NUD_NONE	0x00
+#define NUD_NOARP       0x40
+#define NUD_PERMANENT   0x80
+#define NUD_NONE        0x00
 '''
 
 NUD = CDefine(_NUD_c)
@@ -46,7 +49,7 @@ def print_neighbour_info():
     neigh_tables = readSymbol("neigh_tables")
     
     for t in readStructNext(neigh_tables, "next"):
-        print "===",t, P_FAMILIES.value2key(t.family), addr2sym(Addr(t))
+        print ("===",t, P_FAMILIES.value2key(t.family), addr2sym(Addr(t)))
         print_neighbour_table(t)
     
 
@@ -63,8 +66,8 @@ def print_neighbour_table(tbl):
         hashsize = len(hash_buckets)
 
     family = tbl.family
-    print "IP ADDRESS        HW TYPE    HW ADDRESS           DEVICE  STATE"
-    print "----------        -------    ----------           ------  -----"
+    print ("IP ADDRESS        HW TYPE    HW ADDRESS           DEVICE  STATE")
+    print ("----------        -------    ----------           ------  -----")
     for i in range(hashsize):
         b = hash_buckets[i]
         if (b != 0):
@@ -83,9 +86,9 @@ def print_neighbour_table(tbl):
                 dev_addr_len = dev.addr_len
                 ha = s.ha
                 arptype = ARP_HW.value2key(dev_type)[7:]
-                print "%-16s  %-10s %-20s %-7s %s" % \
+                print ("%-16s  %-10s %-20s %-7s %s" % \
                       (ip, arptype, hwaddr2str(ha, dev_addr_len),
-                       dev.name, nud_state)
+                       dev.name, nud_state))
 
     # Now for permanent entries (phash_buckets/pneigh_entry)
     phash_buckets = tbl.phash_buckets
@@ -93,7 +96,7 @@ def print_neighbour_table(tbl):
         nb = len(phash_buckets)
     except TypeError:
         nb = 0xf                        # PNEIGH_HASHMASK
-    # print " ------ Permanent ----------", nb
+    # print (" ------ Permanent ----------", nb)
     printheader = True
     for i in range(nb):
         b = phash_buckets[i]
@@ -112,11 +115,11 @@ def print_neighbour_table(tbl):
                     ip = ntodots6(readSU("struct in6_addr", s.key))
                 else:
                     ip = '???'
-                print "%-16s  %-10s %-20s %-7s %s" % \
+                print ("%-16s  %-10s %-20s %-7s %s" % \
                       (ip, arptype, '',
-                       dev.name, 'PROXY')
+                       dev.name, 'PROXY'))
 
 
-    print ""
+    print ("")
 
 

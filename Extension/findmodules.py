@@ -33,8 +33,7 @@ class customMF(ModuleFinder):
         print "  %-25s %s" % ("Name", "File")
         print "  %-25s %s" % ("----", "----")
         # Print modules found
-        keys = self.modules.keys()
-        keys.sort()
+        keys = sorted(self.modules.keys())
         preflen = len(pylib)
         for key in keys:
             m = self.modules[key]

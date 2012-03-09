@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <12/03/08 17:58:47 alexs>
+  Time-stamp: <12/03/09 13:36:33 alexs>
 
   Copyright (C) 2006-2012 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2012 Hewlett-Packard Co., All rights reserved.
@@ -27,10 +27,6 @@
 
 #include "defs.h"    /* From the crash source top-level directory */
 
-// In the header above, 'FILE *fp' is a file object used by crash.
-// If we want mix our output with crash's output, we need to connect stdout
-// to it.
-// But there is a potential problem - Python now has its own layer of buffering
 
 int debug = 0;
 
@@ -55,6 +51,28 @@ static int py_fclose(FILE *fp) {
 #else
 PyMODINIT_FUNC PyInit_crash(void);
 #endif
+
+// In "defs.h", 'FILE *fp' is a file object used by crash.
+// If we want mix our output with crash's output, we need to connect stdout
+// to it.
+// But there is a potential problem - Python now has its own layer of buffering
+
+// connect sys.stdout to fp
+
+void connect2fp(void) {
+  PyObject *crashfp;
+  PyObject* sys = PyImport_ImportModule("sys");
+
+#if PY_MAJOR_VERSION >= 3
+  crashfp = PyFile_FromFd(fileno(fp), "<crash fp>", "w",
+			  -1, NULL, NULL, NULL, 0);
+#else  
+  crashfp = PyFile_FromFile(fp, "<crash fp>", "w", py_fclose);
+#endif
+  PyObject_SetAttrString(sys, "stdout", crashfp);
+  Py_DECREF(sys);
+  Py_DECREF(crashfp);
+}
 
 void epython_execute_prog(int argc, char *argv[], int quiet);
 
@@ -115,6 +133,7 @@ call_sys_exitepython(void)
                 PyObject *res;
                 Py_INCREF(exitfunc);
                 //PySys_SetObject("exitepython", (PyObject *)NULL);
+		//connect2fp();
                 res = PyEval_CallObject(exitfunc, (PyObject *)NULL);
                 if (res == NULL) {
                         if (!PyErr_ExceptionMatches(PyExc_SystemExit)) {
@@ -435,12 +454,16 @@ const char *find_pyprog(const char *prog) {
 void
 epython_execute_prog(int argc, char *argv[], int quiet) {
   FILE *scriptfp = NULL;
-  PyObject *crashfp;
-  PyObject *sysm;
   //static long TICKSPS;
   //const char *pypath;
   const char *prog;
   char buffer[BUFLEN];
+#if PY_MAJOR_VERSION >= 3
+  wchar_t **argv_copy;
+  wchar_t **argv_copy2;
+  int i;
+#endif
+
 
   if (argc < 1) {
     fprintf(fp, " You need to specify a program file\n");
@@ -460,19 +483,28 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
     }
   }
 
-  sysm = PyImport_ImportModule("sys");
-  
-  // Connect sys.stdout to fp
-#if PY_MAJOR_VERSION >= 3
-  crashfp = PyFile_FromFd(fileno(fp), "<crash fp>", "w",
-			  -1, NULL, NULL, NULL, 0);
-#else  
-  crashfp = PyFile_FromFile(fp, "<crash fp>", "w", py_fclose);
-#endif
+
+
   // We should add handling exceptions here to prevent 'crash' from exiting
   if (argc > 0) {
-    PySys_SetArgvEx(argc, argvType argv, 0);
-    PyModule_AddObject(sysm, "stdout", crashfp);
+#if PY_MAJOR_VERSION < 3    
+    PySys_SetArgvEx(argc, argv, 0);
+#else
+    // We need to convert char **argv -> wchar_t **argv. We'll allocate memory
+    // for that and free it after running our script
+    argv_copy = (wchar_t **)PyMem_Malloc(sizeof(wchar_t*)*argc);
+    /* We need a second copies, as Python might modify the first one. */
+    argv_copy2 = (wchar_t **)PyMem_Malloc(sizeof(wchar_t*)*argc);
+    for (i = 0; i < argc; i++) {
+      argv_copy[i] = _Py_char2wchar(argv[i], NULL);
+      if (!argv_copy[i])
+	return PyErr_NoMemory();
+      argv_copy2[i] = argv_copy[i];
+    }
+    PySys_SetArgvEx(argc, argv_copy, 0);
+#endif
+    // Connect sys.stdout to fp
+    connect2fp();
 
     /* The function will be available only on the 2nd and further invocations
      of epython as it is normally defined in API.py which is not loaded yet */
@@ -503,6 +535,14 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
   if (!quiet)
     call_sys_exitepython();
   fflush(fp);
+#if PY_MAJOR_VERSION > 2
+  // Free memory allocated for wchar copies
+  for (i = 0; i < argc; i++) {
+    PyMem_Free(argv_copy2[i]);
+  }
+  PyMem_Free(argv_copy);
+  PyMem_Free(argv_copy2);
+#endif
 }
 
 void

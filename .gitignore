@@ -6,3 +6,5 @@
 *.a
 *.so
 *~
+__pycache__
+*.out

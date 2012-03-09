@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module LinuxDump.Dev
 #
-# Time-stamp: <12/03/08 16:04:50 alexs>
+# Time-stamp: <12/03/09 12:21:40 alexs>
 #
 # Copyright (C) 2008 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2008 Hewlett-Packard Co., All rights reserved.
@@ -44,8 +44,7 @@ def decode_devt(dev):
 
 class BlkDev(object):
     def __init__(self, major, name, ops, bdevs):
-        minors = [m for m, bds in bdevs]
-        minors.sort()
+        minors = sorted([m for m, bds in bdevs])
         self.major = major
         self.minors = minors
         self.name = name
@@ -135,8 +134,7 @@ def get_blkdevs_v2():
 
 def print_blkdevs(v = 0):
     out, out_bddev = get_blkdevs()
-    majors = out.keys()
-    majors.sort()
+    majors = sorted(out.keys())
     sep = '-' * 70
     if (v):
         print (sep)

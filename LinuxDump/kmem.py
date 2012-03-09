@@ -14,6 +14,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+from __future__ import print_function
+
 __doc__ = '''
 This is the parser for 'kmem' crash command output.
 '''
@@ -113,12 +115,12 @@ def parse_kmemf(text):
 # Format and print info from parsed output
 
 def print_Zone(zone):
-    print "\n   == Zone:%s ==" % zone[1]
-    print ""
-    print "AREA    SIZE  FREE_AREA_STRUCT     BLOCKS  PAGES"
-    print "----    ----  ------------------   ------  -----"
+    print ("\n   == Zone:%s ==" % zone[1])
+    print ("")
+    print ("AREA    SIZE  FREE_AREA_STRUCT     BLOCKS  PAGES")
+    print ("----    ----  ------------------   ------  -----")
     for area, size, f, blocks, pages in zone[2:]:
-	print "%3d %8s  0x%016x    %5d  %5d" % (area, size, f, blocks, pages)
+        print ("%3d %8s  0x%016x    %5d  %5d" % (area, size, f, blocks, pages))
 
 def check_kmemf(nodekmem):
     Normal = nodekmem[1]
@@ -133,7 +135,7 @@ def check_kmemf(nodekmem):
             warn_32k = False
         #print "%2d  %6d %6d" % (area, sizekb, blocks)
 
-    print warn_8k, warn_32k
+    print (warn_8k, warn_32k)
 
 # 'kmem -z' parser
 '''

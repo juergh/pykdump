@@ -144,10 +144,10 @@ class CDefine(dict):
 
 # Parsing simple C struct/union defintions
 def concatNoSpace(s, loc, toks):
-    return string.join(toks, '')
+    return ''.join(toks)
 
 def concatWithSpace(s, loc, toks):
-    return string.join(toks, ' ').strip()
+    return ' '.join(toks).strip()
 
 def replaceFargs(s, loc, toks):
     return '()'
@@ -202,7 +202,7 @@ def parseSUDef(s):
               fn = t[0]
           else:
               out1.append(t)
-          tn = string.join(out1, '')
+          tn = ''.join(out1)
       out.append((tn, fn))
   return (sname, out )
 

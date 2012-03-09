@@ -47,8 +47,7 @@ class pidFiles(object):
     def fileInfo(self, fd):
 	return self.files[fd]
     def printFiles(self):
-	fds = self.files.keys()
-	fds.sort()
+	fds = sorted(self.files.keys())
 	for fd in fds:
 	    print "     %3d" % fd, self.fileInfo(fd)
 	

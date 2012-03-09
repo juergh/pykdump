@@ -50,14 +50,14 @@ class BTStack:
         out = ["\nPID=%d  CPU=%d CMD=%s" % (self.pid, self.cpu, self.cmd)]
         for f in self.frames:
             out.append(str(f))
-        return string.join(out, "\n")
+        return "\n".join(out)
 
     # A simplified repr - just functions on the stack
     def simplerepr(self):
         out =[]
         for f in self.frames:
             out.append(str(f.simplerepr()))
-        return string.join(out, "\n")
+        return "\n".join(out)
 
     # Do we have this function on stack?
     # 'func' is either a string, or compiled regexp
@@ -149,7 +149,7 @@ class BTStack:
         out = []
         for f in self.frames:
             out.append(f.func)
-        return string.join(out,"/")
+        return "/".join(out)
 
     # A full signature - to identify stacks that have the same
     # functions chain and offsets (this usually is seen when many
@@ -158,7 +158,7 @@ class BTStack:
         out = []
         for f in self.frames:
             out.append(repr(f))
-        return string.join(out,"\n")
+        return "\n".join(out)
         
         
 class BTFrame:
@@ -166,7 +166,7 @@ class BTFrame:
         pass
     def __repr__(self):
         if (self.data):
-            datalen = len(string.join(self.data))
+            datalen = len(' '.join(self.data))
             data = ', %d bytes of data' % datalen
         else:
             data = ''
@@ -249,8 +249,7 @@ def bt_summarize(btlist):
         if (not m):
             bt_un.append(e)
 
-    keys = out.keys()
-    keys.sort()
+    keys = sorted(out.keys())
 
     # Group by top, bot
     ctop = cbot = None
@@ -399,17 +398,17 @@ def bt_mergestacks(btlist, precise = False,
             sig =  s.getSimpleSignature()
         smap.setdefault(sig, []).append(i)
 
-    sorted = []
+    lsorted = []
     for k, val in smap.items():
         nel = len(val)
         if (nel < count): continue
-        sorted.append([nel, val])
+        lsorted.append([nel, val])
 
-    sorted.sort()
+    lsorted.sort()
     if (reverse):
-        sorted.reverse()
+        lsorted.reverse()
 
-    for nel, val in sorted:
+    for nel, val in lsorted:
         # Count programs with the same name
         cmds = {}
         sch_young = None
@@ -433,26 +432,26 @@ def bt_mergestacks(btlist, precise = False,
                     pid_young = pid
             cmds[p.cmd] = cmds.setdefault(p.cmd, 0) + 1
         print ("\n------- %d stacks like that: ----------" % nel)
-        cmdnames = cmds.keys()
-        cmdnames.sort()
+        cmdnames = sorted(cmds.keys())
         if (precise):
             print (p)
         else:
             print (p.simplerepr())
         if (tt and sch_young != None and sch_old != None):
             print ("    youngest=%ds(pid=%d), oldest=%ds(pid=%d)" % \
-               (sch_young/1000, pid_young,  sch_old/1000, pid_old))
+               (sch_young//1000, pid_young,  sch_old//1000, pid_old))
         print ("\n   ........................")
         for cmd in cmdnames:
             print ("     %-30s %d times" % (cmd, cmds[cmd]))
         if (verbose):
             # Print PIDs
             pidlist.sort()
-            print ("\n   ... PIDs ...",)
+            print("")
+            print ("   ... PIDs ...", end=' ')
             for i, pid in enumerate(pidlist):
                 if (i%10 == 0):
-                    print ("\n    ",)
-                print (str(pid).rjust(6), end='')
+                    print ("\n    ", end=' ')
+                print (str(pid).rjust(6), end=' ')
             print ("")
 
     

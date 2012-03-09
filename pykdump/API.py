@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module pykdump.API
 #
-# Time-stamp: <12/03/08 17:09:48 alexs>
+# Time-stamp: <12/03/09 13:47:18 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -190,7 +190,7 @@ def __epythonOptions():
 
     if (o.reload):
         purge_memoize_cache(CU_PYMOD)
-        for k, m in sys.modules.items()[:]:
+        for k, m in list(sys.modules.items())[:]:
             if(k.split('.')[0] == 'LinuxDump' and m):
                 del sys.modules[k]
                 print ("--reloading", k)
@@ -271,7 +271,7 @@ def enter_epython():
     #cwd = os.getcwd()
     dumpfile = os.path.abspath(dumpfile)
     text = "%s  (%s)" % (dumpfile, sys_info.RELEASE)
-    lpad = (77-len(text))/2
+    lpad = (77-len(text))//2
     # Print vmcore name/path when not on tty
     if (isfileoutput()):
         print ("\n", 'o' * lpad, text, 'o' * lpad)
@@ -297,7 +297,7 @@ def cleanup():
                                          os.times()[0] - t_start))
     except IOError:
         pass
-
+    sys.stdout.flush()
 
 
     

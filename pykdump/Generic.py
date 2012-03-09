@@ -2,7 +2,7 @@
 #
 #  Generic classes and subroutines
 #
-# Time-stamp: <12/03/08 12:22:49 alexs>
+# Time-stamp: <12/03/09 17:35:54 alexs>
 #
 
 # Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
@@ -28,14 +28,18 @@ import copy
 import types
 from types import *
 
+
+
 # Python2 vs Python3
 _Pym = sys.version_info[0]
 
 if (_Pym < 3):
     from StringIO import StringIO
+    from itertools import izip_longest as zip_longest
 else:
     from io import StringIO
     from functools import reduce
+    from itertools import zip_longest
     long = int
 
 pp = pprint.PrettyPrinter(indent=4)
@@ -443,10 +447,23 @@ class PseudoVarInfo(VarInfo):
 # This is unstubbed struct representation - showing all its fields.
 # Each separate field is represented as SFieldInfo and access to fields
 # is possible both via attibutes and dictionary
+#class SUInfo(dict, metaclass = MemoizeSU):
 class SUInfo(dict):
     __metaclass__ = MemoizeSU
+    __cache = {}
+    @classmethod
+    def dumpcache(cls):
+        pp.pprint(cls.__cache)
+    def X__new__(cls, sname, gdbinit = True):
+        try:
+            rc = cls.__cache[sname]
+            print(" +++Cached:", sname)
+        except KeyError:
+            rc = dict.__new__(cls, {})
+            print(" ---New:", sname, cls)
+            cls.__cache[sname] = rc
+        return rc    
     def __init__(self, sname, gdbinit = True):
-        #print "Creating SUInfo", sname
         #self.parentstype = None
         #dict.__init__(self, {})
 
@@ -611,11 +628,7 @@ def dbits2str(flags, d, offset = 0):
 def print2columns(left,right):
     left = left.split("\n")
     right = right.split("\n")
-    for l, r in map(None, left, right):
-        if (l == None):
-            l = ""
-        if (r == None):
-            r = ""
+    for l, r in zip_longest(left, right, fillvalue= ''):
         print (l.ljust(38), r)
 
 
