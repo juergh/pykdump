@@ -20,22 +20,28 @@ __doc__ = '''
 This is the parser for 'kmem' crash command output.
 '''
 
+import sys
 import re
 try:
     from pyparsing import *
 except ImportError:
     from pykdump.pyparsing import *
 
+_Py3 = (sys.version_info[0] == 3)
 
 
 # NODE N
 # ZONE SkipTo(int) SkipTo(AREA) SkipTo("\n") Group(int + intl + Suppress(hex) + blocks + pages)
 
 def actionToInt(s,l,t):
-    return int(t[0], 0)
+    try:
+        return int(t[0], 0)
+    except ValueError:
+        if (_Py3 and t[0][0] == '0'):
+            return int(t[0], 8)
 
 def actionToHex(s,l,t):
-    return int(t[0], 16)
+    return int(t[0], 16)    
 
 def stripQuotes( s, l, t ):
     return [ t[0].strip('"') ]

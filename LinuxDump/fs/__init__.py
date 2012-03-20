@@ -1,9 +1,9 @@
 # module LinuxDump.fs
 #
-# Time-stamp: <12/03/08 16:02:19 alexs>
+# Time-stamp: <12/03/20 15:13:41 alexs>
 #
-# Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2007-2012 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2007-2012 Hewlett-Packard Co., All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -22,7 +22,7 @@ __version__ = '0.2'
 
 # Copyright notice string
 __copyright__ = """\
-Copyright (c) 2006-2011 Alex Sidorenko; mailto:asid@hp.com
+Copyright (c) 2006-2012 Alex Sidorenko; mailto:asid@hp.com
     See the documentation for further information on copyrights,
     or contact the author. All Rights Reserved.
 """
@@ -89,7 +89,11 @@ def XXXget_pathname(dentry, vfsmnt, root, rootmnt):
 def get_dentry_name(dentry):
     namelen = dentry.d_name.len
     if (namelen):
-        return readmem(dentry.d_name.name, namelen)
+        # PyKdump does not convert it to SmartString automatically
+        # as it is unsigned, 'const unsigned char *name;'
+        addr = int(dentry.d_name.name)
+        return  SmartString(readmem(addr, namelen), addr, None)
+        #return readmem(dentry.d_name.name, namelen)
     else:
         return ""
     

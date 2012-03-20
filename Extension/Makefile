@@ -24,32 +24,47 @@ else
   include crash.mk slocal.mk
 endif
 
+MK = crash.mk slocal.mk
+
 SRCDIR := $(TOPDIR)/Extension
 VPATH := $(SRCDIR)
 
 MIN_PYLIST := $(SRCDIR)/$(MINPYLIB_FILES)
 
+# This is a pure C extension. It can be used with Python2 as it is for testing.
+# This is not so with Python3 - it needs some subroutines from its STDLIB
+# for proper codecs initialization
 EXT_C := pykdump_c.so
-EXT_CPY = mpykdump.so
-EXT_TEST = crashtest.so
 
-.PHONY: clean pycompile distclean README
+# This is C-module with Python STDLIB pieces attached. Suitable for testing
+# using 'import crash' (no pykdump/ yet).
+EXT_C_PY = crashmin.so
+
+# Now, the same but with our main API included - the contentes of pykdump/
+# directory
+EXT_FULLAPI = API.so
+
+# Finally, the complete file suitable for production and distribution
+EXT_FULL = mpykdump.so
+
+.PHONY: clean distclean README
 .DELETE_ON_ERROR:
 
-all: $(EXT_CPY)
+all: $(EXT_FULL)
 
 INCLUDES := -I$(CRASHDIR) $(PYINCLUDE)
-DEFINES = -D$(TARGET)  -DSTATICBUILD -DCRASHVERS=\"$(CRASHVERS)\"
+DEFINES = -D$(TARGET)  -DSTATICBUILD -DCRASHVERS=\"$(CRASHVERS)\" \
+	-DPYSTDLIBDIR=\"$(PYSTDLIBDIR)\"
 DEBUG =  -g
 
 PYCOMPILE = pycompile
 
 vpath %.c ..
 
-%o: %c pykdump.h
+%o: %c pykdump.h  $(PYTHONDIR)/python $(MK)
 	$(CC) -c $(CFLAGS) $(DEFINES) $(INCLUDES) $< -o $@
 
-gdbspec.o: gdbspec.c
+gdbspec.o: gdbspec.c $(PYTHONDIR)/python $(MK)
 	$(CC) -c $(CFLAGS) $(GDBINCL) $(EXTRA) $(PYINCLUDE)  $< -o $@
 
 OBJS :=  epython.o functions.o gdbspec.o pythonrun.o
@@ -60,7 +75,7 @@ ifeq ($(strip $(wildcard $(PYTHONRUN_C))),)
   PYTHONRUN_C := $(PYTHONDIR)/../Python/pythonrun.c
 endif
 
-pythonrun.o: $(PYTHONRUN_C)
+pythonrun.o: $(PYTHONRUN_C) $(MK)
 	sed 's/Py_Exit(int sts)/xPy_Exit(int sts)/' $(PYTHONRUN_C) >pythonrun.c
 	$(CC) -c $(CFLAGS) $(GDBINCL) $(PYINCLUDE)  pythonrun.c -o $@
 	@rm -f pythonrun.c
@@ -71,27 +86,24 @@ $(EXT_C): $(OBJS) $(PYTHONDIR)/python
 
 # A minimal Python library
 PYLIB = pylib.zip
-PYLIBPREF = pylib
+# We put parts of Python Standard Library into this directory. It needs to
+# be added to sys.path in epython
+PYSTDLIBDIR = pylib
 
 # Full library: std Python + Pykdump + LinuxDump + Progs
 PYFULL = pyfull.zip
 PYFULLPATH = $(PWD)/$(PYFULL)
 
-pyparsing.pyo: pyparsing_py$(PYMAJOR).py
-	$(PYTHON) -O -c 'import py_compile;py_compile.compile("$^", "./$@")'
+PYPA = pyparsing_py$(PYMAJOR)
+pyparsing.pyo: $(PYPA).py $(MK)
+	$(PYTHON) -O -c 'import py_compile;py_compile.compile("$(PYPA).py", "./$@")'
 
-OLDPYLIB: $(MIN_PYLIST) pyparsing.pyo $(PYTHONDIR)/python
-	ln -sf  $(STDLIBP) $(PYLIBPREF)
-	rm -f $(PYLIB)
-	+sed -e "s|^|$(PYLIBPREF)/|"  $(MIN_PYLIST) | zip $(PYLIB) -@
-	zip $@ pyparsing.pyo
-	rm -f $(PYLIBPREF)
 
-$(PYLIB): $(MIN_PYLIST) pyparsing.pyo $(PYTHONDIR)/python
-	$(PYTHON) -O makestdlib.py $(STDLIBP) $(PYLIBPREF)  $(MIN_PYLIST)
-	#(cd $(PYLIBPREF); zip -r ../$(PYLIB) .)
-	zip -r $(PYLIB) $(PYLIBPREF)
+$(PYLIB): $(MIN_PYLIST) pyparsing.pyo $(PYTHONDIR)/python $(MK)
+	$(PYTHON) -O makestdlib.py $(STDLIBP) $(PYSTDLIBDIR)  $(MIN_PYLIST)
+	zip -r $(PYLIB) $(PYSTDLIBDIR)
 	zip $@ pyparsing.pyo
+	rm -rf $(PYSTDLIBDIR)
 
 FIND = find $(1) -name \*.pyc -o -type d -not \( -name .svn\* -prune \)
 
@@ -103,44 +115,26 @@ $(PYFULL):  $(PYLIB) $(FULLPROGS) $(PYCOMPILE)
 	cd $(TOPDIR)/progs;  zip  $(PYFULLPATH) $(INITPROG)
 
 
-# Before compiling, remove all .pyc files. This might be needed
-# if we ran as crash as root (then .pyc are owned by root)
-pycompile:
-	find $(TOPDIR)/pykdump -name \*.pyc | xargs rm -f
-	find $(TOPDIR)/LinuxDump -name \*.pyc | xargs rm -f
-	$(PYTHON) $(COMPALL) -f $(TOPDIR)/pykdump
-	$(PYTHON) $(COMPALL) -f $(TOPDIR)/LinuxDump
-
-# API only - no LinuxDump
-pycompapi:
-	find $(TOPDIR)/pykdump -name \*.pyc | xargs rm -f
-	$(PYTHON) $(COMPALL) -f $(TOPDIR)/pykdump
-
-PYAPI = pyapi.zip
-
-$(PYAPI):  $(PYLIB) pycompapi
-	cp $(PYLIB) $(PYAPI)
-	cd $(TOPDIR); $(call FIND, pykdump)  |  zip  $(PWD)/$(PYAPI) -@
-
-APISO = API.so
-
-$(APISO): $(PYAPI)  $(EXT_C)
-	cat  $(EXT_C) $(PYAPI) >$(APISO)
-	zip -A $(APISO)
-	chmod +x $(APISO)
 
 # For testing of crash module only - our API + Python stdlib
-$(EXT_TEST):  $(EXT_C) $(PYLIB)
-	cat  $(EXT_C) $(PYLIB) >$(EXT_TEST)
-	zip -A $(EXT_TEST)
-	chmod +x $(EXT_TEST)
+$(EXT_C_PY):  $(EXT_C) $(PYLIB)
+	cat  $(EXT_C) $(PYLIB) >$(EXT_C_PY)
+	zip -A $(EXT_C_PY)
+	chmod +x $(EXT_C_PY)
 
+$(EXT_FULLAPI):  $(EXT_C_PY)
+	find $(TOPDIR)/pykdump -name \*.pyc | xargs rm -f
+	$(PYTHON) $(COMPALL) -f $(TOPDIR)/pykdump
+	cp $(EXT_C_PY) $(EXT_FULLAPI)
+	cd $(TOPDIR); $(call FIND, pykdump)  |  zip  $(PWD)/$(EXT_FULLAPI) -@
 
-$(EXT_CPY): $(EXT_C) $(PYFULL) README
-	cat  $(EXT_C) $(PYFULL) >$(EXT_CPY)
-	zip -A $(EXT_CPY)
-	zip $(EXT_CPY) README
-	chmod +x $(EXT_CPY)
+$(EXT_FULL): $(EXT_FULLAPI) README
+	find $(TOPDIR)/LinuxDump -name \*.pyc | xargs rm -f
+	$(PYTHON) $(COMPALL) -f $(TOPDIR)/LinuxDump
+	cp $(EXT_FULLAPI) $(EXT_FULL)
+	zip $(EXT_FULL) README
+	cd $(TOPDIR); $(call FIND, LinuxDump)  |  zip  $(PWD)/$(EXT_FULL) -@
+
 
 
 # Create a file with basic info about this build, to be added to mpykdump.so
@@ -150,7 +144,8 @@ README:
 	$(PYTHON) writeREADME.py  "$(CRASHVERS) $(TARGET)" "$(EXT_C)" >README
 
 clean:
-	rm -f $(OBJS) $(EXT_C) $(EXT_CPY) $(PYLIB) $(PYFULL) pyparsing.pyo
+	rm -f $(OBJS) $(EXT_C) $(EXT_C_PY) $(EXT_FULLAPI) \
+		$(PYLIB) $(PYFULL) pyparsing.pyo $(PYLIB)
 
-distclean:
-	rm -f $(OBJS) $(EXT_C) $(EXT_CPY) $(PYLIB) $(PYFULL) pyparsing.pyo *~
+distclean: clean
+	rm -f  pyparsing.pyo *~ *.mk

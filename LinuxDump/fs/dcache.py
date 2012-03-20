@@ -1,9 +1,9 @@
 # module LinuxDump.fs.dcache
 #
-# Time-stamp: <12/03/09 12:22:22 alexs>
+# Time-stamp: <12/03/20 15:00:19 alexs>
 #
-# Copyright (C) 2011 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2011 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2011-2012 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2011-2012 Hewlett-Packard Co., All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,6 +14,8 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
+
+from __future__ import print_function
 
 __doc__ = '''
 This is a package providing  access to dcache. For example, you
@@ -84,7 +86,7 @@ for b in __nblist:
     else:
         b1 = b
     s = 'def S_IS%s(m): return (m & S_IFMT) == S_IF%s' % (b, b1)
-    exec s
+    exec(s)
 
 #           0       1      2      3      4      5      6      7
 __mbits = ['---', '--x', '-w-', '-wx', 'r--', 'r-x', 'rw-', 'rwx']
@@ -106,13 +108,13 @@ def print_dentry(dentry, v = 0, vfsmnt = 0):
         fname = get_dentry_name(dentry)
     if (not inode):
         if (v > 1):
-            print " --", dentry, " (stale)", fname
+            print (" --", dentry, " (stale)", fname)
     else:
         mode = inode.i_mode
         extrasp = ''
         if (v):
-            print " --", dentry, fname
-            print "      ", inode, "  mode=%08o" % mode
+            print (" --", dentry, fname)
+            print ("      ", inode, "  mode=%08o" % mode)
             extrasp = "      "
 
         itype = mode & S_IFMT
@@ -144,11 +146,11 @@ def print_dentry(dentry, v = 0, vfsmnt = 0):
             if (p_g[2] == 'x'): p_g[2] = 's'
             else: p_g[2] = 'S'
 
-        print  extrasp, s_t+string.join(p_u+p_g+p_o,''),\
+        print ( extrasp, s_t+''.join(p_u+p_g+p_o),\
               "%5d %5d" %(inode.i_uid, inode.i_gid),\
               "%10d" % (inode.i_size), \
               __mode_time(inode.i_mtime.tv_sec),\
-              fname
+              fname)
 
 
 def __ls_sname(n):
@@ -170,7 +172,7 @@ def read_dir(dentry):
 
 def __print_directory_contents(dentry, v = 0):
     dlist = read_dir(dentry)
-    print "=== Listing Directory Contents"
+    print ("=== Listing Directory Contents")
     
     # Linux's ls sorts without case sensitivity and skiiping the leading . for
     # hidden files
@@ -223,7 +225,7 @@ def pathname2dentry(pn):
                 break
         if (not found):
             return False
-        print "   found", n
+        print ("   found", n)
     return (d, vfsmnt)
 
 # Analog of 'ls' command. 
@@ -239,11 +241,11 @@ def ls_pathname(pn, v = 0):
     except ValueError:
         dentry, vfsmnt = pathname2dentry(pn)
     if (not dentry):
-        print "Cannot list", pn
+        print ("Cannot list", pn)
         return
     inode = dentry.d_inode
     if (not inode):
-        print "Inode is unavailable"
+        print ("Inode is unavailable")
         return
     # Is this a directory?
 

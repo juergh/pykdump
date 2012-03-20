@@ -1,8 +1,9 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <08/11/10 12:06:10 alexs>
+# Time-stamp: <12/03/20 12:17:33 alexs>
 
 # NFS & RPC  functions
+from __future__ import print_function
 
 from pykdump.API import *
 
@@ -60,4 +61,4 @@ if (sys_info.kernel <= "2.6.12"):
 def print_nfs_inode(inode):
     nfs_inode = container_of(inode, "struct nfs_inode", "vfs_inode")
     flags = nfs_inode.flags
-    print "%s %s" % (str(nfs_inode), dbits2str(flags, NFS_INO, 4))
+    print ("%s %s" % (str(nfs_inode), dbits2str(flags, NFS_INO, 4)))

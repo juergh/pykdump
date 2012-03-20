@@ -1,6 +1,6 @@
 # module LinuxDump.fs.ext3
 #
-# Time-stamp: <12/03/09 11:28:06 alexs>
+# Time-stamp: <12/03/20 12:19:44 alexs>
 #
 # Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
@@ -14,6 +14,8 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
+
+from __future__ import print_function
 
 __doc__ = '''
 This is a package providing  access to EXT3-specific structures.
@@ -165,7 +167,7 @@ def statfs_Ext3(sbaddr):
     es = Deref(sbi.s_es)
     
     if (debug):
-        print sbi, es
+        print (sbi, es)
 
     if (__count_func):
         f_bfree = ext3_count_free_blocks(sb)
@@ -190,7 +192,7 @@ def statfs_Ext3(sbaddr):
     s_r_blocks_count = le32_to_cpu(es.s_r_blocks_count)
     f_blocks = le32_to_cpu(es.s_blocks_count) - overhead
     if (debug):
-        print "blocks_count=%d overhead=%d" %(s_r_blocks_count, overhead)
+        print ("blocks_count=%d overhead=%d" %(s_r_blocks_count, overhead))
 
     block_size = (sbi.s_frag_size * sbi.s_frags_per_block)//1024
     buf.f_bsize = sb.s_blocksize
@@ -271,12 +273,12 @@ def ext3_count_free_inodes(sb):
 def ext3_get_group_desc(sb, block_group):
     sbi = EXT3_SB(sb)
     if (block_group >= sbi.s_groups_count):
-        raise IndexError, "ext3_error"
+        raise IndexError("ext3_error")
 
     group_desc = block_group // EXT3_DESC_PER_BLOCK(sb)
     desc = block_group % EXT3_DESC_PER_BLOCK(sb)
     if (not sbi.s_group_desc[group_desc]):
-        raise IndexError, "ext3_error"
+        raise IndexError("ext3_error")
 
     # struct buffer_head **s_group_desc
     ael = sbi.s_group_desc[group_desc]
@@ -298,21 +300,21 @@ def showExt3():
     for vfsmount, superblk, fstype, devname, mnt in getMount():
         if (fstype != 'ext3' or mnt[:5] == '/dev/'):
             continue
-        print "\n0x%x 0x%x %8s   %s" % (vfsmount, superblk, fstype, mnt)
+        print ("\n0x%x 0x%x %8s   %s" % (vfsmount, superblk, fstype, mnt))
         s = statfs_Ext3(superblk)
-        print "%10d    size of fs in 1KB blocks" % s.f_blocks
-        print "%10d    file system block size" % s.f_bsize
-        print "%10d    free blocks" % s.f_bfree
-        print "%10d    free blocks for non-root" % s.f_bavail
-        print "%10d    inodes" % s.f_files
-        print "%10d    free inodes" % s.f_ffree
+        print ("%10d    size of fs in 1KB blocks" % s.f_blocks)
+        print ("%10d    file system block size" % s.f_bsize)
+        print ("%10d    free blocks" % s.f_bfree)
+        print ("%10d    free blocks for non-root" % s.f_bavail)
+        print ("%10d    inodes" % s.f_files)
+        print ("%10d    free inodes" % s.f_ffree)
 
 # Tests to understand what is the kernel we are running on
 if (not struct_exists("struct ext3_super_block")):
     # Try to load the module and then check for struct again
     loadModule("ext3")
     if (not struct_exists("struct ext3_super_block")):
-        print "Cannot load a debuggable ext3.ko"
+        print ("Cannot load a debuggable ext3.ko")
         sys.exit(1)
 
 if (member_size("struct super_block", "s_fs_info") == -1):
@@ -330,8 +332,8 @@ else:
 
 if (debug):
     if (__v_24):
-        print "Using v2.4 way to compute EXT3 statfs"
+        print ("Using v2.4 way to compute EXT3 statfs")
 
     if (__count_func):
-        print "Using functions to compute EXT3 statfs"
+        print ("Using functions to compute EXT3 statfs")
 

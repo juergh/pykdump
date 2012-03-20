@@ -5,8 +5,8 @@
 # There are several layers of API. Ideally, the end-users should only call
 # high-level functions that do not depend on internal
 
-# Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006-2011 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2006-2012 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2006-2012 Hewlett-Packard Co., All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Pubic License as published by
@@ -435,13 +435,13 @@ def pseudoAttrEvaluator(addr, vi, chain):
 
 _testcache = {}
 
+#class StructResult(long, metaclass = subStructResult):
 class StructResult(long):
-#class StructResult(long):
-    #__metaclass__ = subStructResult
+    __metaclass__ = subStructResult
     def __new__(cls, sname, addr = 0):
         return long.__new__(cls, addr)
     
-    def __init__(self, sname, addr = 0):
+    def X__init__(self, sname, addr = 0):
         # Create a new class and change our instance to point to it
         try:
             ncls = _testcache[sname]
@@ -569,9 +569,10 @@ class StructResult(long):
 
     Deref = property(getDeref)
 
-# This should work _both_ in Python2 and Python3, see
-# http://mikewatkins.ca/2008/11/29/python-2-and-3-metaclasses/
-#StructResult = subStructResult('StructResult', (object, ), {})
+# This adds a metaclass
+if (_Pym == 3):
+    StructResult = subStructResult('StructResult', (StructResult,), {})
+
 
 # A factory function for integer readers
 def ti_intReader(ti, bitoffset = None, bitsize = None):

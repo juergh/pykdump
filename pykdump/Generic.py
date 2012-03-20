@@ -2,7 +2,7 @@
 #
 #  Generic classes and subroutines
 #
-# Time-stamp: <12/03/09 17:59:23 alexs>
+# Time-stamp: <12/03/12 10:34:26 alexs>
 #
 
 # Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
@@ -449,21 +449,8 @@ class PseudoVarInfo(VarInfo):
 # Each separate field is represented as SFieldInfo and access to fields
 # is possible both via attibutes and dictionary
 #class SUInfo(dict, metaclass = MemoizeSU):
-class bSUInfo(dict):
+class SUInfo(dict):
     __metaclass__ = MemoizeSU
-    __cache = {}
-    @classmethod
-    def dumpcache(cls):
-        pp.pprint(cls.__cache)
-    def X__new__(cls, sname, gdbinit = True):
-        try:
-            rc = cls.__cache[sname]
-            print(" +++Cached:", sname)
-        except KeyError:
-            rc = dict.__new__(cls, {})
-            print(" ---New:", sname, cls)
-            cls.__cache[sname] = rc
-        return rc    
     def __init__(self, sname, gdbinit = True):
         #self.parentstype = None
         #dict.__init__(self, {})
@@ -562,10 +549,8 @@ class bSUInfo(dict):
 #         self.PYT_dchains[dstr] = res
 #         return res
 
-if (_Pym < 3):        
-    SUInfo = type('SUInfo', (bSUInfo,), {})
-else:
-    SUInfo = MemoizeSU('SUInfo', (bSUInfo,), {})
+if (_Pym == 3):
+    SUInfo = MemoizeSU('SUInfo', (SUInfo,), {})
 
 class ArtStructInfo(SUInfo):
     def __init__(self, sname):

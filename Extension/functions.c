@@ -885,11 +885,15 @@ py_readmem_task(PyObject *self, PyObject *args) {
 
   PyObject *arg0 = PyTuple_GetItem(args, 0);
 
+#if PY_MAJOR_VERSION < 3  
   if (PyInt_Check(arg0))
       tskaddr = PyInt_AsLong(arg0);
   else
       tskaddr = PyLong_AsUnsignedLongLong(arg0);
-
+#else
+  // Wtih Python3, integers are always long
+  tskaddr = PyLong_AsUnsignedLongLong(arg0);
+#endif
   if (tskaddr) {
     task = task_to_context(tskaddr);
     if (!task) {

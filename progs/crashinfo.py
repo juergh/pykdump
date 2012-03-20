@@ -3,7 +3,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <12/03/09 14:05:39 alexs>
+# Time-stamp: <12/03/20 15:47:47 alexs>
 
 # Copyright (C) 2007-2009 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007-2009 Hewlett-Packard Co., All rights reserved.
@@ -414,7 +414,7 @@ def get_interesting_symbols():
                     'long unsigned int', 'short int', 'short unsigned int'
                     )
                     
-    for k in results.keys():
+    for k in list(results.keys())[:]:
         if (k in not_interested):
             del results[k]
     return results

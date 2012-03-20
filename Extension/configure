@@ -57,22 +57,14 @@ build_one_flavor () {
 	exit 1
     fi    
 
-
-    # If there is a system-wide Python, generate files for shared installation,
-    # even in case if we specify PYTHONDIR.
-
-    export PYTHON=${PYTHON:-python}
-
-    # Test whether a locally-installed python is present
-    if ${PYTHON} -c "import os"; then
-	${PYTHON} pyconf.py --writefiles --crashdir ${CRASHDIR}
-    fi
-    
-    # Now check whether PYTHONDIR is set for a static build
+    # We don't try to build with OS-installed Python anymore,
+    # using Python built from sources is now mandatory
 
     if test "${PYTHONDIR+set}" != set; then
         # Not set, no need to do anything else
-	exit 0
+	echo "You need to build Python from sources, see the documentation."
+	echo "After that you specify the sourcetree location using -p PYTHONTREE"
+	exit 1
     fi
 
     # Python compiled from sources for a static build
@@ -86,10 +78,10 @@ build_one_flavor () {
     fi
 
     if test "${DIR32_64+set}" != set; then
-	${PYTHON} pyconf.py -s --writefiles --crashdir=${CRASHDIR} \
+	${PYTHON} pyconf.py --writefiles --crashdir=${CRASHDIR} \
 	    --pythondir=${PYTHONDIR}
     else
-	${PYTHON} pyconf.py -s --writefiles --crashdir=${CRASHDIR} \
+	${PYTHON} pyconf.py --writefiles --crashdir=${CRASHDIR} \
 	    --pythondir=${PYTHONDIR} --subdirbuild
      fi
 }

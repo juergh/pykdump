@@ -14,6 +14,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+from __future__ import print_function
+
 __doc__ = '''
 This is a module for working with files. Some information is parsed from
 built-in 'files' command and some is extracted directly from structures
@@ -31,32 +33,32 @@ from pykdump.API import *
 
 class pidFiles(object):
     def __init__(self, pid):
-	lines = exec_crash_command("files %d" % pid).splitlines()
-	self.files = {}
-	for l in lines[3:]:
-	    fields = l.split()
-	    if (len(fields) < 5):
-		continue
-	    fields[0] = int(fields[0])
-	    for i in range(1,4):
-		fields[i] = long(fields[i], 16)
-	    if (len(fields) == 5):
-		fields.append("")
-	    fd= int(fields[0])
-	    self.files[fd] = fields[1:]
+        lines = exec_crash_command("files %d" % pid).splitlines()
+        self.files = {}
+        for l in lines[3:]:
+            fields = l.split()
+            if (len(fields) < 5):
+                continue
+            fields[0] = int(fields[0])
+            for i in range(1,4):
+                fields[i] = long(fields[i], 16)
+            if (len(fields) == 5):
+                fields.append("")
+            fd= int(fields[0])
+            self.files[fd] = fields[1:]
     def fileInfo(self, fd):
-	return self.files[fd]
+        return self.files[fd]
     def printFiles(self):
-	fds = sorted(self.files.keys())
-	for fd in fds:
-	    print "     %3d" % fd, self.fileInfo(fd)
-	
+        fds = sorted(self.files.keys())
+        for fd in fds:
+            print ("     %3d" % fd, self.fileInfo(fd))
+        
 
 def filesR(ref):
     rc = exec_crash_command("foreach files -R 0x%x" % long(ref))
     out = []
     for l in rc.splitlines():
-	ff = l.split()
-	if (ff and ff[0] == "PID:"):
-	    out.append(int(ff[1]))
+        ff = l.split()
+        if (ff and ff[0] == "PID:"):
+            out.append(int(ff[1]))
     return out

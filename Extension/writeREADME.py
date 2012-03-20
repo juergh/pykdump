@@ -4,23 +4,26 @@
 
 # Write README file to be added to ZIP-archive
 
-# To facilitate migration to Python-3, we start from using future statements/builtins
+# To facilitate migration to Python-3, we start from using
+# future statements/builtins
 from __future__ import print_function
 
 import sys
 import os
 import re
+import time
+import platform
 
 sys.path.append("../progs")
 sys.path.append("../../progs")
 
-# We expect that 2 args are passed to thos program:
+# We expect that 2 args are passed to this program:
 # arg1 - crash version
 # arg2 - C-module name (to get embedded version)
 
 def c_vers(fn):
-    fd = open(fn, "r")
-    l = ""
+    fd = open(fn, "rb")
+    l = b""
 
     while(True):
         nl = fd.read(256)
@@ -28,7 +31,7 @@ def c_vers(fn):
             # Cannot find ID
             c_id = None
             break
-        m = re.search(r"(@\(#\)pycrash [0-9.]+)\0", l+nl)
+        m = re.search(b"(@\(#\)pycrash [0-9.]+)\0", l+nl)
         if (m):
             c_id = m.group(1)[12:]
             break
@@ -38,10 +41,26 @@ def c_vers(fn):
         print ("Cannot locate the version of C-module")
         sys.exit(0)
     else:
+        if (sys.version_info[0] == 3):
+            c_id =  str(c_id, 'latin1')
         return c_id
 
+# Get GLIBC version from 'ldd --version' output
+def get_glibc():
+    fd = os.popen("ldd --version", "r")
+    l = fd.readline()
+    glib = l.split()[-1]
+    fd.read()                           # To prevent EPIPE
+    fd.close()
+    return glib
+
 print("   === Information About This Archive === ")
-print(" This build is based on crash-%s" % sys.argv[1])
+print("")
+print(" Created on", time.asctime())
+print(" GLIBC:", get_glibc())
+pi = sys.version_info
+print(" Python: %d.%d.%d" % (pi[0], pi[1], pi[2]))
+print(" The build is based on crash-%s" % sys.argv[1])
 print(" C-bindings version %s" % c_vers(sys.argv[2]))
 
 print("\n   --- Programs Included ------")
@@ -50,6 +69,6 @@ __commands = ["xportshow", "crashinfo", "taskinfo"]
 
 for c in __commands:
     try:
-        exec "import " + c
+        exec ("import " + c)
     except ImportError as e:
         print (e)

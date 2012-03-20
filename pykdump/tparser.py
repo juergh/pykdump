@@ -34,6 +34,12 @@ from .Generic import hexl, Bunch
 
 FieldInfo = Bunch
 
+_Py3 = (sys.version_info[0] == 3)
+
+# int(a, 0) does not work in the same way in Python 3 as in Python 2
+# Namely, if we have a leading zero not followed by radix specifier,
+# int(a, 0) raises Value error
+
 import pyparsing as pyp
 from pyparsing import *
 
@@ -41,7 +47,11 @@ from pyparsing import *
 
 
 def actionToInt(s,l,t):
-    return int(t[0], 0)
+    try:
+        return int(t[0], 0)
+    except ValueError:
+        if (_Py3 and t[0][0] == '0'):
+            return int(t[0], 8)
 
 def actionToHex(s,l,t):
     return int(t[0], 16)

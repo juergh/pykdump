@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <12/03/09 13:36:33 alexs>
+  Time-stamp: <12/03/20 14:10:51 alexs>
 
   Copyright (C) 2006-2012 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2012 Hewlett-Packard Co., All rights reserved.
@@ -254,7 +254,8 @@ void _init(void)  {
     strcat(buffer, ext_filename);
     strcat(buffer, ":");
     strcat(buffer, ext_filename);
-    strcat(buffer, "/pylib");
+    strcat(buffer, "/");
+    strcat(buffer, PYSTDLIBDIR);
     mbstowcs(wbuffer, buffer, BUFLEN);
 #if PY_MAJOR_VERSION >= 3
     PyImport_AppendInittab("crash", PyInit_crash);
@@ -498,7 +499,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
     for (i = 0; i < argc; i++) {
       argv_copy[i] = _Py_char2wchar(argv[i], NULL);
       if (!argv_copy[i])
-	return PyErr_NoMemory();
+	PyErr_NoMemory();
       argv_copy2[i] = argv_copy[i];
     }
     PySys_SetArgvEx(argc, argv_copy, 0);

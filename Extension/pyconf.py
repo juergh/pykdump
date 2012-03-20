@@ -12,14 +12,12 @@ from distutils.core import setup, Extension
 from distutils.sysconfig import *
 
 debug = False
-staticbuild = False
-sourcetree = False
 
 opts, args = getopt.getopt(sys.argv[1:],
                            'ds',
-                           ['sourcetree', 'writefiles',
+                           ['writefiles',
                             'crashdir=', "pythondir=",
-                            'static', 'cc', 'cflags', 'includes',
+                            'cc', 'cflags', 'includes',
                             'linkflags', 'libs', 'srcdir', 'stdlib',
                             'compileall', 'pyvers', 'subdirbuild']
                            )
@@ -27,10 +25,6 @@ opts, args = getopt.getopt(sys.argv[1:],
 for o, a in opts:
     if (o == '-d'):
         debug = True
-    elif (o == '--static'):
-        staticbuild = True
-    elif (o == '-s'):
-        sourcetree = True
 
 # Python version (major), e.g. 2.5 for 2.5.2
 pv = sys.version_info
@@ -72,33 +66,19 @@ if (debug):
 
 srcdir = ''
 
-if (sourcetree):
-    # We did not run 'make install' and are using the sourcetree
-    sourcetree = os.path.dirname(get_makefile_filename())
-    if (debug):
-        print(" *** Source-tree Python at %s ***" % sourcetree)
+# We did not run 'make install' and are using the sourcetree
+sourcetree = os.path.dirname(get_makefile_filename())
+if (debug):
+    print(" *** Source-tree Python at %s ***" % sourcetree)
 
-    # We need the directory where pyconfig.h is located
-    inc1 = get_python_inc()
-    inc2 = os.path.dirname(config_h)
-    srcdir = os.path.dirname(inc1)
-    includes = "-I%s -I%s" % (inc1, inc2)
+# We need the directory where pyconfig.h is located
+inc1 = get_python_inc()
+inc2 = os.path.dirname(config_h)
+srcdir = os.path.dirname(inc1)
+includes = "-I%s -I%s" % (inc1, inc2)
 
-    # At this moment this works with static build only
-    pylib =  os.path.join(sourcetree, get_config_var('LIBRARY'))
-else:
-    # A properly-installed Python
-    if (debug):
-        print(" *** A Properly Installed Python ***")
-    includes = "-I%s" % get_python_inc()
-
-    if (staticbuild):
-        # A library for static build
-        pylib = os.path.join(get_config_var('LIBPL'),
-                             get_config_var('LIBRARY'))
-    else:
-        # A library for dynamic build
-        pylib =  get_config_var('BLDLIBRARY')
+# At this moment this works with static build only
+pylib =  os.path.join(sourcetree, get_config_var('LIBRARY'))
 
 
 linkflags = " ".join((
@@ -174,13 +154,8 @@ if (not writefiles):
     sys.exit(0)
 
 
-# Here we start writing the configuration files
-if (sourcetree):
-    btype = "static"
-else:
-    btype = "dynamic"
     
-print("\n *** Creating configuration files for a %s build ***" %btype)
+print("\n *** Creating configuration files ***")
 
 cmk="crash.mk"
 lmk="local.mk"
@@ -246,16 +221,11 @@ fd.close()
 # ---------- Python mk parts------------------------------------------------
 # 
 ol = []
-if (sourcetree):
-    fd = open(slmk, "w+")
-    ol.append("# Configuration options for static-build")
-    ol.append("PYTHONDIR := %s" % pythondir)
-    ol.append("PYTHON := env LD_LIBRARY_PATH=%s %s/python" %\
-              (pythondir, pythondir))
-else:
-    fd = open(lmk, "w+")
-    ol.append("# Configuration options for local build")
-    ol.append("PYTHON := %s"% os.environ["PYTHON"])
+fd = open(slmk, "w+")
+ol.append("# Configuration options for static-build")
+ol.append("PYTHONDIR := %s" % pythondir)
+ol.append("PYTHON := env LD_LIBRARY_PATH=%s %s/python" %\
+          (pythondir, pythondir))
 
 # Common stuff both for local and slocal
 ol.append("PYINCLUDE := %s" % includes)
@@ -266,14 +236,12 @@ ol.append("LINKFLAGS := %s" % linkflags)
 ol.append("TOPDIR := %s" % topdir)
 ol.append("PYMAJOR := %s" % pymajor)
 
-# Extras for static build
-if (sourcetree):
-    ol.append("STDLIBP :=  %s" % stdlib)
-    if (pymajor == 3):
-        ol.append("COMPALL :=  %s -b" % compileall)
-    else:
-        ol.append("COMPALL :=  %s" % compileall)
-    ol.append("MINPYLIB_FILES := minpylib-%s.lst" % pyvers)
+ol.append("STDLIBP :=  %s" % stdlib)
+if (pymajor == 3):
+    ol.append("COMPALL :=  %s -b" % compileall)
+else:
+    ol.append("COMPALL :=  %s" % compileall)
+ol.append("MINPYLIB_FILES := minpylib-%s.lst" % pyvers)
 
 fd.write("\n".join(ol))
 fd.write("\n")

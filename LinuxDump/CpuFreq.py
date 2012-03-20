@@ -15,6 +15,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+from __future__ import print_function
+
 __doc__ = '''
 This is a package providing generic access to cpufreq
 structures.
@@ -56,6 +58,6 @@ def print_cpufreq():
     for p in cpufreq_cpu_data:
         if (not p.governor):
             continue
-	print "  CPU=%d" % p.cpu, p, p.governor.name
-	print "      Frequencies: min=%d max=%d cur=%d" % \
-	    (p.min, p.max, p.cur)
+        print ("  CPU=%d" % p.cpu, p, p.governor.name)
+        print ("      Frequencies: min=%d max=%d cur=%d" % \
+            (p.min, p.max, p.cur))
