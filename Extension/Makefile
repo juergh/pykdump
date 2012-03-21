@@ -90,10 +90,6 @@ PYLIB = pylib.zip
 # be added to sys.path in epython
 PYSTDLIBDIR = pylib
 
-# Full library: std Python + Pykdump + LinuxDump + Progs
-PYFULL = pyfull.zip
-PYFULLPATH = $(PWD)/$(PYFULL)
-
 PYPA = pyparsing_py$(PYMAJOR)
 pyparsing.pyo: $(PYPA).py $(MK)
 	$(PYTHON) -O -c 'import py_compile;py_compile.compile("$(PYPA).py", "./$@")'
@@ -106,14 +102,6 @@ $(PYLIB): $(MIN_PYLIST) pyparsing.pyo $(PYTHONDIR)/python $(MK)
 	rm -rf $(PYSTDLIBDIR)
 
 FIND = find $(1) -name \*.pyc -o -type d -not \( -name .svn\* -prune \)
-
-$(PYFULL):  $(PYLIB) $(FULLPROGS) $(PYCOMPILE)
-	cp $(PYLIB) $(PYFULL)
-	cd $(TOPDIR); $(call FIND, pykdump)  |  zip  $(PYFULLPATH) -@
-	cd $(TOPDIR); $(call FIND, LinuxDump)  |  zip $(PYFULLPATH) -@
-	cd $(TOPDIR); zip  $(PYFULLPATH) $(ZIPPROGS)
-	cd $(TOPDIR)/progs;  zip  $(PYFULLPATH) $(INITPROG)
-
 
 
 # For testing of crash module only - our API + Python stdlib
@@ -128,12 +116,17 @@ $(EXT_FULLAPI):  $(EXT_C_PY)
 	cp $(EXT_C_PY) $(EXT_FULLAPI)
 	cd $(TOPDIR); $(call FIND, pykdump)  |  zip  $(PWD)/$(EXT_FULLAPI) -@
 
+EXT_FULL_PATH = $(PWD)/$(EXT_FULL) 
+
 $(EXT_FULL): $(EXT_FULLAPI) README
 	find $(TOPDIR)/LinuxDump -name \*.pyc | xargs rm -f
 	$(PYTHON) $(COMPALL) -f $(TOPDIR)/LinuxDump
 	cp $(EXT_FULLAPI) $(EXT_FULL)
 	zip $(EXT_FULL) README
-	cd $(TOPDIR); $(call FIND, LinuxDump)  |  zip  $(PWD)/$(EXT_FULL) -@
+	cd $(TOPDIR); $(call FIND, LinuxDump)  |  zip  $(EXT_FULL_PATH) -@
+	cd $(TOPDIR); zip  $(EXT_FULL_PATH) $(ZIPPROGS)
+	cd $(TOPDIR)/progs;  zip  $(EXT_FULL_PATH) $(INITPROG)
+
 
 
 
@@ -144,8 +137,8 @@ README:
 	$(PYTHON) writeREADME.py  "$(CRASHVERS) $(TARGET)" "$(EXT_C)" >README
 
 clean:
-	rm -f $(OBJS) $(EXT_C) $(EXT_C_PY) $(EXT_FULLAPI) \
-		$(PYLIB) $(PYFULL) pyparsing.pyo $(PYLIB)
+	rm -f $(OBJS) $(EXT_C) $(EXT_C_PY) $(EXT_FULLAPI) $(EXT_FULL) \
+		$(PYLIB) pyparsing.pyo $(PYLIB)
 
 distclean: clean
 	rm -f  pyparsing.pyo *~ *.mk

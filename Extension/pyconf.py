@@ -12,6 +12,11 @@ from distutils.core import setup, Extension
 from distutils.sysconfig import *
 
 debug = False
+crashdir = None
+writefiles = False
+subdirbuild = False
+
+topdir = os.path.abspath(os.getcwd()+"/..") # Top dir of PyKdump
 
 opts, args = getopt.getopt(sys.argv[1:],
                            'ds',
@@ -22,15 +27,32 @@ opts, args = getopt.getopt(sys.argv[1:],
                             'compileall', 'pyvers', 'subdirbuild']
                            )
 
+# Process the options that set values, other will be processed later
 for o, a in opts:
     if (o == '-d'):
         debug = True
+    elif (o == '--pythondir'):
+        pythondir = os.path.realpath(a)
+    elif (o == '--writefiles'):
+        writefiles = True
+    elif (o == '--subdirbuild'):
+        subdirbuild = True
+        
+pythontopdir = pythondir        
 
+# Modify directories for subdir build of Python
+if (subdirbuild):
+    topdir = os.path.abspath(topdir + "/..")
+    pythontopdir = os.path.abspath(pythontopdir + "/..")
+
+stdlib = os.path.join(pythontopdir, 'Lib')
+compileall = os.path.join(stdlib, "compileall.py")
+        
 # Python version (major), e.g. 2.5 for 2.5.2
 pv = sys.version_info
 pyvers = "%d.%d" % (pv[0], pv[1])
 pymajor = pv[0]
-pythondir = os.path.realpath(a)
+
 
 import pprint
 #pprint.pprint(get_config_vars())
@@ -42,20 +64,7 @@ syslibs = get_config_var('SYSLIBS')
 cc = get_config_var('CC')
 cflags = get_config_var('CFLAGS')
 ldflags = get_config_var('LINKFORSHARED')
-# This is where local (not system-wide!) Python library is installed
-#   Depending on Python version/distribution, this can be one of the following:
-# 'LIBP', 'LIBDEST', 'DESTLIB'
-stdlib = get_config_var('LIBP')
-if (not stdlib):
-    stdlib = get_config_var('LIBDEST')
-stdlib = os.path.join(pythondir, 'Lib')
-compileall = os.path.join(stdlib, "compileall.py")
-# Strip2 levels
-#for i in range(2):
-#    stdlib = os.path.split(stdlib)[0]
 
-#for k,v in get_config_vars().items():
-#   print k, v
 
 # If compiler is not installed (i.e. compiled but no 'make install'),
 # we have config_h equal to './pyconfig.h'
@@ -103,6 +112,8 @@ if (debug):
     print("\t --------------------")
     print("\t LINLKFLAGS=%s" % linkflags)
     print("\t LIBS=%s" % libs)
+    print("\t PYTHONDIR=%s" % pythondir)
+    print("\t STDLIBP=%s" % stdlib)
 
 
     print("\n")
@@ -115,10 +126,6 @@ if (debug):
     print(get_config_var('LIBRARY'))
     print(get_config_var('LIBS'))
 
-crashdir = None
-writefiles = False
-
-topdir = os.path.abspath(os.getcwd()+"/..") # Top dir of PyKdump
 
 
 for o, a in opts:
@@ -142,12 +149,7 @@ for o, a in opts:
         print(pyvers)
     elif (o == '--crashdir'):
         crashdir = os.path.realpath(a)
-    elif (o == '--pythondir'):
-        pythondir = os.path.realpath(a)
-    elif (o == '--writefiles'):
-        writefiles = True
-    elif (o == '--subdirbuild'):
-        topdir = os.path.abspath(os.getcwd()+"/../..")
+
         
 
 if (not writefiles):
