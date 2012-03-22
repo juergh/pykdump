@@ -120,7 +120,8 @@ do
     mkdir $t
   fi
   cd $t
-  ln -sf ../pyconf.py ../writeREADME.py ../minpylib* ../Makefile .
+  ln -sf ../pyconf.py ../writeREADME.py ../minpylib* ../Makefile \
+	../makestdlib.py ../pyparsing*py .
   
   build_one_flavor
 
