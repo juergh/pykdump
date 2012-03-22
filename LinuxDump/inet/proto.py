@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # module LinuxDump.inet.proto
-# Time-stamp: <12/03/08 16:33:35 alexs>
+# Time-stamp: <12/03/22 12:58:44 alexs>
 
 #
 # Copyright (C) 2006-2012 Alex Sidorenko <asid@hp.com>
@@ -795,7 +795,6 @@ def get_UDP():
             if (udptable.hasField("mask")):
                 sz = udptable.mask + 1
                 udphash = iterN(udphash, sz)
-
 
         for s in udphash:
             try:

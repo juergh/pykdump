@@ -1,6 +1,6 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <12/03/08 16:06:03 alexs>
+# Time-stamp: <12/03/22 17:46:19 alexs>
 
 # Per-cpu functions
 
@@ -81,8 +81,10 @@ def get_percpu_ptr_26_dynamic(ptr, cpu):
     addr = long(ptr) + per_cpu_offsets[cpu]
     if (isinstance(ptr, pykdump.wrapcrash.StructResult)):
         optr = readSU(ptr.PYT_symbol, addr)
-    else:
+    elif (isinstance(ptr, tPtr)):
         optr = tPtr(addr, ptr.ptype)
+    else:
+        return addr
     return optr
 
 

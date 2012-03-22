@@ -1,6 +1,6 @@
 # module LinuxDump.inet.snmpstats
 #
-# Time-stamp: <12/03/09 12:29:18 alexs>
+# Time-stamp: <12/03/22 17:46:47 alexs>
 #
 # Copyright (C) 2007-2012 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007-2012 Hewlett-Packard Co., All rights reserved.
@@ -101,26 +101,57 @@ def __getSnmpTable_26(tname):
     out = []
     if (not symbol_exists(snmpname)):
         return None
+    #print("++", snmpname)
     for sn in readSymbol(snmpname):
         entry = sn.entry
         if (entry == 0): break
         f = sn.name
         sum = __getSnmpEntry(table, entry)
+        # MaxConn field is signed, RFC 2012
+        if (f == 'MaxConn'):
+            sum = sLong(sum)
         out.append((f, sum))
     return out
 
 
+# unsigned long snmp_fold_field(void __percpu *mib[], int offt)
+# {
+# 	unsigned long res = 0;
+# 	int i;
+
+# 	for_each_possible_cpu(i) {
+# 		res += *(((unsigned long *) per_cpu_ptr(mib[0], i)) + offt);
+# 		res += *(((unsigned long *) per_cpu_ptr(mib[1], i)) + offt);
+# 	}
+# 	return res;
+# }
+
+def X__getSnmpEntry(mib2, entry):
+    sum = 0
+    #print("mib2 {0x%x, 0x%x}" % (mib2[0], mib2[1]))
+    for cpu in range(__cpus):
+        mib0 = (percpu.percpu_ptr(long(mib2[0]), cpu))
+        mib1 = (percpu.percpu_ptr(long(mib2[1]), cpu))
+        #print("mib0=0x%x, entry=0x%x" % (mib0, entry))
+        #print("mib1=0x%x, entry=0x%x" % (mib1, entry))
+        v0 = readULong(mib0 + 8*entry)
+        v1 = readULong(mib1 + 8*entry)
+        #print("  entry=%d cpu=%d v0=%d v1=%d" % (entry, cpu, v0, v1))
+        sum += v0 + v1
+    #print ("++++sum=%d" %sum)
+    return sum & LONG_MASK
         
 def __getSnmpEntry(mib2, entry):
     sum = 0
+    #print("mib2 {0x%x, 0x%x}" % (mib2[0], mib2[1]))
     for cpu in range(__cpus):
         mib0 = Deref(percpu.percpu_ptr(mib2[0], cpu))
         mib1 = Deref(percpu.percpu_ptr(mib2[1], cpu))
-        #print mib0
+        #print (type(mib0), mib0)
         v0 = mib0.mibs[entry]
         v1 = mib1.mibs[entry]
-        sum += (sLong(v0) + sLong(v1))
-    return sum
+        sum += (uLong(v0) + uLong(v1))
+    return sum & LONG_MASK
 
 # on 2.4 kernels SNMP-name isjust the fieldname in the struct, e.g.
 #

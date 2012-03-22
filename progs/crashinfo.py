@@ -3,10 +3,10 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <12/03/20 15:47:47 alexs>
+# Time-stamp: <12/03/22 11:45:31 alexs>
 
-# Copyright (C) 2007-2009 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2007-2009 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2007-2012 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2007-2012 Hewlett-Packard Co., All rights reserved.
 
 
 # To facilitate migration to Python-3, we start from using future statements/builtins
@@ -482,7 +482,12 @@ def get_important():
         
     print (' -- Non-empty wait_queue_head --')
     for n in results["wait_queue_head_t"]:
-        text = exec_crash_command("waitq %s" % n).strip()
+        # For some strange reasons, crash does not work properly for
+        # some empty queues, e.g. 'waitq acpi_bus_event_queue'
+        try:
+            text = exec_crash_command("waitq %s" % n).strip()
+        except crash.error:
+            continue
         if (not re.match(r'^.*is empty$', text)):
             print ("    ", n)
             for l in text.splitlines():

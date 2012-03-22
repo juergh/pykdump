@@ -2,7 +2,7 @@
 #
 #  Generic classes and subroutines
 #
-# Time-stamp: <12/03/12 10:34:26 alexs>
+# Time-stamp: <12/03/22 12:54:11 alexs>
 #
 
 # Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
@@ -197,7 +197,7 @@ def purge_memoize_cache(flags):
 def iterN(seq, N):
     it = iter(seq)
     for i in range(N):
-        yield it.next()
+        yield next(it)
     return
 
 

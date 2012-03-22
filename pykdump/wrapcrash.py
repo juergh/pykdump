@@ -509,6 +509,10 @@ class StructResult(long):
 
     def __eq__(self, cmp):
         return (long(self) == cmp)
+    # In Python 3, object with __eq__ but without explicit __hash__ method
+    # are unhashable!
+    def __hash__(self):
+        return (long(self))
     def __str__(self):
         return "<%s 0x%x>" % \
                (self.PYT_symbol, long(self))

@@ -203,6 +203,7 @@ class Task:
                     #print FD_ISSET(i, fileparray)
                     if (short):
                         out.append(filep)
+                        continue
 
                     sfile = readSU("struct file", filep)
                     # On 2.6.20 f_dentry is really f_path.dentry
