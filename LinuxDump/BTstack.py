@@ -438,8 +438,9 @@ def bt_mergestacks(btlist, precise = False,
         else:
             print (p.simplerepr())
         if (tt and sch_young != None and sch_old != None):
+            # Time values are in ms and have float type
             print ("    youngest=%ds(pid=%d), oldest=%ds(pid=%d)" % \
-               (sch_young//1000, pid_young,  sch_old//1000, pid_old))
+               (sch_young/1000, pid_young,  sch_old/1000, pid_old))
         print ("\n   ........................")
         for cmd in cmdnames:
             print ("     %-30s %d times" % (cmd, cmds[cmd]))
