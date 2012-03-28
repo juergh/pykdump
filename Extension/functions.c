@@ -736,20 +736,28 @@ py_addr2sym(PyObject *self, PyObject *args) {
   // char *symbol;
   unsigned long addr;
   ulong offset;
+  int loose_match = 0;
 
   struct syment *se;
      
-  if (!PyArg_ParseTuple(args, "k", &addr)) {
+  if (!PyArg_ParseTuple(args, "k|i", &addr,&loose_match)) {
     PyErr_SetString(crashError, "invalid parameter type"); \
     return NULL;
   }
 
   se = value_search(addr, &offset);
 
-  if (se && offset == 0)
-    return Py_BuildValue("s", se->name);
-  else
-    return Py_BuildValue("s", NULL);
+  if (loose_match) {
+    if (se)
+      return Py_BuildValue("sk", se->name, offset);
+    else
+      return Py_BuildValue("ss", NULL, NULL);
+  } else {
+    if (se && offset == 0)
+      return Py_BuildValue("s", se->name);
+    else
+      return Py_BuildValue("s", NULL);
+  }
 }
 
 //int readmem(ulonglong addr, int memtype, void *buffer, long size,
