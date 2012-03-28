@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <12/03/20 14:10:51 alexs>
+  Time-stamp: <12/03/28 16:02:07 alexs>
 
   Copyright (C) 2006-2012 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2012 Hewlett-Packard Co., All rights reserved.
@@ -30,7 +30,7 @@
 
 int debug = 0;
 
-static char crashmod_version_s[] = "@(#)pycrash 0.6.5";
+static char crashmod_version_s[] = "@(#)pycrash 0.6.6";
 const char * crashmod_version = crashmod_version_s + 12;
 
 #include "pykdump.h"
