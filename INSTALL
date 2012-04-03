@@ -8,35 +8,23 @@ Before doing anything else, please install the following components:
 
 1. CRASH can be obtained from http://people.redhat.com/anderson
 2. Python programming language with runtime libraries, http://www.python.org
-3. PyParsing module, http://pyparsing.wikispaces.com/
 
 
 All these tools have licenses compatible with GPL and can be downloaded from
-sites referenced above. They are usually included in Linux distributions so
-it may be not necessary to download/install them separately if your
-distribution already has them. But at this moment you _need_ to compile
-'crash' from sources as we need to link against it.
+sites referenced above. They are usually included in Linux distributions, but
+you still _need_ to compile 'crash' from sources as we need to link against it.
+You _need_ to compile Python from sources as different versions of Python are
+not bytecode-compatible and to make module as portable as possible, we copy
+all needed Python components to the module itself.
 
 Compiling CRASH
 ---------------
 
-Download a recent version from URL above and unpack it. For versions older
-than 4.0.3-19 you need to do some source editing before compilation.
-
-Edit extensions.c file and change the line
-
-        ext->handle = dlopen(ext->filename, RTLD_NOW);
-
-to
-
-        ext->handle = dlopen(ext->filename, RTLD_NOW | RTLD_GLOBAL);
-
-(i.e. add RTLD_GLOBAL flag - this is needed for Python to be able to use
-its C-extenstions implemented as shared libraries). This flag has been added
-to generic CRASH sources starting from 4.0.3-19.
+Download a recent version from URL above and unpack it. Please use crash-5.X or
+crash-6.X, we do not support older versions anymore.
 
 After that do 'make' and copy the resulting binary to a directory in your PATH,
-e.g. /usr/local/bin. I recommend to rename the resulting executable to
+e.g. /usr/local/bin. We recommend to rename the resulting executable to
 'crash32' on 32-bit platforms and to 'crash64' on 64-bit platforms. The reason
 for that is that it is possible to analyze both 32-bit and 64-bit dumps on AMD64
 - but you need different crash executables for that (crash32 compiled for
@@ -49,28 +37,22 @@ sometime fails.
 Installing Python
 -----------------
 
-All modern distributions usually include Python. The framework has been tested
-with Python-2.4 and Python-2.4; it may not work with eaelier versions of Python
-(some library functions can be missing). If needed, you can always compile
-Python froms sources yourself.
+All modern distributions usually include Python. But you still need to compile
+it from sources. Python-2.6 and later should be fine; we recommend to use
+the latest version of Python-2.7.
 
-Installing Pyparsing
---------------------
-
-On Ubuntu/Edgy these packages are already available. Otherwise, you can
-download them and install following the instructions. Basically, after
-unpacking them you run 'python setup.py install' and this installs
-packages into you standard Python site-packages/
 
 Installing Pykdump
 ------------------
 
 After unpacking the distribution, compile the extension. To do this,
-go to Extension subdirectory and copy Makefile.dist to Makefile. Edit it to
-match you 'crash' sources directory. For example,
+go to Extension subdirectory and configure it using the configure script.
+NOTE: this is not an autoconf script, but a hand crafted script for
+pykdump.  You must specify three directories:  the crash build directory,
+the python source directory and the python build directory (if different
+from the source directory), thus:
 
-CRASHSRCDIR := /src/kerntools/crash-4.0-3.12
-
+  ./configure -c ${CRASHBLDDIR} -p ${PYTHONBLDDIR}
 
 After that run 'make', this should create pykdump32.so file (on a 32-bit
 X86) or pykdump64.so on AMD64 running 64-bits. After that you can copy this

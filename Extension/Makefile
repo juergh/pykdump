@@ -21,7 +21,8 @@ not_configured:
 	@echo "You need to configure the directories before running make"
 	@exit 1
 else
-  include crash.mk slocal.mk
+  include crash.mk
+  include slocal.mk
 endif
 
 MK = crash.mk slocal.mk
@@ -47,10 +48,13 @@ EXT_FULLAPI = API.so
 # Finally, the complete file suitable for production and distribution
 EXT_FULL = mpykdump.so
 
-.PHONY: clean distclean README
+.PHONY: clean distclean README subdirs
 .DELETE_ON_ERROR:
 
 all: $(EXT_FULL)
+
+subdirs:
+	for d in X86 X86_64;do make -C $$d;done
 
 INCLUDES := -I$(CRASHDIR) $(PYINCLUDE)
 DEFINES = -D$(TARGET)  -DSTATICBUILD -DCRASHVERS=\"$(CRASHVERS)\" \
@@ -58,14 +62,15 @@ DEFINES = -D$(TARGET)  -DSTATICBUILD -DCRASHVERS=\"$(CRASHVERS)\" \
 DEBUG =  -g
 
 PYCOMPILE = pycompile
-
+BASE_CFLAGS := $(CFLAGS)
+CFLAGS += $(DEBUG) $(DEFINES) $(INCLUDES)
 vpath %.c ..
 
 %o: %c pykdump.h  $(PYTHONDIR)/python $(MK)
-	$(CC) -c $(CFLAGS) $(DEFINES) $(INCLUDES) $< -o $@
+	$(CC) -c $(CFLAGS) $< -o $@
 
 gdbspec.o: gdbspec.c $(PYTHONDIR)/python $(MK)
-	$(CC) -c $(CFLAGS) $(GDBINCL) $(EXTRA) $(PYINCLUDE)  $< -o $@
+	$(CC) -c $(BASE_CFLAGS) $(GDBINCL) $(EXTRA) $(PYINCLUDE)  $< -o $@
 
 OBJS :=  epython.o functions.o gdbspec.o pythonrun.o
 
@@ -77,7 +82,7 @@ endif
 
 pythonrun.o: $(PYTHONRUN_C) $(MK)
 	sed 's/Py_Exit(int sts)/xPy_Exit(int sts)/' $(PYTHONRUN_C) >pythonrun.c
-	$(CC) -c $(CFLAGS) $(GDBINCL) $(PYINCLUDE)  pythonrun.c -o $@
+	$(CC) -c $(BASE_CFLAGS) $(GDBINCL) $(PYINCLUDE) pythonrun.c -o $@
 	@rm -f pythonrun.c
 
 
@@ -96,7 +101,7 @@ pyparsing.pyo: $(PYPA).py $(MK)
 
 
 $(PYLIB): $(MIN_PYLIST) pyparsing.pyo $(PYTHONDIR)/python $(MK)
-	$(PYTHON) -O makestdlib.py $(STDLIBP) $(PYSTDLIBDIR)  $(MIN_PYLIST)
+	$(PYTHON) -O makestdlib.py $(STDLIBP) $(PYSTDLIBDIR) $(MIN_PYLIST)
 	zip -r $(PYLIB) $(PYSTDLIBDIR)
 	zip $@ pyparsing.pyo
 	rm -rf $(PYSTDLIBDIR)
@@ -142,3 +147,17 @@ clean:
 
 distclean: clean
 	rm -f  pyparsing.pyo *~ *.mk
+
+install:
+	if test -z "$(prefix)" ; then \
+	    test -d $$HOME/.crash.d || mkdir $$HOME/.crash.d ; \
+	    cp -fp mpykdump.so $$HOME/.crash.d/. ; \
+	else \
+	    cp -fp mpykdump.so "$(prefix)/lib/." ; \
+	fi
+	@echo suggestion: add to $$HOME/.crashrc this line: ; \
+	test -z "$(prefix)" && dir="$(prefix)/lib/" || dir="$$HOME/.crash.d" ; \
+	echo extend $$dir/mpykdump.so 
+
+uninstall:
+	rm -f ~/.crash.d/mpykdump.so
