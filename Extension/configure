@@ -3,13 +3,11 @@
 # This is not a GNU-autoconf configure but rather a small utility
 # to create the local.mk to be included in makefiles
 
-# We rely on the fact that Python should be available on the host - either
-# system-wide or compiled from sources. So we use this shell script just
-# to locate Python binary and then all the real work is done by Python script
+# Before using this script, you need to build both Python and crash from
+# sources. After that, you run this script specifying directories you
+# used for these builds.
 
 Usage() {
-  # Omit some internal or obsolete options to make the list less imposing.
-  # This message is too long to be a string in the A/UX 3.1 sh.
   cat <<_ACEOF
 'configure' lets you specify the location of Python and Crash source trees.
 
@@ -17,8 +15,8 @@ Usage: $0 -c CRASHDIR [-p PYTHONDIR]
 
 Configuration:
   -h, --help              display this help and exit
-   --p DIR		  specify the Python source tree dir
-   --c DIR		  specify the Crash source tree dir
+   -p DIR		  specify the Python source tree dir
+   -c DIR		  specify the Crash source tree dir
 _ACEOF
 }
 
@@ -70,20 +68,17 @@ build_one_flavor () {
     # Python compiled from sources for a static build
 
     PYTHON=${PYTHONDIR}/python
-    export LD_LIBRARY_PATH=${PYTHONDIR}
     # Check whether we can run the Python from that directory
     if ! ${PYTHON} -c "import os"; then
 	echo "Cannot use the source-tree Python, did you build it properly?"
 	exit 1
     fi
-
     if test "${DIR32_64+set}" != set; then
-	${PYTHON} pyconf.py --writefiles --crashdir=${CRASHDIR} \
-	    --pythondir=${PYTHONDIR}
+	${PYTHON} pyconf.py --crashdir=${CRASHDIR}
     else
-	${PYTHON} pyconf.py --writefiles --crashdir=${CRASHDIR} \
-	    --pythondir=${PYTHONDIR} --subdirbuild
-     fi
+        # Build from subdir
+	${PYTHON} ../pyconf.py --crashdir=${CRASHDIR}
+    fi
 }
 
 # If DIR32_64 is set, we should have a special directory layout
@@ -120,8 +115,7 @@ do
     mkdir $t
   fi
   cd $t
-  ln -sf ../pyconf.py ../writeREADME.py ../minpylib* ../Makefile \
-	../makestdlib.py ../pyparsing*py .
+  ln -sf ../Makefile .
   
   build_one_flavor
 

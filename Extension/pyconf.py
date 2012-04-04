@@ -1,6 +1,3 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
 # Find different python locations that we need to use in Makefile
 from __future__ import print_function
 
@@ -11,157 +8,35 @@ import os.path, glob
 from distutils.core import setup, Extension
 from distutils.sysconfig import *
 
-debug = False
-crashdir = None
-writefiles = False
-subdirbuild = False
+# Files to write
 
-topdir = os.path.abspath(os.getcwd()+"/..") # Top dir of PyKdump
+cmk="crash.mk"
+slmk="slocal.mk"
+
+debug = False
 
 opts, args = getopt.getopt(sys.argv[1:],
-                           'ds',
-                           ['writefiles',
-                            'crashdir=', "pythondir=",
-                            'cc', 'cflags', 'includes',
-                            'linkflags', 'libs', 'srcdir', 'stdlib',
-                            'compileall', 'pyvers', 'subdirbuild']
+                           'd',
+                           ['crashdir=']
                            )
+crashdir = None
+fd = sys.stdout
+
+# pyconf.py is in Extension directory, Top is one level up
+pyconf_dir = os.path.dirname(sys.argv[0])
+if (not pyconf_dir):
+    pyconf_dir = '.'
+#print("pyconf_dir=", pyconf_dir)
+topdir = os.path.abspath(pyconf_dir+"/..") # Top dir of PyKdump
+
 
 # Process the options that set values, other will be processed later
 for o, a in opts:
     if (o == '-d'):
         debug = True
-    elif (o == '--pythondir'):
-        pythondir = os.path.realpath(a)
-    elif (o == '--writefiles'):
-        writefiles = True
-    elif (o == '--subdirbuild'):
-        subdirbuild = True
-        
-pythontopdir = pythondir        
-
-# Modify directories for subdir build of Python
-if (subdirbuild):
-    topdir = os.path.abspath(topdir + "/..")
-    pythontopdir = os.path.abspath(pythontopdir + "/..")
-
-stdlib = os.path.join(pythontopdir, 'Lib')
-compileall = os.path.join(stdlib, "compileall.py")
-        
-# Python version (major), e.g. 2.5 for 2.5.2
-pv = sys.version_info
-pyvers = "%d.%d" % (pv[0], pv[1])
-pymajor = pv[0]
-
-
-import pprint
-#pprint.pprint(get_config_vars())
-
-# System libraries we need to link with
-testprog = get_config_var('TESTPROG')
-extralibs = get_config_var('LIBS')
-syslibs = get_config_var('SYSLIBS')
-cc = get_config_var('CC')
-cflags = get_config_var('CFLAGS')
-ldflags = get_config_var('LINKFORSHARED')
-
-
-# If compiler is not installed (i.e. compiled but no 'make install'),
-# we have config_h equal to './pyconfig.h'
-
-config_h = get_config_h_filename()
-if (debug):
-    print(" *** pyconfig.h at %s ***" % config_h)
-
-srcdir = ''
-
-# We did not run 'make install' and are using the sourcetree
-sourcetree = os.path.dirname(get_makefile_filename())
-if (debug):
-    print(" *** Source-tree Python at %s ***" % sourcetree)
-
-# We need the directory where pyconfig.h is located
-inc1 = get_python_inc()
-inc2 = os.path.dirname(config_h)
-srcdir = os.path.dirname(inc1)
-includes = "-I%s -I%s" % (inc1, inc2)
-
-# At this moment this works with static build only
-pylib =  os.path.join(sourcetree, get_config_var('LIBRARY'))
-
-
-linkflags = " ".join((
-    ' -nostartfiles -shared',
-    ldflags
-    ))
-
-libs = " ".join((
-    pylib,
-    extralibs,
-    syslibs
-    ))
-
-
-if (debug):
-    print("\t INCLUDES=%s" % includes)
-    print("\t PYLIBRARY=%s" % pylib)
-    print("\t EXTRALIBS=%s" % extralibs)
-    print("\t CC=%s" % cc)
-    print("\t CFLAGS=%s" % cflags)
-    print("\t LDFLAGS=%s" % ldflags)
-    print("\t --------------------")
-    print("\t LINLKFLAGS=%s" % linkflags)
-    print("\t LIBS=%s" % libs)
-    print("\t PYTHONDIR=%s" % pythondir)
-    print("\t STDLIBP=%s" % stdlib)
-
-
-    print("\n")
-    print(get_python_inc())
-    print(get_python_lib())
-
-    print(get_config_var('LINKFORSHARED'))
-    print(get_config_var('LIBPL'))
-    print(get_config_var('INCLUDEPY'))
-    print(get_config_var('LIBRARY'))
-    print(get_config_var('LIBS'))
-
-
-
-for o, a in opts:
-    if (o == '--cc'):
-        print(cc)
-    elif (o == '--cflags'):
-        print(cflags)
-    elif (o == '--includes'):
-        print(includes)
-    elif (o == '--linkflags'):
-        print(linkflags)
-    elif (o == '--libs'):
-        print(libs)      
-    elif (o == '--srcdir'):
-        print(srcdir)     
-    elif (o == '--stdlib'):
-        print(stdlib)     
-    elif (o == '--compileall'):
-        print(compileall)
-    elif (o == '--pyvers'):
-        print(pyvers)
     elif (o == '--crashdir'):
         crashdir = os.path.realpath(a)
 
-        
-
-if (not writefiles):
-    sys.exit(0)
-
-
-    
-print("\n *** Creating configuration files ***")
-
-cmk="crash.mk"
-lmk="local.mk"
-slmk="slocal.mk"
 
 # ---------- Crash mk part -------------------------------------------------
 
@@ -197,7 +72,9 @@ if (not target):
 
 print("target=%s" % target)
 
-fd = open(cmk, "w+")
+if (not debug):
+    fd = open(cmk, "w+")
+    
 ol = []
 ol.append("# Configuration options for 'crash' tree")
 ol.append("CRASHDIR := %s" % crashdir)
@@ -217,17 +94,74 @@ ol.append("CRASHVERS := %s" % crash_vers)
 fd.write("\n".join(ol))
 fd.write("\n")
 
-fd.close()
-            
+if (not debug):
+    fd.close()
 
-# ---------- Python mk parts------------------------------------------------
+#
+# ---------- Python mk part------------------------------------------------
 # 
+
+# Python version (major), e.g. 2.5 for 2.5.2
+pv = sys.version_info
+pyvers = "%d.%d" % (pv[0], pv[1])
+pymajor = pv[0]
+
+# The directory where python executable is located, i.e. where we have built it
+# It can be different from Python sourcetree directory!
+
+python_exe = sys.executable
+python_buildir =  os.path.dirname(python_exe)
+#print ("python_buildir=", python_buildir)
+python_srcdir = get_config_var('srcdir')      # This is relative to builddir
+python_srcdir = os.path.abspath(os.path.join(python_buildir, python_srcdir))
+#print ("python_srcdir=", python_srcdir)
+
+# We need the directory where pyconfig.h is located
+inc1 = get_python_inc()
+#print ("inc1", inc1)
+
+# Where pyconfig.h is located (the build directory)
+inc2 = os.path.dirname(get_config_h_filename())
+#print ("inc2", inc2)
+
+includes = "-I%s -I%s" % (inc1, inc2)
+#print("includes=", includes)
+
+import pprint
+#pprint.pprint(get_config_vars())
+
+extralibs = get_config_var('LIBS')
+syslibs = get_config_var('SYSLIBS')
+cc = get_config_var('CC')
+cflags = get_config_var('CFLAGS')
+ldflags = get_config_var('LINKFORSHARED')
+
+
+# Python archive library, e.g. libpython2.7.a
+pyliba =  os.path.join(python_buildir, get_config_var('LIBRARY'))
+
+# Python Standard Library sources - we do not compile/install them
+stdlib = os.path.join(python_srcdir, 'Lib')
+compileall = os.path.join(stdlib, "compileall.py")
+
+linkflags = " ".join((
+    ' -nostartfiles -shared',
+    ldflags
+    ))
+
+libs = " ".join((
+    pyliba,
+    extralibs,
+    syslibs
+    ))
+
 ol = []
-fd = open(slmk, "w+")
-ol.append("# Configuration options for static-build")
-ol.append("PYTHONDIR := %s" % pythondir)
-ol.append("PYTHON := env LD_LIBRARY_PATH=%s %s/python" %\
-          (pythondir, pythondir))
+if (not debug):
+    fd = open(slmk, "w+")
+
+ol.append("# Configuration options for Python")
+ol.append("PYTHONSRCDIR := %s" % python_srcdir)
+ol.append("PYTHON := %s" % python_exe)
 
 # Common stuff both for local and slocal
 ol.append("PYINCLUDE := %s" % includes)
@@ -247,5 +181,5 @@ ol.append("MINPYLIB_FILES := minpylib-%s.lst" % pyvers)
 
 fd.write("\n".join(ol))
 fd.write("\n")
-fd.close()
-              
+if (not debug):
+    fd.close()

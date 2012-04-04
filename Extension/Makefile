@@ -56,8 +56,15 @@ all: $(EXT_FULL)
 subdirs:
 	for d in X86 X86_64;do make -C $$d;done
 
+testenv:
+	echo $(TOPDIR) $(SRCDIR)
+
+# We put parts of Python Standard Library into this directory. It needs to
+# be added to sys.path in epython
+PYSTDLIBDIR = pylib
+
 INCLUDES := -I$(CRASHDIR) $(PYINCLUDE)
-DEFINES = -D$(TARGET)  -DSTATICBUILD -DCRASHVERS=\"$(CRASHVERS)\" \
+DEFINES := -D$(TARGET)  -DSTATICBUILD -DCRASHVERS=\"$(CRASHVERS)\" \
 	-DPYSTDLIBDIR=\"$(PYSTDLIBDIR)\"
 DEBUG =  -g
 
@@ -66,19 +73,15 @@ BASE_CFLAGS := $(CFLAGS)
 CFLAGS += $(DEBUG) $(DEFINES) $(INCLUDES)
 vpath %.c ..
 
-%o: %c pykdump.h  $(PYTHONDIR)/python $(MK)
+%o: %c pykdump.h  $(PYTHON) $(MK)
 	$(CC) -c $(CFLAGS) $< -o $@
 
-gdbspec.o: gdbspec.c $(PYTHONDIR)/python $(MK)
+gdbspec.o: gdbspec.c $(PYTHON) $(MK)
 	$(CC) -c $(BASE_CFLAGS) $(GDBINCL) $(EXTRA) $(PYINCLUDE)  $< -o $@
 
 OBJS :=  epython.o functions.o gdbspec.o pythonrun.o
 
-PYTHONRUN_C := $(PYTHONDIR)/Python/pythonrun.c
-
-ifeq ($(strip $(wildcard $(PYTHONRUN_C))),)
-  PYTHONRUN_C := $(PYTHONDIR)/../Python/pythonrun.c
-endif
+PYTHONRUN_C := $(PYTHONSRCDIR)/Python/pythonrun.c
 
 pythonrun.o: $(PYTHONRUN_C) $(MK)
 	sed 's/Py_Exit(int sts)/xPy_Exit(int sts)/' $(PYTHONRUN_C) >pythonrun.c
@@ -86,22 +89,19 @@ pythonrun.o: $(PYTHONRUN_C) $(MK)
 	@rm -f pythonrun.c
 
 
-$(EXT_C): $(OBJS) $(PYTHONDIR)/python
+$(EXT_C): $(OBJS) $(PYTHON)
 	$(CC) -shared  $(LINKFLAGS) $(OBJS) -o $@  $(LIBS)
 
 # A minimal Python library
 PYLIB = pylib.zip
-# We put parts of Python Standard Library into this directory. It needs to
-# be added to sys.path in epython
-PYSTDLIBDIR = pylib
 
-PYPA = pyparsing_py$(PYMAJOR)
+PYPA = $(SRCDIR)/pyparsing_py$(PYMAJOR)
 pyparsing.pyo: $(PYPA).py $(MK)
 	$(PYTHON) -O -c 'import py_compile;py_compile.compile("$(PYPA).py", "./$@")'
 
 
-$(PYLIB): $(MIN_PYLIST) pyparsing.pyo $(PYTHONDIR)/python $(MK)
-	$(PYTHON) -O makestdlib.py $(STDLIBP) $(PYSTDLIBDIR) $(MIN_PYLIST)
+$(PYLIB): $(MIN_PYLIST) pyparsing.pyo $(PYTHON) $(MK)
+	$(PYTHON) -O $(SRCDIR)/makestdlib.py $(STDLIBP) $(PYSTDLIBDIR) $(MIN_PYLIST)
 	zip -r $(PYLIB) $(PYSTDLIBDIR)
 	zip $@ pyparsing.pyo
 	rm -rf $(PYSTDLIBDIR)
@@ -139,14 +139,14 @@ $(EXT_FULL): $(EXT_FULLAPI) README
 # for identification purposes
 
 README:
-	$(PYTHON) writeREADME.py  "$(CRASHVERS) $(TARGET)" "$(EXT_C)" >README
+	$(PYTHON) $(SRCDIR)/writeREADME.py  "$(CRASHVERS) $(TARGET)" "$(EXT_C)" >README
 
 clean:
 	rm -f $(OBJS) $(EXT_C) $(EXT_C_PY) $(EXT_FULLAPI) $(EXT_FULL) \
-		$(PYLIB) pyparsing.pyo $(PYLIB)
+		$(PYLIB) pyparsing.pyo $(PYLIB) README
 
 distclean: clean
-	rm -f  pyparsing.pyo *~ *.mk
+	rm -f  pyparsing.pyo *~ *.mk X86 X86_64 README
 
 install:
 	if test -z "$(prefix)" ; then \
