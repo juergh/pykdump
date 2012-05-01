@@ -521,6 +521,7 @@ structSetAttr(rqtype, "Timestamp",
               ["timestamp_last_tick", "most_recent_timestamp",
                "tick_timestamp", "clock"])
 structSetAttr(rqtype, "Active", ["active", "dflt_lrq.active"])
+structSetAttr(rqtype, "Expired", ["expired", "dflt_lrq.active"])
 
 __sts = "struct task_struct"
 
@@ -599,6 +600,80 @@ def get_ioctx_list(task):
     # struct kioctx
     head = task.mm.ioctx_list
     return readStructNext(head, "next")
+    
+    
+# SLES10
+__TIF_SLES10 = '''
+#define TIF_SYSCALL_TRACE       0       /* syscall trace active */
+#define TIF_NOTIFY_RESUME       1       /* resumption notification requested */
+#define TIF_SIGPENDING          2       /* signal pending */
+#define TIF_NEED_RESCHED        3       /* rescheduling necessary */
+#define TIF_SINGLESTEP          4       /* reenable singlestep on user return*/
+#define TIF_IRET                5       /* force IRET */
+#define TIF_SYSCALL_AUDIT       7       /* syscall auditing active */
+#define TIF_SECCOMP             8       /* secure computing */
+#define TIF_RESTORE_SIGMASK     9       /* restore signal mask in do_signal */
+#define TIF_POLLING_NRFLAG      16      /* true if poll_idle() is polling TIF_NEED_RESCHED */
+#define TIF_IA32                17      /* 32bit process */ 
+#define TIF_FORK                18      /* ret_from_fork */
+#define TIF_ABI_PENDING         19
+#define TIF_MEMDIE              20
+#define TIF_PTRACE_NOTIFY       21      /* self-induced ptrace notification */
+'''
+
+# RHEL5
+__TIF_RHEL5 = '''
+#define TIF_SYSCALL_TRACE       0       /* syscall trace active */
+#define TIF_NOTIFY_RESUME       1       /* resumption notification requested */
+#define TIF_SIGPENDING          2       /* signal pending */
+#define TIF_NEED_RESCHED        3       /* rescheduling necessary */
+#define TIF_SINGLESTEP          4       /* reenable singlestep on user return*/
+#define TIF_IRET                5       /* force IRET */
+#define TIF_SYSCALL_AUDIT       7       /* syscall auditing active */
+#define TIF_SECCOMP             8       /* secure computing */
+#define TIF_RESTORE_SIGMASK     9       /* restore signal mask in do_signal */
+/* 16 free */
+#define TIF_IA32                17      /* 32bit process */ 
+#define TIF_FORK                18      /* ret_from_fork */
+#define TIF_MEMDIE              20
+#define TIF_FORCED_TF           21      /* true if TF in eflags artificially */
+'''
+
+# RHEL6
+__TIF_RHEL6_c = '''
+ #define TIF_SYSCALL_TRACE       0       /* syscall trace active */
+ #define TIF_NOTIFY_RESUME       1       /* callback before returning to user */
+ #define TIF_SIGPENDING          2       /* signal pending */
+ #define TIF_NEED_RESCHED        3       /* rescheduling necessary */
+ #define TIF_SINGLESTEP          4       /* reenable singlestep on user return*/
+ #define TIF_IRET                5       /* force IRET */
+ #define TIF_SYSCALL_EMU         6       /* syscall emulation active */
+ #define TIF_SYSCALL_AUDIT       7       /* syscall auditing active */
+ #define TIF_SECCOMP             8       /* secure computing */
+ #define TIF_MCE_NOTIFY          10      /* notify userspace of an MCE */
+ #define TIF_USER_RETURN_NOTIFY  11      /* notify kernel of userspace return */
+ #define TIF_NOTSC               16      /* TSC is not accessible in userland */
+ #define TIF_IA32                17      /* 32bit process */
+ #define TIF_FORK                18      /* ret_from_fork */
+ #define TIF_MEMDIE              20
+ #define TIF_DEBUG               21      /* uses debug registers */
+ #define TIF_IO_BITMAP           22      /* uses I/O bitmap */
+ #define TIF_FREEZE              23      /* is freezing for suspend */
+ #define TIF_FORCED_TF           24      /* true if TF in eflags artificially */
+ #define TIF_BLOCKSTEP           25      /* set when we want DEBUGCTLMSR_BTF */
+ #define TIF_LAZY_MMU_UPDATES    27      /* task is updating the mmu lazily */
+ #define TIF_SYSCALL_TRACEPOINT  28      /* syscall tracepoint instrumentation */
+ '''
+ 
+__TIF_RHEL6 = CDefine(__TIF_RHEL6_c) 
+# Decode flags
+def decode_tflags(flags, offset = 0):
+    offset = ' ' * offset
+    for i in range(32):
+        if (flags & 1):
+            v = __TIF_RHEL6.value2key(i)
+            print(offset, "bit %d" %i, v)
+        flags = (flags >> 1)
     
     
 

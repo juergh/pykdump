@@ -51,6 +51,9 @@ EXT_FULL = mpykdump.so
 .PHONY: clean distclean README subdirs
 .DELETE_ON_ERROR:
 
+# We don't want this to get changed when we 'cd'
+CPWD := $(CURDIR)
+
 all: $(EXT_FULL)
 
 subdirs:
@@ -58,6 +61,7 @@ subdirs:
 
 testenv:
 	echo $(TOPDIR) $(SRCDIR)
+
 
 # We put parts of Python Standard Library into this directory. It needs to
 # be added to sys.path in epython
@@ -119,9 +123,9 @@ $(EXT_FULLAPI):  $(EXT_C_PY)
 	find $(TOPDIR)/pykdump -name \*.pyc | xargs rm -f
 	$(PYTHON) $(COMPALL) -f $(TOPDIR)/pykdump
 	cp $(EXT_C_PY) $(EXT_FULLAPI)
-	cd $(TOPDIR); $(call FIND, pykdump)  |  zip  $(PWD)/$(EXT_FULLAPI) -@
+	cd $(TOPDIR); $(call FIND, pykdump)  |  zip  $(CPWD)/$(EXT_FULLAPI) -@
 
-EXT_FULL_PATH = $(PWD)/$(EXT_FULL) 
+EXT_FULL_PATH = $(CPWD)/$(EXT_FULL) 
 
 $(EXT_FULL): $(EXT_FULLAPI) README
 	find $(TOPDIR)/LinuxDump -name \*.pyc | xargs rm -f

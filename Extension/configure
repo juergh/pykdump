@@ -99,7 +99,7 @@ lastvers () {
 # Step I. We should have $DIR32_64/Python*/{X86,X86_64} to exist. If there are
 # several versions of Python, use the latest one
 
-lastvers ${DIR32_64}/Python-3*
+lastvers ${DIR32_64}/Python-2*
 PYTHONTOP=$dirfound
 
 lastvers ${DIR32_64}/crash-*

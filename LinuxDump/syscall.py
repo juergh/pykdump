@@ -402,11 +402,12 @@ def __decode_sys_mount(args):
     dir_name = readmem(args[1], 256).split('\0')[0]
     print ("\t dev_name=%s, dir_name=%s" % (dev_name, dir_name))
     
-def __decode_sys_mkdir(args):
-    # long sys_mkdir(const char __user * pathname, int mode)
-    pathname = readmem(args[0], 256).split('\0')[0]
-    inode = int(args[1])
-    print ('\t mkdir(%s, %d)' % (pathname, inode))
+def __decode_sys_umount(args):
+    # long sys_umount(char __user *name, int flags);
+    print (hexl(args[0]))
+    dev_name = readmem(args[0], 256).split('\0')[0]
+    flags = int(args[1])
+    print ("\t dev_name=%s, flags=%d" % (dev_name, flags))
     
 def __decode_sys_nanosleep(args):
     # nanosleep(const struct timespec *req, struct timespec *rem)

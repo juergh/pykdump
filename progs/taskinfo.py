@@ -16,7 +16,7 @@ __version__ = "0.1"
 from pykdump.API import *
 
 from LinuxDump import percpu
-from LinuxDump.Tasks import TaskTable, Task, tasksSummary, ms2uptime
+from LinuxDump.Tasks import TaskTable, Task, tasksSummary, ms2uptime, decode_tflags
 from LinuxDump.BTstack import exec_bt, bt_summarize
 
 debug = API_options.debug
@@ -58,6 +58,7 @@ def printTaskDetails(t):
     sstate = t.state[5:7]
     print ("---- %5d(%s) %s %s" % (t.pid, sstate, str(t.ts), t.comm))
     parent = t.parent
+    flags = t.flags
     if (t.hasField("real_parent")):
         real_parent = t.real_parent
     else:
@@ -74,12 +75,19 @@ def printTaskDetails(t):
             for c in children:
                 print ("\t", c.pid, c.comm)
 
+    # Thread Flags - not ready for all kernel versions yet
+    try:
+        tflags = t.thread_info.flags
+        print("  -- Thread Flags: 0x%x" % tflags)
+        decode_tflags(tflags, 10)
+    except:
+        pass
     # Stuff from 'struct signal_struct"
     signal = t.signal
 
     # Do we belong to a thread group and are we the leader?
-    threads = t.threads
-    if (threads):
+    if (t.pid != 0 and t.threads):
+        threads = t.threads
         try:
             live = ', %d live' % signal.live.counter
         except:
@@ -352,7 +360,7 @@ if ( __name__ == '__main__'):
     
     op.add_option("--pidinfo", dest="Pidinfo", default = 0,
                 action="store", type="int",
-                help="Display details for a given PID")
+                help="Display details for a given PID. You can specify PID or addr of task_struct")
 
     op.add_option("--taskfilter", dest="Taskfilter", default = None,
                 action="store",

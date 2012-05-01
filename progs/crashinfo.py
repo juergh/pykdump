@@ -21,7 +21,7 @@ from LinuxDump import BTstack
 from LinuxDump.BTstack import exec_bt, bt_summarize, bt_mergestacks
 from LinuxDump.kmem import parse_kmemf, print_Zone
 from LinuxDump.Tasks import TaskTable, Task, tasksSummary, getRunQueues,\
-            TASK_STATE
+            TASK_STATE, sched_clock2ms
 from LinuxDump.inet import summary
 import LinuxDump.inet.netdevice as netdevice
 from LinuxDump import percpu, sysctl, Dev
@@ -615,33 +615,39 @@ def check_runqueues():
             active = rq.Active
             #print (active)
             #print (active.queue)
-            timestamp_last_tick = rq.timestamp_last_tick
-            for i, pq in enumerate(active.queue):
-                #print (hexl(Addr(pq)))
-                (talist, errmsg) = readBadList(Addr(pq), inchead = False)
-                if (errmsg):
-                    print (WARNING, "prio=%d" % i, errmsg, pq)
-                l = len(talist)
-                if (l and not quiet):
-                   print ("    prio=%-3d len=%d" % (i, l))
-                for ra in talist:
-                    ta = ra - rloffset
-                    ts = readSU("struct task_struct", ta)
-                    try:
-                        policy = ts.policy
-                    except Exception as e:
-                        print (WARNING, e)
-                        continue
-                    if (ts.policy != 0):
-                        RT_count += 1
-                    if (verbose):
-                        print ("\tTASK_STRUCT=0x%x  policy=%d CMD=%s PID=%s"\
-                              %(ta, ts.policy, ts.comm, ts.pid))
-                    if (verbose > 1):
-                        print ("\t\t (Timestamp - rq.timestamp_last_tick)=%4.2f s" %\
-                              ((ts.timestamp - timestamp_last_tick)*1.e-9))
-                        print ("\t\t  CPUs allowed", ts.cpus_allowed, \
-                             decode_cpus_allowed(ts.cpus_allowed))
+            expired = rq.Expired
+            timestamp_last_tick = sched_clock2ms(rq.timestamp_last_tick)
+            for qn, aeq in enumerate((active.queue, expired.queue)):
+                if (qn == 0):
+                    print("     ---ACTIVE---")
+                else:
+                    print("     ---EXPIRED---")
+                for i, pq in enumerate(aeq):
+                    #print (hexl(Addr(pq)))
+                    (talist, errmsg) = readBadList(Addr(pq), inchead = False)
+                    if (errmsg):
+                        print (WARNING, "prio=%d" % i, errmsg, pq)
+                    l = len(talist)
+                    if (l and not quiet):
+                        print ("       prio=%-3d len=%d" % (i, l))
+                    for ra in talist:
+                        ta = ra - rloffset
+                        ts = Task(readSU("struct task_struct", ta), tt)
+                        try:
+                            policy = ts.policy
+                        except Exception as e:
+                            print (WARNING, e)
+                            continue
+                        if (ts.policy != 0):
+                            RT_count += 1
+                        if (verbose):
+                            print ("\t TASK_STRUCT=0x%x  policy=%d CMD=%s PID=%s"\
+                                %(ta, ts.policy, ts.comm, ts.pid))
+                        if (verbose > 1):
+                            print ("\t\t (Timestamp - rq.timestamp_last_tick)=%4.2f s" %\
+                                ((ts.Last_ran - timestamp_last_tick)*1.e-3))
+                            print ("\t\t  CPUs allowed", ts.cpus_allowed, \
+                                decode_cpus_allowed(ts.cpus_allowed))
         if (RT_count == 0):
             RT_hang = False
         else:
@@ -682,53 +688,108 @@ def decode_syscalls(arg):
     sys.exit(0)
     
 
-# Decode keventd_wq
-
-def decode_eventwq():
-    keventd_wq = readSymbol("keventd_wq")
-
+# Get an array of CPU-workqueues
+def __get_cpu_wqs(_wq):
     # On older (e.g. 2.6.9) kernels we use
     # cwq = keventd_wq->cpu_wq + cpu;
     # On newer ones,
     # cwq = per_cpu_ptr(keventd_wq->cpu_wq, cpu);
 
-    cpu_wq = keventd_wq.cpu_wq
+    cpu_wq = _wq.cpu_wq
     # If cpu_wq is not an array, this is per_cpu_ptr
     per_cpu = not isinstance(cpu_wq, list)
     # CPU-specific 
+    out = []
     for cpu in range(0, sys_info.CPUS):
         if (per_cpu):
             cwq = percpu.percpu_ptr(cpu_wq, cpu)
         else:
-            cwq = keventd_wq.cpu_wq[cpu]
+            cwq = _wq.cpu_wq[cpu]
+        out.append((cpu, cwq))
+    return out
+    
+# 2.6.30:
+#struct cpu_workqueue_struct {
+    #spinlock_t lock;
+    #struct list_head worklist;
+    #wait_queue_head_t more_work;
+    #struct work_struct *current_work;
+    #struct workqueue_struct *wq;
+    #struct task_struct *thread;
+#}
+
+# 2.6.18:
+#struct cpu_workqueue_struct {
+    #spinlock_t lock;
+    #long int remove_sequence;
+    #long int insert_sequence;
+    #struct list_head worklist;
+    #wait_queue_head_t more_work;
+    #wait_queue_head_t work_done;
+    #struct workqueue_struct *wq;
+    #task_t *thread;
+    #int run_depth;
+#}
+
+
+    
+def decode_wq(_wq):
+    for cpu, cwq in __get_cpu_wqs(_wq):
         print (" ----- CPU ", cpu, cwq)
+
         # worklist is embedded in struct work_struct
         # as 'struct list_head entry'
         worklist = cwq.worklist
         print ("\tworklist:")
         for e in readSUListFromHead(Addr(worklist), "entry",
             "struct work_struct"):
-            print ("\t   ", e)
-    return
-    # print (singleevent)
-    singleevent = readSymbol("singleevent")
-    print (' --- singleevent', singleevent)
-    for e in readSUListFromHead(Addr(singleevent), "list",
-        "struct lw_event"):
+            print ("\t   ", e, "func=<%s>" % (addr2sym(e.func)))
+            #barr = container_of(long(e), "struct wq_barrier", "work")
+            #print(barr)
+        if (verbose < 1):
+            continue
+        # On older 2.6 tasks are in work_done
+        # On newer ones, it uses completion events
         try:
-            name = e.dev.name
-        except crash.error:
-            name = "++BAD DEV++"
-        print (e, e.dev, name)
-        
-    # print (lweventlist)
-    lweventlist = readSymbol("lweventlist")
-    print (' --- lweventlist', lweventlist)
-    for e in readSUListFromHead(Addr(lweventlist), "list",
-        "struct lw_event"):
-        print (e, e.dev, e.dev.name)
-   
-        
+            lhead = cwq.work_done
+            tasklist = decode_waitq(lhead.task_list)
+        except KeyError:
+            # Completion events
+            pass
+
+        if (tasklist):
+            print("   .... tasks waiting for this workqueue to be flushed:")
+            #print(exec_crash_command("waitq 0x%x" % long(lhead)))
+            for task in tasklist:
+                print("     pid=%7d   CMD=%s" % (task.pid, task.comm))            
+    return
+
+
+# This is basically the same as decode_wq() for events, printing warnings only
+# I don't like to duplicate the code but until I find a better way,
+# here it goes...
+def check_event_workqueues():
+    tt = get_tt()
+    basems = tt.basems
+    _wq = readSymbol("keventd_wq")
+    warning = False
+    for cpu, cwq in __get_cpu_wqs(_wq):    
+        worklist = cwq.worklist
+        lhead = cwq.work_done
+        tasklist = decode_waitq(lhead.task_list)            
+        # Check whether there are tasks waiting longer than 1s
+        maxdelta = 1000         # in ms
+        for task in tasklist:
+            if (basems - task.Last_ran > maxdelta):
+                warning = True
+                break
+        if (warning): break
+    if (warning):
+        print(WARNING, "there are tasks waiting for events workqueue flushed"
+            "\n          +++ for longer than %d ms" % maxdelta)
+        print("          +++ Run 'crashinfo --kevent -v' to get more details")
+                    
+                
 # Print args of most recent processes
 def print_args5():
     printHeader("5 Most Recent Threads")
@@ -920,10 +981,26 @@ def decode_request(rq):
     out.append("\n\tstarted %s ago" % ran_ago)
     return ", ".join(out)
 
+#  Decode wait_queue_head_t - similar to 'waitq' crash command.
+# Returns a list of 'struct task_struct'
+structSetAttr("struct __wait_queue", "Task", ["task", "private"])
+def decode_waitq(wq):
+    tt = get_tt()
+    # 2.4 used to have 'struct __wait_queue'
+    # 2.6 has 'wait_queue_head_t' = 'struct __wait_queue_head'
+    out = []
+    for l in ListHead(wq, "struct __wait_queue").task_list:
+        task = readSU("struct task_struct", l.Task)
+        out.append(Task(task, tt))
+    return out
+ 
+        
+     
+    
 
 # Decode struct rw_semaphore - waiting-list etc.
 
-def decode_semaphore(semaddr):
+def decode_rwsemaphore(semaddr):
     s = readSU("struct rw_semaphore", semaddr)
     print (s)
     #wait_list elements are embedded in struct rwsem_waiter
@@ -937,6 +1014,18 @@ def decode_semaphore(semaddr):
     out.sort()
     for pid, comm in out:
         print ("\t%8d  %s" % (pid, comm))
+        
+def decode_semaphore(semaddr):
+    s = readSU("struct semaphore", semaddr)
+    print (s)
+    #wait_list elements are embedded in struct wait.task_list
+    out = []
+    for task in decode_waitq(s.wait.task_list):
+        out.append([task.pid, task.comm])
+    # Sort on PID
+    out.sort()
+    for pid, comm in out:
+        print ("\t%8d  %s" % (pid, comm))        
     
 # Decode struct mutex - waiting-list etc.
 
@@ -1160,6 +1249,10 @@ op.add_option("--keventd_wq", dest="eventwq", default = "",
                 action="store_true",
                 help="Decode keventd_wq")
 
+op.add_option("--kblockd_wq", dest="kblockdwq", default = "",
+                action="store_true",
+                help="Decode kblockd_workqueue")
+                
 op.add_option("--lws", dest="Lws", default = "",
                 action="store_true",
                 help="Print Locks Waitqueues and Semaphores")           
@@ -1174,7 +1267,11 @@ op.add_option("--runq", dest="Runq", default = "",
 
 op.add_option("--semaphore", dest="Sema", default = 0,
                 type="long", action="store",
-                help="Print Semaphore info")
+                help="Print 'struct semaphore' info")
+
+op.add_option("--rwsemaphore", dest="RWSema", default = 0,
+                type="long", action="store",
+                help="Print 'struct rw_semaphore' info")                
 
 op.add_option("--mutex", dest="Mutex", default = 0,
                 type="long", action="store",
@@ -1242,9 +1339,21 @@ if (o.findstacks):
     sys.exit(0)
 
 if (o.eventwq):
-    decode_eventwq()
+    try:
+        _wq = readSymbol("keventd_wq")
+        decode_wq(_wq)
+    except TypeError:
+        print("The command is not supported for this kernel")
     sys.exit(0)
-
+    
+if (o.kblockdwq):
+    try:
+        _wq = readSymbol("kblockd_workqueue")
+        decode_wq(_wq)
+    except TypeError:
+        print("The command is not supported for this kernel")
+    sys.exit(0)
+    
 if (o.Blkreq):
     print_blkreq(" ---- Outstanding blk_dev Requests -----")
     sys.exit(0)
@@ -1260,6 +1369,10 @@ if (o.decodesyscalls):
 if (o.Sema):
     decode_semaphore(o.Sema)
     sys.exit(0)
+
+if (o.RWSema):
+    decode_rwsemaphore(o.Sema)
+    sys.exit(0)    
 
 if (o.Mutex):
     decode_mutex(o.Mutex)
@@ -1344,6 +1457,11 @@ print_gendisk(0)
 
 check_UNINTERRUPTIBLE()
 check_auditf()
+
+try:
+    check_event_workqueues()
+except:
+    print(WARNING, "check_event_workqueues() not implemented on this kernel")
 
 try:
     check_runqueues()
