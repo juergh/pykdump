@@ -53,6 +53,9 @@ buildarch () {
   $CONFIGURE CFLAGS=-fPIC
   getslocal 
   make
+  # For some reason, we need this in older RHEL
+  touch Modules/Setup.local
+  make
   #strip -d libpython${PYVERS}.a
   cd $PYDIR
 }
