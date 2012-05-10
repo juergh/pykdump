@@ -150,7 +150,7 @@ clean:
 		$(PYLIB) pyparsing.pyo $(PYLIB) README
 
 distclean: clean
-	rm -f  pyparsing.pyo *~ *.mk X86 X86_64 README
+	rm -rf  pyparsing.pyo *~ *.mk X86 X86_64 README
 
 install:
 	if test -z "$(prefix)" ; then \
