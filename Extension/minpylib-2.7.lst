@@ -47,4 +47,7 @@ weakref.py
 gettext.py
 locale.py
 _weakrefset.py
-
+SocketServer.py
+dummy_threading.py
+dummy_thread.py
+threading.py
