@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module pykdump.API
 #
-# Time-stamp: <12/03/09 13:47:18 alexs>
+# Time-stamp: <12/05/04 12:15:58 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -116,7 +116,8 @@ from .wrapcrash import readU8, readU16, readU32, readS32, \
      readmem, uvtop, readProcessMem, set_readmem_task, \
      struct_size, union_size, member_offset, member_size, \
      getSizeOf, container_of, whatis, printObject,\
-     exec_gdb_command, exec_crash_command, exec_command,\
+     exec_gdb_command, exec_crash_command, exec_crash_command_bg2, \
+     exec_command,\
      structSetAttr, structSetProcAttr, sdef2ArtSU
 
 gen.d = wrapcrash
@@ -197,6 +198,7 @@ def __epythonOptions():
     
     if  (o.timeout):
         set_default_timeout(o.timeout)
+        crash.default_timeout = o.timeout
         # Purge the CU_TIMEOUT caches if we _increase_ the timeout
         # This makes sense if some commands did not complete and we
         # re-run with bigger timeout

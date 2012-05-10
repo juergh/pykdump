@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <12/03/28 16:02:07 alexs>
+  Time-stamp: <12/05/04 13:17:27 alexs>
 
   Copyright (C) 2006-2012 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2012 Hewlett-Packard Co., All rights reserved.
@@ -233,12 +233,10 @@ void _init(void)  {
   epython_curext = pc->curext;
 
   if (!Py_IsInitialized()) {
-#if defined(STATICBUILD)
     Py_NoSiteFlag = 1;
     Py_FrozenFlag = 1;
     Py_IgnoreEnvironmentFlag = 1;
     Py_SetPythonHome(EMPTYS);
-#endif
     if (debug)
       fprintf(fp, "     *** Initializing Embedded Python %s ***\n",
 	      crashmod_version);
@@ -520,13 +518,11 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
     } else {
       /* Try to load code from ZIP */
       int rc = 0;
-#if defined(STATICBUILD)
       if (quiet)
 	strcpy(buffer, "");	/* Initprog is in top dir */
       else
 	strcpy(buffer, "progs/");
       rc = run_fromzip(strncat(buffer, argv[0], BUFLEN - 60), ext_filename);
-#endif
       if (!rc && !quiet)
 	fprintf(fp, " Cannot find the program <%s>\n", argv[0]);
     }

@@ -24,6 +24,7 @@ from __future__ import print_function
 import sys
 import string, re
 import struct
+import os, select
 
 import types
 
@@ -1439,6 +1440,44 @@ def exec_command(cmdline):
     else:
         print(crash.exec_crash_command(cmdline))
 
+def new_exec_crash_command(cmd, timeout=None):
+    if (not timeout):
+        timeout = crash.default_timeout
+    (fd, pid) = exec_crash_command_bg2(cmd)
+
+    readable = [fd]
+    out = []
+    bt = time.time()
+    while(True):
+        ready, _, _ = select.select(readable, [], [], 0.2)
+        if (time.time() - bt > timeout):
+            print(crash.WARNING,
+                  "<%s> failed to complete within the timeout=%-2.1fs" \
+                  % (cmd, timeout))
+            os.kill(pid, 15)
+            break
+        if (not ready):
+            continue
+        s = os.read(fd, 1000)
+        if (not s):
+            break
+        #print(s, end='')
+        out.append(s)
+
+    (pid, status) = os.wait()
+
+    #print (" ==============", pid)
+
+    if (os.WIFEXITED(status)):
+        ecode = os.WEXITSTATUS(status)
+        if (ecode):
+            print ("ExitCode=%d" % ecode)
+    elif (os.WIFSIGNALED(status)):
+        if (os.WCOREDUMP(status)):
+            print ("Core Dumped")
+        else:
+            print ("Signal", os.WTERMSIG(status))
+    return ''.join(out)
 
 # Aliases
 union_size = struct_size
@@ -1453,6 +1492,7 @@ def exec_gdb_command(cmd):
 
 noncached_symbol_exists = crash.symbol_exists
 exec_crash_command = crash.exec_crash_command
+exec_crash_command_bg2 = crash.exec_crash_command_bg2
 exec_gdb_command = crash.get_GDB_output
 getFullBuckets = crash.getFullBuckets
 readPtr = crash.readPtr
@@ -1473,3 +1513,6 @@ Gen.parseDerefString = parseDerefString
 
 def print_stats():
     print ("count_cached_attr=%d (%d)" % (count_cached_attr, count_total_attr))
+
+crash.default_timeout=120
+#exec_crash_command = new_exec_crash_command

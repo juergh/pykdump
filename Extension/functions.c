@@ -254,6 +254,8 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   set_alarm(timeout);
 
   if (setjmp(alarm_env)) {
+    /* Restore old handler */
+    sigaction(SIGALRM, &oldact, NULL);
     // Recovery after timeout. We have interrupted internal processing
     // of crash/gdb, so we need to do crash-specific cleanup, e.g.
     // close temporary fds and free buffers
@@ -318,6 +320,201 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   return obj;
 }
 
+// New interface - execute a crash command in a separate thread,
+// potentially in the background
+
+static PyObject *
+py_exec_crash_command_bg(PyObject *self, PyObject *pyargs) {
+  char *cmd;
+  char buf[BUFSIZE];
+  int pipefd[2];		/* For files redirection */
+  PyObject *obj;
+  char *s;
+  FILE *rf;
+  int pid, status;
+  char *outstr = NULL;
+  int outlen = 0;
+
+  int timeout = __default_timeout; 
+
+  if (!PyArg_ParseTuple(pyargs, "s|i", &cmd, &timeout)) {
+    PyErr_SetString(crashError, "invalid parameter type"); \
+    return NULL;
+  }
+
+  if (debug > 1)
+    printf("exec_crash_command_bg <%s>, timeout=%ds\n", cmd, timeout);
+
+  if (pipe(pipefd) == -1) {
+    PyErr_SetString(crashError, "cannot create a pipe");
+    return NULL;
+  }
+
+  // We execute crash command in another thread (forked) and read its output
+
+  pid = fork();
+
+  if (pid == -1) {
+    PyErr_SetString(crashError, "cannot fork()");
+    return NULL;
+  }
+
+  if (pid == 0) {
+    // Child writes to pipe
+    close(pipefd[0]);          /* Close unused read end */
+    // Convert FD to 'fp'
+    fflush(fp);
+    dup2(pipefd[1], fileno(fp));
+    close(pipefd[1]);
+    setlinebuf(fp);
+    
+    // Prepare the command line for crash
+    strcpy(pc->command_line, cmd);
+    clean_line(pc->command_line);
+    strcpy(pc->orig_line, pc->command_line);
+    strip_linefeeds(pc->orig_line);
+  
+    argcnt = parse_line(pc->command_line, args);
+  
+    /*
+      crash uses longjmp(pc->main_loop_env) to recover after some errors.
+      This puts us into its main loop: read line/process command. As we
+      don't want this, we'll replace pc->main_loop_env with our own location,
+      and later will restore it.
+    */
+
+    alarm(timeout);
+    // We return success/failure as exit code
+    if (!setjmp(pc->main_loop_env)) {
+      exec_command();
+      alarm(0);
+      exit(0);
+    } else {
+      // There was an internal GDB/crash error
+      alarm(0);
+      exit(1);
+    }
+  }
+
+  /* --------- Parent - read from pipe ------------- */
+
+  // Read from pipe
+  close(pipefd[1]);          /* Close unused write end */
+  rf = fdopen(pipefd[0], "r");
+
+  outstr = (char *) malloc(1000);
+  outstr[0] = '\0';
+  while ((s = fgets(buf, BUFSIZE - 1, rf))) {
+    int len = strlen(s);
+    outstr = (char *) realloc(outstr, outlen+len+1);
+    strcpy(&outstr[outlen], s);
+    outlen += len;
+    //fprintf(fp, "-> %s", s);
+  }
+
+  //printf("outlen=%d\n outstr=%s", outlen, outstr);
+  //fflush(stdout);
+  obj = PyString_FromStringAndSize(outstr, outlen);
+  free (outstr);
+
+  wait(&status);
+  if (WIFEXITED(status)) {
+    if (WEXITSTATUS(status)) {
+      // crash returned an error
+      PyErr_SetString(crashError, "command returned an error");
+      return NULL;
+    }
+  } else if (WIFSIGNALED(status)) {
+    if (WCOREDUMP(status)) {
+      PyErr_SetString(crashError, "crash coredumped\n");
+    } else {
+      snprintf(buf, BUFSIZE-1, "crash exited on signal %d",
+	       WTERMSIG(status));
+      PyErr_SetString(crashError, buf);
+    }
+    return NULL;
+  }
+
+  // Normal exit
+  return obj;
+}
+
+// Start executing crash command in a separate thread
+// Return (fileno, pid) where fileno is an OS-level fd to read from
+// We don't provide an argument for timeout here as it can be
+// implemented doing select on fd
+
+static PyObject *
+py_exec_crash_command_bg2(PyObject *self, PyObject *pyargs) {
+  char *cmd;
+  int pipefd[2];		/* For files redirection */
+  int pid;
+
+  if (!PyArg_ParseTuple(pyargs, "s", &cmd)) {
+    PyErr_SetString(crashError, "invalid parameter type"); \
+    return NULL;
+  }
+
+  if (debug > 1)
+    printf("exec_crash_command_bg2 <%s>\n", cmd);
+
+  if (pipe(pipefd) == -1) {
+    PyErr_SetString(crashError, "cannot create a pipe");
+    return NULL;
+  }
+
+  // We execute crash command in another thread (forked) and read its output
+
+  pid = fork();
+
+  if (pid == -1) {
+    PyErr_SetString(crashError, "cannot fork()");
+    return NULL;
+  }
+
+  if (pid == 0) {
+    // Child writes to pipe
+    close(pipefd[0]);          /* Close unused read end */
+    // Convert FD to 'fp'
+    fflush(fp);
+    dup2(pipefd[1], fileno(fp));
+    close(pipefd[1]);
+    setlinebuf(fp);
+    
+    // Prepare the command line for crash
+    strcpy(pc->command_line, cmd);
+    clean_line(pc->command_line);
+    strcpy(pc->orig_line, pc->command_line);
+    strip_linefeeds(pc->orig_line);
+  
+    argcnt = parse_line(pc->command_line, args);
+  
+    /*
+      crash uses longjmp(pc->main_loop_env) to recover after some errors.
+      This puts us into its main loop: read line/process command. As we
+      don't want this, we'll replace pc->main_loop_env with our own location,
+      and later will restore it.
+    */
+
+    // We return success/failure as exit code
+    if (!setjmp(pc->main_loop_env)) {
+      exec_command();
+      exit(0);
+    } else {
+      // There was an internal GDB/crash error
+      exit(1);
+    }
+  }
+
+  /* --------- Parent - read from pipe ------------- */
+
+  // Read from pipe
+  close(pipefd[1]);          /* Close unused write end */
+
+  // Return a tuple of two integers: (fileno, pid)
+  return Py_BuildValue("(ii)", pipefd[0], pid);
+}
+
 // Call epython_execute_prog(argc, argv, 0)
 static PyObject *
 py_exec_epython_command(PyObject *self, PyObject *pyargs) {
@@ -334,43 +531,6 @@ py_exec_epython_command(PyObject *self, PyObject *pyargs) {
   Py_INCREF(Py_None);
   return Py_None;
 }
-
-#if 0
-static PyObject *
-oldpy_exec_crash_command(PyObject *self, PyObject *pyargs) {
-  char *cmd;
-  // char buf[BUFSIZE];
-  FILE *oldfp = fp;
-
-
-  if (!PyArg_ParseTuple(pyargs, "s", &cmd)) {
-    PyErr_SetString(crashError, "invalid parameter type"); \
-    return NULL;
-  }
-
-
-  // Send command to crash and get its text output
-  strcpy(pc->command_line, cmd);
-  clean_line(pc->command_line);
-  
-  argcnt = parse_line(pc->command_line, args);
-  fflush(fp);
-  
-  Py_BEGIN_ALLOW_THREADS
-  fp = fopen("PYT_fifo", "a");
-  
-  exec_command();
-  fflush(fp);
-  fclose(fp);
-  Py_END_ALLOW_THREADS
-    
-  fp = oldfp;
-
-  Py_INCREF(Py_None);
-  return Py_None;
-}
-#endif
-
 
 static PyObject *
 py_sym2addr(PyObject *self, PyObject *args) {
@@ -1328,6 +1488,8 @@ static PyMethodDef crashMethods[] = {
   {"get_symbol_type",  py_crash_get_symbol_type, METH_VARARGS},
   {"get_GDB_output",  py_get_GDB_output, METH_VARARGS},
   {"exec_crash_command",  py_exec_crash_command, METH_VARARGS},
+  {"exec_crash_command_bg",  py_exec_crash_command_bg, METH_VARARGS},
+  {"exec_crash_command_bg2",  py_exec_crash_command_bg2, METH_VARARGS},
   {"exec_epython_command",  py_exec_epython_command, METH_VARARGS},
   {"get_epython_cmds",  py_get_epython_cmds, METH_VARARGS},
   {"sym2addr",  py_sym2addr, METH_VARARGS},
