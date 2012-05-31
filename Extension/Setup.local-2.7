@@ -1,6 +1,5 @@
-# Modules needed for PyKdump
+# Modules needed for PyKdump built with Python-2
 *static*
-cStringIO cStringIO.c
 time timemodule.c # -lm
 math mathmodule.c
 binascii binascii.c
@@ -12,4 +11,6 @@ zlib zlibmodule.c -lz
 _functools _functoolsmodule.c
 itertools itertoolsmodule.c
 select selectmodule.c
-
+# Python-2.X specific
+cStringIO cStringIO.c
+cPickle cPickle.c

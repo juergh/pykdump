@@ -731,7 +731,7 @@ def __get_cpu_wqs(_wq):
     #int run_depth;
 #}
 
-
+# Decode workqueue
     
 def decode_wq(_wq):
     for cpu, cwq in __get_cpu_wqs(_wq):
@@ -748,14 +748,29 @@ def decode_wq(_wq):
             #print(barr)
         if (verbose < 1):
             continue
-        # On older 2.6 tasks are in work_done
-        # On newer ones, it uses completion events
-        try:
+        
+        # Checking which threads are waiting for this wq to be flushed
+        # The only implemented test is for RHEL4,5. If we don't know how
+        # to do this, just skip this test
+        # On RHEL4,5 tasks are in work_done
+        # On RHEL6 it uses completion events
+        # on 3.x kernels it uses wq_flusher
+        if (cwq.hasField("work_done")):
+            # RHEL4,5
             lhead = cwq.work_done
             tasklist = decode_waitq(lhead.task_list)
-        except KeyError:
-            # Completion events
-            pass
+        elif (cwq.hasField("worklist")):
+            # RHEL6
+            # Completion events. First, check whether we have any work
+            if (worklist.next == worklist.prev and long(cwq.current_work) == 0):
+                tasklist = []
+            else:
+                #print("   Workqueue is not empty, but cannot decode it for this kernel")
+                #raise TypeError("unsupported kernel")
+                tasklist = []
+        else:
+            #raise TypeError("unsupported kernel")
+            tasklist = []
 
         if (tasklist):
             print("   .... tasks waiting for this workqueue to be flushed:")
@@ -775,7 +790,11 @@ def check_event_workqueues():
     warning = False
     for cpu, cwq in __get_cpu_wqs(_wq):    
         worklist = cwq.worklist
-        lhead = cwq.work_done
+        # This works for RHEL4,5 only
+        try:
+            lhead = cwq.work_done
+        except:
+            break
         tasklist = decode_waitq(lhead.task_list)            
         # Check whether there are tasks waiting longer than 1s
         maxdelta = 1000         # in ms
