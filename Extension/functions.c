@@ -31,6 +31,7 @@
 // for FD_ISSET
 #include <sys/select.h>
 
+
 extern struct extension_table *epython_curext;
 extern int epython_execute_prog(int argc, char *argv[], int);
 
@@ -1474,6 +1475,35 @@ py_get_pathname(PyObject *self, PyObject *args) {
   return PyString_FromString(pathname);
 }
 
+#define PY_PRCTL
+#if defined(PY_PRCTL)
+/* Not very good but better than nohting, I will improve it later */
+#include <sys/prctl.h>
+#if PY_MAJOR_VERSION < 3
+
+static PyObject *
+py_setprocname(PyObject *self, PyObject *args) {
+    char *name;
+    char *argv0 = pc->program_path;
+    int olen = strlen(argv0);
+    int nlen;
+    if (!PyArg_ParseTuple(args, "s", &name))
+            return NULL;
+    nlen = strlen(name);
+
+    if (nlen < olen) {
+        strncpy(argv0, name , nlen);
+        // Fill the rest with nulls
+        memset(argv0+nlen, '\0', olen-nlen);
+    }
+    
+    prctl (15 /* PR_SET_NAME */, name, 0, 0, 0);
+    Py_INCREF(Py_None);
+    return Py_None;
+};
+#endif
+#endif  /* PY_PRCTL */
+
 PyObject * py_gdb_typeinfo(PyObject *self, PyObject *args);
 PyObject * py_gdb_whatis(PyObject *self, PyObject *args);
 void py_gdb_register_enums(PyObject *m);
@@ -1515,6 +1545,9 @@ static PyMethodDef crashMethods[] = {
   {"register_epython_prog", py_register_epython_prog, METH_VARARGS},
   {"set_default_timeout", py_set_default_timeout, METH_VARARGS},
   {"get_pathname", py_get_pathname, METH_VARARGS},
+#if defined(PY_PRCTL)
+  {"setprocname", py_setprocname, METH_VARARGS},
+#endif  
   {NULL,      NULL}        /* Sentinel */
 };
 

@@ -8,3 +8,5 @@
 *~
 __pycache__
 *.out
+Extension/X86
+Extension/X86_64
