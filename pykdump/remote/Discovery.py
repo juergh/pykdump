@@ -56,7 +56,7 @@ def daemonize (stdin='/dev/null', stdout='/dev/null', stderr='/dev/null', leavef
 
     # Now I am a daemon!
     # Change my name
-    crash.setprocname("PyK")
+    crash.setprocname("PyKdump")
     maxfd = 40
     for fd in range(3, maxfd):
         if (fd in leavefds):

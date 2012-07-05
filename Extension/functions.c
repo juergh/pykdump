@@ -1475,34 +1475,41 @@ py_get_pathname(PyObject *self, PyObject *args) {
   return PyString_FromString(pathname);
 }
 
-#define PY_PRCTL
-#if defined(PY_PRCTL)
-/* Not very good but better than nohting, I will improve it later */
+/* Used fot changing Discovery daemon name */
+
 #include <sys/prctl.h>
-#if PY_MAJOR_VERSION < 3
+
+/* Unfortunately, we cannot use standard approach based on 'environ'
+ * variable as it has already been relocated by crash/GDB. The only
+ * thing we can do is to scan argv area and rewrite it.
+ */
+
+static int get_argv_size(void) {
+    char buf[8192];
+    int fd = open("/proc/self/cmdline", O_RDONLY);
+    int size = read(fd, buf, 8192);
+    return size;
+}
 
 static PyObject *
 py_setprocname(PyObject *self, PyObject *args) {
     char *name;
     char *argv0 = pc->program_path;
-    int olen = strlen(argv0);
-    int nlen;
+    unsigned int size;
+
     if (!PyArg_ParseTuple(args, "s", &name))
             return NULL;
-    nlen = strlen(name);
+ 
+    size = get_argv_size();
 
-    if (nlen < olen) {
-        strncpy(argv0, name , nlen);
-        // Fill the rest with nulls
-        memset(argv0+nlen, '\0', olen-nlen);
-    }
-    
+    memset(argv0, '\0', size);
+    snprintf(argv0, size - 1, name);
+     
     prctl (15 /* PR_SET_NAME */, name, 0, 0, 0);
     Py_INCREF(Py_None);
     return Py_None;
 };
-#endif
-#endif  /* PY_PRCTL */
+
 
 PyObject * py_gdb_typeinfo(PyObject *self, PyObject *args);
 PyObject * py_gdb_whatis(PyObject *self, PyObject *args);
@@ -1545,9 +1552,7 @@ static PyMethodDef crashMethods[] = {
   {"register_epython_prog", py_register_epython_prog, METH_VARARGS},
   {"set_default_timeout", py_set_default_timeout, METH_VARARGS},
   {"get_pathname", py_get_pathname, METH_VARARGS},
-#if defined(PY_PRCTL)
   {"setprocname", py_setprocname, METH_VARARGS},
-#endif  
   {NULL,      NULL}        /* Sentinel */
 };
 
