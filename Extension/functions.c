@@ -440,6 +440,57 @@ py_exec_crash_command_bg(PyObject *self, PyObject *pyargs) {
   return obj;
 }
 
+
+// We need to reopen vmcore. Unfortunately, we cannot get its FD from
+// 'crash' at this moment
+// Find fd based on the filename. Returns fd=-1 if we cannot find a match
+
+int fn2fd(const char *fn, const char **ffn) {
+  static const char *selffd = "/proc/self/fd/";
+  char buf[80];
+  struct dirent *de;
+  DIR *dirp;
+  char *linkname;
+  struct stat sb;
+  int nbytes;
+  int foundfd = -1;
+  int selffdlen = strlen(selffd);
+  int lfn = strlen(fn);
+
+  *ffn = NULL;
+  dirp = opendir(selffd);
+
+  while ((de = readdir(dirp))) {
+    char *dname = de->d_name;
+    int lfd;
+    if (strcmp(dname, ".") == 0 || strcmp(dname, "..") == 0)
+      continue;
+    strncpy(buf, selffd, 80-1);
+    strncpy(buf+selffdlen, dname, 80-selffdlen-1);
+    if (lstat(buf, &sb) == -1)
+      continue;
+    
+    linkname = (char *)malloc(sb.st_size + 1);
+    
+    if ((nbytes = readlink(buf, linkname, sb.st_size + 1)) >0) {
+      lfd = atoi(dname);
+      linkname[nbytes] = '\0';
+      //printf("fdf =%d %s %s\n", lfd, dname, linkname);
+      if (nbytes >= lfn) {
+        char *p  = linkname+nbytes-lfn;
+        if (strcmp(p, fn) == 0) {
+          foundfd = lfd;
+          *ffn = linkname;
+          return foundfd;
+        }
+      }
+    }
+    free((void *)linkname);
+  }
+  return foundfd;
+}
+
+
 // Start executing crash command in a separate thread
 // Return (fileno, pid) where fileno is an OS-level fd to read from
 // We don't provide an argument for timeout here as it can be
@@ -448,9 +499,13 @@ py_exec_crash_command_bg(PyObject *self, PyObject *pyargs) {
 static PyObject *
 py_exec_crash_command_bg2(PyObject *self, PyObject *pyargs) {
   char *cmd;
-  int pipefd[2];		/* For files redirection */
+  int pipefd[2];		 /* For files redirection */
   int pid;
-
+  
+  int dfd;                      /* FD used to read vmcore */
+  static int fd = -1;
+  static const char *vmcorepath = NULL;
+  
   if (!PyArg_ParseTuple(pyargs, "s", &cmd)) {
     PyErr_SetString(crashError, "invalid parameter type"); \
     return NULL;
@@ -464,8 +519,16 @@ py_exec_crash_command_bg2(PyObject *self, PyObject *pyargs) {
     return NULL;
   }
 
+  if (fd == -1) {
+      fd = fn2fd(pc->dumpfile, &vmcorepath);
+      if (fd == -1) {
+          PyErr_SetString(crashError, "cannot find vmcore fd");
+          return NULL;
+      }
+  }
   // We execute crash command in another thread (forked) and read its output
-
+  //printf(" Before fork: sockfd, nfd, mfd, kfd, dfd %d, %d,%d,%d,%d\n", 
+  //       pc->sockfd, pc->nfd, pc->mfd, pc->kfd, pc->dfd);
   pid = fork();
 
   if (pid == -1) {
@@ -474,6 +537,23 @@ py_exec_crash_command_bg2(PyObject *self, PyObject *pyargs) {
   }
 
   if (pid == 0) {
+    // crash does lseek on fd opened for vmcore. If we want to run
+    // multiple copies of this command simultaneously, we need to
+    // reopen this file. The descriptor of interest is :
+    // Normally pc->dfd
+    // The file name is pc->dumpfile
+    off_t cpos;
+    int rc;
+    cpos =  lseek(fd, 0, SEEK_CUR);
+
+    dfd = open(vmcorepath, O_RDONLY);
+    rc = dup2(dfd, fd);
+    close(dfd);
+
+    lseek(fd, cpos, SEEK_SET);
+    printf("Reopening %d %s rc=%d\n", fd, vmcorepath, rc);
+    
+    
     // Child writes to pipe
     close(pipefd[0]);          /* Close unused read end */
     // Convert FD to 'fp'
@@ -481,6 +561,8 @@ py_exec_crash_command_bg2(PyObject *self, PyObject *pyargs) {
     dup2(pipefd[1], fileno(fp));
     close(pipefd[1]);
     setlinebuf(fp);
+    
+
     
     // Prepare the command line for crash
     strcpy(pc->command_line, cmd);

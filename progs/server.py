@@ -114,8 +114,8 @@ class MyTCPHandler(SocketServer.BaseRequestHandler):
             # We need an extra loop to guarantee that we have read the whole
             # record
             data = self.request.recv(1024)
-            print ("Got %d bytes from %s" % \
-                   (len(data), self.client_address[0]))            
+            #print ("Got %d bytes from %s" % \
+            #       (len(data), self.client_address[0]))            
             # If we received 0 bytes, this means the other side
             # has closed the connection
             ldata = len(data)
