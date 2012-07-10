@@ -520,7 +520,11 @@ py_exec_crash_command_bg2(PyObject *self, PyObject *pyargs) {
   }
 
   if (fd == -1) {
-      fd = fn2fd(pc->dumpfile, &vmcorepath);
+      if (pc->dumpfile != NULL)
+	fd = fn2fd(pc->dumpfile, &vmcorepath);
+      else
+	fd = fn2fd(pc->live_memsrc, &vmcorepath);
+
       if (fd == -1) {
           PyErr_SetString(crashError, "cannot find vmcore fd");
           return NULL;
@@ -551,7 +555,8 @@ py_exec_crash_command_bg2(PyObject *self, PyObject *pyargs) {
     close(dfd);
 
     lseek(fd, cpos, SEEK_SET);
-    printf("Reopening %d %s rc=%d\n", fd, vmcorepath, rc);
+    if (debug)
+      printf("Reopening %d %s rc=%d\n", fd, vmcorepath, rc);
     
     
     // Child writes to pipe
@@ -1585,7 +1590,8 @@ py_setprocname(PyObject *self, PyObject *args) {
     size = get_argv_size();
 
     memset(argv0, '\0', size);
-    snprintf(argv0, size - 1, name);
+    strncpy(argv0, name, size-1);
+    //snprintf(argv0, size - 1, name);
      
     prctl (15 /* PR_SET_NAME */, name, 0, 0, 0);
     Py_INCREF(Py_None);
