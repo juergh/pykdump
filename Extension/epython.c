@@ -30,7 +30,7 @@
 
 int debug = 0;
 
-static char crashmod_version_s[] = "@(#)pycrash 0.6.6";
+static char crashmod_version_s[] = "@(#)pycrash 0.6.7";
 const char * crashmod_version = crashmod_version_s + 12;
 
 #include "pykdump.h"
