@@ -14,7 +14,7 @@ from signal import *
 import threading
 
 import SocketServer
-
+import cPickle as pickle
 
 from pykdump.API import *
 from pykdump.remote import Records, Discovery
@@ -129,6 +129,8 @@ class MyTCPHandler(SocketServer.BaseRequestHandler):
         # c2 is a type of command
         # 0 - execute PyKdump
         # 1 - kill thread if it is still running
+        # 2 - status update
+        # 3 - get basic info about this vmcore (kernel etc.)
         if (c2 == 0):
             #csender = functools.partial(self.sender, c1)
             print ("Calling exec_remote", data, c1, c2)
@@ -138,6 +140,14 @@ class MyTCPHandler(SocketServer.BaseRequestHandler):
         elif (c2 == 1):
             # Kill the instance if it is still running
             kill_mplexid(c1)
+        elif (c2 == 3):
+            # Convert part of sys_info to a simple dict and send it
+            sinfo_d = {}
+            for k in ("RELEASE", "machine"):
+                sinfo_d[k] = sys_info[k]
+            sinfo = pickle.dumps(sinfo_d)
+            #print("len=", len(sinfo), type(sinfo_d))
+            self.sender(c1, c2, sinfo)
             
     # This arguments order is needed for currying
     def sender(self, c1, c2, data):

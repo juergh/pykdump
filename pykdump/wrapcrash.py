@@ -527,10 +527,13 @@ class StructResult(long):
         for fn,fi in self.PYT_sinfo.PYT_body:
             # For big arrays, print just 4 first elements
             elements = fi.ti.elements
-            val = self.__getattr__(fn)
-            if (not isinstance(val, SmartString) and elements > 3):
-               val = str(val[:4])[:-1] + ", ..."
-            print (sindent, "    %18s " % fn, val)
+            try:
+                val = self.__getattr__(fn)
+                if (not isinstance(val, SmartString) and elements > 3):
+                    val = str(val[:4])[:-1] + ", ..."
+                print (sindent, "    %18s " % fn, val)
+            except TypeError as err:
+                print (sindent, "    %18s  unknown type" % fn)
         
         
     
