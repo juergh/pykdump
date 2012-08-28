@@ -134,8 +134,13 @@ py_crash_get_symbol_type(PyObject *self, PyObject *args) {
   printf("name=%s, member=%s\n", name, member);
   val = get_symbol_type(name, member, &req);
   // BUG
+#if defined(GDB_5_3) || defined(GDB_6_0) || defined(GDB_6_1) || defined(GDB_7_0)
   printf("val=%d, length=%d, name=%s, typename=%s, tagname=%s\n",
 	 val, (int)req.length, req.name, req.typename, req.tagname);
+#else
+  printf("val=%d, length=%d, name=%s, typename=%s, tagname=%s\n",
+         val, (int)req.length, req.name, req.type_name, req.tagname);  
+#endif
   
   return Py_BuildValue("i", val);
 }
