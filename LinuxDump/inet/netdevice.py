@@ -26,6 +26,7 @@ from pykdump.API import *
 from LinuxDump.inet import *
 from LinuxDump import percpu
 from LinuxDump.inet.proto import print_skbuff_head
+from LinuxDump.spinlocks import spin_is_locked
 import string
 
 # Python2 vs Python3
@@ -772,6 +773,13 @@ def print_If(dev, details = 0):
     if (features):
         print ("    features=<%s>" % features)
 
+    # This does not exist on old kernels, needs further improvements
+    try:
+        tx_lock = dev.tx_global_lock.raw_lock
+        if (spin_is_locked(tx_lock)):
+            print("    !!! tx_global_lock is locked,", hexl(tx_lock.slock))
+    except KeyError:
+        pass
     try:
         master = Deref(dev.master)
         print ("    master=%s" % master.name)
