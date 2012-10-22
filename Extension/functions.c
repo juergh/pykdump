@@ -120,6 +120,8 @@ py_crash_member_offset(PyObject *self, PyObject *args) {
   return Py_BuildValue("l", val);
 }
 
+# if 0
+// This is not used anywhere but creates problems for portability 
 static PyObject *
 py_crash_get_symbol_type(PyObject *self, PyObject *args) {
   char *name, *member = NULL;
@@ -144,6 +146,7 @@ py_crash_get_symbol_type(PyObject *self, PyObject *args) {
   
   return Py_BuildValue("i", val);
 }
+#endif
 
 static PyObject *
 py_get_GDB_output(PyObject *self, PyObject *args) {
@@ -510,6 +513,8 @@ py_exec_crash_command_bg2(PyObject *self, PyObject *pyargs) {
   int dfd;                      /* FD used to read vmcore */
   static int fd = -1;
   static const char *vmcorepath = NULL;
+
+  unsigned long long saved_flags; /* To save pc->flags */
   
   if (!PyArg_ParseTuple(pyargs, "s", &cmd)) {
     PyErr_SetString(crashError, "invalid parameter type"); \
@@ -518,6 +523,10 @@ py_exec_crash_command_bg2(PyObject *self, PyObject *pyargs) {
 
   if (debug > 1)
     printf("exec_crash_command_bg2 <%s>\n", cmd);
+
+  // Disable scroll pager
+  saved_flags = pc->flags;
+  pc->flags &= ~SCROLL;
 
   if (pipe(pipefd) == -1) {
     PyErr_SetString(crashError, "cannot create a pipe");
@@ -545,7 +554,9 @@ py_exec_crash_command_bg2(PyObject *self, PyObject *pyargs) {
     return NULL;
   }
 
+
   if (pid == 0) {
+    /* A Child */
     // crash does lseek on fd opened for vmcore. If we want to run
     // multiple copies of this command simultaneously, we need to
     // reopen this file. The descriptor of interest is :
@@ -571,6 +582,13 @@ py_exec_crash_command_bg2(PyObject *self, PyObject *pyargs) {
     dup2(pipefd[1], fileno(fp));
     close(pipefd[1]);
     setlinebuf(fp);
+
+    // Dup stdout to stderr
+    /*
+    dup2(pipefd[1], fileno(fp));
+
+    fprintf(stderr, "\n**stderr**\n");
+    */
     
 
     
@@ -603,6 +621,9 @@ py_exec_crash_command_bg2(PyObject *self, PyObject *pyargs) {
 
   // Read from pipe
   close(pipefd[1]);          /* Close unused write end */
+
+  // Restore pc->flags
+  pc->flags = saved_flags;
 
   // Return a tuple of two integers: (fileno, pid)
   return Py_BuildValue("(ii)", pipefd[0], pid);
@@ -1416,7 +1437,14 @@ py_cpu_to_le32(PyObject *self, PyObject *args) {
 
 static void
 epython_subcommand(void) {
-  epython_execute_prog(argcnt, args, 0);
+  int i;
+  char **argv = (char **) malloc(sizeof(char *) * (argcnt + 1));
+  argv[0] = "epython_subcommand";
+  for (i=0; i < argcnt; i++)
+    argv[i+1] = args[i];
+
+  epython_execute_prog(argcnt+1, argv, 0);
+  free(argv);
 }
 
 
@@ -1615,7 +1643,7 @@ static PyMethodDef crashMethods[] = {
   {"union_size",  py_crash_union_size, METH_VARARGS},
   {"member_offset",  py_crash_member_offset, METH_VARARGS},
   {"member_size",  py_crash_member_size, METH_VARARGS},
-  {"get_symbol_type",  py_crash_get_symbol_type, METH_VARARGS},
+  //  {"get_symbol_type",  py_crash_get_symbol_type, METH_VARARGS},
   {"get_GDB_output",  py_get_GDB_output, METH_VARARGS},
   {"exec_crash_command",  py_exec_crash_command, METH_VARARGS},
   {"exec_crash_command_bg",  py_exec_crash_command_bg, METH_VARARGS},
