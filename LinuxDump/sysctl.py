@@ -1,9 +1,9 @@
 # module LinuxDump.sysctl
 #
-# Time-stamp: <12/03/09 11:33:46 alexs>
+# Time-stamp: <12/10/19 10:47:38 alexs>
 #
-# Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 2007-2012 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2007-2012 Hewlett-Packard Co., All rights reserved.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -14,6 +14,9 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
+
+# To facilitate migration to Python-3, we start from using future statements/builtins
+from __future__ import print_function
 
 __doc__ = '''
 This is a package providing access to ctl_table trees used by 'sysctl'
@@ -48,7 +51,11 @@ if (len(sym2alladdr("root_table")) == 1):
 else:
     stype = "struct ctl_table"
 
-root_table_header = readSymbol("root_table_header")
+try:
+    root_table_header = readSymbol("root_table_header")
+except:
+    # Does not work on this kernel...
+    root_table_header = None
 
 
 # We put all found entries in a dcitionary - indexed by entry names, e.g.
@@ -85,6 +92,11 @@ def readCtlTable(root, parent = ''):
 
 
 def getCtlTables():
+    if (root_table_header == None):
+        # Not supported on this kernel yet...
+        print(WARNING, "sysctl not implemented yet for this kernel")
+        return {}
+        
     # Walk linked list of headers
     for ct in readSUListFromHead("root_table_header", "ctl_entry",
                                  "struct ctl_table_header", inchead=True):
