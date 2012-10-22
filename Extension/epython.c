@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <12/05/04 13:17:27 alexs>
+  Time-stamp: <12/10/22 16:28:51 alexs>
 
   Copyright (C) 2006-2012 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2012 Hewlett-Packard Co., All rights reserved.
@@ -21,6 +21,7 @@
 #include <eval.h>           /* for PyEval_EvalCode om older released */
 
 #include <unistd.h>
+#include <getopt.h>
 #include <stdlib.h>
 #include <sys/times.h>
 
@@ -30,8 +31,10 @@
 
 int debug = 0;
 
-static char crashmod_version_s[] = "@(#)pycrash 0.6.7";
+static char crashmod_version_s[] = "@(#)pycrash 0.6.8";
 const char * crashmod_version = crashmod_version_s + 12;
+
+extern const char *build_crash_version;
 
 #include "pykdump.h"
 
@@ -70,6 +73,7 @@ void connect2fp(void) {
   crashfp = PyFile_FromFile(fp, "<crash fp>", "w", py_fclose);
 #endif
   PyObject_SetAttrString(sys, "stdout", crashfp);
+  PyObject_SetAttrString(sys, "stderr", crashfp);
   Py_DECREF(sys);
   Py_DECREF(crashfp);
 }
@@ -201,7 +205,6 @@ void _init(void)  {
     build_crash_version vs build_version
    */
   
-  extern const char *build_crash_version;
   if (build_crash_version[0] != build_version[0]) {
     fprintf(stderr, "\nYou need to use mpykdump.so matching the major"
 	" crash version\n");
@@ -283,6 +286,14 @@ void _init(void)  {
   }
   memcpy(ct_copy, command_table, sizeof(command_table));
   register_extension(ct_copy);
+
+  // Set scroll if it has not been done yet
+
+  if (pc->flags & SCROLL) {
+    printf("Setting scroll off while initializing PyKdump\n");
+    pc->flags &= ~SCROLL;
+  }
+
   
   if (debug) {
     printf("Epython extension registered\n");
@@ -291,8 +302,8 @@ void _init(void)  {
 
   // Run the initialization Python script if it is available
   {
-    char *argv[]= {"PyKdumpInit", NULL};
-    epython_execute_prog(1, argv, 1);
+    char *argv[]= {"_init", "PyKdumpInit", NULL};
+    epython_execute_prog(2, argv, 1);
   }
   
   return;
@@ -450,6 +461,14 @@ const char *find_pyprog(const char *prog) {
   This is used for one-time initialiation script
 */
 
+static void ep_usage(void) {
+  printf("Usage: \n"
+	 "  epython [-h|--help]\n"
+	 "  [-v|--version]\n"
+	 "  [-d|--debug n]\n"
+	 "           progname [progopts] [progargs]\n");
+}
+
 void
 epython_execute_prog(int argc, char *argv[], int quiet) {
   FILE *scriptfp = NULL;
@@ -457,23 +476,76 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
   //const char *pypath;
   const char *prog;
   char buffer[BUFLEN];
+  char **nargv;
 #if PY_MAJOR_VERSION >= 3
   wchar_t **argv_copy;
   wchar_t **argv_copy2;
   int i;
 #endif
 
+  // Options/args processing.
+  // The general approach we use is like that:
+  // epython [eopt1] [eopt2] ... progname [popt1] ...
+  // That is - all options specified before the first real arg (progname)
+  // are internal for epython
 
-  if (argc < 1) {
+
+  static struct option long_options[] = {
+    {"help",     no_argument,       0, 'h' },
+    {"version",  no_argument,       0, 'v' },
+    {"debug",    required_argument, 0, 'd' },
+    {0,          0,             0, 0 }
+  };
+
+  int c;
+  int option_index;
+  if (debug) {
+    int i;
+    printf("***options processing\n");
+    for(i=0; i < argc; i++)
+      printf("  argv[%d] = %s\n", i, argv[i]);
+  }
+  
+  while ((c = getopt_long(argc, argv, "+hvd:",
+			  long_options, &option_index)) != -1) {
+    switch(c) {
+    case 'h':
+      ep_usage();
+      return;
+    case 'v':
+      printf("Epython version=%s\n", crashmod_version);
+      printf("crash used for build: %s\n", build_crash_version);
+      return;
+    case 'd':
+      debug = atoi(optarg);
+      break;
+    default: /* '?' */
+      ep_usage();
+      return;
+    }
+  }
+
+  // Unprocessed arguments now start from optind
+  if (optind == argc) {
     fprintf(fp, " You need to specify a program file\n");
     // No arguments passed
     return;
   }
 
+  /* Shift argv, argc by optind */
+  nargv = argv+optind;
+  argc -= optind;
+
+  if (debug) {
+    int i;
+    printf(" >>> after options processed\n");
+    for(i=0; i < argc; i++)
+      printf("  nargv[%d] = %s\n", i, nargv[i]);
+  }
   
-  prog = find_pyprog(argv[0]);
+  prog = find_pyprog(nargv[0]);
   if (prog) {
-    argv[0] = (char *) prog;		/* Is hopefully OK */
+    nargv[0] = (char *) prog;		/* Is hopefully OK */
     scriptfp = fopen(prog, "r");
     /* No need to do anything if the file does not exist */
     if (scriptfp == NULL) {
@@ -487,15 +559,15 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
   // We should add handling exceptions here to prevent 'crash' from exiting
   if (argc > 0) {
 #if PY_MAJOR_VERSION < 3    
-    PySys_SetArgvEx(argc, argv, 0);
+    PySys_SetArgvEx(argc, nargv, 0);
 #else
-    // We need to convert char **argv -> wchar_t **argv. We'll allocate memory
+    // We need to convert char **nargv -> wchar_t **argv. We'll allocate memory
     // for that and free it after running our script
     argv_copy = (wchar_t **)PyMem_Malloc(sizeof(wchar_t*)*argc);
     /* We need a second copies, as Python might modify the first one. */
     argv_copy2 = (wchar_t **)PyMem_Malloc(sizeof(wchar_t*)*argc);
     for (i = 0; i < argc; i++) {
-      argv_copy[i] = _Py_char2wchar(argv[i], NULL);
+      argv_copy[i] = _Py_char2wchar(nargv[i], NULL);
       if (!argv_copy[i])
 	PyErr_NoMemory();
       argv_copy2[i] = argv_copy[i];
@@ -522,9 +594,9 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
 	strcpy(buffer, "");	/* Initprog is in top dir */
       else
 	strcpy(buffer, "progs/");
-      rc = run_fromzip(strncat(buffer, argv[0], BUFLEN - 60), ext_filename);
+      rc = run_fromzip(strncat(buffer, nargv[0], BUFLEN - 60), ext_filename);
       if (!rc && !quiet)
-	fprintf(fp, " Cannot find the program <%s>\n", argv[0]);
+	fprintf(fp, " Cannot find the program <%s>\n", nargv[0]);
     }
 
   } 
@@ -544,8 +616,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
 
 void
 cmd_epython() {
-  // We just strip 'epython' from argument list
-  epython_execute_prog(argcnt - 1, args + 1, 0);
+  epython_execute_prog(argcnt, args, 0);
 }
 
  
