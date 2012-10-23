@@ -609,7 +609,9 @@ py_exec_crash_command_bg2(PyObject *self, PyObject *pyargs) {
 
     // We return success/failure as exit code
     if (!setjmp(pc->main_loop_env)) {
+      extern int _unload_epython;
       exec_command();
+      _unload_epython = 0;
       exit(0);
     } else {
       // There was an internal GDB/crash error
