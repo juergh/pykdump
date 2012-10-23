@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-# Time-stamp: <12/10/19 12:40:38 alexs>
+# Time-stamp: <12/10/23 15:46:02 alexs>
 
-# Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
+# Copyright (C) 20012 Alex Sidorenko <asid@hp.com>
+# Copyright (C) 2012 Hewlett-Packard Co., All rights reserved.
 
 from __future__ import print_function
 
