@@ -6,6 +6,7 @@
 *.a
 *.so
 *~
+.emacs.desktop
 __pycache__
 *.out
 Extension/X86
