@@ -1,6 +1,6 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <12/10/22 16:28:51 alexs>
+  Time-stamp: <12/10/23 15:32:24 alexs>
 
   Copyright (C) 2006-2012 Alex Sidorenko <asid@hp.com>
   Copyright (C) 2006-2012 Hewlett-Packard Co., All rights reserved.
@@ -297,7 +297,7 @@ void _init(void)  {
   
   if (debug) {
     printf("Epython extension registered\n");
-    PyRun_SimpleString("import sys; print sys.path");
+    PyRun_SimpleString("import sys; print (sys.path)");
   }
 
   // Run the initialization Python script if it is available
@@ -308,22 +308,28 @@ void _init(void)  {
   
   return;
 }
- 
+
+// Don't call this when run in a separate thread - it saves time
+// and avoid conflicts with threading
+
+int _unload_epython = 1;
 void _fini(void) {
   //void __attribute__((destructor)) n_fini(void) {
   struct command_table_entry *ce;
 
-  if (!debug)
+  if (! _unload_epython)
     return;
-    
-  printf("Unloading epython\n");
+  
+  if (debug)
+    fprintf(fp, "Unloading epython\n");
   free(ext_filename);
   ext_filename = NULL;
   Py_Finalize();
 
   // Free name and help pointers for added entries
   for (ce = epython_curext->command_table, ce++; ce->name; ce++) {
-    printf("freeing ce->name and ce->help_data for %s\n", ce->name);
+    if (debug)
+      fprintf(fp, "freeing ce->name and ce->help_data for %s\n", ce->name);
     free(ce->name);
     if (ce->help_data)
       free(ce->help_data);
@@ -459,14 +465,22 @@ const char *find_pyprog(const char *prog) {
   We pass to it argc and argv.
   If 'quiet' is 1, we do not report errors and do not print stats.
   This is used for one-time initialiation script
+
+  We use the same convention as for exec() system calls: argv[0] is not
+  the name of the program but rather something used for information purposes
+  and useful for debugging
 */
 
 static void ep_usage(void) {
-  printf("Usage: \n"
-	 "  epython [-h|--help]\n"
-	 "  [-v|--version]\n"
-	 "  [-d|--debug n]\n"
-	 "           progname [progopts] [progargs]\n");
+  fprintf(fp, "Usage: \n"
+	 "  epython [epythonoptions] [[progname [progoptions] [progargs]]\n"
+	 "    epythonoptions:\n"
+	 "    ---------------\n"
+	 "      [-h|--help] \n"
+	 "      [-v|--version]  - report versions\n"
+	 "      [-d|--debug n]  - set debugging level \n"
+	 "      [-p|---path]    - show Python version and syspath\n"
+	 "\n");
 }
 
 void
@@ -494,30 +508,40 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
     {"help",     no_argument,       0, 'h' },
     {"version",  no_argument,       0, 'v' },
     {"debug",    required_argument, 0, 'd' },
+    {"path",     no_argument,       0, 'p'},
     {0,          0,             0, 0 }
   };
 
+  int need_prog = 1;		/* Usually we need a prog argument */
   int c;
   int option_index;
+
+  // Connect sys.stdout and sys.stderr to fp
+  connect2fp();
+
   if (debug) {
     int i;
-    printf("***options processing\n");
+    fprintf(fp, "***options processing\n");
     for(i=0; i < argc; i++)
-      printf("  argv[%d] = %s\n", i, argv[i]);
+      fprintf(fp,"  argv[%d] = %s\n", i, argv[i]);
   }
   
-  while ((c = getopt_long(argc, argv, "+hvd:",
+  while ((c = getopt_long(argc, argv, "+hvpd:",
 			  long_options, &option_index)) != -1) {
     switch(c) {
     case 'h':
       ep_usage();
       return;
     case 'v':
-      printf("Epython version=%s\n", crashmod_version);
-      printf("crash used for build: %s\n", build_crash_version);
+      fprintf(fp,"  Epython version=%s\n", crashmod_version);
+      fprintf(fp,"  crash used for build: %s\n", build_crash_version);
+      return;
+    case 'p':
+      PyRun_SimpleString("import sys; print (sys.version); print (sys.path)");
       return;
     case 'd':
       debug = atoi(optarg);
+      need_prog = 0;
       break;
     default: /* '?' */
       ep_usage();
@@ -527,7 +551,9 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
 
   // Unprocessed arguments now start from optind
   if (optind == argc) {
-    fprintf(fp, " You need to specify a program file\n");
+    if (need_prog)
+      fprintf(fp, " You need to specify a program file or options\n"
+	      "Check 'epython -h' for details\n");
     // No arguments passed
     return;
   }
@@ -545,6 +571,8 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
   
   prog = find_pyprog(nargv[0]);
   if (prog) {
+    if (debug)
+      fprintf(fp, "  --debug-- Running %s\n", prog);
     nargv[0] = (char *) prog;		/* Is hopefully OK */
     scriptfp = fopen(prog, "r");
     /* No need to do anything if the file does not exist */
@@ -574,8 +602,6 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
     }
     PySys_SetArgvEx(argc, argv_copy, 0);
 #endif
-    // Connect sys.stdout to fp
-    connect2fp();
 
     /* The function will be available only on the 2nd and further invocations
      of epython as it is normally defined in API.py which is not loaded yet */
@@ -584,7 +610,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
     /* This is where we run the real user-provided script */
 
     if (scriptfp) {
-      PyRun_SimpleFile(scriptfp, argv[0]);
+      PyRun_SimpleFile(scriptfp, nargv[0]);
       fclose(scriptfp);
     
     } else {
