@@ -1119,8 +1119,11 @@ def print_skbuff_head(skb, v = 0):
         elif (sk):
             print ("\tFamily:", family, skb)
         else:
-            print (WARNING, 'sk=NULL')
-            decode_skbuf(skb, v)
+            # I am not sure whether this works correctly on 3.X kernels
+            # Let us suppress output until further testing
+            pass
+            #print (WARNING, 'sk=NULL')
+            #decode_skbuf(skb, v)
         devs = [skb.dev]
         # real_dev and input_dev do not exist anymore on newer kernels
         try:
@@ -1160,14 +1163,41 @@ def IP_oneliner(nh, h):
         sport = ntohs(tcphdr.source)
         dport = ntohs(tcphdr.dest)
         left = "tcp".ljust(5)
+    else:
+        return "proto=%d" % proto
     return left + formatIPv4(saddr, sport) + formatIPv4(daddr, dport)
 
         
 # Decode and print skbuf as well as we can, taking into account different
 # fields
+# For 3.X kernels:
+# static inline struct iphdr *ip_hdr(const struct sk_buff *skb)
+# {
+#         return (struct iphdr *)skb_network_header(skb);
+# }
+# static inline unsigned char *skb_network_header(const struct sk_buff *skb)
+# {
+#         return skb->head + skb->network_header;
+# }
+
+def skb_network_header(skb):
+    try:
+        nh = skb.nh
+    except KeyError:
+        nh = long(skb.head) + skb.network_header
+    return nh
+
+def skb_transport_header(skb):
+    try:
+        h = skb.h
+    except KeyError:
+        h = long(skb.head) + skb.transport_header
+    return h
+
 def decode_skbuf(addr, v = 0):
     skb = readSU("struct sk_buff", addr)
-    nh = skb.nh.raw
+    #nh = skb.nh.raw
+    nh = skb_network_header(skb)
     ETH_protocol = ntohs(skb.protocol)
     if (nh == 0):
         # Data contains our headers
@@ -1179,10 +1209,12 @@ def decode_skbuf(addr, v = 0):
         hlen = 1 << iphdr.ihl
         h = long(iphdr) + hlen
     else:
-        h = skb.h.raw
+        #h = skb.h.raw
+        h = skb_transport_header(skb)
 
     if (v == 0):
         # 1-liner
+        #print(nh, h)
         print (IP_oneliner(nh, h))
         return skb
     if (v > 1):
@@ -1210,7 +1242,7 @@ def decode_IP_header(addr, v = 0):
     saddr = ntodots(iphdr.saddr)
     daddr = ntodots(iphdr.daddr)
     proto = iphdr.protocol
-    print ("IPv%d" % iphdr.version)
+    print ("IPv%d" % iphdr.version, iphdr)
     print ("  tos=%d id=%d fl=%d frag=%d ttl=%d proto=%d saddr=%s daddr=%s" %\
         (iphdr.tos, id, flags, frag_off, iphdr.ttl, proto, saddr, daddr))
     return iphdr

@@ -326,8 +326,12 @@ def print_mc_list(dev):
 
 # Print QDisc data if possible
 def printQdisc(qdisc, verbosity):
+    # If either enqueue and dequeue is bogus, no need to print anything -
+    # this Qdisc is not really used
     enqueuename = addr2sym(qdisc.enqueue)
     dequeuename = addr2sym(qdisc.dequeue)
+    if (not enqueuename or not dequeuename):
+        return
     qdiscaddr = Addr(qdisc)
     qdiscsz = len(qdisc)
     qlen = qdisc.q.qlen
@@ -342,6 +346,8 @@ def printQdisc(qdisc, verbosity):
         # Old kernels
         stats = qdisc.stats
         requeues = 0                    # They are really unavailable 
+    if (stats.backlog > 1000):
+        print(WARNING, "Huge Backlog")
     print ("\tqlen=%d backlog=%d drops=%d requeues=%d overlimits=%d" % \
           (stats.qlen, stats.backlog, stats.drops,
            requeues, stats.overlimits))
