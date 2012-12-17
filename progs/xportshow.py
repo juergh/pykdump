@@ -9,7 +9,7 @@
 # To facilitate migration to Python-3, we start from using future statements/builtins
 from __future__ import print_function
 
-__version__ = "0.8.1"
+__version__ = "0.8.2"
 
 
 from pykdump.API import *
@@ -540,7 +540,10 @@ def get_net_sysctl():
     ddef = {}
     for n in names:
         cte = ctbl[n]
-        vals = sysctl.getCtlData(cte)
+        try:
+            vals = sysctl.getCtlData(cte)
+        except:
+            vals = '(?)'
         dall[n] = vals
         m = re_if.match(n)
         if (not m):
@@ -797,7 +800,7 @@ if ( __name__ == '__main__'):
 
     (o, args) = op.parse_args()
 
-    details = o.Verbose
+    verbose = details = o.Verbose
     #__experimental = O.experimental
 
     if (o.Version):

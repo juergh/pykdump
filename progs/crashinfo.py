@@ -3,7 +3,7 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <12/03/22 11:45:31 alexs>
+# Time-stamp: <12/12/17 11:54:51 alexs>
 
 # Copyright (C) 2007-2012 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2007-2012 Hewlett-Packard Co., All rights reserved.
@@ -13,7 +13,7 @@
 from __future__ import print_function
 
 # 1st-pass dumpanalysis
-__version__ = "0.5.2"
+__version__ = "0.5.3"
 
 from pykdump.API import *
 
@@ -334,8 +334,18 @@ def check_sysctl():
     names = sorted(ctbl.keys())
 
     for n in names:
-        dall = sysctl.getCtlData(ctbl[n])
-        print (n.ljust(45), dall)
+        ct = ctbl[n]
+        if (verbose):
+            if (verbose > 1):
+                phandler = addr2sym(ct.proc_handler)
+            else:
+                phandler = ""
+            print("-----", ct, "------", phandler)
+        try:
+            dall = sysctl.getCtlData(ct)
+        except:
+            dall = '(?)'
+        print (n.ljust(20), dall)
 
  
 # Check whether active (bt -a) tasks are looping
