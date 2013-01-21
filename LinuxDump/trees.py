@@ -1,6 +1,6 @@
 # module LinuxDump.trees
 #
-# Time-stamp: <12/12/13 12:51:57 alexs>
+# Time-stamp: <13/01/21 08:58:23 alexs>
 #
 # Copyright (C) 2012 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2012 Hewlett-Packard Co., All rights reserved.
@@ -79,3 +79,8 @@ def for_all_rbtree(root, sname = None, smember = None):
         else:
             yield node
         node = rb_next(node)
+
+
+# --- initialization
+structSetAttr("struct rb_node", "rb_parent_color",
+                  ["__rb_parent_color", "rb_parent_color"])

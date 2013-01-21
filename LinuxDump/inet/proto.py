@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # module LinuxDump.inet.proto
-# Time-stamp: <12/03/22 12:58:44 alexs>
+# Time-stamp: <13/01/21 08:32:48 alexs>
 
 #
 # Copyright (C) 2006-2012 Alex Sidorenko <asid@hp.com>
@@ -508,7 +508,8 @@ def init_PseudoAttrs():
     structSetAttr(sn, "Dst", ["inet_daddr", "inet.daddr", "daddr",
                               "sk.__sk_common.skc_daddr"], extra)
     structSetAttr(sn, "sport", ["inet_sport", "inet.sport", "sport"], extra)
-    structSetAttr(sn, "dport", ["inet_dport", "inet.dport", "dport"], extra)
+    structSetAttr(sn, "dport", ["inet_dport", "inet.dport",
+                                "sk.__sk_common.skc_dport", "dport"], extra)
 
     structSetAttr(sn, "Src6", "pinet6.rcv_saddr.in6_u.u6_addr32", extra)
     structSetAttr(sn, "Dst6", "pinet6.daddr.in6_u.u6_addr32", extra)
@@ -605,8 +606,10 @@ def init_PseudoAttrs():
     structSetAttr(sn, "Dst",
                   ["tw_sk.tw_daddr","tw_sk.__tw_common.skc_daddr"],
                   extra)
-    structSetAttr(sn, "Sport", "tw_sk.tw_sport", extra)
-    structSetAttr(sn, "Dport", "tw_sk.tw_dport", extra)
+    structSetAttr(sn, "Sport",
+                  ["tw_sk.tw_sport","tw_sk.__tw_common.skc_sport"],  extra)
+    structSetAttr(sn, "Dport",
+                  ["tw_sk.tw_dport", "tw_sk.__tw_common.skc_dport"], extra)
 
     structSetAttr(sn, "Timeout", "tw_sk.tw_timeout")
     structSetAttr(sn, "Ttd", "tw_sk.tw_ttd")

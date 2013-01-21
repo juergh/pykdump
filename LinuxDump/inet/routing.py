@@ -63,7 +63,11 @@ from LinuxDump.inet import *
 
 # static struct rt_hash_bucket  *rt_hash_table;
 def print_rt_hash():
-    rt_hash_mask = readSymbol("rt_hash_mask")
+    try:
+        rt_hash_mask = readSymbol("rt_hash_mask")
+    except:
+        print ("xportshow does not support it for this kernel (yet)")
+        return
     rt_hash_table_addr = readSymbol("rt_hash_table")
     if (rt_hash_table_addr == 0):
         print (WARNING, "rt_hash_table is NULL")

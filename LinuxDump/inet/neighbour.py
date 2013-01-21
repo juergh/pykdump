@@ -1,6 +1,6 @@
 # module LinuxDump.inet.neighbour
 #
-# Time-stamp: <12/03/09 11:25:02 alexs>
+# Time-stamp: <13/01/21 08:48:50 alexs>
 #
 # Copyright (C) 2006-2012 Alex Sidorenko <asid@hp.com>
 # Copyright (C) 2006-2012 Hewlett-Packard Co., All rights reserved.
@@ -60,9 +60,11 @@ def print_neighbour_table(tbl):
     else:
         nht = tbl
     hash_buckets = nht.hash_buckets
-    try:
+    if (nht.hasField("hash_mask")):
         hashsize = nht.hash_mask + 1
-    except:
+    elif (nht.hasField("hash_shift")):
+        hashsize = 1 << nht.hash_shift
+    else:
         hashsize = len(hash_buckets)
 
     family = tbl.family
