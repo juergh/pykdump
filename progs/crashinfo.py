@@ -1400,7 +1400,7 @@ if (o.Sema):
     sys.exit(0)
 
 if (o.RWSema):
-    decode_rwsemaphore(o.Sema)
+    decode_rwsemaphore(o.RWSema)
     sys.exit(0)    
 
 if (o.Mutex):
