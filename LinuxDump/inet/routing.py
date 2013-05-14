@@ -209,9 +209,9 @@ if (struct_exists("struct fib_result") and member_size("struct fib_result", "tcl
 else:
     # hash size is defined by  CONFIG_IP_ROUTE_MULTIPATH
     if (CONFIG_IP_ROUTE_MULTIPATH):
-        _FIB_TABLE_HASHSZ = 256
-    else:
         _FIB_TABLE_HASHSZ = 2
+    else:
+        _FIB_TABLE_HASHSZ = 256
     
     
     
@@ -254,6 +254,7 @@ def get_fib_tables_v26(All= False):
         else:
             # The size depends on CONFIG_IP_MULTIPLE_TABLES/CONFIG_IP_ROUTE_MULTIPATH
             FIB_TABLE_HASHSZ = _FIB_TABLE_HASHSZ
+            #print("OK", FIB_TABLE_HASHSZ)
         out = []
         table_main = None
         for i in range(FIB_TABLE_HASHSZ):
