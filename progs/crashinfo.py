@@ -1043,8 +1043,27 @@ def decode_rwsemaphore(semaddr):
     out.sort()
     for pid, comm in out:
         print ("\t%8d  %s" % (pid, comm))
-        
+
 def decode_semaphore(semaddr):
+    s = readSU("struct semaphore", semaddr)
+    if (s.hasField("wait")):
+        decode_semaphore_old(semaddr)
+        return
+    print (s)
+    #wait_list elements are embedded in struct rwsem_waiter
+    wait_list = readSUListFromHead(Addr(s.wait_list), "list",
+             "struct semaphore_waiter")
+    out = []
+    for w in wait_list:
+        task = w.task
+        out.append([task.pid, task.comm])
+    # Sort on PID
+    out.sort()
+    for pid, comm in out:
+        print ("\t%8d  %s" % (pid, comm))
+
+# Old 'struct semaphore'e        
+def decode_semaphore_old(semaddr):
     s = readSU("struct semaphore", semaddr)
     print (s)
     #wait_list elements are embedded in struct wait.task_list
@@ -1055,7 +1074,8 @@ def decode_semaphore(semaddr):
     out.sort()
     for pid, comm in out:
         print ("\t%8d  %s" % (pid, comm))        
-    
+
+
 # Decode struct mutex - waiting-list etc.
 
 def decode_mutex(addr):
