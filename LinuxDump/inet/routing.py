@@ -175,6 +175,45 @@ def get_fib_entries(table):
 
     return walk_fn_zones(fn_zone_list_addr)
 
+# Heuritics for FIB_TABLE_HASHSZ
+# On 2.6.27 and later fib_table_hash is not an array but
+# rather a pointer to hlist_head. The real size is defined by
+# FIB_TABLE_HASHSZ. It is 2 if CONFIG_IP_ROUTE_MULTIPATH and
+# else 256. There is no way to obtain it from dump so we test
+# for CONFIG_IP_ROUTE_MULTIPATH
+# But on 3.X the size depends on CONFIG_IP_MULTIPLE_TABLES
+
+if (struct_exists("struct netns_ipv4")):
+    CONFIG_IP_MULTIPLE_TABLES =  (member_size("struct netns_ipv4", "rules_ops") != -1)
+elif (struct_exists("struct fib_result")):
+    CONFIG_IP_MULTIPLE_TABLES = (member_size("struct fib_result", "r") != -1)
+else:
+    CONFIG_IP_MULTIPLE_TABLES = False
+    
+CONFIG_IP_ROUTE_MULTIPATH = (struct_exists("struct fib_info") and member_size("struct fib_info", "fib_power") != -1)
+
+#print("CONFIG_IP_MULTIPLE_TABLES", CONFIG_IP_MULTIPLE_TABLES, "CONFIG_IP_ROUTE_MULTIPATH", CONFIG_IP_ROUTE_MULTIPATH)
+
+# If "struct fib_result" does not have "tclassid" member, this is an older kernel.
+# 3.2.0 - CONFIG_IP_ROUTE_MULTIPATH, -tclassid
+# 3.5.0 - CONFIG_IP_ROUTE_MULTIPATH, -tclassid
+# 3.8.0 - CONFIG_IP_MULTIPLE_TABLES, +tclassid
+
+_FIB_TABLE_HASHSZ = None
+if (struct_exists("struct fib_result") and member_size("struct fib_result", "tclassid") != -1):
+    # hash size is defined by  CONFIG_IP_MULTIPLE_TABLES
+    if (CONFIG_IP_MULTIPLE_TABLES):
+        _FIB_TABLE_HASHSZ = 256
+    else:
+        _FIB_TABLE_HASHSZ = 2
+else:
+    # hash size is defined by  CONFIG_IP_ROUTE_MULTIPATH
+    if (CONFIG_IP_ROUTE_MULTIPATH):
+        _FIB_TABLE_HASHSZ = 256
+    else:
+        _FIB_TABLE_HASHSZ = 2
+    
+    
     
 # Get fib_tables for v26, either just MAIN or all
 # Even for one table (MAIN) return it as a 1-element list
@@ -208,19 +247,13 @@ def get_fib_tables_v26(All= False):
         offset = member_offset("struct fib_table", "tb_hlist")
 
         table_main = None
-        # On 2.6.27 and later fib_table_hash is not an array but
-        # rather a pointer to hlist_head. The real size is defined by
-        # FIB_TABLE_HASHSZ. It is 2 if CONFIG_IP_ROUTE_MULTIPATH and
-        # else 256. There is no way to obtain it from dump so we test
-        # for CONFIG_IP_ROUTE_MULTIPATH
         
         # If fib_hash_table is an array, we do not need to guess
         if (type(fib_table_hash) == type([])):
             FIB_TABLE_HASHSZ = len(fib_table_hash)
         else:
-            FIB_TABLE_HASHSZ = 2
-            if (member_size("struct fib_info", "fib_power") == -1):
-                FIB_TABLE_HASHSZ = 256
+            # The size depends on CONFIG_IP_MULTIPLE_TABLES/CONFIG_IP_ROUTE_MULTIPATH
+            FIB_TABLE_HASHSZ = _FIB_TABLE_HASHSZ
         out = []
         table_main = None
         for i in range(FIB_TABLE_HASHSZ):
@@ -229,7 +262,6 @@ def get_fib_tables_v26(All= False):
             if (first):
                 for a in readList(first, 0):
                     tb = readSU("struct fib_table", a-offset)
-                    #print tb
                     out.append(tb)
                     if (tb.tb_id == RT_TABLE_MAIN):
                         table_main = tb
