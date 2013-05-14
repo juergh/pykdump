@@ -31,7 +31,7 @@
 
 int debug = 0;
 
-static char crashmod_version_s[] = "@(#)pycrash 0.6.8";
+static char crashmod_version_s[] = "@(#)pycrash 0.6.9";
 const char * crashmod_version = crashmod_version_s + 12;
 
 extern const char *build_crash_version;

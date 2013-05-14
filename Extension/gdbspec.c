@@ -52,11 +52,20 @@ static void my_cleanups(void) {
   
 }
 
+// crash 6.X uses GDB version where we do do_cleanups(NULL);
+// crash 7.X uses a newer GDB which needs do_cleanups(all_cleanups())
+
+#if defined(GDB76)
+#define PY_DO_CLEANUPS (do_cleanups(all_cleanups()))
+#else
+#define PY_DO_CLEANUPS (do_cleanups((struct cleanup *)0))
+#endif
+
 static void
 my_error_hook(void)  {
   //printf("Error hook\n");
 
-  do_cleanups(NULL);
+  PY_DO_CLEANUPS;
   my_cleanups();
   longjmp(eenv, 1);
 } 
@@ -90,7 +99,7 @@ extern void replace_ui_file_FILE(struct ui_file *, FILE *);
     error_hook = (ERROR_HOOK_TYPE) my_error_hook;	\
     replace_ui_file_FILE(gdb_stdout, nullfp); \
     replace_ui_file_FILE(gdb_stderr, nullfp); \
-    do_cleanups((struct cleanup *)0); \
+    PY_DO_CLEANUPS; \
     \
     if (setjmp(eenv)) { \
       PyErr_SetString(crashError, "PyKdump/GDB error");\
@@ -98,13 +107,15 @@ extern void replace_ui_file_FILE(struct ui_file *, FILE *);
     } \
   } while (0)
     
-
+  
 #define GDB2PY_EXIT \
   do { \
     my_cleanups(); \
   } while (0)
 
 
+# define X_GDB2PY_ENTER while(0)
+# define X_GDB2PY_EXIT while(0)
 
 static struct type *
 ptype_eval (struct expression *exp)
@@ -125,7 +136,7 @@ static void do_enum(struct type *type, PyObject *pitem);
 
 static void
 do_ftype(struct type *ftype, PyObject *item) {
-  char *tagname = TYPE_TAG_NAME(ftype);
+  const char *tagname = TYPE_TAG_NAME(ftype);
   //struct type *range_type;
   struct type *tmptype;
 
@@ -344,7 +355,7 @@ do_SU(struct type *type, PyObject *pitem) {
     PyObject *item = PyDict_New();
     PyList_Append(body, item);
     struct type *ftype = TYPE_FIELD_TYPE(type, i);
-    char *fname = TYPE_FIELD_NAME(type, i);
+    const char *fname = TYPE_FIELD_NAME(type, i);
     int boffset = TYPE_FIELD_BITPOS(type, i);
     int bsize = TYPE_FIELD_BITSIZE(type, i);
 
@@ -380,7 +391,7 @@ do_enum(struct type *type, PyObject *pitem) {
   for (i=0; i < nfields; i++) {
     PyObject *item = PyList_New(0);
     //struct type *ftype = TYPE_FIELD_TYPE(type, i);
-    char *fname = TYPE_FIELD_NAME(type, i);
+    const char *fname = TYPE_FIELD_NAME(type, i);
     long bp = TYPE_FIELD_BITPOS (type, i);
     n = PyString_FromString(fname);
     v = PyInt_FromLong(bp);

@@ -47,7 +47,7 @@ for o, a in opts:
 # Check whether crash sourcetree is installed and compiled at this location
 try:
     re_target = re.compile(r'^TARGET=(\w+)$')
-    re_gdb = re.compile(r'^GDB=gdb-(\d).\d.*$')
+    re_gdb = re.compile(r'^GDB=gdb-(\d)\.(\d)+.*$')
     re_crashvers = re.compile(r'^VERSION=([\.\d]+)\s*$')
     target = None
     gdb_major = None
@@ -59,6 +59,7 @@ try:
         m = re_gdb.match(l)
         if (m):
             gdb_major = int(m.group(1))
+            gdb_minor = int(m.group(2))
         m = re_crashvers.match(l)
         if (m):
             crash_vers = m.group(1)
@@ -88,7 +89,11 @@ ol.append("GDBINCL =  -I$(GDBDIR)  -I$(GDBDIR)/config  -I$(GDBDIR)/../bfd \\")
 ol.append("  -I$(GDBDIR)/../include -I$(GDBDIR)/../intl")
 # We need to use different includes and prototypes for GDB6 and GDB7
 if (gdb_major == 7):
-    ol.append("EXTRA := -DGDB7 -I$(GDBDIR)/common")
+    if (gdb_minor >= 6):
+        extra = " -DGDB76"
+    else:
+        extra = ""
+    ol.append("EXTRA := -DGDB7 -I$(GDBDIR)/common" + extra)
 ol.append("TARGET := %s" % target)
 ol.append("CRASHVERS := %s" % crash_vers)
 fd.write("\n".join(ol))
