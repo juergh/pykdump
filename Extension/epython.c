@@ -22,7 +22,9 @@
 
 #include <unistd.h>
 #include <getopt.h>
+#include <limits.h>
 #include <stdlib.h>
+#include <libgen.h>
 #include <sys/times.h>
 
 
@@ -179,12 +181,13 @@ const char *extrapath;
    __attribute__ mechanism. But everything's OK for ZIPped version
 */
 
+char stdpath[BUFLEN];
+wchar_t wstdpath[BUFLEN];
+
 /* Old-style constructrs/destructors for dlopen. */
 void _init(void)  {
 //void __attribute__((constructor)) n_init(void) {
   //PyObject *syspath;
-  char buffer[BUFLEN];
-  wchar_t wbuffer[BUFLEN];
 
   //PyObject *s;
 
@@ -247,25 +250,26 @@ void _init(void)  {
     // To be able debug sources, we need real FS to be searched
     // before ZIP. So if PYKDUMPPATH is set, we insert it _before_ our
     // ZIP-archive
-    strcpy(buffer, ".:");
+    //strcpy(stdpath, ".:");
+    strcpy(stdpath, "");
     if (extrapath) {
-      strcat(buffer, extrapath);
-      strcat(buffer, ":");
+      strncat(stdpath, extrapath, BUFLEN);
+      strncat(stdpath, ":", BUFLEN);
     }
-    strcat(buffer, ext_filename);
-    strcat(buffer, ":");
-    strcat(buffer, ext_filename);
-    strcat(buffer, "/");
-    strcat(buffer, PYSTDLIBDIR);
-    mbstowcs(wbuffer, buffer, BUFLEN);
+    strncat(stdpath, ext_filename, BUFLEN);
+    strncat(stdpath, ":", BUFLEN);
+    strncat(stdpath, ext_filename, BUFLEN);
+    strncat(stdpath, "/", BUFLEN);
+    strncat(stdpath, PYSTDLIBDIR, BUFLEN);
+    mbstowcs(wstdpath, stdpath, BUFLEN);
 #if PY_MAJOR_VERSION >= 3
     PyImport_AppendInittab("crash", PyInit_crash);
-    Py_SetPath(wbuffer);
+    Py_SetPath(wstdpath);
 #endif
     Py_Initialize();
     PyEval_InitThreads();
 #if PY_MAJOR_VERSION < 3    
-    PySys_SetPath(buffer);
+    PySys_SetPath(stdpath);
     initcrash();
 #endif    
     //sysm = PyImport_ImportModule("sys");
@@ -433,13 +437,13 @@ const char *find_pyprog(const char *prog) {
 
     if (extrapath) {
         strcpy(buf2, ".:");
-        strcat(buf2, extrapath);
+        strncat(buf2, extrapath, BUFSIZE);
     } else
         strcpy(buf2, ".");
 
     tok = strtok(buf2, ":");
     while (tok) {
-        sprintf(buf1, "%s/%s", tok, prog);
+        snprintf(buf1, BUFSIZE, "%s/%s", tok, prog);
         if (debug > 2)
            printf("Checking %s\n", buf1);
         if (file_exists(buf1, NULL)) {
@@ -447,7 +451,7 @@ const char *find_pyprog(const char *prog) {
             printf("Found: %s\n",  buf1);
           return buf1;
         }
-        sprintf(buf1, "%s/%s.py", tok, prog);
+        snprintf(buf1, BUFSIZE, "%s/%s.py", tok, prog);
         if (debug > 2)
            printf("Checking %s\n", buf1);
         if (file_exists(buf1, NULL)) {
@@ -473,13 +477,14 @@ const char *find_pyprog(const char *prog) {
 
 static void ep_usage(void) {
   fprintf(fp, "Usage: \n"
-	 "  epython [epythonoptions] [[progname [progoptions] [progargs]]\n"
+	 "  epython [epythonoptions] [progname [--ehelp] [progoptions] [progargs]]\n"
 	 "    epythonoptions:\n"
 	 "    ---------------\n"
 	 "      [-h|--help] \n"
 	 "      [-v|--version]  - report versions\n"
 	 "      [-d|--debug n]  - set debugging level \n"
-	 "      [-p|---path]    - show Python version and syspath\n"
+	 "      [-p|--path]     - show Python version and syspath\n"
+         "      [--ehelp]       - show extra options, common for all programs\n"
 	 "\n");
 }
 
@@ -508,7 +513,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
     {"help",     no_argument,       0, 'h' },
     {"version",  no_argument,       0, 'v' },
     {"debug",    required_argument, 0, 'd' },
-    {"path",     no_argument,       0, 'p'},
+    {"path",     no_argument,       0, 'p' },
     {0,          0,             0, 0 }
   };
 
@@ -579,6 +584,13 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
     if (scriptfp == NULL) {
       fprintf(fp, " Cannot open the file <%s>\n", prog);
       return;
+    } else {
+        const char *rpath = realpath(prog, NULL);
+        if (debug && rpath) {
+            char *pdir = dirname((char *) rpath);
+            fprintf(fp, "  --debug-- Realpath %s\n", pdir);
+            free((void *) rpath);
+        }
     }
   }
 
@@ -603,6 +615,8 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
     PySys_SetArgvEx(argc, argv_copy, 0);
 #endif
 
+  
+    
     /* The function will be available only on the 2nd and further invocations
      of epython as it is normally defined in API.py which is not loaded yet */
     if (!quiet)
@@ -625,11 +639,18 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
 	fprintf(fp, " Cannot find the program <%s>\n", nargv[0]);
     }
 
-  } 
+  }
   // Run epython exitfuncs (if registered)
   if (!quiet)
     call_sys_exitepython();
   fflush(fp);
+  // Reset sys.path every time after running a program as we do not destory the intepreter
+#if PY_MAJOR_VERSION >= 3
+  Py_SetPath(wstdpath);
+#else    
+  PySys_SetPath(stdpath);
+#endif  
+    
 #if PY_MAJOR_VERSION > 2
   // Free memory allocated for wchar copies
   for (i = 0; i < argc; i++) {

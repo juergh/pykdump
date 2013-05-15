@@ -119,7 +119,7 @@ $(EXT_C_PY):  $(EXT_C) $(PYLIB)
 	zip -A $(EXT_C_PY)
 	chmod +x $(EXT_C_PY)
 
-$(EXT_FULLAPI):  $(EXT_C_PY)
+$(EXT_FULLAPI):  $(EXT_C_PY) $(TOPDIR)/pykdump/API.py
 	find $(TOPDIR)/pykdump -name \*.pyc | xargs rm -f
 	$(PYTHON) $(COMPALL) -f $(TOPDIR)/pykdump
 	cp $(EXT_C_PY) $(EXT_FULLAPI)

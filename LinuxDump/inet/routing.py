@@ -19,11 +19,11 @@
 
 from __future__ import print_function
 
-debug = False
-
 from pykdump.API import *
 
 from LinuxDump.inet import *
+
+debug = API_options.debug
 
 # On 2.4
 # struct flowi {

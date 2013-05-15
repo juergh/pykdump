@@ -36,6 +36,7 @@ not call low-level functions directly but use this module instead.
 WARNING = "+++WARNING+++"
 ERROR =   "+++ERROR+++"
 
+debug = 0
 
 import sys, os, os.path
 import re, string
@@ -159,7 +160,7 @@ def __epythonOptions():
               action="store_true",
               help="enable experimental features (for developers only)")
 
-    op.add_option("--debug", dest="debug", default=0,
+    op.add_option("--debug", dest="debug", default=-1,
               action="store", type="int",
               help="enable debugging output")
     
@@ -178,6 +179,9 @@ def __epythonOptions():
     op.add_option("--ofile", dest="filename",
                   help="write report to FILE", metavar="FILE")
 
+    op.add_option("--ehelp", default=0, dest="ehelp", 
+                  action = "store_true",
+                  help="Print generic epython options")
 
     if (len(sys.argv) > 1):
         (aargs, uargs) = __preprocess(sys.argv[1:], op)
@@ -187,8 +191,13 @@ def __epythonOptions():
     (o, args) = op.parse_args(aargs)
     wrapcrash.experimental = API_options.experimental = o.experimental
     global debug, __timeout_exec
-    debug = API_options.debug = gen.debug = o.debug
+    if (o.debug != -1):
+        debug = o.debug
+    API_options.debug = gen.debug = debug
 
+    if (o.ehelp):
+        op.print_help()
+        print ("Current debug level=%d" % debug)
     if (o.reload):
         purge_memoize_cache(CU_PYMOD)
         for k, m in list(sys.modules.items())[:]:
@@ -213,6 +222,7 @@ def __epythonOptions():
     #print ("EPYTHON sys.argv=", sys.argv)
 
     API_options.dumpcache = o.dumpcache
+    del op
 
 # Preprocess options, splitting them into these for API_wide and those
 # userscript-specific
@@ -261,7 +271,7 @@ def enter_epython():
     
     # We might redefine stdout every time we execute a command...
     pp = pprint.PrettyPrinter(indent=4)
-    #print "Entering Epython"
+    #print ("Entering Epython")
 
     # Process hidden '--apidebug=level' and '--reload' options
     # filtering them out from sys.argv
@@ -280,6 +290,12 @@ def enter_epython():
     
     # Use KVADDR
     set_readmem_task(0)
+    
+    # Insert directory of the file to sys.path
+    pdir = os.path.dirname(sys.argv[0])
+    #print ("pdir=", pdir)
+    sys.path.insert(0, pdir)
+    #raise Exception("enter_epython")
 
 
 # We call this when exiting epython
