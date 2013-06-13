@@ -56,7 +56,7 @@ def __rlim2str(v):
 
 def printTaskDetails(t):
     sstate = t.state[5:7]
-    print ("---- %5d(%s) %s %s" % (t.pid, sstate, str(t.ts), t.comm))
+    print ("---- %6d(%s) %s %s" % (t.pid, sstate, str(t.ts), t.comm))
     parent = t.parent
     flags = t.flags
     if (t.hasField("real_parent")):
@@ -217,10 +217,10 @@ def printTasks(reverse = False):
         
         tgid = t.tgid
         if (pid != tgid):
-            pid_s =  "  %5d" % pid
+            pid_s =  "  %6d" % pid
             extra = " (tgid=%d)" % tgid
         else:
-            pid_s =  " %5d " % pid
+            pid_s =  " %6d " % pid
             extra = ""
         uid = t.Uid
         extra = "%13s UID=%d" % (extra, uid)
@@ -235,7 +235,7 @@ def printTasks(reverse = False):
         #    print ('    ', rlimit, pcount, "uid=%d" % uid)
         # Thread pointers might be corrupted
         try:
-            print ("%s %15s %2d %15d  %s %s" \
+            print ("%s %14s %3d %14d  %s %s" \
                         % (pid_s, t.comm,  t.cpu,
                             int(ran_ms_ago), sstate, extra))
             # In versbose mode, print stack as well

@@ -66,7 +66,7 @@ hexl = Gen.hexl
 
 
 
-# the default number of elements returned from list traversal
+# the default max number of elements returned from list traversal
 
 _MAXEL = 10000
 
@@ -1006,6 +1006,9 @@ def readSUListFromHead(headaddr, listfieldname, mystruct, maxel=_MAXEL,
     out = []
     for p in readList(headaddr, 0, maxel, inchead):
         out.append(readSU(mystruct, p - offset))
+    if (len(out) == maxel):
+        print(crash.WARNING, "We have reached the limit while reading a list")
+
     return out
 
 # Read a list of structures connected via direct next pointer, not
@@ -1063,6 +1066,7 @@ def SUArray(sname, addr, maxel = _MAXEL):
     while (maxel):
         addr += size
         yield readSU(sname, addr)
+        maxel -= 1
     return
 
 
@@ -1110,6 +1114,8 @@ class ListHead(list):
                 # A special case - return list_head object, not just address
                 self.append(readSU("struct list_head", next))
             count += 1
+        if (count == maxel):
+            print(crash.WARNING, "We have reached the limit while reading a list")
         
     def __getattr__(self, fname):
         off = member_offset(self.sname, fname)
@@ -1149,6 +1155,9 @@ def readList(start, offset=0, maxel = _MAXEL, inchead = True):
             break
         out.append(next)
         count += 1
+    if (count == maxel):
+        print(crash.WARNING, "We have reached the limit while reading a list")
+
     return out
 
 # The same as readList, but in case we are interested
@@ -1181,6 +1190,9 @@ def readBadList(start, offset=0, maxel = _MAXEL, inchead = True):
         ha[next] = 1
         out.append(next)
         count += 1
+    if (count == maxel):
+        print(crash.WARNING, "We have reached the limit while reading a list")
+
     return (out, None)
 
 #     ======= get list size for LIST_HEAD =====

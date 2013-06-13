@@ -106,7 +106,7 @@ class Task:
     def __get_threads_fast(self):
         saddr = Addr(self.ts) + Task.tgoffset
         threads = []
-        for a in readList(saddr, inchead = False):
+        for a in readList(saddr, maxel=200000, inchead = False):
             addr = a-Task.tgoffset
             # Can we read from this addr? 
             # This can be due to corruption or missing pages
@@ -225,7 +225,7 @@ class _TaskTable:
         tt = readSUListFromHead(init_task_saddr,
                                 'tasks',
                                 'struct task_struct',
-                                inchead = True, maxel=10000)
+                                inchead = True, maxel=200000)
 
         # On 2.4, we have in this list both thread group leaders
         # and threads. Leave only tg leaders, attach threads to
