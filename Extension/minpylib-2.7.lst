@@ -51,3 +51,6 @@ SocketServer.py
 dummy_threading.py
 dummy_thread.py
 threading.py
+collections.py
+keyword.py
+heapq.py

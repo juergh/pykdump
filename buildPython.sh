@@ -10,7 +10,9 @@
 # Usage: getgitfile path outfile
 
 getgitfile() {
-  url="http://pykdump.git.sourceforge.net/git/gitweb.cgi?p=pykdump/pykdump;a=blob_plain;f=$1;hb=refs/heads/master"
+  url="http://sourceforge.net/p/pykdump/code/ci/master/tree/$1?format=raw"
+  #url="http://pykdump.git.sourceforge.net/git/gitweb.cgi?p=pykdump/pykdump;a=blob_plain;f=$1;hb=refs/heads/master"
+  echo $url
   if ! wget -q "$url" -O $2
   then
      echo "Cannot retrieve $1 using HTTP"
@@ -97,6 +99,9 @@ done
       
 #echo "build_dir=$build_dir"
 #echo "a3264=$a3264"
+
+#getgitfile Extension/Setup.local-2.7 /tmp/Setup.local
+#exit 0
 
 if test "${a3264+set}" != set; then
     buildarch "$build_dir"
