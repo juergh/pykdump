@@ -780,8 +780,13 @@ def print_If(dev, details = 0):
         print ("    features=<%s>" % features)
 
     # This does not exist on old kernels, needs further improvements
+    # raw_lock can be either spinlock.raw_lock or spinlock.rlock.raw_lock
     try:
-        tx_lock = dev.tx_global_lock.raw_lock
+        tx_global_lock = dev.tx_global_lock
+        if (tx_global_lock.hasField("raw_lock")):
+            tx_lock = tx_global_lock.raw_lock
+        else:
+            tx_lock = tx_global_lock.rlock.raw_lock
         if (spin_is_locked(tx_lock)):
             print("    !!! tx_global_lock is locked,", hexl(tx_lock.slock))
     except KeyError:
