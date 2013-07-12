@@ -33,7 +33,7 @@
 
 int debug = 0;
 
-static char crashmod_version_s[] = "@(#)pycrash 0.7.0";
+static char crashmod_version_s[] = "@(#)pycrash 0.7.1";
 const char * crashmod_version = crashmod_version_s + 12;
 
 extern const char *build_crash_version;
@@ -366,7 +366,7 @@ run_fromzip(const char *progname, const char *zipfilename) {
 					      progname);
   Py_DECREF(importer);
   if (!code) {
-    printf("Cannot getcode for <%s>\n", progname);
+    // printf("Cannot getcode for <%s>\n", progname);
     PyErr_Clear();
     return 0;
   }
@@ -520,6 +520,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
   int need_prog = 1;		/* Usually we need a prog argument */
   int c;
   int option_index;
+  int emulate_m = 0;
 
   // Connect sys.stdout and sys.stderr to fp
   connect2fp();
@@ -531,7 +532,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
       fprintf(fp,"  argv[%d] = %s\n", i, argv[i]);
   }
   
-  while ((c = getopt_long(argc, argv, "+hvpd:",
+  while ((c = getopt_long(argc, argv, "+hvpmd:",
 			  long_options, &option_index)) != -1) {
     switch(c) {
     case 'h':
@@ -548,6 +549,9 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
       debug = atoi(optarg);
       need_prog = 0;
       break;
+    case 'm':
+      emulate_m = 1;
+      break;      
     default: /* '?' */
       ep_usage();
       return;
@@ -632,8 +636,13 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
       int rc = 0;
       if (quiet)
 	strcpy(buffer, "");	/* Initprog is in top dir */
-      else
-	strcpy(buffer, "progs/");
+      else {
+          if (emulate_m)
+              strcpy(buffer, "pylib/");
+          else
+            strcpy(buffer, "progs/");
+      }
+      
       rc = run_fromzip(strncat(buffer, nargv[0], BUFLEN - 60), ext_filename);
       if (!rc && !quiet)
 	fprintf(fp, " Cannot find the program <%s>\n", nargv[0]);

@@ -54,3 +54,6 @@ threading.py
 collections.py
 keyword.py
 heapq.py
+# for cProfile
+cProfile.py
+pstats.py
