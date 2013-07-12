@@ -14,6 +14,8 @@ from __future__ import print_function
 __version__ = "0.1"
 
 import sys
+import textwrap
+
 from pykdump.API import *
 from LinuxDump.fs import *
 
@@ -95,7 +97,7 @@ def print_pidlist(pids, tasksref):
         spids = [p[1] for p in mlist]
         print("    Sorted pids (youngest first) [%d, %d] ms ago" % \
             (ran_y, ran_o))
-        print ("      ", spids)    
+        print(textwrap.fill(str(spids), initial_indent=' '*6, subsequent_indent=' ' *7))
         
 def check_all_tasks():
     lines = memoize_cond(CU_LIVE)(exec_crash_command)("ps")
@@ -223,7 +225,7 @@ if ( __name__ == '__main__'):
                 print(" ---- waiting on the read congestion queue ---")
             else:
                 print(" ---- waiting on the write congestion queue ---")
-                print(pids)
+                print(textwrap.fill(str(pids), initial_indent=' '*3, subsequent_indent=' ' *4))
                 remove_pidlist(tasksrem, pids)
         
     un = tasksrem
