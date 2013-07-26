@@ -5,9 +5,13 @@
 # There are several layers of API. Ideally, the end-users should only call
 # high-level functions that do not depend on internal
 
-# Copyright (C) 2006-2012 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006-2012 Hewlett-Packard Co., All rights reserved.
+# --------------------------------------------------------------------
+# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
 #
+# Author: Alex Sidorenko <asid@hp.com>
+#
+# --------------------------------------------------------------------
+
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Pubic License as published by
 # the Free Software Foundation; either version 2 of the License, or
@@ -69,6 +73,11 @@ hexl = Gen.hexl
 # the default max number of elements returned from list traversal
 
 _MAXEL = 10000
+
+# Memoize gdb_typeinfo until we find a better way to cache the results
+@memoize_cond(CU_LOAD)
+def gdb_typeinfo(sname):
+    return crash.gdb_typeinfo(sname)
 
 # A well-known way to remove dups from sequence
 def unique(s):
@@ -162,7 +171,7 @@ def update_TI(f, e):
             prototype.append(ti)
 
 def update_TI_fromgdb(f, sname):
-    e = crash.gdb_typeinfo(sname)
+    e = gdb_typeinfo(sname)
     update_TI(f, e)
 
 def update_EI_fromgdb(f, sname):
@@ -173,7 +182,7 @@ def update_EI_fromgdb(f, sname):
             e = crash.gdb_whatis(sname)
             f.stype = "enum"
         else:
-            e = crash.gdb_typeinfo(sname)
+            e = gdb_typeinfo(sname)
     except crash.error:
         raise TypeError("cannot find enum <%s>" % sname)
     if (e["codetype"] != TYPE_CODE_ENUM): # TYPE_CODE_ENUM
@@ -218,44 +227,20 @@ def update_SUI(f, e):
 
 
 def update_TI_fromgdb(f, sname):
-    e = crash.gdb_typeinfo(sname)
+    e = gdb_typeinfo(sname)
     update_TI(f, e)
     
 
 def update_SUI_fromgdb(f, sname):
     try:
-        e = crash.gdb_typeinfo(sname)
+        e = gdb_typeinfo(sname)
     except crash.error:
         raise TypeError("no type " + sname)
     # This can be a typedef to struct
     if (not "body" in e):
-        e = crash.gdb_typeinfo(e["basetype"])
+        e = gdb_typeinfo(e["basetype"])
     update_SUI(f, e)
 
-class XXXsubStructResult(type):
-    __cache = {}
-    def __call__(cls, *args):
-        sname = args[0]
-        try:
-            ncls = subStructResult.__cache[sname]
-        except KeyError:
-            supername = cls.__name__
-            classname = '%s_%s' % (supername, sname)
-            # Class names cannot contain spaces or -
-            classname = classname.replace(' ', '_').replace('-', '_')
-            execstr = 'class %s(%s): pass' % (classname, supername)
-            #print '===', execstr
-            exec(execstr)
-            ncls = locals()[classname]
-            ncls.PYT_symbol = sname
-            ncls.PYT_sinfo = SUInfo(sname)
-            ncls.PYT_size = ncls.PYT_sinfo.PYT_size;
-
-        print("ncls=", ncls)
-        rc =  ncls.__new__(ncls, *args)
-        rc.__init__(*args)
-        subStructResult.__cache[sname] = ncls
-        return rc
 
 class subStructResult(type):
     __cache = {}
@@ -275,7 +260,8 @@ class subStructResult(type):
             ncls = type(classname, (StructResult,), {})
             ncls.PYT_symbol = sname
             ncls.PYT_sinfo = SUInfo(sname)
-            ncls.PYT_size = ncls.PYT_sinfo.PYT_size;
+            ncls.PYT_size = ncls.PYT_sinfo.PYT_size
+            ncls.PYT_attrcache = {}
 
         #print("ncls=", ncls)
         rc =  ncls.__new__(ncls, *args)
@@ -484,7 +470,7 @@ class StructResult(long):
         #raise TypeError, "!!!"
         return self[i]
     
-    def __getattr__(self, name):
+    def X__getattr__(self, name):
         try:
             fi = self.PYT_sinfo[name]
         except KeyError:
@@ -508,6 +494,38 @@ class StructResult(long):
         #print("addr to read: 0x%x" % (long(self) + fi.offset), type(fi.offset))
         return fi.reader(long(self) + fi.offset)
 
+    # A faster version of __getattr__
+    def __getattr__(self, name):
+        try:
+            return self.PYT_attrcache[name](long(self))
+        except KeyError:
+            pass
+        try:
+            fi = self.PYT_sinfo[name]
+        except KeyError:
+            # Due to Python 'private' class variables mangling,
+            # if we use a.__var inside 'class AAA', it will be
+            # converted to a._AAA__var. This creates prob;ems for
+            # emulating C to access attributes.
+            # The approach I use below is ugly - but I have not found
+            # a better way yet
+            ind = name.find('__')
+            if (ind > 0):
+                name = name[ind:]
+            try:
+                fi = self.PYT_sinfo[name]
+            except KeyError:
+                msg = "<%s> does not have a field <%s>" % \
+                      (self.PYT_symbol, name)
+                raise KeyError(msg)
+
+        #print( fi, fi.offset, fi.reader)
+        #print("addr to read: 0x%x" % (long(self) + fi.offset), type(fi.offset))
+        reader = lambda addr: fi.reader(addr + fi.offset)
+        self.PYT_attrcache[name] = reader
+        #print("+++", self.PYT_symbol, name)
+        return reader(long(self))
+    
     def __eq__(self, cmp):
         return (long(self) == cmp)
     # In Python 3, object with __eq__ but without explicit __hash__ method
@@ -576,6 +594,7 @@ class StructResult(long):
         return StructResult(sname, long(self))
 
     Deref = property(getDeref)
+
 
 # This adds a metaclass
 if (_Pym == 3):
@@ -726,6 +745,7 @@ def ptrReader(vi, ptrlev):
         #print("ptrSU: 0x%x" % addr, type(addr))
         ptr = readPtr(addr)
         return StructResult(stype, ptr)
+    # Smart String reader
     def strPtr(addr):
         ptr = readPtr(addr)
         # If ptr = NULL, return None, needed for backwards compatibility
@@ -742,55 +762,68 @@ def ptrReader(vi, ptrlev):
             bytes = (((ptr>>8) +1)<<8) - ptr
             s = readmem(ptr, bytes)
         return SmartString(s, addr, ptr)
+    # Generic pointer
     def genPtr(addr):
-        return tPtr(readPtr(addr), vi)
+        return tPtr(readPtr(addr), ti)
 
+    # Function pointer
     def funcPtr(addr):
         ptr = readPtr(addr)
         if (ptr and machine == "ia64"):
             ptr = readPtr(ptr)
         return ptr
 
+    # Array of generic pointers
     def ptrArray(addr):
-        val = []
-        for i in range(elements):
-            ptr = readPtr(addr + i * size)
-            val.append(tPtr(ptr, vi))
-        if (len(dims) > 1):
-            val = _arr1toM(dims, val)
-        return val
-   
+        #val = [tPtr(readPtr(addr + i * size), vi) for i in xrange(elements)]
+        mem = readmem(addr, elements*size)
+        #for i, p in zip(range(elements), mem2long(mem, signed=False, array=elements)):
+        #    print (" ++", readPtr(addr + i * size), p)
+        return [tPtr(p, ti) if p else 0 for p in mem2long(mem, array=elements)]
+
+    def ptrArrayMulti(addr):
+        return _arr1toM(dims, ptrArray(addr))
+    
     # A special case like struct x8664_pda *_cpu_pda[0];
     # Convert it internally to struct x8664_pda **_cpu_pda;
     # 
     def ptrArr0(addr):
-        tptr = tPtr(addr, vi)
-        tptr.ptrlev += 1
-        return tptr
-
+        return tPtrZeroArray(addr, ti)
+ 
     ti = vi.ti
     dims = ti.dims
     elements = ti.elements
     size = ti.size
     stype = ti.stype
         
-    if (ptrlev == 1 and stype == 'char'):
-        reader = strPtr
-    elif (ti.ptrbasetype == 6):      # A pointer to function
-        reader = funcPtr
-    elif (ptrlev == 1 and ti.ptrbasetype in (3, 4) \
-          and dims == None): #A pointer to struct/union
-        reader = ptrSU
-    else:
-        if (dims != None):
-            if (len(dims) == 1 and elements <= 1):
-                return ptrArr0
-            else:
-                return ptrArray
+    # We start from arrays - they are not optimized per type yet
+    if (dims != None):
+        if (len(dims) == 1 and elements <= 1):
+            return ptrArr0
+        elif(len(dims)  > 1):
+            return ptrArrayMulti
         else:
-            # A generic ptr
-            reader = genPtr
-    return reader
+            return ptrArray
+    # pointers to base types - just one *
+    elif (ptrlev == 1):
+        if(stype == 'char'):
+            return strPtr
+        elif (ti.ptrbasetype in TYPE_CODE_SU):
+            # Optimization - return StructResult instead of pointer
+            if (dims == None):
+                return ptrSU
+        elif (ti.ptrbasetype == TYPE_CODE_FUNC):      # A pointer to function
+            return funcPtr
+        else:
+            # Is this OK for all types?
+            return genPtr
+    else:
+        # A generic ptr
+        return genPtr
+    # Error - print debugging info
+    raise TypeError("Cannot find a suitable reader for {} ptrbasetype={} dims={}".format(ti,
+            ti.ptrbasetype,dims))
+    return None
 
         
 # Wrapper functions to return attributes of StructResult
@@ -824,16 +857,18 @@ def Deref(obj):
 
 # To make dereferences faster, we store the basetype and ptrlev
 
+
 class tPtr(long):
-    def __new__(cls, l, vi):
+    def __new__(cls, l, ti):
         return long.__new__(cls, l)
-    def __init__(self, l, vi):
-        self.vi = vi
-        self.ptrlev = vi.ti.ptrlev
+    def __init__(self, l, ti):
+        self.ti = ti
+        self.ptrlev = self.ti.ptrlev
+        self.dereferencer = newDereferencer(self.ti)
+        #print('++', vi, self.ptrlev)
         #self.ptrlev = vi.ptrlev
     # For pointers, index access is equivalent to pointer arithmetic
     def __getitem__(self, i):
-        #sz1 = self.vi.ti.size
         return self.getArrDeref(i)
     def getArrDeref(self, i):
         addr = long(self)
@@ -843,40 +878,83 @@ class tPtr(long):
             raise IndexError(msg)
 
         if (ptrlev == 1):
-            dereferencer = self.vi.dereferencer # sets vi.tsize as well
-            addr += i * self.vi.tsize
-            return  dereferencer(addr)
-        elif (ptrlev == 2 and self.vi.ti.tcodetype in TYPE_CODE_SU):
-            addr += i * self.vi.ti.size
-            return self.vi.dereferencer(readPtr(addr))
+            # We need to step by base type
+            addr += i * self.dereferencer.basesize
+            return  self.dereferencer(addr)
         else:
-            addr += i * self.vi.ti.size
-            ntptr = tPtr(readPtr(addr), self.vi)
-            ntptr.ptrlev = ptrlev - 1
-            return ntptr
+            # We step by pointersize
+            newaddr = readPtr(addr + i * pointersize)
+            # Optimization for pointers to SU
+            if (self.ti.tcodetype in TYPE_CODE_SU):
+                return self.dereferencer(newaddr)
+            else:
+                ntptr = tPtr(newaddr, self.ti)
+                ntptr.ptrlev = ptrlev - 1
+                return ntptr
     def getDeref(self, i = None):
         addr = long(self)
         if (addr == 0):
             msg = "\nNULL pointer %s" % repr(self)
             raise IndexError(msg)
-
         if (self.ptrlev == 1):
-            return self.vi.dereferencer(addr)
+            return self.dereferencer(addr)
         else:
-            ntptr = tPtr(readPtr(addr), self.vi)
+            ntptr = tPtr(readPtr(addr), self.ti)
             ntptr.ptrlev = self.ptrlev - 1
             return ntptr
     def __repr__(self):
         stars = '*' * self.ptrlev
         return "<tPtr addr=0x%x ctype='%s %s'>" % \
-               (self, self.vi.ti.stype, stars)
+               (self, self.ti.stype, stars)
     Deref = property(getDeref)
 
     # Backwards compatibility
     def getPtype(self):
-        return self.vi
+        return self.ti
     ptype = property(getPtype)
 
+# A wrapper for tPtr dimensionless arrays
+class tPtrZeroArray(tPtr):
+    #pass
+    def __getitem__(self, i):
+        return tPtr(readPtr(long(self) + i * self.ti.size), self.ti)
+        
+
+# An experimental dereferencer. We assume that there can be no pointer bitfields!
+@memoize_cond(CU_PYMOD)
+def newDereferencer(ti):
+    # Target ti
+    try:
+        tti = ti.getTargetType()
+    except:
+        return None
+    #print('+++ti', ti, ti.size, ti.elements, ti.codetype)    
+    #print('+++ti', ti, ti.size, tti.size, tti.elements, tti.codetype)
+    codetype = tti.codetype
+    reader = None
+    if (codetype == TYPE_CODE_INT):
+        reader = ti_intReader(tti)
+    elif (codetype in TYPE_CODE_SU):
+        # Struct/Union
+        def suReader(addr):
+            return StructResult(ti.stype, addr)
+        reader = suReader
+    #elif (codetype == TYPE_CODE_PTR):
+        ##print "getReader", id(self), self
+        ## Pointer
+        #if (ptrlev == None):
+            #ptrlev = tti.ptrlev
+        #return ptrReader(self, ptrlev)
+    elif (codetype == TYPE_CODE_ENUM):     # TYPE_CODE_ENUM
+        reader = ti_intReader(ti)
+    else:
+        return None
+        raise TypeError("don't know how to read codetype "+str(codetype))
+    
+    # Attache basetype size to the reader
+    reader.basesize = tti.size
+    return reader
+    
 
 # With Python2 readmem() returns 'str', with Python3 'bytes'
 
