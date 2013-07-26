@@ -82,6 +82,8 @@ def sk_for_each(head):
 
 def sk_nulls_for_each(first):
     global skc_nulls_node_off
+    #if (first & 1):
+    #    return []
     if (skc_nulls_node_off == -1):
         sock_info = getStructInfo("struct sock")        
         sock_common_info = getStructInfo("struct sock_common")
@@ -90,9 +92,7 @@ def sk_nulls_for_each(first):
 
     ptr = first
     addrs = []
-    while (True):
-        if (ptr & 1):
-            break
+    while (not (ptr & 1)):
         addrs.append(ptr)
         ptr = readPtr(ptr)
     # Now recompute addrs to point to 'struct sock' where head_list is embedded

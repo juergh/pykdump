@@ -1,8 +1,8 @@
 /* Python extension to interact with CRASH
    
 
-  Copyright (C) 2006-2010 Alex Sidorenko <asid@hp.com>
-  Copyright (C) 2006-2010 Hewlett-Packard Co., All rights reserved.
+  Copyright (C) 2006-2013 Alex Sidorenko <asid@hp.com>
+  Copyright (C) 2006-2013 Hewlett-Packard Co., All rights reserved.
  
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by

@@ -349,16 +349,17 @@ def print_gendisk(v = 1):
             np = gd.minors - 1
             tbl = gd.part
         for i in range(np):
+            #print("tbl", repr(tbl))
             hd = tbl[i]
-
+            #print("hd", repr(hd))
             try:
-                if (hd and hd.nr_sects):
+                if (hd and hd.Deref.nr_sects):
                     if (v):
-                        print ("\t\t", i, hd)
+                        print ("\t\t", i, Deref(hd))
             except crash.error:
                 outparts.append(i)
                 if (v):
-                    print (ERROR, "corrupted", hd)
+                    print (ERROR, "corrupted", Deref(hd))
         if (outparts):
             print (ERROR, gd, "corrupted part list", outparts)
         

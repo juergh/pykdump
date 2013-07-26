@@ -57,6 +57,7 @@ def __rlim2str(v):
 def printTaskDetails(t):
     sstate = t.state[5:7]
     print ("---- %6d(%s) %s %s" % (t.pid, sstate, str(t.ts), t.comm))
+    print("   cpu", t.cpu)
     parent = t.parent
     flags = t.flags
     if (t.hasField("real_parent")):
@@ -162,6 +163,19 @@ def printTaskDetails(t):
         print ("\t%02d (%s) cur=%s max=%s" % (i, s,
                                             __rlim2str(r.rlim_cur),
                                             __rlim2str(r.rlim_max)))
+    # Accounting info
+    thread_info = readSU("struct thread_info", t.stack)
+    print("   --- thread_info", thread_info)
+    _e = EnumInfo("enum cgroup_subsys_id")
+    cs_state = t.cgroups.subsys[_e.cpuacct_subsys_id]
+    ca = container_of(cs_state, "struct cpuacct", "css")
+    print("   --- Accounting Info")
+    while(ca):
+        print("       ", ca, repr(ca.cpuusage))
+        cpuusage = percpu.percpu_ptr(ca.cpuusage, cpu)
+        print("       ", repr(cpuusage), Deref(cpuusage))
+        ca = ca.parent
+  
 
 def find_and_print(pid):
     tt = TaskTable()

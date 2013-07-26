@@ -4,6 +4,14 @@
 
 # Per-cpu functions
 
+# --------------------------------------------------------------------
+# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+#
+# Author: Alex Sidorenko <asid@hp.com>
+#
+# --------------------------------------------------------------------
+
+
 from pykdump.API import *
 
 # Emulate __get_cpu_var. For efficiency rerasons We return
