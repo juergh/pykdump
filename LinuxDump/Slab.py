@@ -1,11 +1,15 @@
 # -*- coding: latin-1 -*-
-# Time-stamp: <12/03/09 14:01:54 alexs>
+# Time-stamp: <13/07/29 16:02:26 alexs>
 # module LinuxDump.Slab
 #
 # Time-stamp: <08/03/05 15:51:52 alexs>
 #
-# Copyright (C) 2008-2012 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2008-2012 Hewlett-Packard Co., All rights reserved.
+# --------------------------------------------------------------------
+# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+#
+# Author: Alex Sidorenko <asid@hp.com>
+#
+# --------------------------------------------------------------------
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

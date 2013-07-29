@@ -1,9 +1,13 @@
 #!/usr/bin/env python
 
-# Time-stamp: <10/08/17 16:01:28 alexs>
+# Time-stamp: <13/07/29 16:11:36 alexs>
 
-# Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
+# --------------------------------------------------------------------
+# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+#
+# Author: Alex Sidorenko <asid@hp.com>
+#
+# --------------------------------------------------------------------
 
 # Test low-level API
 
@@ -83,7 +87,6 @@ for i in range(5):
 ntests += 1
 
 sarrptr = asid.sarrptr
-print sarrptr
 if (sarrptr[0].a0 == 11 and sarrptr[1].a0 == 22 and sarrptr[2].a0 == 33 and \
     (sarrptr+2).a0 == 33):
     pass
@@ -113,7 +116,49 @@ else:
     print addr2sym(asid.funcptr)
     nfailed += 1
 
+
+def dPrint(v):
+    print(type(v), repr(v))
+
+# Various pointers
+
+ntests += 1
+for i in range(3):
+    a0 = nptr.ii.a0[i]
+    a3 = nptr.ii.a3[i]
+    if (a0.a0 == i and a3.a0 == i):
+        pass
+    else:
+        print (a0.a0, a3.a0, i)
+        print "Various pointers failed"
+        nfailed += 1
+        break
+
 print "%d tests run, %d failed" % (ntests, nfailed)
+
+sys.exit(0)
+
+iPtr = readSymbol("iPtr")
+#print (repr(iPtr))
+
+iPtrarr =  readSymbol("iPtrarr")
+#print (type(iPtrarr), repr(iPtrarr))
+
+nptr = readSymbol("asid_ptr")
+
+cptr = readSymbol("charPtrArr")
+
+#dPrint(cptr[0])
+
+#dPrint(nptr.ii.a0[1])
+#dPrint(nptr.ii.a3[1])
+
+for i in range(3):
+    a0 = nptr.ii.a0[i]
+    a3 = nptr.ii.a3[i]
+    print (a0.a0, a0.b0), (a3.a0, a3.b0)
+
+
 
 sys.exit(0)
 

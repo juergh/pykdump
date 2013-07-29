@@ -5,8 +5,7 @@ __version__ = '0.2'
 
 # Copyright notice string
 __copyright__ = """\
-Copyright (c) 2006,2007 Alex Sidorenko; mailto:asid@lhp.com
-    See the documentation for further information on copyrights,
-    or contact the author. All Rights Reserved.
+(C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+ Author: Alex Sidorenko <asid@hp.com>
 """
 

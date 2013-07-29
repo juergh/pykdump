@@ -3,9 +3,12 @@
 # Interpreting spinlock structures
 #
 
-# Copyright (C) 2012 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2012 Hewlett-Packard Co., All rights reserved.
-
+# --------------------------------------------------------------------
+# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+#
+# Author: Alex Sidorenko <asid@hp.com>
+#
+# --------------------------------------------------------------------
 
 # To facilitate migration to Python-3, we start from using future statements/builtins
 from __future__ import print_function

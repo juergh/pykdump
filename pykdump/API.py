@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module pykdump.API
 #
-# Time-stamp: <12/05/04 12:15:58 alexs>
+# Time-stamp: <13/07/29 16:07:33 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -9,9 +9,12 @@
 # end-user. In particular, this module decides what backends to use
 # depending on availability of low-level shared library dlopened from crash
 #
-# Copyright (C) 2006-2011 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006-2011 Hewlett-Packard Co., All rights reserved.
+# --------------------------------------------------------------------
+# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
 #
+# Author: Alex Sidorenko <asid@hp.com>
+#
+# --------------------------------------------------------------------
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
 # the Free Software Foundation; either version 2 of the License, or

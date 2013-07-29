@@ -1,11 +1,11 @@
 # -*- coding: utf-8 -*-
 
 # module LinuxDump.inet.proto
-# Time-stamp: <13/01/21 08:32:48 alexs>
+# Time-stamp: <13/07/29 16:00:15 alexs>
 
+# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
 #
-# Copyright (C) 2006-2012 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006-2012 Hewlett-Packard Co., All rights reserved.
+# Author: Alex Sidorenko <asid@hp.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

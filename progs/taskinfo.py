@@ -1,10 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Time-stamp: <12/03/08 15:58:15 alexs>
+# Time-stamp: <13/07/29 16:06:44 alexs>
 
-# Copyright (C) 2010-2012 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2010-2012 Hewlett-Packard Co., All rights reserved.
+# --------------------------------------------------------------------
+# (C) Copyright 2011-2013 Hewlett-Packard Development Company, L.P.
+#
+# Author: Alex Sidorenko <asid@hp.com>
+#
+# --------------------------------------------------------------------
 
 # Print info about tasks
 

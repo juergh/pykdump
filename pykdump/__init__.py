@@ -10,9 +10,8 @@ import sys
 
 # Copyright notice string
 __copyright__ = """\
-Copyright (c) 2006-2013, Alex Sidorenko; mailto:asid@hp.com
-    See the documentation for further information on copyrights,
-    or contact the author. All Rights Reserved.
+(C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+Author: Alex Sidorenko <asid@hp.com>
 """
 
 # A minimal C-module version that is needed for API to work

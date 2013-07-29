@@ -1,9 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Time-stamp: <11/04/27 12:51:21 alexs>
+# Time-stamp: <13/07/29 16:05:11 alexs>
 
-# Copyright (C) 2010-2011 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2010-2011 Hewlett-Packard Co., All rights reserved.
+# --------------------------------------------------------------------
+# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+#
+# Author: Alex Sidorenko <asid@hp.com>
+#
+# --------------------------------------------------------------------
 
 # Print info about NFS/RPC
 

@@ -711,7 +711,7 @@ def suReader(vi):
     def reader1(addr):
         return StructResult(stype, addr)
 
-    def readerarr(addr):
+    def readerarr(addr ):
         out = []
         for i in range(elements):
             sr = StructResult(stype, addr + i * size)
@@ -773,56 +773,67 @@ def ptrReader(vi, ptrlev):
             ptr = readPtr(ptr)
         return ptr
 
-    # Array of generic pointers
-    def ptrArray(addr):
-        #val = [tPtr(readPtr(addr + i * size), vi) for i in xrange(elements)]
-        mem = readmem(addr, elements*size)
-        #for i, p in zip(range(elements), mem2long(mem, signed=False, array=elements)):
-        #    print (" ++", readPtr(addr + i * size), p)
-        return [tPtr(p, ti) if p else 0 for p in mem2long(mem, array=elements)]
-
-    def ptrArrayMulti(addr):
-        return _arr1toM(dims, ptrArray(addr))
-    
-    # A special case like struct x8664_pda *_cpu_pda[0];
-    # Convert it internally to struct x8664_pda **_cpu_pda;
-    # 
-    def ptrArr0(addr):
-        return tPtrZeroArray(addr, ti)
- 
     ti = vi.ti
     dims = ti.dims
     elements = ti.elements
     size = ti.size
     stype = ti.stype
-        
-    # We start from arrays - they are not optimized per type yet
-    if (dims != None):
-        if (len(dims) == 1 and elements <= 1):
-            return ptrArr0
-        elif(len(dims)  > 1):
-            return ptrArrayMulti
-        else:
-            return ptrArray
-    # pointers to base types - just one *
-    elif (ptrlev == 1):
+
+    # If we have ptrlev=1, we try to return appropriate types
+    # instead of generic pointers
+    if (ptrlev == 1):
         if(stype == 'char'):
-            return strPtr
+            # Smart string
+            basereader = strPtr
         elif (ti.ptrbasetype in TYPE_CODE_SU):
-            # Optimization - return StructResult instead of pointer
-            if (dims == None):
-                return ptrSU
+            #  return StructResult instead of pointer
+            basereader = ptrSU
         elif (ti.ptrbasetype == TYPE_CODE_FUNC):      # A pointer to function
-            return funcPtr
+            basereader = funcPtr
         else:
             # Is this OK for all types?
-            return genPtr
+            basereader = genPtr        
+        # Now check whether we have arrays
+        if (dims == None):
+            # No need to do anything else
+            return basereader
+        # We have an array
+        if (len(dims) == 1 and elements <= 1):
+            # Zero-dimensioned array
+            class Array0(object):
+                def __init__(self, addr):
+                    self.addr = addr
+                def __getitem__(self, i):
+                    return basereader(self.addr + i*size)
+            return lambda addr: Array0(addr)
+        else:
+            # A reader for 1-dimensional arrays
+            class Array1(list):
+                def __init__(self, addr):
+                    self.addr = addr
+                def __getitem__(self, i):
+                    return basereader(self.addr + i*size)
+                def __len__(self):
+                    return elements
+                def __iter__(self):
+                    def __iter__(self):
+                        for i in range(l):
+                            yield self[i]
+            reader1 = lambda addr: Array1(addr)
+            if (len(dims) == 1):
+                return reader1
+            else:
+                # Multi-dim
+                def ArrayMulti(addr):
+                    return _arr1toM(dims, reader1(addr))
+                return ArrayMulti
     else:
-        # A generic ptr
-        return genPtr
+       # ptrlev > 1
+       return genPtr
+                   
+               
     # Error - print debugging info
-    raise TypeError("Cannot find a suitable reader for {} ptrbasetype={} dims={}".format(ti,
-            ti.ptrbasetype,dims))
+    raise TypeError("Cannot find a suitable reader for {} ptrbasetype={} dims={}".format(ti, ti.ptrbasetype,dims))
     return None
 
         
@@ -918,7 +929,15 @@ class tPtrZeroArray(tPtr):
     #pass
     def __getitem__(self, i):
         return tPtr(readPtr(long(self) + i * self.ti.size), self.ti)
-        
+
+# Dimensionless array of pointers to SU, e.g.
+# struct rt_trie_node *child[];
+class tPtrZeroArraySU(tPtr):
+    # pass
+    def __getitem__(self, i):
+        return readSU(self.ti.stype, readPtr(long(self) + i * self.ti.size))
+
+    
 
 # An experimental dereferencer. We assume that there can be no pointer bitfields!
 @memoize_cond(CU_PYMOD)

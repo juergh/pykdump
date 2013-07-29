@@ -1,10 +1,14 @@
 # -*- coding: utf-8 -*-
 # module LinuxDump.Dev
 #
-# Time-stamp: <12/03/09 12:21:40 alexs>
+# Time-stamp: <13/07/29 16:14:16 alexs>
 #
-# Copyright (C) 2008 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2008 Hewlett-Packard Co., All rights reserved.
+# --------------------------------------------------------------------
+# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+#
+# Author: Alex Sidorenko <asid@hp.com>
+#
+# --------------------------------------------------------------------
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -298,7 +302,7 @@ def print_gendisk(v = 1):
         gdlist = get_gendisks()
     except TypeError:
         if (v):
-            print ("print_gendisk is not implemented for 2.4 kernels yet")
+            print ("print_gendisk is not implemented for this kernel yet")
         return
     # To get block_device based on dev_t
     dummy, bd_devs = get_blkdevs()

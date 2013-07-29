@@ -2,10 +2,14 @@
 
 # Update mpykdump.so files without recompilation, just uzing ZIP
 
-# Time-stamp: <08/04/18 13:47:57 alexs>
+# Time-stamp: <13/07/29 16:10:48 alexs>
 
-# Copyright (C) 2008 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2008 Hewlett-Packard Co., All rights reserved.
+# --------------------------------------------------------------------
+# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+#
+# Author: Alex Sidorenko <asid@hp.com>
+#
+# --------------------------------------------------------------------
 
 # Update mpykdump.so
 

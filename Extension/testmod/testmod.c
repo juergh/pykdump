@@ -127,13 +127,30 @@ struct ASID_ANON {
 };
       
 struct ASID_ANON asid_anon;	
-      
+
+
+// for tPtr testing
+static int one = 1, two = 2, three = 3;
+int *iPtr = &one;
+int *iPtrarr[] = {&one, &two, &three};
+
+static char *charPtrArr[3];
+
+struct ASID_ptr {
+  struct Internal {
+    int a;
+    struct AA *a3[3];
+    struct AA *a0[0];
+  } ii;
+  struct AA *aa[4];
+} asid_ptr;
 
 static int __init
 testmod_init(void) {
 
   int i, j;
-  
+
+  one = 1;
   LBLOG("++++++++++++++ testmod loaded\n");
 
   
@@ -176,6 +193,22 @@ testmod_init(void) {
       asid.iarr2[i][j] = i*10+j;
 
   asid.funcptr = testfunc;
+
+  {
+    int i;
+    static struct AA _aa[3] = {
+      {0, "zero"},
+      {1, "one"},
+      {2, "two"}
+    };
+
+    for(i=0; i < 3; i++) {
+      asid_ptr.ii.a3[i] =asid_ptr.aa[i] = &_aa[i];
+      charPtrArr[i] = _aa[i].b0;
+    }
+  }
+
+
   
   return 0;
 }

@@ -1,9 +1,13 @@
 # module LinuxDump.inet.neighbour
 #
-# Time-stamp: <13/01/21 08:48:50 alexs>
+# Time-stamp: <13/07/29 15:58:21 alexs>
 #
-# Copyright (C) 2006-2012 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006-2012 Hewlett-Packard Co., All rights reserved.
+# --------------------------------------------------------------------
+# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+#
+# Author: Alex Sidorenko <asid@hp.com>
+#
+# --------------------------------------------------------------------
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by

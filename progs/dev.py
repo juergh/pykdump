@@ -1,9 +1,12 @@
 #!/usr/bin/env python
-# Time-stamp: <12/03/08 16:01:37 alexs>
+# Time-stamp: <13/07/29 16:05:32 alexs>
 
-# Copyright (C) 2006 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2006 Hewlett-Packard Co., All rights reserved.
-
+# --------------------------------------------------------------------
+# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+#
+# Author: Alex Sidorenko <asid@hp.com>
+#
+# --------------------------------------------------------------------
 from __future__ import print_function
 
 from pykdump.API import *

@@ -1,9 +1,13 @@
 # module LinuxDump.fs.ext3
 #
-# Time-stamp: <12/03/20 12:19:44 alexs>
+# Time-stamp: <13/07/29 15:55:27 alexs>
 #
-# Copyright (C) 2007 Alex Sidorenko <asid@hp.com>
-# Copyright (C) 2007 Hewlett-Packard Co., All rights reserved.
+# --------------------------------------------------------------------
+# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+#
+# Author: Alex Sidorenko <asid@hp.com>
+#
+# --------------------------------------------------------------------
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
