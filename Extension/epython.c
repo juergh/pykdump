@@ -2,9 +2,13 @@
    
   Time-stamp: <12/10/23 15:32:24 alexs>
 
-  Copyright (C) 2006-2012 Alex Sidorenko <asid@hp.com>
-  Copyright (C) 2006-2012 Hewlett-Packard Co., All rights reserved.
- 
+# --------------------------------------------------------------------
+# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+#
+# Author: Alex Sidorenko <asid@hp.com>
+#
+# --------------------------------------------------------------------  
+
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation; either version 2 of the License, or
@@ -33,7 +37,7 @@
 
 int debug = 0;
 
-static char crashmod_version_s[] = "@(#)pycrash 0.7.1";
+static char crashmod_version_s[] = "@(#)pycrash 0.7.2";
 const char * crashmod_version = crashmod_version_s + 12;
 
 extern const char *build_crash_version;
@@ -203,6 +207,11 @@ void _init(void)  {
   if (debug)
     printf("Running epython_init\n");
   
+  // If crash is in 'minimal' mode, we just bail out as we depend on full
+  // crash functionality
+  if (pc->flags & MINIMAL_MODE)
+      return;
+  
   /* Before doing anything else, check whether the versions of crash 
     used for build and the currently running version are compatible:
     build_crash_version vs build_version
@@ -320,6 +329,10 @@ int _unload_epython = 1;
 void _fini(void) {
   //void __attribute__((destructor)) n_fini(void) {
   struct command_table_entry *ce;
+  
+  // We do nothing in minimal mode
+  if (pc->flags & MINIMAL_MODE)
+      return;
 
   if (! _unload_epython)
     return;
