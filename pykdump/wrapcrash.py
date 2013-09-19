@@ -816,9 +816,8 @@ def ptrReader(vi, ptrlev):
                 def __len__(self):
                     return elements
                 def __iter__(self):
-                    def __iter__(self):
-                        for i in range(l):
-                            yield self[i]
+                    for i in range(elements):
+                        yield self[i]
             reader1 = lambda addr: Array1(addr)
             if (len(dims) == 1):
                 return reader1
