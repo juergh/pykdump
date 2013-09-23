@@ -30,6 +30,9 @@ from pykdump.API import *
 from LinuxDump.percpu import percpu_ptr
 
 import re
+import textwrap
+from collections import namedtuple, defaultdict
+
 
 # Decode dev_t
 # major, minor = decode_devt(dev)
@@ -100,14 +103,15 @@ def get_blkdevs_v1():
 
 
 def get_blkdevs_v2():
-    # We need unique values only, so we use a dictionary to achieve this
-    m_bdevs = {}
+    # We want to group info per major, i.e. for each major we have
+    # a list of all 'struct block_device' sorted by minor
+    m_bdevs = defaultdict(list)
     out_bddev = {}      # a dict with bd_dev key
     for s in readSUListFromHead(sym2addr('all_bdevs'), 
            'bd_list', 'struct block_device'):
         major, minor =  decode_devt(s.bd_dev)
         out_bddev[s.bd_dev] = s
-        m_bdevs.setdefault(major, []).append((minor, s))
+        m_bdevs[major].append((minor, s))
   
     # When we register a device, it can grab several major
     # numbers just in case - even if it does not need them
@@ -123,6 +127,7 @@ def get_blkdevs_v2():
             addr = s.next
             major = s.major
             if (not major in m_bdevs):
+                #print ("major", major)
                 continue
             bd = m_bdevs[major]
             # There are cases when device is registered but bd_disk=0
@@ -164,7 +169,9 @@ def print_blkdevs(v = 0):
         print (" %3d    %-14s   %x  <%s>" % \
               (major, bi.name, ops, addr2sym(ops)))
         if (v):
-           print ("\tMinors:", minors)
+           print (textwrap.fill("\tMinors:" + str(minors), initial_indent=' ',
+                  subsequent_indent=' ' *9))
+
            print ("\t", bdevs[0][1])
 
         if (v):
