@@ -73,12 +73,16 @@ def readCtlTable(root, parent = ''):
     #print "root=", root
     for ct in root:
         if (long(ct) == 0): break
-        #print ct, ct.procname
-        if (ct.hasField("ctl_name")):
-            if(ct.ctl_name == 0): break
-        elif (ct.procname == None): break
-
         
+        # The following was needed some time ago but does not work in 2.6.32
+        # FIXME
+        #if (ct.hasField("ctl_name")):
+            #if(ct.ctl_name == 0):
+                #break
+        
+        if (ct.procname == None):
+            break
+
         if (ct.child):
             # This is a pointer to another table
             newroot = readSUArray(stype, ct.child)
