@@ -106,16 +106,23 @@ class CEnum(object):
         i = 0
         self.vals = []                  # For printing
         self.lookup = {}                # For lookup
+        self.name2i = {}                # symbolic name to int
         for val in tp:
             name = val[0]
             if (len(val) == 2):
                 i = val[1]
             self.vals.append((name, i))
             self.lookup[i] = name
+            # For reverse lookup
+            self.name2i[name] = i
             self.__dict__[name] = i
             i += 1
     def __getitem__(self, name):
         return self.lookup[name]
+    def getByName(self, name):
+        return self.name2i[name]
+    def getAllNames(self):
+        return sorted(self.name2i.keys())
     def __str__(self):
         return str(self.vals)
     def __len__(self):
