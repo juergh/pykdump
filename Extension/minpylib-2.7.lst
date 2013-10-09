@@ -41,6 +41,7 @@ getopt.py
 struct.py
 trace.py
 optparse.py
+argparse.py
 copy.py
 __future__.py
 weakref.py
