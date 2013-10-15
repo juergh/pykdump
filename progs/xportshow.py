@@ -14,7 +14,7 @@
 # To facilitate migration to Python-3, we start from using future statements/builtins
 from __future__ import print_function
 
-__version__ = "0.8.2"
+__version__ = "0.8.3"
 
 
 from pykdump.API import *
@@ -31,7 +31,7 @@ from LinuxDump.inet.proto import tcpState, sockTypes, \
 from LinuxDump.Tasks import TaskTable
 from LinuxDump.inet import summary
 
-import string
+import string, textwrap
 
 # Python2 vs Python3
 _Pym = sys.version_info[0]
@@ -70,6 +70,9 @@ def print_TCP_sock(o):
         print (WARNING, msg)
         return
     jiffies = readSymbol("jiffies")
+    tcp_state = pstr.state
+    if(tcpstate_filter and tcpstate_filter != tcp_state):
+        return
     if (port_filter):
         if (pstr.sport != port_filter and pstr.dport != port_filter):
             return
@@ -77,7 +80,6 @@ def print_TCP_sock(o):
         print ('-' * 78)
         print (o, '\t\tTCP')
     print (pstr)
-    tcp_state = pstr.state
     # Here we print things that are not kernel-dependent
     if (details):
         sfamily = P_FAMILIES.value2key(pstr.family)
@@ -117,8 +119,10 @@ def print_TCP_sock(o):
             # Extra details when there are retransmissions
             if (pstr.Retransmits):
                 print("    -- Retransmissions --")
-                print("       retransmits=%d, ca_state=%s" % (pstr.Retransmits, 
-                        proto.TCP_CA_STATE[pstr.CA_state]))
+                print("       retransmits=%d, ca_state=%s,"
+                      " %s since last retransmission" %\
+                      (pstr.Retransmits, proto.TCP_CA_STATE[pstr.CA_state],
+                       j_delay(o.retrans_stamp, jiffies)))
 
 
         elif (tcp_state == tcpState.TCP_LISTEN):
@@ -273,6 +277,8 @@ def print_TCP():
         
    
     # Print TIME_WAIT
+    if (tcpstate_filter and tcpstate_filter != tcpState.TCP_TIME_WAIT):
+        return
     jiffies = readSymbol("jiffies")
     for tw in proto.get_TCP_TIMEWAIT():
         print_TCP_tw(tw)
@@ -662,7 +668,8 @@ if ( __name__ == '__main__'):
     
     __experimental ='PYKDUMPDEV'in  os.environ
     
-    from optparse import OptionParser, OptionGroup, SUPPRESS_HELP
+    #from argparse import OptionParser, OptionGroup, SUPPRESS_HELP
+    import argparse
 
     def e_help(help):
         global __experimental
@@ -671,142 +678,159 @@ if ( __name__ == '__main__'):
         else:
             return SUPPRESS_HELP
 
-    op =  OptionParser()
+    parser =  argparse.ArgumentParser()
     
 
-    op.add_option("-a", dest="All", default = 0,
+    parser.add_argument("-a", dest="All", default = 0,
                   action="store_true",
                   help="print all sockets")
 
-    op.add_option("-v", dest="Verbose", default = 0,
+    parser.add_argument("-v", dest="Verbose", default = 0,
                   action="count",
                   help="verbose output")
 
-    op.add_option("-r", dest="Route", default = 0,
+    parser.add_argument("-r", dest="Route", default = 0,
                   action="store_true",
                   help="Print routing table. Adding -v prints all"
                   " routing tables and policies")
 
-    op.add_option("--program", dest="Program", default = "",
+    parser.add_argument("--program", dest="Program", default = "",
                   action="store",
                   help="print sockets for cmdname")
                  
-    op.add_option("--pid", dest="Pid", default = -1,
-                  action="store", type="int",
+    parser.add_argument("--pid", dest="Pid", default = -1,
+                  action="store", type=int,
                   help="print sockets for PID")
 
 
-    op.add_option("--netfilter", dest="Netfilter", default = 0,
+    parser.add_argument("--netfilter", dest="Netfilter", default = 0,
                   action="store_true",
                   help="Print Netfilter Hooks")
 
-    op.add_option("--softnet", dest="Softnet", default = 0,
+    parser.add_argument("--softnet", dest="Softnet", default = 0,
                   action="store_true",
                   help="Print Softnet Queues")
 
-    op.add_option("--summary", dest="Summary", default = 0,
+    parser.add_argument("--summary", dest="Summary", default = 0,
                   action="store_true",
                   help="Print A Summary")
     
-    op.add_option("-s", "--statistics", dest="Stats", default = 0,
+    parser.add_argument("-s", "--statistics", dest="Stats", default = 0,
                   action="store_true",
                   help="Print Statistics")
 
-    op.add_option("-i", dest="Ifaces", default = 0,
+    parser.add_argument("-i", dest="Ifaces", default = 0,
                   action="store_true",
                   help="Print Interface Info")
 
-    op.add_option("--interface", dest="If1", default = "",
+    parser.add_argument("--interface", dest="If1", default = "",
                   action="store",
                   help="Limit output to the specified interface only")
 
-    op.add_option("--decode", dest="Decode", default = None,
+    parser.add_argument("--decode", dest="Decode", default = None,
                   action="store",
                   help="Decode iph/th/uh")
 
     
-    op.add_option("--port", dest="port", default = -1,
-                  action="store", type="int",
+    parser.add_argument("--port", dest="port", default = -1,
+                  action="store", type=int,
                   help="Limit output to the specified port (src or dst)")
 
-    op.add_option("-l", "--listening", dest="Listen", default = 0,
+    parser.add_argument("-l", "--listening", dest="Listen", default = 0,
                   action="store_true",
                   help="Print LISTEN sockets only")
 
-    op.add_option("-t", "--tcp", dest="TCP", default = 0,
+    parser.add_argument("-t", dest="TCP", default = 0,
                   action="store_true",
                   help="Print TCP Info")
+    parser.add_argument("--tcpstate", default = "",
+                  action="store",
+                  help="Limit display for this state only, e.g. SYN_SENT")
+    
 
-    op.add_option("-u", "--udp", dest="UDP", default = 0,
+    parser.add_argument("-u", "--udp", dest="UDP", default = 0,
                   action="store_true",
                   help="Print UDP Info")
 
-    op.add_option("-w", "--raw", dest="RAW", default = 0,
+    parser.add_argument("-w", "--raw", dest="RAW", default = 0,
                   action="store_true",
                   help="Print RAW Info")
 
-    op.add_option("-x", "--unix", dest="UNIX", default = 0,
+    parser.add_argument("-x", "--unix", dest="UNIX", default = 0,
                   action="store_true",
                   help="Print UNIX Info")
 
-    op.add_option("--sysctl", dest="sysctl", default = 0,
+    parser.add_argument("--sysctl", dest="sysctl", default = 0,
                   action="store_true",
                   help="Print sysctl info for net.")
 
-    op.add_option("--devpack", dest="devpack", default = 0,
+    parser.add_argument("--devpack", dest="devpack", default = 0,
                   action="store_true",
                   help="Print dev_pack info")
 
-    op.add_option("--arp", dest="arp", default = 0,
+    parser.add_argument("--arp", dest="arp", default = 0,
                   action="store_true",
                   help="Print ARP & Neighbouring info")
 
-    op.add_option("--rtcache", dest="rtcache", default = 0,
+    parser.add_argument("--rtcache", dest="rtcache", default = 0,
                   action="store_true",
                   help="Print the routing cache")
 
-    op.add_option("--skbuffhead", dest="Skbuffhead", default = -1,
-                  action="store", type="int",
+    parser.add_argument("--skbuffhead", dest="Skbuffhead", default = -1,
+                  action="store", type=int,
                   help="Print sk_buff_head")
 
 
-    op.add_option("--version", dest="Version", default = 0,
+    parser.add_argument("--version", dest="Version", default = 0,
                   action="store_true",
                   help="Print program version and exit")
 
 
-    # Expertimental options, not ready for general usgae yet
-    group = OptionGroup(op, "Experimental Options",
-                    "Caution: this is work in progress, "
-                    "not fully supported for all kernels yet.")
+    ## Expertimental options, not ready for general usgae yet
+    #group = OptionGroup(op, "Experimental Options",
+                    #"Caution: this is work in progress, "
+                    #"not fully supported for all kernels yet.")
 
-    group.add_option("--sport", dest="sport", default = -1,
-                  action="store", type="int",
-                  help="Limit output to the specified sport")
+    #group.add_option("--sport", dest="sport", default = -1,
+                  #action="store", type="int",
+                  #help="Limit output to the specified sport")
 
-    group.add_option("--dport", dest="dport", default = -1,
-                  action="store", type="int",
-                  help="Limit output to the specified dport")
+    #group.add_option("--dport", dest="dport", default = -1,
+                  #action="store", type="int",
+                  #help="Limit output to the specified dport")
 
-    group.add_option("--ipsec", dest="ipsec", default = 0,
-                  action="store_true",
-                  help="Print IPSEC stuff")
+    #group.add_option("--ipsec", dest="ipsec", default = 0,
+                  #action="store_true",
+                  #help="Print IPSEC stuff")
 
-    op.add_option("--everything", dest="Everything", default = 0,
+    parser.add_argument("--everything", dest="Everything", default = 0,
                   action="store_true",
                   help="Run all functions available for regression testing")
 
-    group.add_option("--profile", dest="Profile", default = 0,
-                  action="store_true",
-                  help="Run with profiler")
+    #group.add_option("--profile", dest="Profile", default = 0,
+                  #action="store_true",
+                  #help="Run with profiler")
 
-    op.add_option_group(group)
+    #parser.add_option_group(group)
 
 
-    (o, args) = op.parse_args()
+    o = args = parser.parse_args()
 
     verbose = details = o.Verbose
     #__experimental = O.experimental
+    
+    tcpstate_filter = None
+    # Check whether it is one of standard values
+    if (o.tcpstate):
+        try:
+            tcpstate_filter = tcpState.getByName("TCP_" + o.tcpstate)
+        except KeyError:
+            print("Bad --tcpstate, legal values are")
+            names = [s[4:] for s in tcpState.getAllNames()]
+            print(textwrap.fill(str(names), initial_indent='   ',
+                                subsequent_indent='    '))
+            sys.exit(0)
+            
 
     if (o.Version):
         print ("XPORTSHOW version %s" % (__version__))
@@ -825,25 +849,11 @@ if ( __name__ == '__main__'):
         print_Everything()
         sys.exit(0)
 
-    if (o.Profile):
-        from LinuxDump.inet.netfilter import nf
-        from LinuxDump.inet import neighbour
-        from LinuxDump.inet.routing import print_fib, print_rt_hash
 
-        import cProfile
-
-        details = True
-
-        print_Everything()
-        cProfile.run('print_Everything()')
-
-        sys.exit(0)
-        
-
-    if (o.sport != -1):
-        sport_filter = o.sport
-    if (o.dport != -1):
-        dport_filter = o.dport
+    #if (o.sport != -1):
+        #sport_filter = o.sport
+    #if (o.dport != -1):
+        #dport_filter = o.dport
     if (o.port != -1):
         port_filter = o.port
 
@@ -892,10 +902,10 @@ if ( __name__ == '__main__'):
         print_skbuff_head(skbhead, details)
         sys.exit(0)
 
-    if (o.ipsec):
-        from LinuxDump.inet import ipsec
-        ipsec.print_IPSEC()
-        sys.exit(0)
+    #if (o.ipsec):
+        #from LinuxDump.inet import ipsec
+        #ipsec.print_IPSEC()
+        #sys.exit(0)
 
     if (o.Ifaces):
         print_iface(o.If1, details)
@@ -950,8 +960,8 @@ if ( __name__ == '__main__'):
         print_nolisten = False
     if (o.All):
         print_listen = True
-    if (o.TCP or o.UDP or o.RAW or o.UNIX):
-        if (o.TCP):
+    if (o.TCP or o.UDP or o.RAW or o.UNIX or o.tcpstate):
+        if (o.TCP or o.tcpstate):
             print_TCP()
         if (o.UDP):
             print_UDP()
