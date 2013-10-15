@@ -309,7 +309,7 @@ def exec_bt(crashcmd = None, text = None):
     # Debugging
     if (crashcmd != None):
         # Execute a crash command...
-        text = memoize_cond(CU_LIVE | CU_TIMEOUT)(exec_crash_command)(crashcmd)
+        text = memoize_cond(CU_LIVE | CU_TIMEOUT)(exec_crash_command_bg)(crashcmd)
         #print "Got results from crash", crashcmd
         if (not text):
             # Got timeout

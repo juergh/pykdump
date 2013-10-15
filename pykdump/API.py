@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module pykdump.API
 #
-# Time-stamp: <13/07/29 16:07:33 alexs>
+# Time-stamp: <13/10/15 11:07:33 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -43,7 +43,7 @@ debug = 0
 
 import sys, os, os.path
 import re, string
-import time
+import time, select
 import stat
 import atexit
 
@@ -120,8 +120,8 @@ from .wrapcrash import readU8, readU16, readU32, readS32, \
      readmem, uvtop, readProcessMem, set_readmem_task, \
      struct_size, union_size, member_offset, member_size, \
      getSizeOf, container_of, whatis, printObject,\
-     exec_gdb_command, exec_crash_command, exec_crash_command_bg2, \
-     exec_command,\
+     exec_gdb_command, exec_crash_command, exec_crash_command_bg, \
+     exec_crash_command_bg2, exec_command,\
      structSetAttr, structSetProcAttr, sdef2ArtSU
 
 gen.d = wrapcrash
@@ -268,8 +268,10 @@ def __preprocess(iargv,op):
 
 re_apidebug=re.compile(r'^--apidebug=(\d+)$')
 def enter_epython():
-    global t_start, t_starta, pp
-    t_start = os.times()[0]
+    global t_start, t_start_children, t_starta, pp
+    ost = os.times()
+    t_start = ost[0]+ost[1]
+    t_start_children = ost[2] + ost[3]
     t_starta = time.time()
     
     # We might redefine stdout every time we execute a command...
@@ -313,9 +315,16 @@ def exit_epython():
 def cleanup():
     set_readmem_task(0)
     try:
-        print ("\n ** Execution took %6.2fs (real) %6.2fs (CPU)" % \
+        ost = os.times()
+        parent_t = ost[0] + ost[1] - t_start
+        child_t = ost[2] + ost[3] - t_start_children
+        if (abs(child_t) > 0.001):
+            child_s = ", Child processes: %6.2fs" % child_t
+        else:
+            child_s = ""
+        print ("\n ** Execution took %6.2fs (real) %6.2fs (CPU)%s" % \
                                         (time.time() - t_starta,
-                                         os.times()[0] - t_start))
+                                         parent_t, child_s))
     except IOError:
         pass
     sys.stdout.flush()
@@ -465,7 +474,7 @@ def _doSys():
         if (len(spl) == 2):
             sys_info.__setattr__(spl[0].strip(), spl[1].strip())
 
-        
+
 # -----------  initializations ----------------
 
 # What happens if we use 'epython' command several times without 

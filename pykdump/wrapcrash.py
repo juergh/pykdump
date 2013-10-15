@@ -28,7 +28,7 @@ from __future__ import print_function
 import sys
 import string, re
 import struct
-import os, select
+import os, select, time
 
 import types
 
@@ -1551,44 +1551,58 @@ def exec_command(cmdline):
     else:
         print(crash.exec_crash_command(cmdline))
 
-def new_exec_crash_command(cmd, timeout=None):
+
+# Exec in the background - use this for reliable timeouts
+def exec_crash_command_bg(cmd, timeout = None):
     if (not timeout):
         timeout = crash.default_timeout
-    (fd, pid) = exec_crash_command_bg2(cmd)
-
-    readable = [fd]
+    #print("Timeout=", timeout)
+    fileno, pid = exec_crash_command_bg2(cmd)
     out = []
-    bt = time.time()
+    endtime = time.time() + timeout
+    timeleft = timeout
+    # Read until timeout
+    timeouted = False
+    selerror = False
     while(True):
-        ready, _, _ = select.select(readable, [], [], 0.2)
-        if (time.time() - bt > timeout):
-            print(crash.WARNING,
-                  "<%s> failed to complete within the timeout=%-2.1fs" \
-                  % (cmd, timeout))
-            os.kill(pid, 15)
+        try:
+            rl, wl, xl = select.select([fileno], [], [], timeleft)
+        except select.error as val:
+            selerror = val
             break
-        if (not ready):
-            continue
-        s = os.read(fd, 1000)
+        timeleft = endtime - time.time()
+        if (not rl):
+            timeouted = True
+            break
+        s = os.read(fileno, 82)    # Line-oriented
         if (not s):
             break
-        #print(s, end='')
         out.append(s)
-
-    (pid, status) = os.wait()
-
-    #print (" ==============", pid)
-
-    if (os.WIFEXITED(status)):
-        ecode = os.WEXITSTATUS(status)
-        if (ecode):
-            print ("ExitCode=%d" % ecode)
-    elif (os.WIFSIGNALED(status)):
-        if (os.WCOREDUMP(status)):
-            print ("Core Dumped")
-        else:
-            print ("Signal", os.WTERMSIG(status))
-    return ''.join(out)
+        
+    os.close(fileno)
+    os.kill(pid, 9)
+    cpid, status = os.wait()
+    if (timeouted):
+        badmsg = "<{}> failed to complete within the timeout period of {}s".\
+            format(cmd, timeout)
+    elif (selerror):
+         badmsg = "<{}> interrupted {}s".format(cmd, selerror)   
+    elif (status):
+        if (os.WIFEXITED(status)):
+            ecode = os.WEXITSTATUS(status)
+            if (ecode):
+                smsg = ("ExitCode=%d" % ecode)
+        elif (os.WIFSIGNALED(status)):
+            if (os.WCOREDUMP(status)):
+                smsg = "Core Dumped"
+            else:
+                smsg = "Signal {}".format(os.WTERMSIG(status))
+        badmsg = "<{}> exited abnormally, {}".format(cmd, smsg)
+    else:
+        badmsg = ""
+    if (badmsg):
+        print(crash.WARNING, badmsg)
+    return("".join(out))
 
 # Aliases
 union_size = struct_size

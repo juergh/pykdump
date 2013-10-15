@@ -151,7 +151,7 @@ def print_dmesg():
 def check_mem():
     if (not quiet):
         printHeader("Memory Usage (kmem -i)")
-        kmemi = exec_crash_command("kmem -i")
+        kmemi = exec_crash_command_bg("kmem -i")
         if (kmemi):
             print (kmemi)
         else:
@@ -161,7 +161,7 @@ def check_mem():
     # Checking for fragmentation (mostly useful on 32-bit systems)
     # In some patological cases this can be _very_ slow
     try:
-        kmemf = exec_crash_command("kmem -f")
+        kmemf = exec_crash_command_bg("kmem -f")
     except crash.error:
         kmemf = None
         print (WARNING, "Cannot Execute kmem -f")
