@@ -30,8 +30,10 @@ from pykdump.API import *
 from LinuxDump.percpu import percpu_ptr
 
 import re
-import textwrap
 from collections import namedtuple, defaultdict
+
+import textwrap
+from textwrap import TextWrapper
 
 
 # Decode dev_t
@@ -48,6 +50,128 @@ def decode_devt(dev):
     return (int(major), int(minor))
 
 # ================= Block Device Tables =================
+
+# Declare global tables - to be used explicitly in this module only
+_bdev_map = defaultdict(list)
+_major_names = {} # Name indexed by major
+_all_bdevs = defaultdict(list) # 'struct block_device' lists indexed by major
+
+@memoize_cond(CU_LIVE|CU_PYMOD)
+def get_blkdev_tables():
+    _bdev_map.clear()
+    _major_names.clear()
+    _all_bdevs.clear()
+    if (symbol_exists("bdev_map")):
+        for probe in readSymbol("bdev_map").probes:
+            while(probe):
+                gd = readSU("struct gendisk", probe.data)
+                if (gd and gd.fops):
+                    #fops = "<{}>".format(addr2sym(gd.fops))
+                    _bdev_map[gd.major].append((gd.first_minor, gd))
+                probe = probe.next
+        # Sort on first_minor
+        for major in _bdev_map.keys():
+            _bdev_map[major] = [s[1] for s in sorted(_bdev_map[major])]
+
+
+
+    if (symbol_exists('major_names')):
+        for bmn in readSymbol('major_names'):
+            # struct blk_major_name *
+            while(bmn):
+                _major_names[bmn.major] = bmn.name
+                bmn = bmn.next
+
+
+    if (symbol_exists('all_bdevs')):
+        for bd in readSUListFromHead(sym2addr('all_bdevs'), 
+                                    'bd_list', 'struct block_device'):
+            major, minor = decode_devt(bd.bd_dev)
+            _all_bdevs[major].append((minor, bd))
+        # Sort by minor
+        for major in _all_bdevs.keys():
+            _all_bdevs[major] = sorted(_all_bdevs[major])
+
+class listTextWrapper(textwrap.TextWrapper):
+    #wordsep_simple_re = re.compile(r'(,)')
+    wordsep_re =  re.compile(r'(,)')
+
+
+def list_fill(text, width=70, **kwargs):
+    """Fill a single paragraph of text, returning a new string.
+
+    Reformat the single paragraph in 'text' to fit in lines of no more
+    than 'width' columns, and return a new string containing the entire
+    wrapped paragraph.  As with wrap(), tabs are expanded and other
+    whitespace characters converted to space.  See TextWrapper class for
+    available keyword args to customize wrapping behaviour.
+    """
+    w = listTextWrapper(width=width, **kwargs)
+    return w.fill(text)
+
+
+# To save space, we print <sname addr> instead of <struct sname addr>
+def stripStructName(sname):
+    return '<' + str(sname)[8:]
+
+
+def print_blkdevs(v=0):
+    get_blkdev_tables()
+    # Print 
+    for major in sorted(_major_names.keys()):
+        
+        print('{:3}  {:16}'.format(major, _major_names[major]),end='')
+
+        count_all = 0
+        gd0 = None
+        
+        out = []
+        # For devices in this table, we know all three things:
+        # minor, gendisk,blockdevice
+        for minor, bd in _all_bdevs[major]:
+            gd = bd.bd_disk
+            #print(gd)
+            if (gd):
+                count_all += 1
+                out.append((minor, bd, gd))
+                continue
+
+        if (not count_all):
+            # Here we can get gendisk but not blockdevice
+            for gd in _bdev_map[major]:
+                out.append((None, None, gd))
+                continue
+                bdops = addr2sym(gd.fops)
+                
+             
+        if (v == 0):
+            if (len(out)):
+                gd0 = out[0][2]
+                bdops = addr2sym(gd0.fops)
+                print(" {} fops={}".format(gd0, bdops))
+            else:
+                print("")
+        elif (v == 1):
+            print("")
+            for (minor, bd, gd) in out:
+                if (minor == None):
+                    # gendisk only
+                    print('    first_minor={:<4d}   {} {}'.format(gd.first_minor, 
+                                                            gd.disk_name, gd))
+                else:
+                     print('   {:3d} {:5} {} {}'.format(minor, gd.disk_name, 
+                                                    stripStructName(bd),
+                                                    stripStructName(gd)))                   
+                     
+                      
+        continue
+                
+        print (list_fill(str(_bdev_map[major]), initial_indent=' '*3,
+                            subsequent_indent=' ' * 5))
+        print (list_fill(str(_all_bdevs[major]), initial_indent=' '*3,
+                            subsequent_indent=' ' * 5))
+
+# --- OLD ---
 
 class BlkDev(object):
     def __init__(self, major, name, ops, bdevs):
@@ -141,7 +265,7 @@ def get_blkdevs_v2():
             out[major] = BlkDev(major, s.name, bdops, bd)
     return out, out_bddev
 
-def print_blkdevs(v = 0):
+def old_print_blkdevs(v = 0):
     out, out_bddev = get_blkdevs()
     majors = sorted(out.keys())
     sep = '-' * 70

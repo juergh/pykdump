@@ -1330,10 +1330,6 @@ op.add_option("--mutex", dest="Mutex", default = 0,
                 type="long", action="store",
                 help="Print Mutex info")
 
-op.add_option("--gendisk", dest="gendisk", default = "",
-              action="store_true",
-              help="Print gendisk structures")
-
 op.add_option("--umem", dest="umem", default = "",
               action="store_true",
               help="Print User-space Memory Usage")
@@ -1459,10 +1455,6 @@ if (o.DM):
 
 if (o.Runq):
     check_runqueues()
-    sys.exit(0)
-
-if (o.gendisk):
-    print_gendisk(verbose)
     sys.exit(0)
 
 if (o.umem):
