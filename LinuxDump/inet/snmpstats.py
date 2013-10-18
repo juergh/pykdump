@@ -157,7 +157,7 @@ def __getSnmpEntry(mib2, entry):
     #print("mib2 {0x%x, 0x%x}" % (mib2[0], mib2[1]))
     for cpu in range(__cpus):
         for i in range(__snmp_array_sz):
-            mib = Deref(percpu.percpu_ptr(mib2[0], cpu))
+            mib = Deref(percpu.percpu_ptr(mib2[i], cpu))
             v = mib.mibs[entry]
             sum += uLong(v)
     return sum & LONG_MASK
