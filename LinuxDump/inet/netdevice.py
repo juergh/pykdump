@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <13/07/29 15:59:04 alexs>
+# Time-stamp: <13/10/18 11:20:16 alexs>
 #
 # --------------------------------------------------------------------
 # (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
@@ -234,6 +234,25 @@ def hwaddr2str(ha, l):
     for i in range(l):
         out.append("%02x" % ha[i])
     return ':'.join(out)
+
+
+# netdev_priv(dev)
+# On older kernels, just dev->priv
+# on newer kernels,
+# (char *)dev + ALIGN(sizeof(struct net_device), NETDEV_ALIGN);
+
+NETDEV_ALIGN = 32
+
+def ALIGN(addr, align):
+    return (long(addr) + align-1)&(~(align-1))
+
+if (member_size("struct net_device", "priv") != -1):
+    def netdev_priv(dev): return dev.priv
+else:
+    __ndevsz = struct_size("struct net_device")
+    __align = ALIGN(__ndevsz, NETDEV_ALIGN)
+    def netdev_priv(dev):
+        return long(dev) + __align
 
 # Print MC List - for 2.6 only at this moment
 
@@ -564,7 +583,7 @@ def tg3_get_stats(priv):
 
 def getStats(dev):
     func = addr2sym(dev.get_stats)
-    priv = dev.priv
+    priv = netdev_priv(dev)
     devname = dev.name
     stats = None
 
@@ -795,19 +814,30 @@ def print_If(dev, details = 0):
             print("    !!! tx_global_lock is locked,", hexl(tx_lock.slock))
     except KeyError:
         pass
-    try:
-        master = Deref(dev.master)
-        print ("    master=%s" % master.name)
-    except IndexError:
-        pass
 
+    # Bonding-related stuff. Older kernels have 'master' field in net_device,
+    # newer ones have 'upper_dev_list' of 'struct netdev_upper'
+    if (dev.flags & IFF_FLAGS.IFF_SLAVE):
+        master = None
+        if (dev.hasField("master")):
+            master = Deref(dev.master)
+        elif (dev.hasField("upper_dev_list")):
+            # upper = list_first_entry(&dev->upper_dev_list,
+            #                          struct netdev_upper, list);
+            upper = ListHead(dev.upper_dev_list, "struct netdev_upper").list[0]
+            if (upper and upper.dev):
+                master = upper.dev
+        if (master):
+            print ("    master=%s" % master.name)
+
+        
     if (details < 1):
         return
 
     # Bonding info
     if (dev.flags & IFF_FLAGS.IFF_MASTER):
         print    (" ---Bond Master-----")
-        bond = readSU("struct bonding", dev.priv)
+        bond = readSU("struct bonding", netdev_priv(dev))
         printBondMaster(bond)
 
     # This is no ready for all kernel versions yet, so let us make it safe

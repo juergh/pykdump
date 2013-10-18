@@ -5,9 +5,16 @@
 *.o
 *.a
 *.so
+*.ko
+*.cmd
 *~
+\#*
 .emacs.desktop
 __pycache__
 *.out
 Extension/X86
 Extension/X86_64
+Extension/testmod/.tmp_versions
+Extension/testmod/Module.symvers
+Extension/testmod/modules.order
+Extension/testmod/testmod.mod.c

@@ -1,6 +1,6 @@
 # module LinuxDump.inet.snmpstats
 #
-# Time-stamp: <12/03/22 17:46:47 alexs>
+# Time-stamp: <13/10/18 12:18:25 alexs>
 #
 # --------------------------------------------------------------------
 # (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
@@ -145,17 +145,21 @@ def X__getSnmpEntry(mib2, entry):
         sum += v0 + v1
     #print ("++++sum=%d" %sum)
     return sum & LONG_MASK
-        
+
+if (struct_exists("struct netns_mib")):
+    ti = getStructInfo("struct netns_mib")["tcp_statistics"].ti
+    __snmp_array_sz = ti.elements
+else:
+    __snmp_array_sz = 2
+    
 def __getSnmpEntry(mib2, entry):
     sum = 0
     #print("mib2 {0x%x, 0x%x}" % (mib2[0], mib2[1]))
     for cpu in range(__cpus):
-        mib0 = Deref(percpu.percpu_ptr(mib2[0], cpu))
-        mib1 = Deref(percpu.percpu_ptr(mib2[1], cpu))
-        #print (type(mib0), mib0)
-        v0 = mib0.mibs[entry]
-        v1 = mib1.mibs[entry]
-        sum += (uLong(v0) + uLong(v1))
+        for i in range(__snmp_array_sz):
+            mib = Deref(percpu.percpu_ptr(mib2[0], cpu))
+            v = mib.mibs[entry]
+            sum += uLong(v)
     return sum & LONG_MASK
 
 # on 2.4 kernels SNMP-name isjust the fieldname in the struct, e.g.
