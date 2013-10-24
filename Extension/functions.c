@@ -337,9 +337,10 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
 // 'crash' at this moment
 // Find fd based on the filename. Returns fd=-1 if we cannot find a match
 
+#define _MAXPATH 400
 int fn2fd(const char *fn, const char **ffn) {
   static const char *selffd = "/proc/self/fd/";
-  char buf[80];
+  char buf[_MAXPATH];
   struct dirent *de;
   DIR *dirp;
   char *linkname;
@@ -355,16 +356,21 @@ int fn2fd(const char *fn, const char **ffn) {
   while ((de = readdir(dirp))) {
     char *dname = de->d_name;
     int lfd;
+    int linknamesz;
     if (strcmp(dname, ".") == 0 || strcmp(dname, "..") == 0)
       continue;
-    strncpy(buf, selffd, 80-1);
-    strncpy(buf+selffdlen, dname, 80-selffdlen-1);
+    strncpy(buf, selffd, _MAXPATH-1);
+    strncpy(buf+selffdlen, dname, _MAXPATH-selffdlen-1);
     if (lstat(buf, &sb) == -1)
       continue;
     
-    linkname = (char *)malloc(sb.st_size + 1);
+    // The following does not work as /proc is not POSIX-compliant!
+    //linknamesz = sb.st_size + 1;
+    linknamesz = PATH_MAX;
+    linkname = (char *)malloc(linknamesz);
     
-    if ((nbytes = readlink(buf, linkname, sb.st_size + 1)) >0) {
+    //if ((nbytes = readlink(buf, linkname, sb.st_size + 1)) >0) {
+    if ((nbytes = readlink(buf, linkname, linknamesz-1)) >0) {
       lfd = atoi(dname);
       linkname[nbytes] = '\0';
       //printf("fdf =%d %s %s\n", lfd, dname, linkname);
