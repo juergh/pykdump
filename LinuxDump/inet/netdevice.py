@@ -351,8 +351,13 @@ def print_mc_list(dev):
 def printQdisc(qdisc, verbosity):
     # If either enqueue and dequeue is bogus, no need to print anything -
     # this Qdisc is not really used
-    enqueuename = addr2sym(qdisc.enqueue)
-    dequeuename = addr2sym(qdisc.dequeue)
+    try:
+        enqueuename = addr2sym(qdisc.enqueue)
+        dequeuename = addr2sym(qdisc.dequeue)
+    except crash.error as badaddr:
+        print("       ", badaddr)
+        return
+
     if (not enqueuename or not dequeuename):
         return
     qdiscaddr = Addr(qdisc)
