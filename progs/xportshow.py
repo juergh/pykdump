@@ -663,7 +663,11 @@ def j_delay(ts, jiffies):
         v = "%1.1f s" % (float(v)/HZ)
     return v
 
+
+     
 if ( __name__ == '__main__'):
+
+
     import sys
     
     __experimental ='PYKDUMPDEV'in  os.environ
@@ -671,6 +675,11 @@ if ( __name__ == '__main__'):
     #from argparse import OptionParser, OptionGroup, SUPPRESS_HELP
     import argparse
 
+    class hexact(argparse.Action):
+        def __call__(self,parser, namespace, values, option_string=None):
+            setattr(namespace, self.dest, int(values,16))
+            return
+        
     def e_help(help):
         global __experimental
         if (__experimental):
@@ -777,7 +786,7 @@ if ( __name__ == '__main__'):
                   help="Print the routing cache")
 
     parser.add_argument("--skbuffhead", dest="Skbuffhead", default = -1,
-                  action="store", type=int,
+                  action=hexact,
                   help="Print sk_buff_head")
 
 
