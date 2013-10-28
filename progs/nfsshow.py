@@ -495,18 +495,21 @@ def print_rpc_task(s):
 def print_all_rpc_tasks():
     # Obtain all_tasks
     tasks = get_all_rpc_tasks()
-    flen = getListSize(sym2addr("all_tasks"), 0, 10000000)
+    if (symbol_exists("all_tasks")):
+        flen = getListSize(sym2addr("all_tasks"), 0, 10000000)
+    else:
+        flen = len(tasks)
     xprtlist = []
     print "  ------- %d RPC Tasks ---------" % flen
     for t in tasks:
+        print "    ---", t
 	print_rpc_task(t)
         # On a live kernel pointers may get invalid while we are processing
         try:
             xprt = t.tk_rqstp.rq_xprt
             if (not xprt in xprtlist):
                 xprtlist.append(xprt)
-            print "    ---", t
-            print_rpc_task(t)
+            #print_rpc_task(t)
         except (IndexError, crash.error):
             # Null pointer and invalid addr
             continue
