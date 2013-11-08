@@ -210,7 +210,7 @@ def check_mem():
         
     # Check whether NR_WRITEBACK is below vm_dirty_ratio
     try:
-        kmemz = exec_crash_command("kmem -z")
+        kmemz = exec_crash_command_bg("kmem -z")
         nr_writeback = 0
         for l in kmemz.splitlines():
             spl = l.split(':')
@@ -1174,7 +1174,7 @@ def find_stacks(pattern):
 
 def parse_ps():
     out = []
-    for l in exec_crash_command('ps').splitlines()[1:]:
+    for l in exec_crash_command_bg('ps').splitlines()[1:]:
         spl = re.split("\s+", l[1:].strip())
         try:
             # Convert integers

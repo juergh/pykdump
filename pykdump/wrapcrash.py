@@ -1586,7 +1586,7 @@ def exec_crash_command_bg(cmd, timeout = None):
         badmsg = "<{}> failed to complete within the timeout period of {}s".\
             format(cmd, timeout)
     elif (selerror):
-         badmsg = "<{}> interrupted {}s".format(cmd, selerror)   
+         badmsg = "<{}> interrupted after {}s {}".format(cmd, timeout, selerror)   
     elif (status):
         if (os.WIFEXITED(status)):
             ecode = os.WEXITSTATUS(status)

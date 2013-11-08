@@ -37,6 +37,7 @@
 
 extern struct extension_table *epython_curext;
 extern int epython_execute_prog(int argc, char *argv[], int);
+extern const char *py_vmcore_realpath;
 
 extern int debug;
 static jmp_buf alarm_env;
@@ -337,8 +338,9 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
 // 'crash' at this moment
 // Find fd based on the filename. Returns fd=-1 if we cannot find a match
 
+
 #define _MAXPATH 400
-int fn2fd(const char *fn, const char **ffn) {
+int fn2fd(const char *rpath) {
   static const char *selffd = "/proc/self/fd/";
   char buf[_MAXPATH];
   struct dirent *de;
@@ -348,15 +350,19 @@ int fn2fd(const char *fn, const char **ffn) {
   int nbytes;
   int foundfd = -1;
   int selffdlen = strlen(selffd);
-  int lfn = strlen(fn);
+  int linknamesz;
 
-  *ffn = NULL;
   dirp = opendir(selffd);
+  
+  // The following does not work as /proc is not POSIX-compliant!
+  //linknamesz = sb.st_size + 1;
+  linknamesz = PATH_MAX;
+  linkname = (char *)malloc(linknamesz);
 
   while ((de = readdir(dirp))) {
     char *dname = de->d_name;
     int lfd;
-    int linknamesz;
+
     if (strcmp(dname, ".") == 0 || strcmp(dname, "..") == 0)
       continue;
     strncpy(buf, selffd, _MAXPATH-1);
@@ -364,27 +370,19 @@ int fn2fd(const char *fn, const char **ffn) {
     if (lstat(buf, &sb) == -1)
       continue;
     
-    // The following does not work as /proc is not POSIX-compliant!
-    //linknamesz = sb.st_size + 1;
-    linknamesz = PATH_MAX;
-    linkname = (char *)malloc(linknamesz);
     
     //if ((nbytes = readlink(buf, linkname, sb.st_size + 1)) >0) {
     if ((nbytes = readlink(buf, linkname, linknamesz-1)) >0) {
       lfd = atoi(dname);
       linkname[nbytes] = '\0';
       //printf("fdf =%d %s %s\n", lfd, dname, linkname);
-      if (nbytes >= lfn) {
-        char *p  = linkname+nbytes-lfn;
-        if (strcmp(p, fn) == 0) {
+      if (strcmp(linkname, rpath) == 0) {
           foundfd = lfd;
-          *ffn = linkname;
-          return foundfd;
-        }
+          break;
       }
     }
-    free((void *)linkname);
-  }
+  }  /* while */
+  free((void *)linkname);
   return foundfd;
 }
 
@@ -401,8 +399,7 @@ py_exec_crash_command_bg2(PyObject *self, PyObject *pyargs) {
   int pid;
   
   int dfd;                      /* FD used to read vmcore */
-  static int fd = -1;
-  static const char *vmcorepath = NULL;
+  static int fd = -1;           /* Original FD used by crash */
 
   unsigned long long saved_flags; /* To save pc->flags */
   
@@ -424,10 +421,7 @@ py_exec_crash_command_bg2(PyObject *self, PyObject *pyargs) {
   }
 
   if (fd == -1) {
-      if (pc->dumpfile != NULL)
-	fd = fn2fd(pc->dumpfile, &vmcorepath);
-      else
-	fd = fn2fd(pc->live_memsrc, &vmcorepath);
+      fd = fn2fd(py_vmcore_realpath);
 
       if (fd == -1) {
           PyErr_SetString(crashError, "cannot find vmcore fd");
@@ -456,13 +450,13 @@ py_exec_crash_command_bg2(PyObject *self, PyObject *pyargs) {
     int rc;
     cpos =  lseek(fd, 0, SEEK_CUR);
 
-    dfd = open(vmcorepath, O_RDONLY);
+    dfd = open(py_vmcore_realpath, O_RDONLY);
     rc = dup2(dfd, fd);
     close(dfd);
 
     lseek(fd, cpos, SEEK_SET);
     if (debug)
-      printf("Reopening %d %s rc=%d\n", fd, vmcorepath, rc);
+      printf("Reopening %d %s rc=%d\n", fd, py_vmcore_realpath, rc);
     
     
     // Child writes to pipe

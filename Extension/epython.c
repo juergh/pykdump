@@ -37,7 +37,7 @@
 
 int debug = 0;
 
-static char crashmod_version_s[] = "@(#)pycrash 0.7.3";
+static char crashmod_version_s[] = "@(#)pycrash 0.8.0";
 const char * crashmod_version = crashmod_version_s + 12;
 
 extern const char *build_crash_version;
@@ -48,6 +48,7 @@ extern const char *build_crash_version;
 static char *ext_filename = NULL;
 #define BUFLEN 1024
 
+const char *py_vmcore_realpath = NULL;
 
 /* Initialize the crashmodule stuff */
 #if PY_MAJOR_VERSION < 3
@@ -255,6 +256,7 @@ void _init(void)  {
     if (debug)
       fprintf(fp, "     *** Initializing Embedded Python %s ***\n",
 	      crashmod_version);
+ 
     extrapath = getenv("PYKDUMPPATH");
     // To be able debug sources, we need real FS to be searched
     // before ZIP. So if PYKDUMPPATH is set, we insert it _before_ our
@@ -313,6 +315,15 @@ void _init(void)  {
     PyRun_SimpleString("import sys; print (sys.path)");
   }
 
+  // Get the realpath of vmcore
+  if (pc->dumpfile)
+    py_vmcore_realpath = realpath(pc->dumpfile, NULL);
+  else if (pc->live_memsrc)
+    py_vmcore_realpath = realpath(pc->live_memsrc, NULL);
+
+
+  if (debug)
+      fprintf(fp, "vmcore=<%s>\n", py_vmcore_realpath);
   // Run the initialization Python script if it is available
   {
     char *argv[]= {"_init", "PyKdumpInit", NULL};
@@ -353,6 +364,8 @@ void _fini(void) {
   }
 
   free(epython_curext->command_table);
+  if (py_vmcore_realpath)
+    free((void *)py_vmcore_realpath);
 }
 
 
