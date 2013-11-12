@@ -198,6 +198,7 @@ CONFIG_IP_ROUTE_MULTIPATH = (struct_exists("struct fib_info") and member_size("s
 #print("CONFIG_IP_MULTIPLE_TABLES", CONFIG_IP_MULTIPLE_TABLES, "CONFIG_IP_ROUTE_MULTIPATH", CONFIG_IP_ROUTE_MULTIPATH)
 
 # If "struct fib_result" does not have "tclassid" member, this is an older kernel.
+# 3.0.80 (SLES11) - CONFIG_IP_MULTIPLE_TABLES, -tclassid
 # 3.2.0 - CONFIG_IP_ROUTE_MULTIPATH, -tclassid
 # 3.5.0 - CONFIG_IP_ROUTE_MULTIPATH, -tclassid
 # 3.8.0 - CONFIG_IP_MULTIPLE_TABLES, +tclassid
@@ -215,7 +216,6 @@ else:
         _FIB_TABLE_HASHSZ = 2
     else:
         _FIB_TABLE_HASHSZ = 256
-    
     
     
 # Get fib_tables for v26, either just MAIN or all
@@ -260,6 +260,13 @@ def get_fib_tables_v26(All= False):
             #print("OK", FIB_TABLE_HASHSZ)
         out = []
         table_main = None
+
+        # FIB_TABLE_HASHSZ as found above is unreliable for some SLES11 kernels. 
+        # Perform an extra test
+        if (FIB_TABLE_HASHSZ == 2 and fib_table_hash[0].first==0 \
+            and fib_table_hash[1].first==0):
+            FIB_TABLE_HASHSZ = 256
+        #print("FIB_TABLE_HASHSZ", FIB_TABLE_HASHSZ)
         for i in range(FIB_TABLE_HASHSZ):
             b = fib_table_hash[i]
             first = b.first
@@ -269,7 +276,7 @@ def get_fib_tables_v26(All= False):
                     out.append(tb)
                     if (tb.tb_id == RT_TABLE_MAIN):
                         table_main = tb
-                    
+           
         if (All):
             return out
         else:
