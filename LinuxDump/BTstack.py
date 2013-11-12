@@ -309,7 +309,15 @@ def exec_bt(crashcmd = None, text = None):
     # Debugging
     if (crashcmd != None):
         # Execute a crash command...
-        text = memoize_cond(CU_LIVE | CU_TIMEOUT)(exec_crash_command_bg)(crashcmd)
+        # For some vmcores, 'bt pid' is very slow the first time but 
+        # the next time is much faster, even with different pid.
+        # This is mainly true when there are many DLKM subroutines on the stack
+        # As a result, we execute in the background only 'foreach bt'
+        if (crashcmd.split()[0] == 'foreach'):
+            _exec_cmd = exec_crash_command_bg
+        else:
+            _exec_cmd = exec_crash_command
+        text = memoize_cond(CU_LIVE | CU_TIMEOUT)(_exec_cmd)(crashcmd)
         #print "Got results from crash", crashcmd
         if (not text):
             # Got timeout
