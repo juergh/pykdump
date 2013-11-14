@@ -40,7 +40,7 @@ extern int epython_execute_prog(int argc, char *argv[], int);
 extern const char *py_vmcore_realpath;
 
 extern int debug;
-static jmp_buf alarm_env;
+
 static jmp_buf copy_pc_env;
 
 /* We save the version of crash against which we build */
@@ -200,35 +200,12 @@ py_get_GDB_output(PyObject *self, PyObject *args) {
   return out;
 }
 
-// Set an alarm clock and raise SIGINT to trigger calling of
-// internal 'crash' handler
-#define MAX_SIGINTS_ACCEPTED  (3)
-static void
-pykdump_except_handler(int sig) {
-  //printf("ALARM\n");
-  longjmp(alarm_env, 1);
-}
-
-static struct sigaction act;
-static struct sigaction oldact;
-
-static void set_alarm(int secs) {
-  if (secs) {
-    alarm(secs);
-    BZERO(&act, sizeof(struct sigaction));
-    act.sa_handler = pykdump_except_handler;
-    act.sa_flags = SA_NOMASK;
-    sigaction(SIGALRM, &act, &oldact);
-    
-  } else {
-    alarm(0);
-    //sigaction(SIGALRM, &oldact, NULL);
-  }
-}
 
 // This command opens and writes to FIFO so we expect someone to read it
 // It would be probably better to do all reading right here but at this
 // moment we rely on Python part to do this
+// This command does not support timeout anymore as it can create problems.
+// Use exec_crash_command_bg for reliable timeouts
 static int __default_timeout = 60;
 
 static PyObject *
@@ -242,16 +219,14 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   PyObject *obj;
 
   int internal_error = 0;	/* crash/GDB error */
-  
-  int timeout = __default_timeout; 
 
-  if (!PyArg_ParseTuple(pyargs, "s|i", &cmd, &timeout)) {
+  if (!PyArg_ParseTuple(pyargs, "s", &cmd)) {
     PyErr_SetString(crashError, "invalid parameter type"); \
     return NULL;
   }
 
   if (debug > 1)
-    printf("exec_crash_command <%s>, timeout=%ds\n", cmd, timeout);
+    printf("exec_crash_command <%s>\n", cmd);
   // Send command to crash and get its text output
 
   strcpy(pc->command_line, cmd);
@@ -264,36 +239,9 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   
   fp = tmpfile();
 
-  set_alarm(timeout);
-
-  if (setjmp(alarm_env)) {
-    /* Restore old handler */
-    sigaction(SIGALRM, &oldact, NULL);
-    // Recovery after timeout. We have interrupted internal processing
-    // of crash/gdb, so we need to do crash-specific cleanup, e.g.
-    // close temporary fds and free buffers
-    PyObject *wmsg = PyDict_GetItemString(d, "WARNING"); /* Borrowed */
-    // ------- minimal cleanup for crash itself -----------
-    if (pc->tmpfile) {
-	    close_tmpfile();
-    }
-
-    if (pc->tmpfile2) {
-        close_tmpfile2();
-    }
-    restore_gdb_sanity();
-    free_all_bufs();
-    // -----------------------------------------------------
-    
-    fclose(fp);
-    fp = oldfp;
-    printf("%s <%s> failed to complete within the timeout period of %ds\n",
-	   PyString_AsString(wmsg),  cmd, timeout);
-    return PyString_FromString("");
-  }
   
   /*
-    crash uses longjmp(pc->main_loop_env) to recovers after some errors.
+    crash uses longjmp(pc->main_loop_env) to recover after some errors.
     This puts us into its main loop: read line/process command. As we
     don't want this, we'll replace pc->main_loop_env with our own location,
     and later will restore it.
@@ -322,7 +270,6 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   
   fclose(fp);
   fp = oldfp;
-  set_alarm(0);
 
   // If there was an error, we raise an exception and pass obj to it
   if (internal_error || rlength == 0) {
