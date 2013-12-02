@@ -251,6 +251,7 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   memcpy(copy_pc_env, pc->main_loop_env, sizeof(jmp_buf));
   if (!setjmp(pc->main_loop_env)) {
     exec_command();
+    free_all_bufs();
   } else {
     // There was an internal GDB/crash error
     internal_error = 1;
@@ -442,6 +443,7 @@ py_exec_crash_command_bg2(PyObject *self, PyObject *pyargs) {
     if (!setjmp(pc->main_loop_env)) {
       extern int _unload_epython;
       exec_command();
+      free_all_bufs();
       _unload_epython = 0;
       exit(0);
     } else {
