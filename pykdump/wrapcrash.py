@@ -1620,6 +1620,7 @@ exec_crash_command = crash.exec_crash_command
 exec_crash_command_bg2 = crash.exec_crash_command_bg2
 exec_gdb_command = crash.get_GDB_output
 getFullBuckets = crash.getFullBuckets
+getFullBucketsH = crash.getFullBucketsH
 readPtr = crash.readPtr
 readIntN = crash.readInt
 sLong = crash.sLong

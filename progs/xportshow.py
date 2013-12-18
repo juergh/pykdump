@@ -33,6 +33,8 @@ from LinuxDump.inet import summary
 
 import string, textwrap
 
+from collections import namedtuple, defaultdict
+
 # Python2 vs Python3
 _Pym = sys.version_info[0]
 if (_Pym < 3):
@@ -78,7 +80,11 @@ def print_TCP_sock(o):
             return
     if (details):
         print ('-' * 78)
-        print (o, '\t\tTCP')
+        if (_tasksocktable):
+            pids = " pids={}".format(_tasksocktable[long(o)])
+        else:
+            pids = ""
+        print (o, '\t\tTCP' + pids)
     print (pstr)
     # Here we print things that are not kernel-dependent
     if (details):
@@ -455,11 +461,25 @@ def print_dev_pack():
 
 def testFiles(tasks):
     for t in tasks:
-        fds = t.taskFds()
-        continue
+        print(t)
         for fd, filep, dentry, inode in t.taskFds():
-            pass
-    
+            socketaddr = proto.inode2socketaddr(inode)
+            if (not socketaddr): continue
+            socket = readSU("struct socket", socketaddr)
+            print("  ", socket.sk)
+                
+
+def getAllSocks(tasks):
+    out = defaultdict(list)
+    for t in tasks:
+        #print(t)
+        for fd, filep, dentry, inode in t.taskFds():
+            socketaddr = proto.inode2socketaddr(inode)
+            if (not socketaddr): continue
+            socket = readSU("struct socket", socketaddr)
+            out[long(socket.sk)].append(t.pid)
+    return out
+
 
 def printTaskSockets(t):
     prn = StringIO()
@@ -707,7 +727,8 @@ if ( __name__ == '__main__'):
                   action="store",
                   help="print sockets for cmdname")
                  
-    parser.add_argument("--pid", dest="Pid", default = -1,
+    parser.add_argument("--pid", dest="Pid", nargs='?',
+                  default = -1, const = '-2',
                   action="store", type=int,
                   help="print sockets for PID")
 
@@ -827,8 +848,21 @@ if ( __name__ == '__main__'):
 
     verbose = details = o.Verbose
     #__experimental = O.experimental
-    
+    if (o.Pid > -1):
+        tt = TaskTable()
+        task = tt.getByTid(o.Pid)
+
+        if (task):
+            printTaskSockets(task)
+        sys.exit(0)
+       
     tcpstate_filter = None
+    _tasksocktable = None
+    if (o.Pid == -2):
+        tt = TaskTable()
+        tasks = tt.allTasks()
+        _tasksocktable = getAllSocks(tasks)
+        
     # Check whether it is one of standard values
     if (o.tcpstate):
         try:
@@ -947,22 +981,17 @@ if ( __name__ == '__main__'):
         tt = TaskTable()
         if (o.Program == '*'):
             tasks = tt.allTasks()
-            #testFiles(tasks)
-            #sys.exit(0)
+            testFiles(tasks)
+            sys.exit(0)
         else:
             tasks = tt.getByComm(o.Program)
         for task in  tasks:
             printTaskSockets(task)
         sys.exit(0)
 
-    if (o.Pid != -1):
-        tt = TaskTable()
-        task = tt.getByTid(o.Pid)
+ 
 
-        if (task):
-            printTaskSockets(task)
-        sys.exit(0)
-            
+    
     # Netstat-like options
     if (o.Listen):
         print_listen = True

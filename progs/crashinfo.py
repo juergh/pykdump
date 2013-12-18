@@ -857,8 +857,8 @@ def __j_delay(ts, jiffies):
     v = (jiffies - ts) & INT_MASK
     if (v > INT_MAX):
         v = "     n/a"
-    elif (v > HZ*3600*10):
-        v = ">10hours"
+    elif (v > HZ*3600*20):
+        v = ">20hours"
     else:
         v = "%8.1f s" % (float(v)/HZ)
     return v
@@ -1282,6 +1282,11 @@ op.add_option("--blkdevs", dest="Blkdevs", default = 0,
                 action="store_true",
                 help="Print Block Devices Info")
 
+op.add_option("--scsi", dest="Scsi", default = 0,
+                action="store_true",
+                help="Print SCSI Dvices Info")
+
+
 op.add_option("--filelock", dest="filelock", default = 0,
                 action="store_true",
                 help="Print filelock info.")
@@ -1410,6 +1415,11 @@ if (o.Blkreq):
 if (o.Blkdevs):
     Dev.print_blkdevs(verbose)
     sys.exit(0)
+    
+if (o.Scsi):
+    from LinuxDump.scsi import print_SCSI_devices
+    print_SCSI_devices(verbose)
+    sys.exit(0)    
     
 if (o.decodesyscalls):
     decode_syscalls(o.decodesyscalls)

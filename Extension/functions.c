@@ -1147,10 +1147,58 @@ py_getFullBuckets(PyObject *self, PyObject *args) {
   for (i=0; i < items; i++) {
         memcpy((char *)&bucket, buffer+i*bsize+chain_off, sizeof bucket);
 	if (bucket) {
-	  /* Python 2.4.3 has PyLong_FromVoidPtr but it converts to Int with
-	     sign - a bug, need report this to Python team */
 	  PyList_Append(list, PyLong_FromUnsignedLong((unsigned long)bucket));
 	}
+  }
+  free(buffer);
+  return list;
+}
+
+static PyObject *
+py_getFullBuckets_h(PyObject *self, PyObject *args) {
+  ulonglong start;
+  int bsize, items, chain_off;
+
+  char *buffer;
+
+  PyObject* list;
+  void *bucket;
+  int i;
+
+  if (!PyArg_ParseTuple(args, "Kiii",
+                        &start,
+                        &bsize, &items, &chain_off)) {
+     PyErr_SetString(crashError, "bad arguments");
+    return NULL;
+  }
+
+  buffer = (void *) malloc(bsize*items);
+  if (!buffer) {
+    PyErr_SetString(crashError, "cannot malloc");
+    return NULL;
+  }
+  //printf("start=0x%llx, bsize=%d items=%d  chain_off=%d\n",
+  //     start, bsize, items, chain_off);
+  //readmem(start, KVADDR, buffer, bsize*items, "Python", FAULT_ON_ERROR);
+  if (readmem(start, KVADDR, buffer, bsize*items, "Python",
+              RETURN_ON_ERROR|QUIET) == FALSE) {
+    char pb[256];
+    sprintf(pb, "readmem error at addr 0x%llx", start); \
+    PyErr_SetString(crashError, pb);
+    return NULL;
+    
+  }
+  list = PyList_New(0);
+  for (i=0; i < items; i++) {
+      PyObject *el;
+        memcpy((char *)&bucket, buffer+i*bsize+chain_off, sizeof bucket);
+        if (bucket) {
+          /* Python 2.4.3 has PyLong_FromVoidPtr but it converts to Int with
+             sign - a bug, need report this to Python team */
+          el = Py_BuildValue("(ik)", i, ((unsigned long)bucket));
+          PyList_Append(list, el);
+          //PyList_Append(list, PyLong_FromUnsignedLong((unsigned long)bucket));
+        }
   }
   free(buffer);
   return list;
@@ -1499,6 +1547,7 @@ static PyMethodDef crashMethods[] = {
   {"cpu_to_le32", py_le32_to_cpu, METH_VARARGS},
   {"getListSize", py_getlistsize, METH_VARARGS},
   {"getFullBuckets", py_getFullBuckets, METH_VARARGS},
+  {"getFullBucketsH", py_getFullBuckets_h, METH_VARARGS},
   {"FD_ISSET", py_FD_ISSET, METH_VARARGS},
   {"gdb_whatis", py_gdb_whatis, METH_VARARGS},
   {"gdb_typeinfo", py_gdb_typeinfo, METH_VARARGS},

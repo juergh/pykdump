@@ -112,7 +112,7 @@ from .wrapcrash import readU8, readU16, readU32, readS32, \
      readList, readBadList, getListSize, readListByHead,  list_for_each_entry, \
      ListHead, hlist_for_each_entry, \
      readSUArray, readSUListFromHead, readStructNext, \
-     getStructInfo, getFullBuckets, FD_ISSET, \
+     getStructInfo, getFullBuckets, getFullBucketsH, FD_ISSET, \
      struct_exists, symbol_exists,\
      Addr, Deref, SmartString, tPtr, \
      sym2addr, addr2sym, sym2alladdr, \

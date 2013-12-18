@@ -43,7 +43,7 @@ sock_V1 = (struct_size("struct sock_common") == -1)
 
 debug = API_options.debug
 
-def sk_for_each(head):
+def sk_for_each(head, hb = None):
     # compute skc_node_off if needed
     global skc_node_off
     if (skc_node_off == -1):
@@ -80,7 +80,7 @@ def sk_for_each(head):
 #     struct hlist_nulls_head head;
 # }
 
-def sk_nulls_for_each(first):
+def sk_nulls_for_each(first, hbucket):
     global skc_nulls_node_off
     #if (first & 1):
     #    return []
@@ -94,7 +94,15 @@ def sk_nulls_for_each(first):
     addrs = []
     while (not (ptr & 1)):
         addrs.append(ptr)
+        #print("ptr={:#x}".format(ptr))
         ptr = readPtr(ptr)
+    else:
+        slot = (ptr>>1) & 0xfffffff
+        #print("SLOT={}".format(slot))
+    if (hbucket != slot):
+        print('-'*78)
+        print(ERROR, "connection displayed below has hbucket={:#x} != SLOT={:#x}".\
+            format(hbucket, slot))
     # Now recompute addrs to point to 'struct sock' where head_list is embedded
     return [a - skc_nulls_node_off for a in addrs]
 
@@ -705,11 +713,11 @@ def get_TCP_LISTEN():
                 next = s.next
                 yield s
     else:
-        for b in t.tcp_listening_hash:
+        for h, b in enumerate(t.tcp_listening_hash):
             # hlist_head
             first = b.first
             if (first):
-                for a in  inet_sk_for_each(first):
+                for a in  inet_sk_for_each(first, h):
                     s = readSU("struct tcp_sock", a)
                     yield s
  
@@ -728,11 +736,26 @@ def get_TCP_ESTABLISHED():
             yield s
     else:
         # 2.6
-        for b in getFullBuckets(t.ehash_addr, t.eb_size, t.ehash_size, t.chain_off):
-            for a in inet_sk_for_each(b):
+        for h, b in getFullBucketsH(t.ehash_addr, t.eb_size, t.ehash_size, t.chain_off):
+            for a in inet_sk_for_each(b, h):
                 s = readSU("struct tcp_sock", a)
                 yield s
 
+'''
+def get_TCP_ESTABLISHED_debug():
+    t = INET_Stuff
+    ehash = t.ehash_addr
+    for h in range(t.ehash_size):
+        b = ehash[h]
+        #print(b)
+        if (not b):
+            continue
+        chain = b.chain.first
+        for a in inet_sk_for_each(chain, h):
+            s = readSU("struct tcp_sock", a)
+            yield s
+'''
+#get_TCP_ESTABLISHED = get_TCP_ESTABLISHED_debug
 
 # 
 def get_TCP_TIMEWAIT():
@@ -756,8 +779,8 @@ def get_TCP_TIMEWAIT():
         else:
             ehash_tw = long(t.ehash_addr) + t.eb_size * t.ehash_size
             chain_off = t.chain_off
-        for b in getFullBuckets(ehash_tw, t.eb_size, t.ehash_size, chain_off):
-            for a in inet_sk_for_each(b):
+        for h, b in getFullBucketsH(ehash_tw, t.eb_size, t.ehash_size, chain_off):
+            for a in inet_sk_for_each(b, h):
                 tw = readSU(t.tw_type, a)
                 yield tw
 
@@ -799,13 +822,13 @@ def get_UDP():
                 sz = udptable.mask + 1
                 udphash = iterN(udphash, sz)
 
-        for s in udphash:
+        for h, s in enumerate(udphash):
             try:
                 first = s.first
             except KeyError:
                 first = s.head.first
             if (first):
-                for a in  inet_sk_for_each(first):
+                for a in  inet_sk_for_each(first, h):
                     s = readSU("struct udp_sock", a)
                     yield s
 
