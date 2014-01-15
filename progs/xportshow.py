@@ -473,12 +473,16 @@ def getAllSocks(tasks):
     out = defaultdict(list)
     for t in tasks:
         #print(t)
-        for fd, filep, dentry, inode in t.taskFds():
-            socketaddr = proto.inode2socketaddr(inode)
-            if (not socketaddr): continue
-            socket = readSU("struct socket", socketaddr)
-            out[long(socket.sk)].append(t.pid)
+        try:
+            for fd, filep, dentry, inode in t.taskFds():
+                socketaddr = proto.inode2socketaddr(inode)
+                if (not socketaddr): continue
+                socket = readSU("struct socket", socketaddr)
+                out[long(socket.sk)].append(t.pid)
+        except crash.error:
+            pass
     return out
+
 
 
 def printTaskSockets(t):
