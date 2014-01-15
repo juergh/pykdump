@@ -867,6 +867,7 @@ def print_If(dev, details = 0):
     try:
         for i in range(0, dev.real_num_tx_queues):
             qdisc = dev._tx.qdisc + i
+            qdisc = dev._tx[i].qdisc
             print ("    ..................")
             print ("    | tx queue", i)
             printQdisc(qdisc, details-1)
