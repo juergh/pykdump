@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Time-stamp: <13/07/29 16:05:11 alexs>
+# Time-stamp: <14/01/15 16:43:50 alexs>
 
 # --------------------------------------------------------------------
 # (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
@@ -10,6 +10,8 @@
 # --------------------------------------------------------------------
 
 # Print info about NFS/RPC
+
+from __future__ import print_function
 
 from pykdump.API import *
 
@@ -116,7 +118,7 @@ def init_Structures():
             if((struct_exists(sn) or (loadModule(m) and struct_exists(sn)))):
                 nfs_avail[m] = True
             else:
-                print "WARNING: cannot find debuginfo for module %s" % m
+                print ("WARNING: cannot find debuginfo for module %s" % m)
     
     # A strange problem: sometimes after module is loaded, crash.gdb_typeinfo
     # returns a stub only. Using crash 'struct' command replaces the stub
@@ -261,8 +263,8 @@ def key_len_old(t):
 
 def print_nfsd_fh(v=0):
     ip_table = getCache("nfsd.fh")
-    print "----- NFS FH (/proc/net/rpc/nfsd.fh)------------"
-    print "#domain fsidtype fsid [path]"
+    print ("----- NFS FH (/proc/net/rpc/nfsd.fh)------------")
+    print ("#domain fsidtype fsid [path]")
     for ch in ip_table:
         ek = container_of(ch, "struct svc_expkey", "h")
         out = []
@@ -282,12 +284,12 @@ def print_nfsd_fh(v=0):
                 pathname = get_pathname(ek.ek_dentry, ek.ek_mnt)
             out.append(" " + pathname)
         s = "".join(out)
-        print s
+        print (s)
 
 # NFS Export Cache (as reported by /proc/net/rpc/nfsd.export/contents)
 def print_nfsd_export(v=0):
     ip_table = getCache("nfsd.export")
-    print "----- NFS Exports (/proc/net/rpc/nfsd.export)------------"
+    print ("----- NFS Exports (/proc/net/rpc/nfsd.export)------------")
     for ch in ip_table:
         exp = container_of(ch, "struct svc_export", "h")
         if (_test_cache(ch)):
@@ -298,19 +300,19 @@ def print_nfsd_export(v=0):
                 pathname = get_pathname(path.dentry, path.mnt)
             except:
                 pathname = get_pathname(exp.ex_dentry, exp.ex_mnt)
-            print "    ", pathname, exp.ex_client.name,
+            print ("    ", pathname, exp.ex_client.name, end='')
             if (v):
-                print "  ", exp
+                print ("  ", exp)
             else:
-                print ""
+                print ("")
 
             
 # IP Map Cache (as reported by /proc/net/rpc/auth.unix.ip/contents)
 def print_ip_map_cache():
     ip_table = getCache("auth.unix.ip")
-    print "-----IP Map (/proc/net/rpc/auth.unix.ip)------------"
+    print ("-----IP Map (/proc/net/rpc/auth.unix.ip)------------")
     #         nfsd              192.168.0.6  192.168.0/24
-    print "    #class              IP         domain"
+    print ("    #class              IP         domain")
     for ch in ip_table:
         im = container_of(ch, "struct ip_map", "h")
         dom = ""
@@ -328,7 +330,7 @@ def print_ip_map_cache():
 		addr_s =  ntodots(im.m_addr.in6_u.u6_addr32[3])
 	    else:
 		addr_s = ntodots6(im.m_addr)
-        print "    %-8s %20s  %s" % (im.m_class, addr_s, dom)
+        print ("    %-8s %20s  %s" % (im.m_class, addr_s, dom))
 
 # /* access the groups "array" with this macro */
 # #define GROUP_AT(gi, i) \
@@ -343,8 +345,8 @@ def GROUP_AT(gi, i):
 # Unix GID Cache (as reported by /proc/net/rpc/auth.unix.gid/contents)
 def print_unix_gid(v=0):
     gid_table = getCache("auth.unix.gid")
-    print "-----GID Map (/proc/net/rpc/auth.unix.gid)------------"
-    print "#uid cnt: gids..."
+    print ("-----GID Map (/proc/net/rpc/auth.unix.gid)------------")
+    print ("#uid cnt: gids...")
     for ch in gid_table:
         ug = container_of(ch, "struct unix_gid", "h")
         dom = ""
@@ -356,7 +358,7 @@ def print_unix_gid(v=0):
         out.append("%u %d:" % (ug.uid, glen))
         for i in range(glen):
             out.append(" %d" % GROUP_AT(ug.gi, i))
-        print "".join(out)
+        print ("".join(out))
                    
 # On 2.4 and earlier 2.6:
 
@@ -376,39 +378,6 @@ def print_unix_gid(v=0):
 # 	atomic_t		tk_count;	/* Reference count */
 # 	struct list_head	tk_task;	/* global list of tasks */
 
-def old_print_rpc_task(s):
-    newk = (member_size("struct rpc_clnt", "cl_pmap_default") != -1)
-    # On a live system we can easily get bad addresses
-    try:
-	print s, hexl(s.tk_flags)
-	tk_client = s.Deref.tk_client
-	cl_xprt= tk_client.Deref.cl_xprt
-	print "\tProtocol=",cl_xprt.prot, ", Server=", tk_client.cl_server
-	inetsock = cl_xprt.Deref.inet
-	cl_procinfo = tk_client.Deref.cl_procinfo
-	#print "\tprocname=", cl_procinfo.p_procname, tk_client.cl_protname
-	tk_msg = s.tk_msg
-	if (newk):
-	    rpc_proc = tk_msg.Deref.rpc_proc.p_proc
-	else:
-	    rpc_proc = tk_msg.rpc_proc
-	if (newk):
-	    cl_pmap= tk_client.cl_pmap_default
-	else:
-	    cl_pmap= tk_client.cl_pmap
-	vers = cl_pmap.pm_vers
-	prog = cl_pmap.pm_prog
-	if (prog == 100003 and vers == 2):
-	    procname = "%d(%s)" % (rpc_proc, NFS2_PROCS.value2key(rpc_proc))
-	elif (prog == 100003 and vers == 3):
-	    procname = "%d(%s)" % (rpc_proc, NFS3_PROCS.value2key(rpc_proc))
-	else:
-	    procname = "%d" % rpc_proc
-	print "\trpc_proc=", procname 
-
-	print "\tpmap_prog=", cl_pmap.pm_prog, ", pmap_vers=", cl_pmap.pm_vers
-    except:
-	pass
 	
 def __init_attrs():
     sn = "struct rpc_task"
@@ -464,9 +433,9 @@ def print_rpc_task(s):
         cl_xprt= tk_client.cl_xprt
         addr_in = cl_xprt.addr.castTo("struct sockaddr_in")
 	ip = ntodots(addr_in.sin_addr.s_addr)
-        print "\tProtocol=",cl_xprt.prot, ", Server=", tk_client.cl_server, ip
+        print ("\tProtocol=",cl_xprt.prot, ", Server=", tk_client.cl_server, ip)
         
-        print "\t  procname=", tk_client.cl_protname
+        print ("\t  procname=", tk_client.cl_protname)
        
         vers = s.CL_vers
         prog = s.CL_prog
@@ -476,18 +445,18 @@ def print_rpc_task(s):
             procname = "%d(%s)" % (rpc_proc, NFS3_PROCS.value2key(rpc_proc))
         else:
             procname = "%d" % rpc_proc
-        print "\t  rpc_proc=", procname 
+        print ("\t  rpc_proc=", procname)
 
-        print "\t  pmap_prog=", prog, ", pmap_vers=", vers
+        print ("\t  pmap_prog=", prog, ", pmap_vers=", vers)
 	
 	rqst = s.tk_rqstp
 	
 	if (rqst and rqst.rq_retries):
-	   print "\t  rq_retries=", rqst.rq_retries, "rq_timeout=", rqst.rq_timeout,\
-	       "rq_majortimeo", rqst.rq_majortimeo
+	   print ("\t  rq_retries=", rqst.rq_retries, "rq_timeout=", rqst.rq_timeout,\
+	       "rq_majortimeo", rqst.rq_majortimeo)
 	tk_callback = s.tk_callback
 	if (tk_callback):
-	    print "\t  callback=%s" % addr2sym(tk_callback)
+	    print ("\t  callback=%s" % addr2sym(tk_callback))
     except crash.error:
         pass
 
@@ -500,9 +469,9 @@ def print_all_rpc_tasks():
     else:
         flen = len(tasks)
     xprtlist = []
-    print "  ------- %d RPC Tasks ---------" % flen
+    print ("  ------- %d RPC Tasks ---------" % flen)
     for t in tasks:
-        print "    ---", t
+        print ("    ---", t)
 	print_rpc_task(t)
         # On a live kernel pointers may get invalid while we are processing
         try:
@@ -514,16 +483,16 @@ def print_all_rpc_tasks():
             # Null pointer and invalid addr
             continue
     # Print XPRT vitals
-    print " --- XPRT Info ---"
+    print (" --- XPRT Info ---")
     for xprt in xprtlist:
         try:
-            print "  ...", xprt, "..."
+            print ("  ...", xprt, "...")
             jiffies = readSymbol("jiffies")
-            print "    last_used %s s ago" % __j_delay(xprt.last_used, jiffies)
+            print ("    last_used %s s ago" % __j_delay(xprt.last_used, jiffies))
             for qn in ("binding", "sending","resend", "pending", "backlog"):
                 try:
-                    print "    len(%s) queue is %d" % (qn,
-                                                       getattr(xprt, qn).qlen)
+                    print ("    len(%s) queue is %d" % (qn,
+                                                       getattr(xprt, qn).qlen))
                 except KeyError:
                     pass
 	    try:
@@ -548,15 +517,15 @@ def print_all_tasks():
 def print_rpc_status():
     all_tasks = sym2addr("all_tasks")
     #l = readList(all_tasks, 0, maxel=100000, inchead=False)
-    print "all_tasks has %d elements" % getListSize(all_tasks, 0, 10000000)
+    print ("all_tasks has %d elements" % getListSize(all_tasks, 0, 10000000))
     return
     for qname in ("schedq", "childq", "delay_queue"):
         tasks = readSU("struct rpc_wait_queue", sym2addr(qname)).tasks
-	print "Number of elements in %15s:" % qname,
+	print ("Number of elements in %15s:" % qname, end='')
         for lh in tasks:
 	    #print hexl(Addr(lh))
-	    print " [%d] " % getListSize(Addr(lh), 0, 10000000),
-	print ""
+	    print (" [%d] " % getListSize(Addr(lh), 0, 10000000), end='')
+	print ("")
     
     return
     # Print schedq elements
@@ -590,12 +559,12 @@ def get_all_tasks_old():
 
     for cl, v in clients.items():
         # Print Client Info
-        print cl
+        print (cl)
         # Print Task Info
         for ft in v:
 	    for t in readSUListFromHead(long(ft.tk_task), "tk_task",
                                    "struct rpc_task"):
-		print "    ", t
+		print ("    ", t)
 		print_rpc_task(t)
 
 # Get all RPC tasks
@@ -604,7 +573,7 @@ def oldnew_get_all_tasks():
     for cl in get_all_clients():
         tasks = readSUListFromHead(long(cl.cl_tasks), "tk_task",
                                    "struct rpc_task")
-        print cl, len(tasks)
+        print (cl, len(tasks))
         for t in tasks:
             print_rpc_task(t)
 
@@ -638,8 +607,8 @@ def print_test():
         except KeyError:
             s_io = []
         if (len(s_dirty) | len(s_io)):
-            print sb, fsname, \
-                  "len(s_dirty)=%d len(s_io)=%d" % (len(s_dirty),len(s_io))
+            print (sb, fsname, \
+                  "len(s_dirty)=%d len(s_io)=%d" % (len(s_dirty),len(s_io)))
 
 
 
@@ -650,7 +619,7 @@ def INT_LIMIT(bits):
 # Print 'struct file_lock' info
 def print_file_lock(fl):
     lockhost = fl.fl_owner.castTo("struct nlm_host")
-    print lockhost
+    print (lockhost)
 
 # Print FH
 def printFH(fh, indent = 0):
@@ -667,9 +636,9 @@ def printFH(fh, indent = 0):
     s =  string.join(s,'')
     sb = s[:76-indent-lFH]
     se = s[76-indent-lFH:]
-    print ' ' * indent, FH, sb
+    print (' ' * indent, FH, sb)
     for ss in chunk(se, 76-indent - lFH):
-        print ' ' * (indent + lFH + 1), ss
+        print (' ' * (indent + lFH + 1), ss)
 
 
 # Print 'struct svc_serv'
@@ -678,14 +647,14 @@ def printFH(fh, indent = 0):
 # 2.6.35 kernel
 #   On this kernel, sv_permosck is a list of svc_sock linked via sk_xprt.xpt_list
 def print_svc_serv(srv):
-    print "  -- Sockets Used by NLM"
-    print "     -- Permanent Sockets"
+    print ("  -- Sockets Used by NLM")
+    print ("     -- Permanent Sockets")
     for s in ListHead(Addr(srv.sv_permsocks), "struct svc_sock").SockList:
-	print "\t", s, "\n  ", IP_sock(s.sk_sk)
+	print ("\t", s, "\n  ", IP_sock(s.sk_sk))
     if (srv.sv_tmpcnt):
-	print " -- Temp Sockets"
+	print (" -- Temp Sockets")
         for s in ListHead(Addr(srv.sv_tempsocks), "struct svc_sock").SockList:
-	    print "\t", s, "\n  ", IP_sock(s.sk_sk)
+	    print ("\t", s, "\n  ", IP_sock(s.sk_sk))
 	
 
 # On 2.6.35 we have a list of registered transports
@@ -696,9 +665,9 @@ def XXprint_nlm_serv():
     addr = sym2addr("svc_xprt_class_list")
     ll = ListHead(addr, "struct svc_xprt_class").xcl_list
     for s in ll:
-        print s
+        print (s)
     for c in get_all_clients():
-        print c, c.cl_protname
+        print (c, c.cl_protname)
         
 # Print NLM stuff
 
@@ -719,18 +688,18 @@ def print_nlm_serv():
 def print_nlm_blocked_clnt(nlm_blocked):
     lh = ListHead(nlm_blocked, "struct nlm_wait")
     if (len(lh)):
-        print "  ................ Waiting For Locks ........................."
+        print ("  ................ Waiting For Locks .........................")
 
     for block in lh.b_list:
 	fl_blocked = block.b_lock
 	owner = fl_blocked.fl_u.nfs_fl.owner.pid 
         haddr = block.b_host.h_addr.castTo("struct sockaddr_in")
 	ip = ntodots(haddr.sin_addr.s_addr)
-	print "    ----  ", block
+	print ("    ----  ", block)
 	#inode = fl_blocked.fl_file.f_dentry.d_inode
         inode = fl_blocked.Inode
 	nfs_inode = container_of(inode, "struct nfs_inode", "vfs_inode")
-        print "     ", inode, nfs_inode
+        print ("     ", inode, nfs_inode)
 	fh = nfs_inode.fh
         fl_start = fl_blocked.fl_start
         fl_end = fl_blocked.fl_end
@@ -738,8 +707,8 @@ def print_nlm_blocked_clnt(nlm_blocked):
             length = 0
         else:
             length = (fl_end - fl_start + 1) & OFFSET_MASK
-	print "         fl_start=%d fl_len=%d owner=%d ip=%s" % (fl_start,
-                                                          length, owner, ip)
+	print ("         fl_start=%d fl_len=%d owner=%d ip=%s" % (fl_start,
+                                                          length, owner, ip))
 	# Print FH-data
 	printFH(fh, 8)
 
@@ -751,7 +720,7 @@ def print_nlm_blocked_clnt(nlm_blocked):
 
 def print_nlm_files():
     nlm_files = readSymbol("nlm_files")
-    print "  -- Files NLM locks for clients ----"
+    print ("  -- Files NLM locks for clients ----")
     def get_all_nlm_files():
         try:
             #print "New style"
@@ -776,23 +745,23 @@ def print_nlm_files():
            
     for e in get_all_nlm_files():
 	f_file = e.f_file
-	print "    File:", get_pathname(f_file.Dentry, f_file.Mnt)
-	print "         ", e
+	print ("    File:", get_pathname(f_file.Dentry, f_file.Mnt))
+	print ("         ", e)
 	for fl in readStructNext(e.Inode.i_flock, "fl_next"):
 	    lockhost = fl.fl_owner.castTo("struct nlm_host")
-	    print "       Host:", lockhost.h_name
+	    print ("       Host:", lockhost.h_name)
 
 # Print nfs-server info
 def print_nfs_server(nfs, mntpath = None):
-    print "    --%s %s:%s" % (str(nfs), nfs.Hostname, mntpath)
-    print "       flags=<%s>," % dbits2str(nfs.flags, NFS_flags, 10),
-    print " caps=<%s>" % dbits2str(nfs.caps, NFS_caps, 8),
-    print " rsize=%d, wsize=%d" % (nfs.rsize, nfs.wsize)
+    print ("    --%s %s:%s" % (str(nfs), nfs.Hostname, mntpath))
+    print ("       flags=<%s>," % dbits2str(nfs.flags, NFS_flags, 10), end='')
+    print (" caps=<%s>" % dbits2str(nfs.caps, NFS_caps, 8), end='')
+    print (" rsize=%d, wsize=%d" % (nfs.rsize, nfs.wsize))
     # Here the verbose sections starts
     if (True):
 	return
-    print "       acregmin=%d, acregmax=%d, acdirmin=%d, acdirmax=%d" % \
-          (nfs.acregmin, nfs.acregmax, nfs.acdirmin, nfs.acdirmax)
+    print ("       acregmin=%d, acregmax=%d, acdirmin=%d, acdirmax=%d" % \
+          (nfs.acregmin, nfs.acregmax, nfs.acdirmin, nfs.acdirmax))
     # Stats for nfs_server (struct nfs_iostats *io_stats;) are not very
     # interesting (just events/bytes per cpu). So let us rather print
     # stats for nfs_client
@@ -804,7 +773,7 @@ nfs_mounts = []
 def get_nfs_mounts():    
     del nfs_mounts[:]
     for vfsmount, superblk, fstype, devname, mnt in getMount():
-        if (fstype == "nfs"):
+        if (fstype in ("nfs", "nfs4")):
             vfsmount = readSU("struct vfsmount" , vfsmount)
             sb = readSU("struct super_block", superblk)
             srv = readSU("struct nfs_server", sb.s_fs_info)
@@ -813,7 +782,7 @@ def get_nfs_mounts():
     return nfs_mounts
 
 def print_nfsmount():
-    print "  ............. struct nfs_server ....................."
+    print ("  ............. struct nfs_server .....................")
     nfs_cl_dict = {}
     for hostname, srv, mnt in nfs_mounts:
         print_nfs_server(srv, mnt)
@@ -825,23 +794,81 @@ def print_nfsmount():
 	    rpc_clnt = srv.client
 	    addr_in = srv.addr
 	    ip = ntodots(addr_in.sin_addr.s_addr)
-	    print "        IP=%s" % ip
+	    print ("        IP=%s" % ip)
     if (nfs_cl_dict):
-	print "  ............. struct nfs_client ....................."
+	print ("  ............. struct nfs_client .....................")
 	for nfs_cl in nfs_cl_dict.values():
 	    # At this moment, only IPv4
 	    addr_in = nfs_cl.cl_addr.castTo("struct sockaddr_in")
 	    ip = ntodots(addr_in.sin_addr.s_addr)
-	    print "     ---", nfs_cl, nfs_cl.cl_hostname, ip
+	    print ("     ---", nfs_cl, nfs_cl.cl_hostname, ip)
 	    rpc_clnt = nfs_cl.cl_rpcclient
 	    #print rpc_clnt, rpc_clnt.cl_metrics
     
     # Stats are per RPC program, and all clients are using "NFS" 
     cl_stats = rpc_clnt.cl_stats 
     rpc_prog = cl_stats.program
-    print "  .... Stats for program ", rpc_prog.name
+    print ("  .... Stats for program ", rpc_prog.name)
     cl_stats.Dump()
 
+# Decode sockaddr_storage and return (ip, port). Works for AF_INET and AF_INET6.
+# For unknown families, returns ("Unknown family", None)
+# For ss_faimily=0 returns (None, None)
+def decode_ksockaddr(ksockaddr):
+    family = ksockaddr.ss_family
+    # char __data[126]
+    data = ksockaddr.__data.ByteArray
+    if (family == socket.AF_INET):
+        port = data[0]*256+data[1]
+        ip = socket.inet_ntop(socket.AF_INET, struct.pack(4*'B', *data[2:2+4]))
+        return (ip, port)
+    elif (family == socket.AF_INET6):
+        port = data[0]*256+data[1]
+        ip = socket.inet_ntop(socket.AF_INET6, struct.pack(16*'B', *data[6:6+16]))
+        return (ip, port)
+    elif (family == 0):
+        return (None, None)
+    else:
+        return ("Unknown family {}".format(family), None)
+
+def print_svc_xprt():
+    # Get nfsd_serv. On 2.6.32 it was a global variable, later it was moved
+    # to init_net.gen[nfsd_net_id]
+    try:
+        nfsd_serv = readSymbol("nfsd_serv")
+    except TypeError:
+        try:
+            # On recent kernels, there are many  interesting
+            # tables in "init_net", but not on 2.6.32 it is not available
+            nfsd_net_id = readSymbol("nfsd_net_id") - 1
+            nfsd_net_ptr = readSymbol("init_net").gen.ptr[nfsd_net_id]
+            nfsd_net = readSU("struct nfsd_net", ptr)
+            nfsd_serv = nfsd_net.nfsd_serv
+        except KeyError:
+            return
+    if (not nfsd_serv):
+        # No NFS-server running on this host
+        return
+
+    print (" ============ SVC Transports ============")
+    sn = "struct svc_xprt"
+    for st, xpt_list in (("sv_permsocks",
+                          ListHead(nfsd_serv.sv_permsocks, sn ).xpt_list),
+                         ("sv_tempsocks",
+                          ListHead(nfsd_serv.sv_tempsocks, sn ).xpt_list)):
+        print("\n *** {} ***".format(st))
+        for x in xpt_list:
+            mutex =  x.xpt_mutex
+            counter = mutex.count.counter
+            print ('-'*78)
+            print(x, addr2sym(x.xpt_class))
+            laddr = (l_ip, l_port) = decode_ksockaddr(x.xpt_local)
+            raddr = (r_ip, r_port) = decode_ksockaddr(x.xpt_remote)
+            print("  Local: {} Remote: {}".format(laddr, raddr))
+            if (counter != 1):
+                print("   +++ mutex is in use +++", mutex)
+
+                                                   
 init_Structures()
 # The following exists on new kernels but not on old (e.g. 2.6.18)
 try:
@@ -882,7 +909,7 @@ HZ = sys_info.HZ
 
 # Printing info for NFS-client
 def host_as_client():
-    print '*'*20, " Host As A NFS-client ", '*'*20
+    print ('*'*20, " Host As A NFS-client ", '*'*20)
     print_nfsmount()
     print_nlm_blocked_clnt(clnt)
 
@@ -893,17 +920,17 @@ def host_as_client():
 # Printing info for NFS-server
 def host_as_server(v = 0):
 
-    print '*'*20, " Host As A NFS-server ", '*'*20
+    print ('*'*20, " Host As A NFS-server ", '*'*20)
 
     # Exportes filesystems
     print_ip_map_cache()
-    print ""
+    print ("")
     print_nfsd_export(v)
-    print ""
+    print ("")
     print_nfsd_fh(v)
-    print ""
+    print ("")
     print_unix_gid(v)
-    print ""
+    print ("")
 
     # Locks we are holding for clients
     print_nlm_files()
@@ -934,7 +961,7 @@ def host_as_server(v = 0):
 
         if (rpc_list):
             rpc_list.sort()
-            print "  -- Recent RPC Reply-cache Entries (most recent first)"
+            print ("  -- Recent RPC Reply-cache Entries (most recent first)")
             for secago, hc in rpc_list:
                 prot = protoName(hc.c_prot)
                 proc = hc.c_proc
@@ -942,7 +969,7 @@ def host_as_server(v = 0):
 		    saddr = format_sockaddr_in(hc.c_addr)
 		except TypeError:
 		    saddr = "n/a"
-                print "   ", hc, prot, saddr, secago, hc.c_state
+                print ("   ", hc, prot, saddr, secago, hc.c_state)
                 
 
 detail = 0
@@ -989,12 +1016,15 @@ if ( __name__ == '__main__'):
     if (o.Server or o.All):
 	if (nfs_avail["nfsd"]):
 	    host_as_server(detail)
+            print_svc_xprt()
+
     
     if (o.Rpctasks or o.All):
 	print_all_rpc_tasks()
 
     if (o.Locks or o.All):
-        print '*'*20, " NLM(lockd) Info", '*'*20
+        print ('*'*20, " NLM(lockd) Info", '*'*20)
 	print_nlm_files()
 	print_nlm_serv()
+
 
