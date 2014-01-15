@@ -983,6 +983,7 @@ class SmartString(str):
     def __init__(self, s, addr, ptr):
         self.addr = addr
         self.ptr = ptr
+        self.ByteArray = bytearray(s)
         self.__fullstr = b2str(s)
     def __long__(self):
         return self.ptr
@@ -990,6 +991,7 @@ class SmartString(str):
         return self.__fullstr.__getslice__(i, j)
     def __getitem__(self, key):
         return self.__fullstr.__getitem__(key)
+        
 
 class SmartList(list):
     def __new__(cls, l = [], addr = None):
