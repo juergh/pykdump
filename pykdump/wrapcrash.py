@@ -805,6 +805,8 @@ def ptrReader(vi, ptrlev):
                     self.addr = addr
                 def __getitem__(self, i):
                     return basereader(self.addr + i*size)
+                def __long__(self):
+                    return self.addr
             return lambda addr: Array0(addr)
         else:
             # A reader for 1-dimensional arrays
