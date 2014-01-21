@@ -100,9 +100,7 @@ def sk_nulls_for_each(first, hbucket):
         slot = (ptr>>1) & 0xfffffff
         #print("SLOT={}".format(slot))
     if (hbucket != slot):
-        print('-'*78)
-        print(ERROR, "connection displayed below has hbucket={:#x} != SLOT={:#x}".\
-            format(hbucket, slot))
+        pylog.silent("hbucket={:#x} != SLOT={:#x}".format(hbucket, slot))
     # Now recompute addrs to point to 'struct sock' where head_list is embedded
     return [a - skc_nulls_node_off for a in addrs]
 

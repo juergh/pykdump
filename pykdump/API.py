@@ -46,6 +46,7 @@ import re, string
 import time, select
 import stat
 import atexit
+from collections import defaultdict
 
 # Python2 vs Python3
 _Pym = sys.version_info[0]
@@ -143,6 +144,73 @@ API_options = Bunch()
 # Timeout used on a previous run
 global __timeout_exec
 __timeout_exec = 0
+
+class PyLog:
+    def __init__(self):
+        self._cache = defaultdict(list)
+        self._silent = ""
+    def _addtocache(self, name, data):
+        if (not data in self._cache[name]):
+            self._cache[name].append(data)
+    def timeout(self, msg):
+        self._addtocache("timeout", msg)
+    def _printandcache(self, name, data):
+        self._addtocache(name, data)
+        print(name, end=' ')
+        args, kwargs = data
+        print(*args, **kwargs)
+    def warning(self, *args, **kwargs):
+        name = WARNING
+        self._printandcache(name, (args, kwargs))
+    def error(self, *args, **kwargs):
+        name = ERROR
+        self._printandcache(name, (args, kwargs))
+    def silent(self, msg):
+        self._silent = msg
+    def getsilent(self):
+        msg = self._silent
+        self._silent = ""
+        return msg
+    # Propagate silent error to real error if any, but do not print it
+    def silenterror(self, extra):
+        msg = self.getsilent()
+        if (msg):
+            args = (extra, msg)
+            kwargs = {}
+            self._addtocache(ERROR, (args, kwargs))
+    def onexit(self):
+        # Are there any problems at all?
+        if (not self._cache):
+            return
+        print("")
+        print('*'*78)
+        print(" A Summary Of Problems Found ".center(78, '*'))
+        print('*'*78)
+        # Are there are timeout messages?
+        if (self._cache["timeout"]):
+            print(" Some crash built-in commands did not complete "
+                  "within timeout ".center(78, '-'))
+            for l in self._cache["timeout"]:
+                print("   ", l)
+            print(" *** You can rerun your command with a different timeout\n"
+                  "     by adding --timeout=NNN to your options\n"
+                  "     For example, 'crashinfo -v --timeout=1200\n"
+                  "     to run with timeout of 1200s")
+        # Are there any warnings/errors?
+        for name in (WARNING, ERROR):
+            if (self._cache[name]):
+                print(" A list of all {} messages ".format(name).center(78, '-'))
+                for args, kwargs in self._cache[name]:
+                    print(end="    ")
+                    print(*args, **kwargs)
+        print('-'*78)
+
+        # Clear the cache
+        self._cache.clear()
+        self._silent = ""
+
+pylog = PyLog()
+setattr(wrapcrash, 'pylog', pylog)
 
 # Check whether we output to a real file.
 
@@ -309,6 +377,7 @@ def exit_epython():
         #BaseStructInfo.printCache()
         #wrapcrash.BaseTypeinfo.printCache()
         pass
+    pylog.onexit()
     cleanup()
 
 

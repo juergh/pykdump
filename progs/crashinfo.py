@@ -29,6 +29,7 @@ from LinuxDump.Tasks import TaskTable, Task, tasksSummary, getRunQueues,\
 from LinuxDump.inet import summary
 import LinuxDump.inet.netdevice as netdevice
 from LinuxDump import percpu, sysctl, Dev
+from LinuxDump.KernLocks import decode_mutex
 from LinuxDump.Dev import print_dm_devices, print_gendisk
 
 from LinuxDump import percpu
@@ -46,8 +47,6 @@ if (_Pym < 3):
 else:
     from io import StringIO
 
-
-WARNING = "+++WARNING+++"
 
 
 # The type of the dump. We should check different things for real panic and
@@ -108,11 +107,9 @@ def print_basics():
         if (dfile.find("PARTIAL DUMP") != -1):
             dfile = dfile.split()[0]
             if (ram > sz *4):
-               print (WARNING, end=' ')
-               print ("PARTIAL DUMP with size(vmcore) < 25% size(RAM)")
+                pylog.warning("PARTIAL DUMP with size(vmcore) < 25% size(RAM)")
         elif (ram > sz *10):
-            print (WARNING, end=' ')
-            print ("DUMP with size(vmcore) < 10% size(RAM)")
+            pylog.warning("DUMP with size(vmcore) < 10% size(RAM)")
 
         # Check whether we can read modules table. In case of failure
         # the built-in 'mod' command prints
@@ -164,7 +161,7 @@ def check_mem():
         kmemf = exec_crash_command_bg("kmem -f")
     except crash.error:
         kmemf = None
-        print (WARNING, "Cannot Execute kmem -f")
+        pylog.warning("Cannot Execute kmem -f")
     if (kmemf):
         node = parse_kmemf(kmemf)
         if (len(node) < 2):
@@ -197,9 +194,9 @@ def check_mem():
             printHeader("Memory Fragmentation (kmem -f)")
     
         if (warn_8k):
-            print (WARNING, "fragmentation: 8Kb")
+            pylog.warning("fragmentation: 8Kb")
         elif (warn_32k):
-            print (WARNING, "fragmentation: 32Kb")
+            pylog.warning("fragmentation: 32Kb")
     
         if (warn_8k or warn_32k):
             print_Zone(Normal)
@@ -224,8 +221,7 @@ def check_mem():
         vm_dirty_ratio = readSymbol("vm_dirty_ratio")
         wr_ratio = float(nr_writeback)/total_pages*100
         if (wr_ratio > vm_dirty_ratio):
-            print (WARNING, end='') 
-            print (" NR_WRITEBACK/TOTALRAM=%5.2f%% > vm_dirty_ratio=%d%%" % \
+            pylog.warning(" NR_WRITEBACK/TOTALRAM=%5.2f%% > vm_dirty_ratio=%d%%" % \
                 (wr_ratio, vm_dirty_ratio))
         elif (verbose):
             print (" NR_WRITEBACK/TOTALRAM=%5.2f%%, vm_dirty_ratio=%d%%" % \
@@ -237,7 +233,7 @@ def check_mem():
     tt = get_tt()
     for pid, ppid, cpu, task, st, pmem, vsz, rss, comm in parse_ps():
         if (pmem > 25.0 and tt.getByPid(pid)):
-            print (WARNING, "PID=%d CMD=%s uses %5.1f%% of total memory" %\
+            pylog.warning("PID=%d CMD=%s uses %5.1f%% of total memory" %\
                (pid, comm, pmem))
     
 # Check how the dump has been triggered
@@ -318,7 +314,7 @@ def check_loadavg():
         avgf.append(float(avgs))
     avg1, avg5, avg15 = avgf
     if (avg1 > 29 or avg5 > 29):
-        print (WARNING, "High Load Averages:", avgstr)
+        pylog.warning("High Load Averages:", avgstr)
     
 def check_auditf():
     btsl = exec_bt("foreach bt")
@@ -328,7 +324,7 @@ def check_auditf():
            if bts.hasfunc(func1) and bts.hasfunc(func2)]
     if (not res):
         return False
-    print (WARNING, "%d threads halted by auditd" % len(res))
+    pylog.warning("%d threads halted by auditd" % len(res))
     if (verbose):
         for bts in res:
             print (bts)
@@ -363,7 +359,7 @@ def check_activetasks():
         ran_ms_ago = basems - mt.Last_ran
         if (ran_ms_ago > 10 * 1000):
             print ("")
-            print (WARNING, "possible looping, CPU=%d ran_ago=%d ms" \
+            pylog.warning("possible looping, CPU=%d ran_ago=%d ms" \
                % (cpu, ran_ms_ago))
             print (stack)
 
@@ -383,7 +379,7 @@ def check_spinlocks():
     if (sym2addr("kernel_flag_cacheline") != 0):
         BKL = readSymbol("kernel_flag_cacheline").lock.slock
     if (BKL != 1):
-        print (WARNING, "BKL=%d" % BKL)
+        pylog.warning("BKL=%d" % BKL)
    
     # Get a list of all global symbols (D) with the names like *_lock
     lock_list = []
@@ -402,7 +398,7 @@ def check_spinlocks():
         try:
             lv = readSymbol(ln).slock
             if ((ia64 == 1 and lv != 0) or (ia64 == 0 and lv <= 0)):
-                print (WARNING, "Lock %s is held, lock=%d" % (ln, lv))
+                pylog.warning("Lock %s is held, lock=%d" % (ln, lv))
         except:
             pass
 
@@ -534,7 +530,7 @@ def get_important():
             try:
                nel = getListSize(addr+off, 0, 1000000) - 1
             except crash.error:
-                print (WARNING, "corrupted list", n)
+                pylog.warning("corrupted list", n)
                 continue
             if (nel):
                print ("\t", n, nel)
@@ -640,7 +636,7 @@ def check_runqueues():
                     #print (hexl(Addr(pq)))
                     (talist, errmsg) = readBadList(Addr(pq), inchead = False)
                     if (errmsg):
-                        print (WARNING, "prio=%d" % i, errmsg, pq)
+                        pylog.warning("prio=%d" % i, errmsg, pq)
                     l = len(talist)
                     if (l and not quiet):
                         print ("       prio=%-3d len=%d" % (i, l))
@@ -650,7 +646,7 @@ def check_runqueues():
                         try:
                             policy = ts.policy
                         except Exception as e:
-                            print (WARNING, e)
+                            pylog.warning(e)
                             continue
                         if (ts.policy != 0):
                             RT_count += 1
@@ -667,7 +663,7 @@ def check_runqueues():
         else:
             print ("    %d Real-Time processes on this CPU" % RT_count)
     if (RT_hang):
-        print (WARNING, "all CPUs are busy running Real-Time processes")
+        pylog.warning("all CPUs are busy running Real-Time processes")
         
 
 # Do some basic network subsystem check
@@ -818,9 +814,9 @@ def check_event_workqueues():
                 break
         if (warning): break
     if (warning):
-        print(WARNING, "there are tasks waiting for events workqueue flushed"
-            "\n          +++ for longer than %d ms" % maxdelta)
-        print("          +++ Run 'crashinfo --kevent -v' to get more details")
+        pylog.warning("there are tasks waiting for events workqueue flushed"
+            "\n          +++ for longer than %d ms\n" % maxdelta,
+            "          +++ Run 'crashinfo --kevent -v' to get more details")
                     
                 
 # Print args of most recent processes
@@ -915,8 +911,7 @@ def check_UNINTERRUPTIBLE():
             print ('-' * 70)
         if ((bt.cmd == "syslogd" or bt.cmd == "syslog-ng") and 
                     ran_s_ago > bigtime):
-            print (WARNING, \
-               "syslogd is in UNINTERRUPTIBLE state, last_ran %ds ago"\
+            pylog.warning("syslogd is in UNINTERRUPTIBLE state, last_ran %ds ago"\
                    %ran_s_ago)
         if (bt.hasfunc(re_nfs) and ran_s_ago > bigtime):
             nfscount += 1
@@ -926,17 +921,15 @@ def check_UNINTERRUPTIBLE():
     
     # Print cummulative results
     if (nfscount):
-        print (WARNING, \
-            "%d NFS processes in UNINTERRUPTIBLE state" % nfscount)
+        pylog.warning("%d NFS processes in UNINTERRUPTIBLE state" % nfscount)
     if (jcount):
-        print (WARNING, \
-            "%d processes in UNINTERRUPTIBLE state are committing journal" %\
+        pylog.warning("%d processes in UNINTERRUPTIBLE state are committing journal" %\
                 jcount)
                 
     # Sort oldbts and print the last three stacks
     bts3 = sorted(oldbts)[-3:]
     if (bts3):
-        print (WARNING, "three oldest UNINTERRUPTIBLE threads")
+        print("+++three oldest UNINTERRUPTIBLE threads")
         for r, bt in bts3:
             print ('   ... ran %ds ago' % r)
             print (bt)
@@ -1080,22 +1073,7 @@ def decode_semaphore_old(semaddr):
         print ("\t%8d  %s" % (pid, comm))        
 
 
-# Decode struct mutex - waiting-list etc.
 
-def decode_mutex(addr):
-    s = readSU("struct mutex", addr)
-    print (s)
-    #wait_list elements are embedded in struct mutex_waiter
-    wait_list = readSUListFromHead(Addr(s.wait_list), "list",
-             "struct mutex_waiter")
-    out = []
-    for w in wait_list:
-        task = w.task
-        out.append([task.pid, task.comm])
-    # Sort on PID
-    out.sort()
-    for pid, comm in out:
-        print ("\t%8d  %s" % (pid, comm))
         
 # WARNING: on some kernels (e.g. Ubuntu/Hardy, 2.6.24)
 # blkdev_requests is mapped to a general slab.
@@ -1134,7 +1112,7 @@ def print_blkreq(header = None):
         if (header):
             print (header)
         else:
-           print (WARNING, "there are outstanding blk_dev requests")
+           pylog.warning("there are outstanding blk_dev requests")
         print (lalloc,len(free), sfree)
         # Insert alloc/free headers
         if (sfree == 0):
@@ -1188,7 +1166,7 @@ def parse_ps():
             comm = ''.join(spl[8:])
             out.append((pid, ppid, cpu, task, st, pmem, vsz, rss, comm))
         except:
-            print (WARNING, "cannot parse:", l)
+            pylog.warning("cannot parse:", l)
     return out
 
 # Compute the sum of all RSS memory used by applications. We cannot
@@ -1222,7 +1200,7 @@ def longChainOfPids(tt, nmin):
         try:
             ppid = t.parent.pid
         except crash.error:
-            print (ERROR, "corrupted", t)
+            pylog.error("corrupted", t)
             continue
         
         if (not pid in ptree):
@@ -1244,7 +1222,7 @@ def longChainOfPids(tt, nmin):
                     chain.insert(0, ppid)
                 #print ("\t", ppid)
             if (dist > nmin):
-                print (WARNING, "a long chain of processes, N=%d, last pid=%d" % (dist, pid))
+                pylog.warning("a long chain of processes, N=%d, last pid=%d" % (dist, pid))
                 print ("  Last 10 Processes in this chain")
                 for i, pid in enumerate(chain):
                     comm = tt.getByPid(pid).comm
@@ -1516,19 +1494,19 @@ check_auditf()
 try:
     check_event_workqueues()
 except:
-    print(WARNING, "check_event_workqueues() not implemented on this kernel")
+    pylog.warning("check_event_workqueues() not implemented on this kernel")
 
 try:
     check_runqueues()
 except crash.error:
-    print (WARNING, "cannot continue - the dump is probably incomplete", \
+    pylog.warning("cannot continue - the dump is probably incomplete", \
         "or corrupted")
 
 try:    
     check_network()
 except crash.error:
-    print (WARNING, "cannot continue - the dump is probably incomplete", \
-        "or corrupted")
+    pylog.warning("cannot continue - the dump is probably incomplete "
+            "or corrupted")
 
 
 # After this line we put all routines that can produce significant output

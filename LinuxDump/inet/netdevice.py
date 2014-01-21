@@ -30,8 +30,10 @@ from pykdump.API import *
 from LinuxDump.inet import *
 from LinuxDump import percpu
 from LinuxDump.inet.proto import print_skbuff_head
-from LinuxDump.spinlocks import spin_is_locked
+from LinuxDump.KernLocks import spin_is_locked
 import string
+
+from collections import defaultdict
 
 # Python2 vs Python3
 _Pym = sys.version_info[0]
@@ -178,7 +180,39 @@ def get_inet6_ifaddr():
             for ifa in hlist_for_each_entry(sn, h, "addr_lst"):
                 yield ifa
 
-    
+# Return a dictionary of inet ifas, key=devname, val=[list of ifas]
+@memoize_cond(CU_LIVE)    
+def get_inet6_devs():
+    inet6devs = defaultdict(list)
+    ptrsz = sys_info.pointersize
+    tableaddr = sym2addr('inet6_addr_lst')
+    # Two variants:
+    # static struct hlist_head inet6_addr_lst[IN6_ADDR_HSIZE]; /* 2.6.35 */
+    # static struct inet6_ifaddr                *inet6_addr_lst[IN6_ADDR_HSIZE];
+    if (tableaddr == 0):
+        return
+    sn = "struct inet6_ifaddr"
+    if (not struct_exists(sn)):
+        print (WARNING, "IPv6 structures definitions missing")
+        return
+    offset = member_offset(sn, "lst_next")
+    if (offset != -1):
+        for i in range(__IN6_ADDR_HSIZE):
+            sa = readPtr(tableaddr + i * ptrsz)
+            if (sa == 0):
+                continue
+            for pt in readList(sa, offset):
+                #print i, hexl(pt)
+                ifa = readSU("struct inet6_ifaddr", pt)
+                #print ifa.addr
+                #print "  ", ntodots6(ifa.addr), ifa.Deref.idev.Deref.dev.name
+                inet6devs[ifa.idev.dev.name].append(ifa)
+    else:
+        offset = member_offset(sn, "addr_lst")
+        for h in readSymbol('inet6_addr_lst'):
+            for ifa in hlist_for_each_entry(sn, h, "addr_lst"):
+                inet6devs[ifa.idev.dev.name].append(ifa)
+    return inet6devs
 
             
             
@@ -744,12 +778,20 @@ def snetmask(u32):
         n >>= 1
     return 0
 
+# Get a list of all ifa for a given 'struct net_device'
+def get_ifa_list(dev):
+    if (dev.ip_ptr):
+        ip = readSU("struct in_device", dev.ip_ptr)
+        # Get IP-addresses
+        ifa_list = ip.ifa_list
+        return readStructNext(ifa_list, "ifa_next")
+    else:
+        return []
+  
+
+# Details
 def print_If(dev, details = 0):
-    # Get the list of inet6-devices and put into a dict
-    if6devs = {}
-    for ifa in get_inet6_ifaddr():
-        name = ifa.idev.Deref.dev.Deref.name
-        if6devs.setdefault(name, []).append(ifa)
+    if6devs = get_inet6_devs()
 
     devname = dev.name
     jiffies = readSymbol("jiffies")
@@ -757,26 +799,22 @@ def print_If(dev, details = 0):
     print (('=' * 22 + " " +  devname + " " + str(dev) + "  " + '=' *46)[:78])
     #print ""
     ipm_list = []
-    if (dev.ip_ptr):
-        ip = readSU("struct in_device", dev.ip_ptr)
-        # Get IP-addresses
-        ifa_list = ip.ifa_list
-        for ifa in readStructNext(ifa_list, "ifa_next"):
-            mask = ifa.ifa_mask
-            # Can our mask be represented in bitnumber-way?
-            smask = snetmask(mask)
-            ipmask =  ntodots(ifa.ifa_mask)
-            ipaddr = ntodots(ifa.ifa_address)
-            if (smask != -1):
-                ipwithmask = "%s/%d" % (ipaddr, smask)
-            else:
-                ipwithmask = "%s/%s" % (ipaddr, ipmask)
-            ipm_list.append((ipwithmask, ifa.ifa_label, ifa.ifa_flags))
-        # The list may be empty in patologic cases
-        try: 
-            ipwithmask = ipm_list[0][0]
-        except IndexError:
-            pass
+    for ifa in get_ifa_list(dev):
+        mask = ifa.ifa_mask
+        # Can our mask be represented in bitnumber-way?
+        smask = snetmask(mask)
+        ipmask =  ntodots(ifa.ifa_mask)
+        ipaddr = ntodots(ifa.ifa_address)
+        if (smask != -1):
+            ipwithmask = "%s/%d" % (ipaddr, smask)
+        else:
+            ipwithmask = "%s/%s" % (ipaddr, ipmask)
+        ipm_list.append((ipwithmask, ifa.ifa_label, ifa.ifa_flags))
+    # The list may be empty in patologic cases
+    try: 
+        ipwithmask = ipm_list[0][0]
+    except IndexError:
+        pass
 
     last_rx = dev.last_rx
     if (dev.hasField("_tx")):

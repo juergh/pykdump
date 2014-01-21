@@ -1107,7 +1107,7 @@ def readSUListFromHead(headaddr, listfieldname, mystruct, maxel=_MAXEL,
     for p in readList(headaddr, 0, maxel, inchead):
         out.append(readSU(mystruct, p - offset))
     if (len(out) == maxel):
-        print(crash.WARNING, "We have reached the limit while reading a list")
+        pylog.warning("We have reached the limit while reading a list")
 
     return out
 
@@ -1215,7 +1215,7 @@ class ListHead(list):
                 self.append(readSU("struct list_head", next))
             count += 1
         if (count == maxel):
-            print(crash.WARNING, "We have reached the limit while reading a list")
+            pylog.warning("We have reached the limit while reading a list")
         
     def __getattr__(self, fname):
         off = member_offset(self.sname, fname)
@@ -1256,7 +1256,7 @@ def readList(start, offset=0, maxel = _MAXEL, inchead = True):
         out.append(next)
         count += 1
     if (count == maxel):
-        print(crash.WARNING, "We have reached the limit while reading a list")
+        pylog.warning("We have reached the limit while reading a list")
 
     return out
 
@@ -1291,7 +1291,7 @@ def readBadList(start, offset=0, maxel = _MAXEL, inchead = True):
         out.append(next)
         count += 1
     if (count == maxel):
-        print(crash.WARNING, "We have reached the limit while reading a list")
+        pylog.warning("We have reached the limit while reading a list")
 
     return (out, None)
 
@@ -1605,7 +1605,7 @@ def exec_crash_command_bg(cmd, timeout = None):
     else:
         badmsg = ""
     if (badmsg):
-        print(crash.WARNING, badmsg)
+        pylog.timeout(badmsg)
     return("".join(out))
 
 # Aliases

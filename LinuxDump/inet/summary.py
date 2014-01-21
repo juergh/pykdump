@@ -47,6 +47,7 @@ def TCPIP_Summarize(quiet = False):
     lqne = 0                            # Listen Queue Non-Empty
     udata = 0                           # Socks with user_data set
     for o in proto.get_TCP_LISTEN():
+        pylog.silenterror("TCP_LISTEN")
         pstr = IP_sock(o, True)
         counts[pstr.state] = counts.setdefault(pstr.state, 0) + 1
         if (pstr.user_data):
@@ -67,6 +68,7 @@ def TCPIP_Summarize(quiet = False):
     w_rcv_closed = 0
     w_snd_closed = 0
     for o in proto.get_TCP_ESTABLISHED():
+        pylog.silenterror("TCP_ESTABLISHED")
         try:
             pstr = IP_sock(o, True)
         except KeyError as msg:
@@ -95,6 +97,7 @@ def TCPIP_Summarize(quiet = False):
     # TIME_WAIT
     jiffies = readSymbol("jiffies")
     for tw in proto.get_TCP_TIMEWAIT():
+        pylog.silenterror("get_TCP_TIMEWAIT")
         pstr = proto.IP_conn_tw(tw, True)
         counts[pstr.state] = counts.setdefault(pstr.state, 0) + 1
 
@@ -125,6 +128,7 @@ def TCPIP_Summarize(quiet = False):
     count = rcvfull = sndfull = established = 0
     udata = 0
     for o in proto.get_UDP():
+        pylog.silenterror("UDP")
         pstr = IP_sock(o, True)
         count += 1
         if (pstr.user_data):
@@ -141,7 +145,8 @@ def TCPIP_Summarize(quiet = False):
     if (not quiet and udata):
         print ("\t\t\tuser_data set (NFS etc.):     %5d" % udata)
     if (rcvfull or sndfull):
-        print (WARNING,"UDP buffer fill >=75%%  rcv=%d snd=%d" % (rcvfull, sndfull))
+        pylog.warning("UDP buffer fill >=75%%  rcv=%d snd=%d" % (rcvfull, sndfull))
+        #print (WARNING,"UDP buffer fill >=75%%  rcv=%d snd=%d" % (rcvfull, sndfull))
 
     if (quiet):
         return

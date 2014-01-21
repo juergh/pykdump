@@ -272,6 +272,11 @@ def print_TCP():
     # print LISTEN
     if (print_listen):
         for o in proto.get_TCP_LISTEN():
+            # Check whether a bucket error was posted
+            msg = pylog.getsilent()
+            if (msg):
+                pylog.error("TCP_LISTEN", msg)
+ 
             print_TCP_sock(o)
 
     if (not print_nolisten):
@@ -279,6 +284,10 @@ def print_TCP():
     # Print ESTABLISHED TCP
     
     for o in proto.get_TCP_ESTABLISHED():
+        msg = pylog.getsilent()
+        if (msg):
+            pylog.error("TCP_ESTABLISHED", msg)
+ 
         print_TCP_sock(o)
         
    
@@ -287,6 +296,10 @@ def print_TCP():
         return
     jiffies = readSymbol("jiffies")
     for tw in proto.get_TCP_TIMEWAIT():
+        msg = pylog.getsilent()
+        if (msg):
+            pylog.error("TCP_TIMEWAIT", msg)
+
         print_TCP_tw(tw)
 
 # print UDP
@@ -307,6 +320,10 @@ def print_UDP():
         if (details):
             print ('-' * 78)
             print (o, '\t\tUDP')
+        msg = pylog.getsilent()
+        if (msg):
+            pylog.error("UDP", msg)
+
         print (pstr)
         if (details):
             print ("\trx_queue=%d, tx_queue=%d" % (pstr.rmem_alloc,
