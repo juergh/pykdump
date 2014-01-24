@@ -3,7 +3,7 @@
 # module LinuxDump.Tasks
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
 #
 # Author: Alex Sidorenko <asid@hp.com>
 #
@@ -101,7 +101,7 @@ class Task:
             st = task_state2str(self.ts.state)
         except:
             st = '??'
-            print (ERROR, 'corrupted task ', self.ts)
+            pylog.error('corrupted task ', self.ts)
         return st
     state = property(__get_state)
 
@@ -117,7 +117,7 @@ class Task:
                 readInt(addr)
                 threads.append(Task(readSU("struct task_struct", addr), self))
             except crash.error:
-                print (WARNING, " missing page")
+                pylog.warning(" missing page")
         return threads
     def __get_threads_fast_265(self):
         return self.__get_threads_fast()[:-1]   
@@ -244,7 +244,7 @@ class _TaskTable:
                 pid = t.pid
                 tgid = t.tgid
             except:
-                print (WARNING, "corrupted task-list")
+                pylog.warning("corrupted task-list")
                 break
             task = Task(t, self)
             if (not pid in pids_d):
@@ -286,7 +286,7 @@ class _TaskTable:
                 try:
                     out[t.pid] = t
                 except:
-                    print (ERROR, "corrupted thread", hexl(t))
+                    pylog.error("corrupted thread", hexl(t))
 
         tids = sorted(out.keys())       # sort by tids
         self.tids = out

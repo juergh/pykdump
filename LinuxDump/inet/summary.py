@@ -72,10 +72,10 @@ def TCPIP_Summarize(quiet = False):
         try:
             pstr = IP_sock(o, True)
         except KeyError as msg:
-            print (ERROR, msg)
+            pylog.error(msg)
             continue
         if (pstr.protocol != 6):
-            print (WARNING, "non-TCP socket in TCP-hash", o, pstr.protocol)
+            pylog.warning("non-TCP socket in TCP-hash", o, pstr.protocol)
             continue
         counts[pstr.state] = counts.setdefault(pstr.state, 0) + 1
         if (pstr.user_data):
@@ -146,8 +146,7 @@ def TCPIP_Summarize(quiet = False):
         print ("\t\t\tuser_data set (NFS etc.):     %5d" % udata)
     if (rcvfull or sndfull):
         pylog.warning("UDP buffer fill >=75%%  rcv=%d snd=%d" % (rcvfull, sndfull))
-        #print (WARNING,"UDP buffer fill >=75%%  rcv=%d snd=%d" % (rcvfull, sndfull))
-
+ 
     if (quiet):
         return
 
@@ -178,7 +177,7 @@ def TCPIP_Summarize(quiet = False):
         try:
             pstr = IP_sock(o, True)
         except KeyError as msg:
-            print (ERROR, msg)
+            pylog.error(msg)
             continue
         
         counts[state] = counts.setdefault(state, 0) + 1

@@ -1575,7 +1575,7 @@ def exec_crash_command_bg(cmd, timeout = None):
             selerror = val
             break
         timeleft = endtime - time.time()
-        if (not rl):
+        if (not rl or timeleft <= 0):
             timeouted = True
             break
         s = os.read(fileno, 82)    # Line-oriented

@@ -463,7 +463,7 @@ def print_gendisk(v = 1):
         if (v):
            print  ("  %12s dev=0x%x" % (disk_name, dev), gd, openname)
         if (badfops):
-            print (ERROR, gd, "corrupted fops, disk_name=%s dev=0x%x"% \
+            pylog.error(gd, "corrupted fops, disk_name=%s dev=0x%x"% \
                    (disk_name, dev))
         outparts = []
         # < 2.6.28
@@ -494,9 +494,9 @@ def print_gendisk(v = 1):
             except crash.error:
                 outparts.append(i)
                 if (v):
-                    print (ERROR, "corrupted", Deref(hd))
+                    pylog.error("corrupted", Deref(hd))
         if (outparts):
-            print (ERROR, gd, "corrupted part list", outparts)
+            pylog.error(gd, "corrupted part list", outparts)
         
         if (v < 2):
             continue

@@ -1146,7 +1146,7 @@ def print_skbuff_head(skb, v = 0):
             # I am not sure whether this works correctly on 3.X kernels
             # Let us suppress output until further testing
             pass
-            #print (WARNING, 'sk=NULL')
+            #pylog.warning('sk=NULL')
             #decode_skbuf(skb, v)
         devs = [skb.dev]
         # real_dev and input_dev do not exist anymore on newer kernels

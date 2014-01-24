@@ -263,7 +263,7 @@ def printTasks(reverse = False):
                 print(" ....................................................................")
                 
         except crash.error:
-            print (ERROR, "corrupted", t)
+            pylog.error("corrupted", t)
 
             
 

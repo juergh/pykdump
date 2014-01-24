@@ -3,7 +3,7 @@
 #
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
 #
 # Author: Alex Sidorenko <asid@hp.com>
 #
@@ -73,7 +73,7 @@ def print_rt_hash():
         return
     rt_hash_table_addr = readSymbol("rt_hash_table")
     if (rt_hash_table_addr == 0):
-        print (WARNING, "rt_hash_table is NULL")
+        pylog.warning("rt_hash_table is NULL")
         return
     rthb = getStructInfo("struct rt_hash_bucket")
     rthb_sz = rthb.size

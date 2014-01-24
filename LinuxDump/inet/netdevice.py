@@ -160,7 +160,7 @@ def get_inet6_ifaddr():
         return
     sn = "struct inet6_ifaddr"
     if (not struct_exists(sn)):
-        print (WARNING, "IPv6 structures definitions missing")
+        pylog.warning("IPv6 structures definitions missing")
         return
     offset = member_offset(sn, "lst_next")
     if (offset != -1):
@@ -181,7 +181,7 @@ def get_inet6_ifaddr():
                 yield ifa
 
 # Return a dictionary of inet ifas, key=devname, val=[list of ifas]
-@memoize_cond(CU_LIVE)    
+@memoize_cond(CU_LIVE|CU_LOAD)    
 def get_inet6_devs():
     inet6devs = defaultdict(list)
     ptrsz = sys_info.pointersize
@@ -190,11 +190,11 @@ def get_inet6_devs():
     # static struct hlist_head inet6_addr_lst[IN6_ADDR_HSIZE]; /* 2.6.35 */
     # static struct inet6_ifaddr                *inet6_addr_lst[IN6_ADDR_HSIZE];
     if (tableaddr == 0):
-        return
+        return inet6devs
     sn = "struct inet6_ifaddr"
     if (not struct_exists(sn)):
-        print (WARNING, "IPv6 structures definitions missing")
-        return
+        pylog.warning("IPv6 structures definitions missing")
+        return inet6devs
     offset = member_offset(sn, "lst_next")
     if (offset != -1):
         for i in range(__IN6_ADDR_HSIZE):
@@ -409,7 +409,7 @@ def printQdisc(qdisc, verbosity):
         stats = qdisc.stats
         requeues = 0                    # They are really unavailable 
     if (stats.backlog > 1000):
-        print(WARNING, "Huge Backlog")
+        pylog.warning("Huge Backlog")
     print ("\tqlen=%d backlog=%d drops=%d requeues=%d overlimits=%d" % \
           (stats.qlen, stats.backlog, stats.drops,
            requeues, stats.overlimits))
@@ -836,6 +836,7 @@ def print_If(dev, details = 0):
         if (ifalabel != devname):
             ipwithmask = "%-20s  %s" % (ipwithmask, ifalabel)
         print ("  inet4 addr: %s" % ipwithmask)
+
     if (devname in if6devs):
         for ifa in if6devs[devname]:
             print ("  inet6 addr: %s/%d" % (ntodots6(ifa.addr),

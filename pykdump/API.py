@@ -75,7 +75,7 @@ require_cmod_version(pykdump.minimal_cmod_version)
 # visible to API
 
 from . import Generic as gen
-from .Generic import Bunch, ArtStructInfo, EnumInfo, iterN, \
+from .Generic import Bunch, TrueOnce, ArtStructInfo, EnumInfo, iterN, \
      memoize_cond, purge_memoize_cache, \
      CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT
 
@@ -152,13 +152,14 @@ class PyLog:
     def _addtocache(self, name, data):
         if (not data in self._cache[name]):
             self._cache[name].append(data)
-    def timeout(self, msg):
-        self._addtocache("timeout", msg)
     def _printandcache(self, name, data):
         self._addtocache(name, data)
         print(name, end=' ')
         args, kwargs = data
         print(*args, **kwargs)
+    def timeout(self, msg):
+        print(WARNING, msg)
+        self._addtocache("timeout", msg)
     def warning(self, *args, **kwargs):
         name = WARNING
         self._printandcache(name, (args, kwargs))

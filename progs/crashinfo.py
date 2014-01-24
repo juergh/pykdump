@@ -111,15 +111,6 @@ def print_basics():
         elif (ram > sz *10):
             pylog.warning("DUMP with size(vmcore) < 10% size(RAM)")
 
-        # Check whether we can read modules table. In case of failure
-        # the built-in 'mod' command prints
-        # "mod: cannot access vmalloc'd module memory"
-        # using error(FATAL,))
-        #try:
-            #exec_crash_command("mod")
-        #except crash.error:
-            #print (WARNING, "bad modules table.", end=' ')
-            #print ("The dump is either corrupt or incomplete")
         
     if (quiet):
         return

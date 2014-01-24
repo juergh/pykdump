@@ -5,7 +5,7 @@
 # Time-stamp: <12/03/22 12:54:11 alexs>
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
 #
 # Author: Alex Sidorenko <asid@hp.com>
 #
@@ -108,6 +108,22 @@ class Bunch(dict):
         rc = prn.getvalue()
         prn.close()
         return rc
+
+# Produce an object that will return True a predefined number of times. 
+# For example:
+# twice = TrueOnce(2)
+# for in in range(5):
+#    if(twice): print("OK")
+
+class TrueOnce():
+    def __init__(self, v = 1):
+        self.v = v
+    def __nonzero__(self):
+        if (self.v > 0):
+            self.v -= 1
+            return True
+        else:
+            return False
 
 # Memoize methods with one simple arg  
 class MemoizeTI(type):

@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
 #
 # Author: Alex Sidorenko <asid@hp.com>
 #
@@ -69,7 +69,7 @@ def print_TCP_sock(o):
     try:
         pstr = IP_sock(o, details)
     except KeyError as msg:
-        print (WARNING, msg)
+        pylog.warning(msg)
         return
     jiffies = readSymbol("jiffies")
     tcp_state = pstr.state
@@ -342,7 +342,7 @@ def print_UDP():
                 print ("\t   |user_data|", hexl(udaddr), end='')
                 decode_user_data(udaddr, long(o))
     if (count == 0):
-        print (WARNING, "Empty UDP-hash - dump is probably incomplete")
+        pylog.warning("Empty UDP-hash - dump is probably incomplete")
 
 def tcp_state_name(state):
     # If the structure is corrupted, state will be bogus
@@ -606,7 +606,7 @@ def print_sysctl():
     try:
         (dall, ddef) = get_net_sysctl()
     except crash.error:
-        print (WARNING, "cannot get sysctl tables")
+        pylog.warning("cannot get sysctl tables")
         return
     names = sorted(dall.keys())
 
