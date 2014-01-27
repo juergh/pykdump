@@ -514,7 +514,7 @@ def print_rpc_task(s):
         pass
 
 # print all rpc pending tasks
-def print_all_rpc_tasks():
+def print_all_rpc_tasks(v=1):
     # Obtain all_tasks
     tasks = get_all_rpc_tasks()
     if (symbol_exists("all_tasks")):
@@ -524,8 +524,9 @@ def print_all_rpc_tasks():
     xprtlist = []
     print ("  ------- %d RPC Tasks ---------" % flen)
     for t in tasks:
-        print ("    ---", t)
-	print_rpc_task(t)
+        if (v >= 0):
+            print ("    ---", t)
+            print_rpc_task(t)
         # On a live kernel pointers may get invalid while we are processing
         try:
             xprt = t.tk_rqstp.rq_xprt
@@ -1129,7 +1130,7 @@ if ( __name__ == '__main__'):
         host_as_server(detail)
     
     if (o.Rpctasks or o.All):
-	print_all_rpc_tasks()
+	print_all_rpc_tasks(detail)
 
     if (o.Locks or o.All):
         print ('*'*20, " NLM(lockd) Info", '*'*20)
@@ -1145,6 +1146,10 @@ if ( __name__ == '__main__'):
     
     # As server
     host_as_server(-1)
+    
+    # RPC tasks
+    print(" RPC ".center(70, '='))
+    print_all_rpc_tasks(-1)
     
 
 
