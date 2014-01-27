@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Time-stamp: <14/01/15 16:43:50 alexs>
+# Time-stamp: <14/01/27 09:23:30 alexs>
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
 #
 # Author: Alex Sidorenko <asid@hp.com>
 #
@@ -919,7 +919,7 @@ def print_svc_xprt(v = 0):
             # tables in "init_net", but not on 2.6.32 it is not available
             nfsd_net_id = readSymbol("nfsd_net_id") - 1
             nfsd_net_ptr = readSymbol("init_net").gen.ptr[nfsd_net_id]
-            nfsd_net = readSU("struct nfsd_net", ptr)
+            nfsd_net = readSU("struct nfsd_net", nfsd_net_ptr)
             nfsd_serv = nfsd_net.nfsd_serv
         except KeyError:
             return
