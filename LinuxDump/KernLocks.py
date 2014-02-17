@@ -45,7 +45,7 @@ def decode_mutex(addr):
         print ("\t%8d  %s" % (pid, comm))
     
     # Check whether we can find an owner
-    if (not s.hasField("owner")):
+    if (not s.hasField("owner") or not s.owner):
         return
     
     ownertask = s.owner.task
