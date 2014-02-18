@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 # module LinuxDump.Dev
 #
-# Time-stamp: <13/12/17 16:14:16 alexs>
+# Time-stamp: <14/02/17 16:14:16 alexs>
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2013 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2013-2014 Hewlett-Packard Development Company, L.P.
 #
 # Author: Alex Sidorenko <asid@hp.com>
 #
@@ -42,9 +42,21 @@ Host: scsi2 Channel: 00 Id: 00 Lun: 00
 
 # Iterate klist_devices
 def klistAll(klist):
-    return readSUListFromHead(klist.k_list, "n_node", "struct klist_node")
+    try:
+        return readSUListFromHead(klist.k_list, "n_node", "struct klist_node")
+    except KeyError:
+        return readSUListFromHead(klist.list, "n_node", "struct klist_node")
 
-scsi_device_types = readSymbol("scsi_device_types")
+try:
+    scsi_device_types = readSymbol("scsi_device_types")
+except TypeError:
+    loadModule("scsi_mod")
+    try:
+        scsi_device_types = readSymbol("scsi_device_types")
+    except TypeError:
+        print("+++Cannot find symbolic info for <scsi_device_types>")
+        print("   Put 'scsi_mod' debuginfo file into current directory")
+        sys.exit(0)
 
 def scsi_device_type(t):
     if (t == 0x1e):
@@ -59,15 +71,23 @@ def scsi_device_type(t):
 
 def get_SCSI_devices():
     scsi_bus_type = readSymbol("scsi_bus_type")
-    klist_devices = scsi_bus_type.p.klist_devices
+    # Structures are different on different kernels
+    try:
+        klist_devices = scsi_bus_type.p.klist_devices
+    except KeyError:
+        klist_devices = scsi_bus_type.klist_devices
     scsi_dev_type = sym2addr("scsi_dev_type")
 
     out = []
     for knode in klistAll(klist_devices):
-        dev = container_of(knode, "struct device_private", "knode_bus").device
-        
-        if (dev.type == scsi_dev_type):
-            out.append(container_of(dev, "struct scsi_device", "sdev_gendev"))
+        if (struct_exists("struct device_private")):
+            dev = container_of(knode, "struct device_private", "knode_bus").device
+            if (dev.type != scsi_dev_type):
+                continue
+        else:
+            dev = container_of(knode, "struct device", "knode_bus")
+        #print(dev)        
+        out.append(container_of(dev, "struct scsi_device", "sdev_gendev"))
     return out
    
 def print_SCSI_devices(v=0):   
@@ -78,7 +98,7 @@ def print_SCSI_devices(v=0):
         print("Host: scsi{} Channel: {:02} Id: {:02} Lun: {:02}".format(
             sdev.host.host_no, sdev.channel, sdev.id, sdev.lun))
         print("  Vendor: {:8} Model: {:16} Rev: {:4}".format(
-            sdev.vendor[:8], sdev.model[:16], sdev.rev))
+            sdev.vendor[:8], sdev.model[:16], sdev.rev[:4]))
         print("  Type:   {}                ANSI  SCSI revision: {:02x}".format(
             scsi_device_type(sdev.type),  sdev.scsi_level - (sdev.scsi_level > 1)))
         
