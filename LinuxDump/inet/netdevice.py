@@ -553,14 +553,12 @@ def tg3_get_stats(priv):
         except TypeError:
             print (tg3_warning)
             return None
-
     stats = tg3.net_stats
     old_stats = tg3.net_stats_prev
     if (debug):
         print ("hw_stats=0x%x" % tg3.hw_stats)
     hw_stats = Deref(tg3.hw_stats)
     if (hw_stats == 0):
-        delModule("tg3")
         return old_stats
 
     stats.rx_packets = old_stats.rx_packets + \
@@ -615,7 +613,6 @@ def tg3_get_stats(priv):
     
     stats.rx_missed_errors = old_stats.rx_missed_errors + \
                              get_stat64(hw_stats.rx_discards)
-    delModule("tg3")
     return stats
 
 
