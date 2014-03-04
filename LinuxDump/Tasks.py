@@ -540,7 +540,7 @@ __sts = "struct task_struct"
 # visible to the other tasks in the system.
 
 
-structSetAttr(__sts, "Uid", ["uid", "real_cred.uid"])
+structSetAttr(__sts, "Uid", ["uid", "real_cred.uid.val", "real_cred.uid"])
 structSetAttr(__sts, "User", ["user", "real_cred.user"])
 
 # Print tasks summary and return the total number of threads
