@@ -146,6 +146,8 @@ def check_request_queue(rqueue):
     lq = len(ListHead(rqueue.queue_head))
     if rqueue.hasField("rqs"):
         count = rqueue.rqs[0] + rqueue.rqs[1]
+    elif rqueue.hasField("nr_rqs"):
+        count = rqueue.nr_rqs[0] + rqueue.nr_rqs[1]
     elif (rqueue.hasField("rq")):
         rq_list = rqueue.rq
         count = rq_list.count[0] + rq_list.count[1]
