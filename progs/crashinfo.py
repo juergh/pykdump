@@ -1087,6 +1087,8 @@ def print_blkreq(header = None):
     sfree = None
     for i, a in enumerate(alloc+free):
         rq = readSU("struct request", a)
+        if (not rq.bio):
+            continue
         try:
             rqs = decode_request(rq)
             if (rqs):

@@ -1,10 +1,9 @@
 # -*- coding: utf-8 -*-
 # module LinuxDump.Dev
 #
-# Time-stamp: <13/07/29 16:14:16 alexs>
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
 #
 # Author: Alex Sidorenko <asid@hp.com>
 #
@@ -92,6 +91,75 @@ def get_blkdev_tables():
         for major in _all_bdevs.keys():
             _all_bdevs[major] = sorted(_all_bdevs[major])
 
+
+# Get minor/gendisk/block_device for a given major
+def get_bd_gd(major):
+    count_all = 0
+    
+    out = []
+    # For devices in this table, we know all three things:
+    # minor, gendisk,blockdevice
+    for minor, bd in _all_bdevs[major]:
+        gd = bd.bd_disk
+        #print(gd)
+        if (gd):
+            count_all += 1
+            out.append((minor, bd, gd))
+            continue
+
+    if (not count_all):
+        # Here we can get gendisk but not blockdevice
+        for gd in _bdev_map[major]:
+            out.append((None, None, gd))
+            continue
+            bdops = addr2sym(gd.fops)
+    return out
+
+def get_requestqueue(bd, gd):
+    bd_queue = None
+    if (not bd):
+        try:
+            bd_queue = gd.queue
+        except:
+            pass
+    else:
+        try:
+            if (bd.hasField("bd_queue")):
+                bd_queue = bd.bd_queue
+            else:
+                bd_queue = bd.bd_disk.queue 
+        except:
+            pass
+    return bd_queue
+
+def get_request_queues():
+    get_blkdev_tables()
+    qlist = {}
+    for major in sorted(_major_names.keys()):
+        for minor, bd, gd in get_bd_gd(major):
+            bd_queue = get_requestqueue(bd, gd)
+            qlist[bd_queue] = (bd, gd)
+    return qlist
+
+# Check whether there is anything interesting on this request_queue
+def check_request_queue(rqueue):
+    lq = len(ListHead(rqueue.queue_head))
+    if rqueue.hasField("rqs"):
+        count = rqueue.rqs[0] + rqueue.rqs[1]
+    elif (rqueue.hasField("rq")):
+        rq_list = rqueue.rq
+        count = rq_list.count[0] + rq_list.count[1]
+    else:
+        count = None
+    try:
+        in_flight = rqueue.in_flight[0] + rqueue.in_flight[1]
+    except TypeError:
+        in_flight = rqueue.in_flight
+    
+    return(lq, in_flight, count)
+    
+# ********************************************************************
+
 class listTextWrapper(textwrap.TextWrapper):
     #wordsep_simple_re = re.compile(r'(,)')
     wordsep_re =  re.compile(r'(,)')
@@ -115,34 +183,16 @@ def stripStructName(sname):
     return '<' + str(sname)[8:]
 
 
+
+
 def print_blkdevs(v=0):
     get_blkdev_tables()
     # Print 
     for major in sorted(_major_names.keys()):
         
         print('{:3}  {:16}'.format(major, _major_names[major]),end='')
-
-        count_all = 0
-        gd0 = None
-        
-        out = []
-        # For devices in this table, we know all three things:
-        # minor, gendisk,blockdevice
-        for minor, bd in _all_bdevs[major]:
-            gd = bd.bd_disk
-            #print(gd)
-            if (gd):
-                count_all += 1
-                out.append((minor, bd, gd))
-                continue
-
-        if (not count_all):
-            # Here we can get gendisk but not blockdevice
-            for gd in _bdev_map[major]:
-                out.append((None, None, gd))
-                continue
-                bdops = addr2sym(gd.fops)
-                
+      
+        out = get_bd_gd(major)
              
         if (v == 0):
             if (len(out)):
@@ -151,18 +201,32 @@ def print_blkdevs(v=0):
                 print(" {} fops={}".format(gd0, bdops))
             else:
                 print("")
-        elif (v == 1):
+        elif (v >= 1):
             print("")
             for (minor, bd, gd) in out:
+                bd_queue = get_requestqueue(bd, gd)
                 if (minor == None):
-                    # gendisk only
+                    # gendisk only - both minor and bd are None
                     print('    first_minor={:<4d}   {} {}'.format(gd.first_minor, 
                                                             gd.disk_name, gd))
                 else:
-                     print('   {:3d} {:5} {} {}'.format(minor, gd.disk_name, 
+                    print('   {:3d} {:5} {} {}'.format(minor, gd.disk_name, 
                                                     stripStructName(bd),
-                                                    stripStructName(gd)))                   
-                     
+                                                    stripStructName(gd)))
+                                 
+                if (v > 0 and bd_queue):
+                    # Print request queue length (if they are available)
+                    #
+                    # request queue can be either bd.bd_queue or 
+                    # bd.bd_disk.queue but if we know gendisk we can just do
+                    # gd.queue
+                        
+                    lq, in_flight, count = check_request_queue(bd_queue)
+
+                    if (v > 1 or (lq or in_flight or count)):
+                        print ("         {}  Len={} in_flight={} count={}".format(
+                            bd_queue, lq, in_flight, count))
+
                       
         continue
                 
