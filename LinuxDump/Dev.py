@@ -34,6 +34,7 @@ from collections import namedtuple, defaultdict, Counter
 import textwrap
 from textwrap import TextWrapper
 
+# Pretty-printing
 class listTextWrapper(textwrap.TextWrapper):
     #wordsep_simple_re = re.compile(r'(,)')
     wordsep_re =  re.compile(r'(,)')
@@ -152,81 +153,6 @@ def get_bd_gd(major):
             bdops = addr2sym(gd.fops)
     return out
 
-<<<<<<< HEAD
-=======
-def get_requestqueue(bd, gd):
-    bd_queue = None
-    if (not bd):
-        try:
-            bd_queue = gd.queue
-        except:
-            pass
-    else:
-        try:
-            if (bd.hasField("bd_queue")):
-                bd_queue = bd.bd_queue
-            else:
-                bd_queue = bd.bd_disk.queue 
-        except:
-            pass
-    return bd_queue
-
-def get_request_queues():
-    get_blkdev_tables()
-    qlist = {}
-    for major in sorted(_major_names.keys()):
-        for minor, bd, gd in get_bd_gd(major):
-            bd_queue = get_requestqueue(bd, gd)
-            qlist[bd_queue] = (bd, gd)
-    return qlist
-
-# Check whether there is anything interesting on this request_queue
-def check_request_queue(rqueue):
-    lq = len(ListHead(rqueue.queue_head))
-    if rqueue.hasField("rqs"):
-        count = rqueue.rqs[0] + rqueue.rqs[1]
-    elif rqueue.hasField("nr_rqs"):
-        count = rqueue.nr_rqs[0] + rqueue.nr_rqs[1]
-    elif (rqueue.hasField("rq")):
-        rq_list = rqueue.rq
-        count = rq_list.count[0] + rq_list.count[1]
-    else:
-        count = None
-    try:
-        in_flight = rqueue.in_flight[0] + rqueue.in_flight[1]
-    except TypeError:
-        in_flight = rqueue.in_flight
-    
-    return(lq, in_flight, count)
-    
-# ********************************************************************
-
-class listTextWrapper(textwrap.TextWrapper):
-    #wordsep_simple_re = re.compile(r'(,)')
-    wordsep_re =  re.compile(r'(,)')
-
-
-def list_fill(text, width=70, **kwargs):
-    """Fill a single paragraph of text, returning a new string.
-
-    Reformat the single paragraph in 'text' to fit in lines of no more
-    than 'width' columns, and return a new string containing the entire
-    wrapped paragraph.  As with wrap(), tabs are expanded and other
-    whitespace characters converted to space.  See TextWrapper class for
-    available keyword args to customize wrapping behaviour.
-    """
-    w = listTextWrapper(width=width, **kwargs)
-    return w.fill(text)
-
-
-# To save space, we print <sname addr> instead of <struct sname addr>
-def stripStructName(sname):
-    return '<' + str(sname)[8:]
-
-
-
-
->>>>>>> 8f9f06d2c201fb87dd497893841232a1b74d037f
 def print_blkdevs(v=0):
     get_blkdev_tables()
     # Print 
