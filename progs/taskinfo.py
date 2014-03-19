@@ -176,7 +176,7 @@ def printTaskDetails(t):
     print("   --- Accounting Info")
     while(ca):
         print("       ", ca, repr(ca.cpuusage))
-        cpuusage = percpu.percpu_ptr(ca.cpuusage, cpu)
+        cpuusage = percpu.percpu_ptr(ca.cpuusage, t.cpu)
         print("       ", repr(cpuusage), Deref(cpuusage))
         ca = ca.parent
   

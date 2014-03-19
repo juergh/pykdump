@@ -26,14 +26,52 @@ This is a package providing generic access to block devices
 '''
 
 from pykdump.API import *
-from LinuxDump.percpu import percpu_ptr
+from LinuxDump.percpu import percpu_ptr, get_cpu_var
 
 import re
-from collections import namedtuple, defaultdict
+from collections import namedtuple, defaultdict, Counter
 
 import textwrap
 from textwrap import TextWrapper
 
+class listTextWrapper(textwrap.TextWrapper):
+    #wordsep_simple_re = re.compile(r'(,)')
+    wordsep_re =  re.compile(r'(,)')
+
+
+def list_fill(text, width=70, **kwargs):
+    """Fill a single paragraph of text, returning a new string.
+
+    Reformat the single paragraph in 'text' to fit in lines of no more
+    than 'width' columns, and return a new string containing the entire
+    wrapped paragraph.  As with wrap(), tabs are expanded and other
+    whitespace characters converted to space.  See TextWrapper class for
+    available keyword args to customize wrapping behaviour.
+    """
+    w = listTextWrapper(width=width, **kwargs)
+    return w.fill(text)
+
+
+# To save space, we print <sname addr> instead of <struct sname addr>
+def stripStructName(sname):
+    return '<' + str(sname)[8:]
+
+def __j_delay(ts, jiffies):
+    v = (jiffies - ts) & INT_MASK
+    if (v > INT_MAX):
+        v = "     n/a"
+    elif (v > HZ*3600*20):
+        v = ">20hours"
+    else:
+        v = "%8.2f s" % (float(v)/HZ)
+    return v
+
+
+# ***************************************************************************
+#
+#      Block Devices and Gendisks code
+#
+# ***************************************************************************
 
 # Decode dev_t
 # major, minor = decode_devt(dev)
@@ -48,7 +86,6 @@ def decode_devt(dev):
         minor = dev & 0xff
     return (int(major), int(minor))
 
-# ================= Block Device Tables =================
 
 # Declare global tables - to be used explicitly in this module only
 _bdev_map = defaultdict(list)
@@ -114,76 +151,6 @@ def get_bd_gd(major):
             continue
             bdops = addr2sym(gd.fops)
     return out
-
-def get_requestqueue(bd, gd):
-    bd_queue = None
-    if (not bd):
-        try:
-            bd_queue = gd.queue
-        except:
-            pass
-    else:
-        try:
-            if (bd.hasField("bd_queue")):
-                bd_queue = bd.bd_queue
-            else:
-                bd_queue = bd.bd_disk.queue 
-        except:
-            pass
-    return bd_queue
-
-def get_request_queues():
-    get_blkdev_tables()
-    qlist = {}
-    for major in sorted(_major_names.keys()):
-        for minor, bd, gd in get_bd_gd(major):
-            bd_queue = get_requestqueue(bd, gd)
-            qlist[bd_queue] = (bd, gd)
-    return qlist
-
-# Check whether there is anything interesting on this request_queue
-def check_request_queue(rqueue):
-    lq = len(ListHead(rqueue.queue_head))
-    if rqueue.hasField("rqs"):
-        count = rqueue.rqs[0] + rqueue.rqs[1]
-    elif (rqueue.hasField("rq")):
-        rq_list = rqueue.rq
-        count = rq_list.count[0] + rq_list.count[1]
-    else:
-        count = None
-    try:
-        in_flight = rqueue.in_flight[0] + rqueue.in_flight[1]
-    except TypeError:
-        in_flight = rqueue.in_flight
-    
-    return(lq, in_flight, count)
-    
-# ********************************************************************
-
-class listTextWrapper(textwrap.TextWrapper):
-    #wordsep_simple_re = re.compile(r'(,)')
-    wordsep_re =  re.compile(r'(,)')
-
-
-def list_fill(text, width=70, **kwargs):
-    """Fill a single paragraph of text, returning a new string.
-
-    Reformat the single paragraph in 'text' to fit in lines of no more
-    than 'width' columns, and return a new string containing the entire
-    wrapped paragraph.  As with wrap(), tabs are expanded and other
-    whitespace characters converted to space.  See TextWrapper class for
-    available keyword args to customize wrapping behaviour.
-    """
-    w = listTextWrapper(width=width, **kwargs)
-    return w.fill(text)
-
-
-# To save space, we print <sname addr> instead of <struct sname addr>
-def stripStructName(sname):
-    return '<' + str(sname)[8:]
-
-
-
 
 def print_blkdevs(v=0):
     get_blkdev_tables()
@@ -564,5 +531,319 @@ def print_gendisk(v = 1):
         
         if (v < 2):
             continue
+
+
+# ***************************************************************************
+#
+#      Requests and request queues code
+#
+# ***************************************************************************
+
+try:
+# Decode cmd_flags using "enum rq_flag_bits"  from include/linux/blk_types.h
+# Bits are defined as 1<<enumval
+
+    __RQ_FLAG_bits = EnumInfo("enum rq_flag_bits")
+    # Convert it to proper bits
+    __RQ_FLAG_realbits = {k[6:]: 1<<v for k,v in __RQ_FLAG_bits.items()}
+
+    def is_request_WRITE(rq):
+        return (rq.Flags & __RQ_FLAG_realbits["WRITE"])
+except TypeError:
+    # Old kernels
+    __RQ_FLAG_realbits = {}
+    for bit, s in enumerate(readSymbol("rq_flags")):
+        __RQ_FLAG_realbits[str(s)[4:]] = 1<<bit
+    
+    def is_request_WRITE(rq):
+        return (rq.Flags & __RQ_FLAG_realbits["RW"])
+
+def decode_cmd_flags(f):
+    return dbits2str(f, __RQ_FLAG_realbits)
+
+def is_request_STARTED(rq):
+    return (rq.Flags & __RQ_FLAG_realbits["STARTED"])
+
+
+
+structSetAttr("struct request", "Flags", ["flags", "cmd_flags"])
+
+
+def get_requestqueue(bd, gd):
+    bd_queue = None
+    if (not bd):
+        try:
+            bd_queue = gd.queue
+        except:
+            pass
+    else:
+        try:
+            if (bd.hasField("bd_queue")):
+                bd_queue = bd.bd_queue
+            else:
+                bd_queue = bd.bd_disk.queue 
+        except:
+            pass
+    return bd_queue
+
+def get_request_queues():
+    get_blkdev_tables()
+    qlist = {}
+    for major in sorted(_major_names.keys()):
+        for minor, bd, gd in get_bd_gd(major):
+            bd_queue = get_requestqueue(bd, gd)
+            qlist[bd_queue] = (bd, gd)
+    return qlist
+
+# Check whether there is anything interesting on this request_queue
+def check_request_queue(rqueue):
+    lq = len(ListHead(rqueue.queue_head))
+    if rqueue.hasField("rqs"):
+        count = rqueue.rqs[0] + rqueue.rqs[1]
+    elif (rqueue.hasField("rq")):
+        rq_list = rqueue.rq
+        count = rq_list.count[0] + rq_list.count[1]
+    else:
+        count = None
+    try:
+        in_flight = rqueue.in_flight[0] + rqueue.in_flight[1]
+    except TypeError:
+        in_flight = rqueue.in_flight
+    
+    return(lq, in_flight, count)
+
+# ................................................................
+#define RQ_INACTIVE             (-1)
+#define RQ_ACTIVE               1
+#define RQ_SCSI_BUSY            0xffff
+#define RQ_SCSI_DONE            0xfffe
+#define RQ_SCSI_DISCONNECTING   0xffe0
+
+# Sanity check. We retirn None if everything's fine, 
+# otherwise a string withmoer details
+def is_request_BAD(rq):
+    if (not rq.bio):
+        return "rq.bio = NULL"
+    # Do we have rq_status? If yes, is it reasonable?
+    try:
+        rq_status = rq.rq_status
+        if (rq_status <= 0 or not rq_status in (1, 0xffff, 0xfffe, 0xffe0)):
+            return "bad rq_status"
+    except KeyError:
+        pass
+    
+    # If cmd_len exists but is too high, this is not a 
+    # valid structure
+    try:
+        if (rq.cmd_len > 16):
+            return "rq.cmd_len > 16"   
+        rq_disk = rq.rq_disk
+        if (not rq_disk):
+            return "bad rq.rq_disk"
+    except KeyError:
+        pass
+    
+    if (not rq.q):
+        return "rq.q=0"
+    try:
+        # Try to dereference the queue
+        head = rq.q.queue_head.next
+    except crash.error:
+        return "bogus rq.q"
+  
+    return None
+    
+# On different kernels we have different fields. As we mainly use this
+# function on pointers from slab/allocated, there can be bogus pointers
+# Do not print them
+
+
+def decode_request(rq, v = 0):
+    out = []
+    out.append("    " + str(rq))
+    # Do not decode 'bad' structures
+    ifbad = is_request_BAD(rq)
+    if (ifbad):
+        return "   {} BAD: {}".format(str(rq), ifbad)
+    # Do we have rq_status? If yes, is it reasonable?
+    try:
+        rq_status = rq.rq_status
+        out.append("rq_status=0x%x" % rq_status)
+    except KeyError:
+        pass
+    try:
+        rq_dev = rq.rq_dev
+        (major, minor) = decode_devt(rq_dev)
+        out.append("rq_dev=0x%x major=%d minor=%d" % \
+           (rq.rq_dev, major, minor))
+    except KeyError:
+        pass
+    
+
+    try:
+        rq_disk = rq.rq_disk
+        out.append("\n\tdisk_name=%s major=%d" % \
+           (rq_disk.disk_name,rq_disk.major))
+    except KeyError:
+        pass
+    
+    try:
+        q = rq.q
+    except KeyError:
+        pass
+    try:
+        cmd_flags = rq.cmd_flags
+        ref_count = rq.ref_count
+        atomic_flags  = rq.atomic_flags
+        special = rq.special
+        if (v > 1):
+            out.append("cmd_flags=0x%x, ref_count=%d" %\
+            (cmd_flags, ref_count))
+            if (atomic_flags == 1):
+                out.append("\n        atomic_flags=0x%x" % atomic_flags)
+            if (special):
+                scsi = readSU("struct scsi_cmnd", special)
+                out.append("\n        special=0x%x %s" % (special, str(scsi)))
+
+    except KeyError:
+        pass
+    
+    if (v > 1):
+        out.append("\n " + decode_cmd_flags(rq.Flags))        
+    ran_ago = __j_delay(rq.start_time, readSymbol("jiffies"))
+    out.append("\n\tstarted %s ago" % ran_ago)
+    return ", ".join(out)    
+# ********************************************************************
+
+# Print stuff from block/blk-softirq.c
+def print_blk_cpu_done(v = 0):
+    total = 0
+    out = []
+    for cpu, val in enumerate(get_cpu_var("blk_cpu_done")):
+        lh = ListHead(val, "struct request")
+        if (not len(lh)):
+            continue
+        total += len(lh)
+        if (v > 0):
+            out.append("   CPU={} Len={}".format(cpu, len(lh)))
+        if (v > 1):
+            for r in lh.csd:
+                out.append("   {}".format(str(r)))
+    if (total or v >= 0):
+        print (" -- Requests on blk_cpu_done:    Count={}".format(total))
+        if (v > 0 and total):
+            print("\n".join(out))
+    return total
+
+# Analyze 'request_queue' lists. Print the results and return t_count
+# (to compare it with heuristics from slabs)
+
+def print_request_queues(v=0):
+    qlist = get_request_queues()
+
+    t_in = t_count = 0
+    out = []
+    hl = '-'*70
+    for bd_queue, (bd, gd) in qlist.items():
+        lq, in_flight, count = check_request_queue(bd_queue)
+        if (lq or in_flight or count):
+            t_in += in_flight
+            t_count += count
+            oa = []
+            if (v):
+                oa.append("{:<16s} count={:<4d} in_flight={:<4d}".\
+                    format(gd.disk_name, count, in_flight))
+                if (v > 1):
+                    oa.append("  {}  {}".format(str(bd_queue), str(gd)))
+                    oa.append(hl)
+                out.append("\n".join(oa))
+  
+    # If v=-1 and we did not found any outstanding requests, don't print anything
+    lout = len(out)
+    if (v < 0 and lout == 0):
+        return 0
+    print(" -- Request Queues Analysis:     Count={}, in_flight={}".format(t_count, t_in))
+    if (lout):
+        if (v > 1):
+            print(hl)
+        if (v > 0):
+            print("\n".join(sorted(out)))
+    return t_count
+
+# Heuristcis: find requests allocated on SLAB
+def print_request_slab(v):    
+    # Requests allocated on SLAB
+    from LinuxDump.Slab import get_slab_addrs
+    # WARNING: on some kernels (e.g. Ubuntu/Hardy, 2.6.24)
+    # blkdev_requests is mapped to a general slab.
+    # E.g. when struct request has size 188, it goes into "kmalloc-192"
+    # 
+    try:
+        name = readSymbol("request_cachep").name
+    except:
+        name = "blkdev_requests"
+    try:
+        (alloc, free) = get_slab_addrs(name)
+    except crash.error as val:
+        print (val)
+        return
+    rqlist = []
+    jiffies = readSymbol("jiffies")
+    f_started = 0
+    f_write = 0
+    cmd_stats = Counter()
+    for rqa in alloc:
+        rq = readSU("struct request", rqa)
+        #bad = is_request_BAD(rq)
+        #print(rq, hexl(rq.Flags), bad)
+        if (is_request_BAD(rq)):
+            continue
+        if (is_request_STARTED(rq)):
+            f_started += 1
+        if (is_request_WRITE(rq)):
+            f_write += 1
+        ran_ago = (jiffies - rq.start_time) & INT_MASK
+ 
+        cmd_stats[decode_cmd_flags(rq.Flags)] += 1
+        rqlist.append((ran_ago, rq))
+    
+    # Sort by ran ago - newest first
+    rqlist = sorted(rqlist)
+    totreq = len(rqlist)
+
+    if (totreq or v >= 0):
+        print(" -- Requests from SLAB Analysis: Count={}, STARTED={} WRITE={}".\
+            format(totreq, f_started, f_write))
+    if (totreq):
+        newest = rqlist[0][0]
+        oldest = rqlist[-1][0]
+
+        print("      -- Since started: newest {:8.2f}s,  oldest {:8.2f}s".\
+            format(float(newest)/HZ, float(oldest)/HZ))
+
+
+        if (v < 0):
+            pylog.warning("there are outstanding blk_dev requests")
+    
+    if (v < 1):
+        return
+    for ts, rq in rqlist:
+        try:
+            rqs = decode_request(rq, v)
+        except crash.error:
+            rqs = str(rq) + " is BAD"
+        print(rqs)
+     
+    # Print stats for cmd flags
+    if (totreq):
+        print ("  -- Summary of flags combinations")
+        out = []
+        for k, val in cmd_stats.items():
+            out.append("{:4d} {}".format(val, k))
+        # Now sort and print
+        for s in sorted(out):
+            print(s)
+
+    return totreq
         
         

@@ -30,14 +30,17 @@ from LinuxDump.inet import summary
 import LinuxDump.inet.netdevice as netdevice
 from LinuxDump import percpu, sysctl, Dev
 from LinuxDump.KernLocks import decode_mutex
-from LinuxDump.Dev import print_dm_devices, print_gendisk
-
+from LinuxDump.Dev import print_dm_devices, print_gendisk, decode_cmd_flags, \
+        print_request_slab, print_request_queues, print_blk_cpu_done
+    
 from LinuxDump import percpu
+from LinuxDump.Time import j_delay
 
 
 import sys
 from stat import *
 from optparse import OptionParser
+from collections import Counter
 
 # Python2 vs Python3
 _Pym = sys.version_info[0]
@@ -840,15 +843,7 @@ def print_args5():
         if (len(spr) > 79):
             print ("")
 
-def __j_delay(ts, jiffies):
-    v = (jiffies - ts) & INT_MASK
-    if (v > INT_MAX):
-        v = "     n/a"
-    elif (v > HZ*3600*20):
-        v = ">20hours"
-    else:
-        v = "%8.1f s" % (float(v)/HZ)
-    return v
+
 
 
 # ................................................................
@@ -925,78 +920,7 @@ def check_UNINTERRUPTIBLE():
             print ('   ... ran %ds ago' % r)
             print (bt)
 
-# ................................................................
-#define RQ_INACTIVE             (-1)
-#define RQ_ACTIVE               1
-#define RQ_SCSI_BUSY            0xffff
-#define RQ_SCSI_DONE            0xfffe
-#define RQ_SCSI_DISCONNECTING   0xffe0
 
-# On different kernels we have different fields. As we mainly use this
-# function on pointers from slab/allocated, there can be bogus pointers
-# Do not print them
-
-def decode_request(rq):
-    out = []
-    out.append("    " + str(rq))
-    # Do we have rq_status? If yes, is it reasonable?
-    try:
-        rq_status = rq.rq_status
-        if (rq_status <= 0 or not rq_status in (1, 0xffff, 0xfffe, 0xffe0)):
-            return
-        out.append("rq_status=0x%x" % rq_status)
-    except KeyError:
-        pass
-    try:
-        rq_dev = rq.rq_dev
-        (major, minor) = decode_devt(rq_dev)
-        out.append("rq_dev=0x%x major=%d minor=%d" % \
-           (rq.rq_dev, major, minor))
-    except KeyError:
-        pass
-    
-
-    try:
-        # If cmd_len is too high, this is not a 
-        # valid structure
-        if (rq.cmd_len > 16):
-            return      
-        rq_disk = rq.rq_disk
-        if (not rq_disk):
-            return
-        out.append("\n\tdisk_name=%s major=%d" % \
-           (rq_disk.disk_name,rq_disk.major))
-    except KeyError:
-        pass
-    
-    try:
-        q = rq.q
-        if (not q):
-            return
-    except KeyError:
-        pass
-    try:
-        in_flight = rq.q.in_flight
-        cmd_flags = rq.cmd_flags
-        ref_count = rq.ref_count
-
-        # On recent kernels in_flight is an array with two elements,
-        # one counter for sync and another one for non-sync
-        try:
-            in_flight = in_flight[0] + in_flight[1]
-        except TypeError:
-            pass
-        if (in_flight == 0):
-            return
-
-        out.append("in_flight=%d, cmd_flags=0x%x, ref_count=%d" %\
-           (in_flight, cmd_flags, ref_count))
-    except KeyError:
-        pass
-        
-    ran_ago = __j_delay(rq.start_time, readSymbol("jiffies"))
-    out.append("\n\tstarted %s ago" % ran_ago)
-    return ", ".join(out)
 
 #  Decode wait_queue_head_t - similar to 'waitq' crash command.
 # Returns a list of 'struct task_struct'
@@ -1064,71 +988,20 @@ def decode_semaphore_old(semaddr):
         print ("\t%8d  %s" % (pid, comm))        
 
 
-
         
-# WARNING: on some kernels (e.g. Ubuntu/Hardy, 2.6.24)
-# blkdev_requests is mapped to a general slab.
-# E.g. when struct request has size 188, it goes into "kmalloc-192"
-# 
-
-def print_blkreq(header = None):
-    from LinuxDump.Slab import get_slab_addrs
-    try:
-        name = readSymbol("request_cachep").name
-    except:
-        name = "blkdev_requests"
-    try:
-        (alloc, free) = get_slab_addrs(name)
-    except crash.error as val:
-        print (val)
-        return
-    out = []
-    lalloc = len(alloc)
-    sfree = None
-    for i, a in enumerate(alloc+free):
-        rq = readSU("struct request", a)
-        if (not rq.bio):
-            continue
-        try:
-            rqs = decode_request(rq)
-            if (rqs):
-                if (a in alloc):
-                    rqs = "+" + rqs
-                else:
-                    rqs = '-' + rqs
-                if (sfree == None and i >= lalloc):
-                    sfree = len(out)
-                out.append(rqs)
-        except crash.error:
-            pass
-    if (out):
-        if (header):
-            print (header)
-        else:
-           pylog.warning("there are outstanding blk_dev requests")
-        print (lalloc,len(free), sfree)
-        # Insert alloc/free headers
-        if (sfree == 0):
-            # No alloc, just free
-            print ("  ===== Free List")
-        else:
-            print ("  ===== Allocated List")
-            if (sfree):
-                out.insert(sfree, "  ===== Free List")
-        print ("\n".join(out))
         
-# Decode dev_t
-# major, minor = decode_devt(dev)
-def decode_devt(dev):
-    if (dev >>16):
-        # New-style
-        major = dev >> 20
-        minor = dev ^ (major<<20)
-    else:
-        # Old-style
-        major = dev >>8
-        minor = dev & 0xff
-    return (major, minor)
+# Print status of block requests ('struct request') found in different ways.
+# If v=0, print a summary only
+
+def print_blkreq(v=0):
+    # Request Queues per block_device
+    print_request_queues(v)
+    
+    # Waiting for softirq processing on blk_cpu_done
+    print_blk_cpu_done(v)
+    
+    print_request_slab(v)
+
 
 # Find stacks with functions matching the specified pattern
 def find_stacks(pattern):
@@ -1380,7 +1253,9 @@ if (o.kblockdwq):
     sys.exit(0)
     
 if (o.Blkreq):
-    print_blkreq(" ---- Outstanding blk_dev Requests -----")
+    if (verbose == 4):
+        verbose = -1
+    print_blkreq(verbose)
     sys.exit(0)
     
 if (o.Blkdevs):
@@ -1475,8 +1350,7 @@ check_spinlocks()
 check_mem()
 
 # Tests that make sense for non-panic situations
-if (not Panic):
-    print_blkreq()
+print_blkreq(-1)
 
 # Check gendisk structures
 print_gendisk(0)
