@@ -648,6 +648,8 @@ def is_request_BAD(rq):
     
     if (not rq.q):
         return "rq.q=0"
+    if (long(rq.q)%4 != 0):
+        return "rq.q unaligned"
     try:
         # Try to dereference the queue
         head = rq.q.queue_head.next

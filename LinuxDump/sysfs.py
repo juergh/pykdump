@@ -54,34 +54,6 @@ def decode_sysfs_dirent_311(sd):
         attr = '?{}'.format(stype)
     return (name, attr)
 
-# Iterate over all entries in sysfs_dirent
-
-def for_all_dirents_311(sd):
-    root = sd.s_dir.children
-    return for_all_rbtree(root, "struct sysfs_dirent", "s_rb")
-
-# Parent directory
-def sysfs_parent_311(sd):
-    return sd.s_parent
-
-def sysfs_parent_2618(sd):
-    if (not sd.s_dentry):
-        return None
-    parent_dentry = sd.s_dentry.d_parent
-    sdaddr = parent_dentry.d_fsdata
-    return readSU("struct sysfs_dirent",  sdaddr)
-    
-
-
-def for_all_dirents_2632(sd):
-    root = sd.s_dir.inode_tree
-    return for_all_rbtree(root, "struct sysfs_dirent", "inode_node")
-
-def for_all_dirents_2618(sd):
-    s_children = ListHead(sd.s_children, "struct sysfs_dirent")
-    for sd in s_children.s_sibling:
-        yield sd
-
 def decode_sysfs_dirent_2632(sd):
     s_type = sd.s_type
     s_element = sd.s_element
@@ -105,6 +77,41 @@ def decode_sysfs_dirent_2632(sd):
     except KeyError:
         attr = '?{}'.format(s_type)
     return (name, attr)
+
+# Iterate over all entries in sysfs_dirent
+
+def for_all_dirents_311(sd):
+    root = sd.s_dir.children
+    return for_all_rbtree(root, "struct sysfs_dirent", "s_rb")
+
+# Parent directory
+def sysfs_parent_311(sd):
+    return sd.s_parent
+
+def sysfs_parent_2618(sd):
+    if (not sd.s_dentry):
+        return None
+    parent_dentry = sd.s_dentry.d_parent
+    sdaddr = parent_dentry.d_fsdata
+    return readSU("struct sysfs_dirent",  sdaddr)
+    
+
+
+def for_all_dirents_2632(sd):
+    root = sd.s_dir.inode_tree
+    return for_all_rbtree(root, "struct sysfs_dirent", "inode_node")
+
+def for_all_dirents_3080(sd):
+    s_children = sd.s_dir.children
+    return readStructNext(s_children, "s_sibling")
+
+
+def for_all_dirents_2618(sd):
+    s_children = ListHead(sd.s_children, "struct sysfs_dirent")
+    for sd in s_children.s_sibling:
+        yield sd
+
+
 
 
 # ----------------------Generic subroutines, the same for all kernels---
@@ -136,7 +143,7 @@ def sysfs_fullpath(sd):
 
 # Does this dirent describe a block device? Returns name or None
 def blockdev_name(sd):
-    bname = None
+    bname = ""
     try:
         all_dirents = list(for_all_dirents(sd))
     except crash.error:
@@ -169,6 +176,10 @@ def gendev2sd(gendev):
         return None
     return kobj.sd
 
+def gendev2sd_old(gendev):
+    dentry = gendev.kobj.dentry
+    return readSU("struct sysfs_dirent", dentry.d_fsdata)
+
 if (member_size(__sn, "s_rb") != -1):
     # 3.11
     _SYSFS_TYPES = _SYSFS_TYPES_311
@@ -187,9 +198,14 @@ elif (member_size(__sn, "s_children") != -1):
     decode_sysfs_dirent = decode_sysfs_dirent_2632
     for_all_dirents = for_all_dirents_2618
     sysfs_parent = sysfs_parent_2618
-    def gendev2sd(gendev):
-        dentry = gendev.kobj.dentry
-        return readSU("struct sysfs_dirent", dentry.d_fsdata)
+    gendev2sd = gendev2sd_old
+elif (member_size(__sn, "s_sibling") != -1):
+    # SLES11 with 3.0.80
+    _SYSFS_TYPES = _SYSFS_TYPES_311
+    decode_sysfs_dirent = decode_sysfs_dirent_311
+    for_all_dirents = for_all_dirents_3080
+    sysfs_parent = sysfs_parent_311
+    #gendev2sd = gendevsd_old
     
     
 

@@ -106,6 +106,12 @@ def print_SCSI_devices(v=0):
             gendev = sdev.sdev_gendev
             sd = gendev2sd(gendev)
             print(sysfs_fullpath(sd))
-            print(blockdev_name(sd))
-        
+            devname = blockdev_name(sd)
+            busy = sdev.device_busy
+            if (busy == 0):
+                busy = ''
+            else:
+                busy = " busy={}".format(busy)
+            if (devname or busy):
+                print("devname={}{}".format(devname, busy))
     #print ("  ", scsi_dev.host.hostt.name)
