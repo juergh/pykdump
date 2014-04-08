@@ -627,6 +627,13 @@ def check_request_queue(rqueue):
 def is_request_BAD(rq):
     if (not rq.bio):
         return "rq.bio = NULL"
+
+    # Can we dereference bio?
+    try:
+        readS64(rq.bio)
+    except crash.error:
+        return "cannot dereference rq.bio"
+    
     # Do we have rq_status? If yes, is it reasonable?
     try:
         rq_status = rq.rq_status
