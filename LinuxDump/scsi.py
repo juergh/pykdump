@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module LinuxDump.Dev
 #
-# Time-stamp: <14/02/17 16:14:16 alexs>
+# Time-stamp: <14/04/08 12:59:52 alexs>
 #
 # --------------------------------------------------------------------
 # (C) Copyright 2013-2014 Hewlett-Packard Development Company, L.P.
@@ -28,7 +28,7 @@ This is a package providing generic access to SCSI stuff
 
 from pykdump.API import *
 from collections import namedtuple, defaultdict
-
+from LinuxDump.sysfs import *
 
 '''
 Attached devices:
@@ -101,5 +101,11 @@ def print_SCSI_devices(v=0):
             sdev.vendor[:8], sdev.model[:16], sdev.rev[:4]))
         print("  Type:   {}                ANSI  SCSI revision: {:02x}".format(
             scsi_device_type(sdev.type),  sdev.scsi_level - (sdev.scsi_level > 1)))
+
+        if (v > 1):
+            gendev = sdev.sdev_gendev
+            sd = gendev2sd(gendev)
+            print(sysfs_fullpath(sd))
+            print(blockdev_name(sd))
         
     #print ("  ", scsi_dev.host.hostt.name)
