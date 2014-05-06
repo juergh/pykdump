@@ -14,7 +14,7 @@
 # To facilitate migration to Python-3, we start from using future statements/builtins
 from __future__ import print_function
 
-__version__ = "0.8.3"
+__version__ = "0.8.4"
 
 
 from pykdump.API import *

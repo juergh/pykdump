@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # module LinuxDump.inet.proto
-# Time-stamp: <13/07/29 16:00:15 alexs>
+# Time-stamp: <14/05/06 10:53:41 alexs>
 
 # (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
 #
@@ -274,7 +274,7 @@ class IP_conn_tw(IP_sock):
         self.protocol = 6               # Only TCP at this moment
         self.sktype = -1                # This is really not a socket
 
-        self.state = tw.State
+        self.state = tw.state
         self.family = tw.Family
 
         self.sport = ntohs(tw.Sport)
@@ -475,7 +475,9 @@ def init_INET_Stuff():
     # Now copy locals to INET_Stuff
     INET_Stuff.__dict__.update(locals())
 
-def init_PseudoAttrs():
+# Old implementation, will be removed after testing thoroughly
+# the new one
+def init_PseudoAttrs_old():
     sn = "struct sock"
     structSetAttr(sn, "family", "__sk_common.skc_family")
     structSetAttr(sn, "protocol", "sk_protocol")
@@ -517,8 +519,21 @@ def init_PseudoAttrs():
     structSetAttr(sn, "dport", ["inet_dport", "inet.dport",
                                 "sk.__sk_common.skc_dport", "dport"], extra)
 
-    structSetAttr(sn, "Src6", "pinet6.rcv_saddr.in6_u.u6_addr32", extra)
-    structSetAttr(sn, "Dst6", "pinet6.daddr.in6_u.u6_addr32", extra)
+
+    # On 3.13 inet6 rcv_addr is part of sock_common
+    rc = structSetAttr(sn, "Src6", "pinet6.rcv_saddr.in6_u.u6_addr32", extra)
+    if (rc):
+        structSetAttr(sn, "Dst6", "pinet6.daddr.in6_u.u6_addr32", extra)
+    else:
+        # We have been unable to set attribute, try using a different approach
+        structSetAttr("struct sock_common", "Src6",
+                      "skc_v6_rcv_saddr.in6_u.u6_addr32",
+                      [sn] + extra)
+
+        structSetAttr("struct sock_common", "Dst6",
+                      "skc_v6_daddr.in6_u.u6_addr32",
+                      [sn] + extra)
+
 
     structSetAttr(sn, "rcvbuf", "sk.sk_rcvbuf", extra)
     structSetAttr(sn, "sndbuf", "sk.sk_sndbuf", extra)
@@ -587,7 +602,7 @@ def init_PseudoAttrs():
 
     # old-style
     sn = "struct tcp_tw_bucket"
-    structSetAttr(sn, "State", ["__tw_common.skc_state", "state"])
+    structSetAttr(sn, "state", ["__tw_common.skc_state", "state"])
     structSetAttr(sn, "Family", ["__tw_common.skc_family", "family"])
     structSetAttr(sn, "Src", ["tw_rcv_saddr", "rcv_saddr"])
     structSetAttr(sn, "Dst", ["tw_daddr", "daddr"])
@@ -602,9 +617,12 @@ def init_PseudoAttrs():
 
 
     # New-style
+    sn = "struct sock_common"
+    extra = ["struct tcp_timewait_sock", "struct inet_timewait_sock"]
+    #structSetAttr(sn, "Common", "", extra, True)
     sn = "struct tcp_timewait_sock"
-    extra = ["struct inet_timewait_sock"]
-    structSetAttr(sn, "State", "tw_sk.__tw_common.skc_state")
+    # The following attributes are part of 'sock_common'
+    structSetAttr(sn, "state", "tw_sk.__tw_common.skc_state")
     structSetAttr(sn, "Family", "tw_sk.__tw_common.skc_family")
     structSetAttr(sn, "Src",
                   ["tw_sk.tw_rcv_saddr", "tw_sk.__tw_common.skc_rcv_saddr"],
@@ -617,6 +635,7 @@ def init_PseudoAttrs():
     structSetAttr(sn, "Dport",
                   ["tw_sk.tw_dport", "tw_sk.__tw_common.skc_dport"], extra)
 
+    # These two are really TW-specific
     structSetAttr(sn, "Timeout", "tw_sk.tw_timeout")
     structSetAttr(sn, "Ttd", "tw_sk.tw_ttd")
 
@@ -690,6 +709,205 @@ def init_PseudoAttrs():
            structSetProcAttr(sn, "Peer", getPeer26old)
 
         
+def init_PseudoAttrs():
+    # ---
+    struct_sock = AttrSetter("struct sock")
+    struct_sock.family = "__sk_common.skc_family"
+    struct_sock.protocol = "sk_protocol"
+    struct_sock.type = "sk_type"
+    struct_sock.Src = "rcv_saddr"
+    struct_sock.Dst = "daddr"
+    struct_sock.rmem_alloc_counter = "rmem_alloc.counter"
+    struct_sock.wmem_alloc_counter = "wmem_alloc.counter"
+    struct_sock.user_data = "sk_user_data"
+
+    struct_sock.rx_opt = "tp_pinfo.af_tcp"
+    struct_sock.topt ="tp_pinfo.af_tcp"
+    struct_sock.l_opt = "tp_pinfo.af_tcp.listen_opt"
+    struct_sock.accept_queue = "tp_pinfo.af_tcp.accept_queue"
+    struct_sock.uopt = "tp_pinfo.af_udp"
+    struct_sock.rcv_tstamp = "tp_pinfo.af_tcp.rcv_tstamp"
+    struct_sock.lsndtime = "tp_pinfo.af_tcp.lsndtime"
+    struct_sock.Socket = ["socket", "sk_socket"]
+    
+    # Retrans for 2.4 kernels
+    struct_sock.Retransmits = "tp_pinfo.af_tcp.retransmits"
+    struct_sock.CA_state = "tp_pinfo.af_tcp.ca_state"
+
+    # ---
+    inet_sock = AttrSetter("struct inet_sock", "struct tcp_sock",
+                           "struct udp_sock", "struct raw_sock",
+                           "struct unix_sock")
+    
+    inet_sock.family = "sk.__sk_common.skc_family"
+    inet_sock.protocol = "sk_protocol","sk.sk_protocol"
+    inet_sock.type =  ["sl_type", "sk.sk_type"]
+    inet_sock.state = "sk.__sk_common.skc_state"
+
+    inet_sock.Src = ("inet_rcv_saddr", "inet.rcv_saddr", "rcv_saddr",
+                     "sk.__sk_common.skc_rcv_saddr")
+    inet_sock.Dst = ["inet_daddr", "inet.daddr", "daddr",
+                     "sk.__sk_common.skc_daddr"]
+    inet_sock.sport = "inet_sport", "inet.sport", "sport"
+    inet_sock.dport =  ["inet_dport", "inet.dport",
+                        "sk.__sk_common.skc_dport", "dport"]
+
+
+    # On 3.13 inet6 rcv_addr is part of sock_common
+    inet_sock.Src6 = "pinet6.rcv_saddr.in6_u.u6_addr32"
+    if (inet_sock.Src6):
+        inet_sock.Dst6 = "pinet6.daddr.in6_u.u6_addr32"
+    else:
+        # We have been unable to set attribute, try using a different approach
+        inet_sock.Src6 = "SKC.skc_v6_rcv_saddr.in6_u.u6_addr32"
+        inet_sock.Dst6 = "SKC.skc_v6_daddr.in6_u.u6_addr32"
+
+
+    inet_sock.rcvbuf = "sk.sk_rcvbuf"
+    inet_sock.sndbuf = "sk.sk_sndbuf"
+    inet_sock.rmem_alloc_counter = ["sk.sk_rmem_alloc.counter",
+                                    "sk.sk_backlog.rmem_alloc.counter"]
+    inet_sock.wmem_alloc_counter = "sk.sk_wmem_alloc.counter"
+    inet_sock.user_data = "sk.sk_user_data"
+    inet_sock.Socket = "sk.sk_socket"
+
+    # ---  TCP-specific
+    tcp_sock = AttrSetter("struct tcp_sock", "struct inet_sock")
+    tcp_sock.ack_backlog = ["sk.sk_ack_backlog",
+                            "inet_conn.icsk_inet.sk.sk_ack_backlog"]
+    tcp_sock.max_ack_backlog = ["sk.sk_max_ack_backlog",
+                                "inet_conn.icsk_inet.sk.sk_max_ack_backlog"]
+    tcp_sock.accept_queue = ["inet_conn.icsk_accept_queue",
+                             "tcp.accept_queue"]
+                   
+    # Retransmits
+    tcp_sock.Retransmits = ["inet_conn.icsk_retransmits",
+                            "tcp.retransmits"]
+    tcp_sock.CA_state = ["inet_conn.icsk_ca_state",
+                         "tcp.ca_state"]
+    tcp_sock.l_opt = ["inet_conn.icsk_accept_queue.listen_opt",
+                      "tcp.listen_opt"]
+    tcp_sock.rx_opt = ["tcp", "rx_opt"]
+    tcp_sock.rcv_tstamp = ["tcp.rcv_tstamp", "rx_opt.rcv_tstamp"]
+    tcp_sock.lsndtime =  ["tcp.lsndtime", "rx_opt.lsndtime"]
+
+    tcp_sock.Nonagle = "nonagle"
+    #structSetAttr(sn, "rcv_tstamp", "rcv_tstamp")
+    # This is used to access snd_wnd. mss and so on. Should be replaced
+    # by separate pseudoattrs
+    tcp_sock.topt =  ["tcp", ""]
+
+    # --- UDP-specific
+    udp_sock = AttrSetter("struct udp_sock", "struct inet_sock")
+    udp_sock.uopt = "udp", ""
+
+
+    # inet_listen_hashbucket
+    ilsh = AttrSetter("struct inet_listen_hashbucket")
+    ilsh.first = "head.first"
+    
+    # TIME_WAIT sockets
+
+    # old-style
+    twb = AttrSetter("struct tcp_tw_bucket")
+    twb.state = "__tw_common.skc_state", "state"
+    twb.Family = "__tw_common.skc_family", "family"
+    twb.Src = "tw_rcv_saddr", "rcv_saddr"
+    twb.Dst = ["tw_daddr", "daddr"]
+    twb.Sport = ["tw_sport", "sport"]
+    twb.Dport = ["tw_dport", "dport"]
+
+    twb.Timeout = ["tw_timeout", "timeout"]
+    twb.Ttd = ["tw_ttd", "ttd"]
+
+    twb.Src6 = "tw_v6_rcv_saddr.in6_u.u6_addr32"
+    twb.Dst6 = "tw_v6_daddr.in6_u.u6_addr32"
+
+
+    # New-style
+    
+    tws = AttrSetter("struct tcp_timewait_sock", "struct inet_timewait_sock")
+    # The following attributes are part of 'sock_common'
+    tws.state = "SKC.skc_state"
+    tws.Family = "SKC.skc_family"
+    tws.Src =  ["tw_sk.tw_rcv_saddr", "SKC.skc_rcv_saddr"]
+    tws.Dst =  ["tw_sk.tw_daddr","SKC.skc_daddr"]
+    tws.Sport = ["tw_sk.tw_sport","SKC.skc_sport"]
+    tws.Dport = ["tw_sk.tw_dport", "tw_sk.__tw_common.skc_dport"]
+
+    # These two are really TW-specific
+    tws.Timeout = "tw_sk.tw_timeout"
+    tws.Ttd = "tw_sk.tw_ttd"
+
+    # Programmatic attrs
+    def getSrc6(tw):
+        iw = tw.castTo("struct inet_timewait_sock")
+        ipv6_offset = iw.tw_ipv6_offset
+        addr = Addr(iw) + iw.tw_ipv6_offset
+        tw6 = readSU("struct inet6_timewait_sock", addr)
+        src = tw6.tw_v6_rcv_saddr.in6_u.u6_addr32
+        return src
+    def getDst6(tw):
+        iw = tw.castTo("struct inet_timewait_sock")
+        ipv6_offset = iw.tw_ipv6_offset
+        addr = Addr(iw) + iw.tw_ipv6_offset
+        tw6 = readSU("struct inet6_timewait_sock", addr)
+        dst = tw6.tw_v6_daddr.in6_u.u6_addr32
+        return dst
+
+    tws = AttrSetter("struct tcp_timewait_sock", "struct inet_timewait_sock",
+                     "struct tcp6_timewait_sock")
+    tws.Src6 = ["tw_v6_rcv_saddr.in6_u.u6_addr32",
+                "SKC.skc_v6_rcv_saddr.in6_u.u6_addr32", getSrc6]
+    tws.Dst6 = ["tw_v6_daddr.in6_u.u6_addr32",
+                "SKC.skc_v6_daddr.in6_u.u6_addr32", getDst6]
+        
+    # AF_UNIX
+    
+    sn = "struct socket"
+    u_24 = AttrSetter("struct socket")
+    structSetAttr(sn, "Inode", "inode")     # For 2.4
+    structSetAttr(sn, "Ino", "inode.i_ino")     # For 2.4
+    
+    # At this moment "struct socket_alloc" is defined as
+    # struct socket_alloc {
+    #   struct socket socket;
+    #   struct inode vfs_inode;
+    # }
+
+    sn = "struct socket_alloc"
+    extra = ["struct socket"]
+    structSetAttr(sn, "Inode", "vfs_inode", extra)
+    structSetAttr(sn, "Ino", "vfs_inode.i_ino", extra)
+    
+    sn = "struct sock"
+    structSetAttr(sn, "Uaddr", "protinfo.af_unix.addr")
+
+    sn = "struct unix_sock"
+    structSetAttr(sn, "socket", "sk.sk_socket")
+    structSetAttr(sn, "Uaddr", "addr")
+    
+    #Peer:
+    #
+    # #define unix_peer(sk) (unix_sk(sk)->peer)     2.6, unix_sock
+    # #define unix_peer(sk) ((sk)->sk_pair)         2.6.5, unix_sock
+    # #define unix_peer(sk) ((sk)->pair)            2.4, sock 
+    
+    def getPeer26(s):
+        return s.peer.castTo("struct unix_sock")
+    
+    def getPeer26old(s):
+        return s.sk.sk_pair.castTo("struct unix_sock")    
+    
+    if (not structSetAttr("struct sock", "Peer", "pair")):
+        # 2.6
+        sn = "struct unix_sock"
+        if (member_size(sn, "peer") != -1):
+           structSetProcAttr(sn, "Peer", getPeer26)
+        else:
+           structSetProcAttr(sn, "Peer", getPeer26old)
+
+        
 # TCP structures are quite different for 2.4 and 2.6 kernels, it makes sense to
 # have two different versions of code
 
@@ -720,7 +938,7 @@ def get_TCP_LISTEN():
                     yield s
  
 
-def get_TCP_ESTABLISHED():
+def get_TCP_ESTABLISHED(tw=False):
     # ESTABLISHED
     t = INET_Stuff
     if (t.Kernel24):
@@ -734,10 +952,16 @@ def get_TCP_ESTABLISHED():
             yield s
     else:
         # 2.6
+        # On 3.13 TCP_WAIT socks are intermixed with others
         for h, b in getFullBucketsH(t.ehash_addr, t.eb_size, t.ehash_size, t.chain_off):
             for a in inet_sk_for_each(b, h):
                 s = readSU("struct tcp_sock", a)
-                yield s
+                if (s.state == tcpState.TCP_TIME_WAIT):
+                    if (tw):
+                        yield s.castTo("struct tcp_timewait_sock")
+                elif(not tw):
+                    yield s
+
 
 '''
 def get_TCP_ESTABLISHED_debug():
@@ -755,8 +979,8 @@ def get_TCP_ESTABLISHED_debug():
 '''
 #get_TCP_ESTABLISHED = get_TCP_ESTABLISHED_debug
 
-# 
-def get_TCP_TIMEWAIT():
+# For kernels 2.X
+def get_TCP_TIMEWAIT_2():
     t = INET_Stuff
     if (t.Kernel24):
         # 2.4 
@@ -781,6 +1005,13 @@ def get_TCP_TIMEWAIT():
             for a in inet_sk_for_each(b, h):
                 tw = readSU(t.tw_type, a)
                 yield tw
+
+def get_TCP_TIMEWAIT():
+    __e = EnumInfo("enum tcp_seq_states")
+    if ("TCP_SEQ_STATE_TIME_WAIT" in __e):
+        return get_TCP_TIMEWAIT_2()
+    else:
+        return get_TCP_ESTABLISHED(tw=True)
 
 # ----------------- UDP ----------------------------
 
