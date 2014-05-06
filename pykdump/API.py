@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 # module pykdump.API
 #
-# Time-stamp: <13/10/15 11:07:33 alexs>
+# Time-stamp: <14/05/06 10:54:36 alexs>
 
 
 # This is the only module from pykdump that should be directly imported
@@ -123,7 +123,7 @@ from .wrapcrash import readU8, readU16, readU32, readS32, \
      getSizeOf, container_of, whatis, printObject,\
      exec_gdb_command, exec_crash_command, exec_crash_command_bg, \
      exec_crash_command_bg2, exec_command,\
-     structSetAttr, structSetProcAttr, sdef2ArtSU
+     structSetAttr, structSetProcAttr, sdef2ArtSU, AttrSetter
 
 gen.d = wrapcrash
 # Add all GDB-registered types as Generic and wrapcrash variables

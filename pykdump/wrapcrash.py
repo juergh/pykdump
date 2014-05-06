@@ -295,7 +295,7 @@ class PseudoAttrProc(object):
 # the chain is equivalent to a simple offset, add this field
 # to SUinfo for this type
 
-def __test_chain(sname, aname, fi, chain):
+def _test_chain(sname, aname, fi, chain):
     if (not chain):
         return None
     totoffset = 0
@@ -330,7 +330,7 @@ def structSetAttr(sname, aname, estrings, sextra = []):
             fi, chain = rc
             pa = PseudoAttr(fi, chain)
             setattr(cls,  aname, pa)
-            vi = __test_chain(sname, aname, fi, chain)
+            vi = _test_chain(sname, aname, fi, chain)
             if (vi):
                 #print sname, vi, vi.offset
                 cls.PYT_sinfo[aname] = vi
@@ -352,6 +352,67 @@ def structSetProcAttr(sname, aname, meth):
 
     setattr(cls, aname, PseudoAttrProc(meth))
     return True
+
+# A replacement of structSetAttr
+# A class to facilitate setting pseudoattributes.
+# A very special case: as many sock structures rely on 'struct sock_common',
+# we add a special syntax: "SKC.a" means we cast to 'struct sock_common' and
+# use its 'a' field after that
+class AttrSetter(object):
+    specattr = "SKC."
+    speclen = len(specattr)
+    specstruct = "struct sock_common"
+    def __init__(self, *args):
+        object.__setattr__(self, "_ArgList_",  args)
+        #print("++Structs:", args)
+    def __setattr__(self, aname, rhs):
+        #print("  --name={}".format(aname))
+        if (not (type(rhs) in (list, tuple))):
+            rhs = [rhs]
+        try:
+            basename = self._ArgList_[0]
+            cls = StructResult(basename).__class__
+        except TypeError:
+            # This struct does not exist - set attr to False
+            object.__setattr__(self, aname, False)
+            return
+
+        # Analyze possible attribute chains
+        for s in rhs:
+            if (isinstance(s, types.FunctionType)):
+                # A programmatic attribute
+                for extra in self._ArgList_:
+                    try:
+                        ecls = StructResult(extra).__class__
+                    except TypeError:
+                        continue
+                    setattr(ecls, aname, PseudoAttrProc(s))
+                return
+            elif (s == ""):
+                # use our base struct as it is
+                rc = [None, None]
+            elif (s.startswith(self.specattr)):
+                rc = parseDerefString(self.specstruct, s[self.speclen:])
+            else:
+                rc = parseDerefString(basename, s)
+            if (not rc):
+                # We could not follow this chain, try next
+                continue
+            fi, chain = rc
+            pa = PseudoAttr(fi, chain)
+            vi = _test_chain(basename, aname, fi, chain)
+            # Set this attribute for all classes
+            for extra in self._ArgList_:
+                try:
+                    ecls = StructResult(extra).__class__
+                    setattr(ecls,  aname, pa)
+                    ecls.PYT_sinfo[aname] = vi
+                except TypeError:
+                    pass
+            object.__setattr__(self, aname, True)
+            return
+        object.__setattr__(self, aname, False)
+
 
 
 # Parse the derefence string
