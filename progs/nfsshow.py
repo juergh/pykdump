@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Time-stamp: <14/01/27 09:23:30 alexs>
+# Time-stamp: <14/05/13 09:23:30 alexs>
 
 # --------------------------------------------------------------------
 # (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
@@ -109,8 +109,13 @@ NFS2_C = '''
 NFS2_PROCS = CDefine(NFS2_C)
 NFS3_PROCS = CDefine(NFS3_C)
 
-# Check whether all needed structures are present
+
 def init_Structures():
+    load_Structures()
+    finalize_Structures()
+    
+# Check whether all needed structures are present
+def load_Structures():
     def missingStructs():
         missing_structs = []
         for sn in __needed_structs:
@@ -155,7 +160,9 @@ def init_Structures():
         print("+++Cannot find symbolic info for:\n  {}".format(s))
         print(__needed_kmods_info)
         sys.exit(0)
-            
+        
+# Computer offsets and create pseudoattrs
+def finalize_Structures():
     # A strange problem: sometimes after module is loaded, crash.gdb_typeinfo
     # returns a stub only. Using crash 'struct' command replaces the stub
     # with real info
