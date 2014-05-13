@@ -547,15 +547,17 @@ try:
     __RQ_FLAG_bits = EnumInfo("enum rq_flag_bits")
     # Convert it to proper bits
     __RQ_FLAG_realbits = {k[6:]: 1<<v for k,v in __RQ_FLAG_bits.items()}
-
-    def is_request_WRITE(rq):
-        return (rq.Flags & __RQ_FLAG_realbits["WRITE"])
 except TypeError:
     # Old kernels
     __RQ_FLAG_realbits = {}
     for bit, s in enumerate(readSymbol("rq_flags")):
         __RQ_FLAG_realbits[str(s)[4:]] = 1<<bit
-    
+
+# WRITE can be both __REQ_RW and __REQ_WRITE
+if ("WRITE" in __RQ_FLAG_realbits):    
+    def is_request_WRITE(rq):
+        return (rq.Flags & __RQ_FLAG_realbits["WRITE"])
+else:
     def is_request_WRITE(rq):
         return (rq.Flags & __RQ_FLAG_realbits["RW"])
 
@@ -650,6 +652,10 @@ def is_request_BAD(rq):
         rq_disk = rq.rq_disk
         if (not rq_disk):
             return "bad rq.rq_disk"
+        # Is major reasonable?
+        if (rq_disk.major < 0):
+            return "bad rq.rq_disk.major"
+        
     except KeyError:
         pass
     
