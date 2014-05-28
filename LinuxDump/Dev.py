@@ -653,11 +653,12 @@ def is_request_BAD(rq):
         if (not rq_disk):
             return "bad rq.rq_disk"
         # Is major reasonable?
-        if (rq_disk.major < 0):
+        if (rq_disk.major < 0 or rq_disk.major > 10000):
             return "bad rq.rq_disk.major"
-        
     except KeyError:
         pass
+    except crash.error:
+        return "Corrupted rq"
     
     if (not rq.q):
         return "rq.q=0"
