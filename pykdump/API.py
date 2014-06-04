@@ -179,6 +179,10 @@ class PyLog:
             args = (extra, msg)
             kwargs = {}
             self._addtocache(ERROR, (args, kwargs))
+    def cleanup(self):
+        # Clear the cache
+        self._cache.clear()
+        self._silent = ""        
     def onexit(self):
         # Are there any problems at all?
         if (not self._cache):
@@ -206,9 +210,7 @@ class PyLog:
                     print(*args, **kwargs)
         print('-'*78)
 
-        # Clear the cache
-        self._cache.clear()
-        self._silent = ""
+
 
 pylog = PyLog()
 setattr(wrapcrash, 'pylog', pylog)
@@ -345,6 +347,8 @@ def enter_epython():
     
     # We might redefine stdout every time we execute a command...
     pp = pprint.PrettyPrinter(indent=4)
+    
+    pylog.cleanup()     # Do cleanup every time
     #print ("Entering Epython")
 
     # Process hidden '--apidebug=level' and '--reload' options
