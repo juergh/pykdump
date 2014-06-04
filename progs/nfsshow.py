@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Time-stamp: <14/05/13 09:23:30 alexs>
+# Time-stamp: <14/06/04 12:14:22 alexs>
 
 # --------------------------------------------------------------------
 # (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
@@ -13,7 +13,7 @@
 
 from __future__ import print_function
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
 
 from collections import Counter
 
@@ -740,6 +740,9 @@ def print_nlm_serv():
         # On 2.6.35 we have
         # static struct svc_rqst		*nlmsvc_rqst;
         nlmsvc_rqst = readSymbol("nlmsvc_rqst")
+        # This is NULL if we are NFSv3-only
+        if (not nlmsvc_rqst):
+            return
         # Maybe we should print svc_rqst here?
         svc_serv = nlmsvc_rqst.rq_server
     print_svc_serv(svc_serv)
