@@ -1422,7 +1422,13 @@ def IP_oneliner(nh, h):
         return "proto=%d" % proto
     return left + formatIPv4(saddr, sport) + formatIPv4(daddr, dport)
 
-        
+# Iterate starting from sk_buff_head
+def walk_skb(skb_h):
+    skb = skb_h.next
+    while (long(skb) != long(skb_h)):
+        yield skb
+        skb = skb.next
+
 # Decode and print skbuf as well as we can, taking into account different
 # fields
 # For 3.X kernels:
@@ -1449,6 +1455,9 @@ def skb_transport_header(skb):
         h = long(skb.head) + skb.transport_header
     return h
 
+def skb_shinfo(skb):
+    return readSU("struct skb_shared_info", skb.head + skb.end)
+
 def decode_skbuf(addr, v = 0):
     skb = readSU("struct sk_buff", addr)
     #nh = skb.nh.raw
@@ -1474,14 +1483,16 @@ def decode_skbuf(addr, v = 0):
         return skb
     if (v > 1):
         print (" ===== Decoding", skb, "====")
- 
+    
     iph = decode_IP_header(nh, v)
     # Now check whether we can decode L4
     proto = iph.protocol
     if (h == 0):
         # Try to decode data
         print ("Need to decode raw L4 data, is not implemented yet")
-        return skb      
+        return skb
+    skbsh = skb_shinfo(skb)
+    print ("  {}, nr_frags={}".format(str(skbsh), skbsh.nr_frags))
     if (proto == 6):
         # TCP
         print (decode_TCP_header(h, v))

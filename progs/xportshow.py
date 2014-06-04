@@ -26,7 +26,8 @@ from LinuxDump.inet import proto, netdevice
 from LinuxDump.inet.proto import tcpState, sockTypes, \
      IP_sock,  P_FAMILIES, decodeSock, print_accept_queue,\
      print_skbuff_head, \
-     decode_skbuf, decode_IP_header, decode_TCP_header
+     decode_skbuf, decode_IP_header, decode_TCP_header, \
+     skb_shinfo, walk_skb
 
 from LinuxDump.Tasks import TaskTable
 from LinuxDump.inet import summary
@@ -55,15 +56,42 @@ sport_filter = False
 dport_filter = False
 port_filter = False
 
-# Print a list of sk_buff
-def print_send_head(send_head):
-    skblist = readStructNext(send_head, "next")
-    if (not skblist):
-        return
-    print ("    send_head:")
-    for skb in skblist:
-        print ("\t", skb, skb.data_len)
 
+
+# Print sock receive queue
+def print_sock_rq(sock, v = 0):
+    rq = sock.sk_receive_queue        # struct sk_buff_head
+    if (rq.qlen):
+        print(" **  Receive Queue (skbuff, data length)")
+    for skb in walk_skb(rq):
+        pref = "                "
+        print (pref, skb, skb.data_len)
+        if (v > 0):
+            print("   | ", end='')
+            decode_skbuf(skb)
+        if (skb.data_len > 65536):
+            pylog.warning("Bad skb length, {}".format(str(skb)))
+
+# Print sock write_queue
+def print_sock_wq(sock,v = 0):
+    wq = sock.sk_write_queue        # struct sk_buff_head
+    send_head = sock.sk_send_head
+    if (wq.qlen):
+        print(" **  Write Queue (skbuff, data length)")
+    for skb in walk_skb(wq):
+        pref = "                "
+        if (long(skb) == long(send_head)):
+            pref = "   send_head -> "
+        print (pref, skb, skb.data_len)
+        # Does not make sense to decode as TSO etc. mean
+        # that some pieces are not filled-in yet
+        if (v > 0):
+            print("\t\t\t\t", skb_shinfo(skb))
+            #print("   | ", end='')
+            #decode_skbuf(skb)
+        if (skb.data_len > 65536):
+            pylog.warning("Bad skb length, {}".format(str(skb)))
+        
 
 def print_TCP_sock(o):
     try:
@@ -118,7 +146,8 @@ def print_TCP_sock(o):
                 ss = o.castTo("struct sock")
                 # Does not exist on 2.4 kernels
                 try:
-                    print_send_head(ss.sk_send_head)
+                    #print_sock_rq(ss, details)
+                    print_sock_wq(ss, details)
                 except KeyError:
                     pass
                 
@@ -779,7 +808,7 @@ if ( __name__ == '__main__'):
                   help="Limit output to the specified interface only")
 
     parser.add_argument("--decode", dest="Decode", default = None,
-                  action="store",
+                  nargs='+', action="store",
                   help="Decode iph/th/uh")
 
     
@@ -942,7 +971,7 @@ if ( __name__ == '__main__'):
 
     if (o.arp):
         from LinuxDump.inet import neighbour
-        neighbour.print_neighbour_info()
+        neighbour.print_neighbour_info(verbose)
         sys.exit(0)
 
     if (o.Route):
@@ -985,16 +1014,18 @@ if ( __name__ == '__main__'):
         sys.exit(0)
 
     if (o.Decode):
-        for a in args:
+        dtype = o.Decode[0]
+        eargs = o.Decode[1:]
+        for a in eargs:
             addr = int(a, 16)
-            if (o.Decode == 'skb'):
+            if (dtype == 'skb'):
                 decode_skbuf(addr, details)
-            elif (o.Decode == 'iph'):
+            elif (dtype == 'iph'):
                 decode_IP_header(addr)
-            elif (o.Decode == 'th'):
+            elif (dtype == 'th'):
                 decode_TCP_header(addr, details)
             else:
-                print ("Cannot decode", o.Decode)
+                print ("Cannot decode", dtype)
                 sys.exit(1)
         sys.exit(0)
 

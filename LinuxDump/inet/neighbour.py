@@ -30,7 +30,7 @@ layer.
 from pykdump.API import *
 from LinuxDump.inet import *
 from LinuxDump.inet.netdevice import hwaddr2str, ARP_HW
-from LinuxDump.inet.proto import P_FAMILIES
+from .proto import P_FAMILIES, walk_skb, skb_shinfo
 
 _NUD_c = '''
 #define NUD_INCOMPLETE  0x01
@@ -49,15 +49,15 @@ _NUD_c = '''
 NUD = CDefine(_NUD_c)
 
 
-def print_neighbour_info():
+def print_neighbour_info(v = 0):
     neigh_tables = readSymbol("neigh_tables")
     
     for t in readStructNext(neigh_tables, "next"):
         print ("===",t, P_FAMILIES.value2key(t.family), addr2sym(Addr(t)))
-        print_neighbour_table(t)
+        print_neighbour_table(t, v)
     
 
-def print_neighbour_table(tbl):
+def print_neighbour_table(tbl, v = 0):
     # Kernel 3.0moved hash_buckets to struct neigh_hash_table *nht;
     if (tbl.hasField("nht")):
         nht = tbl.nht
@@ -95,6 +95,13 @@ def print_neighbour_table(tbl):
                 print ("%-16s  %-10s %-20s %-7s %s" % \
                       (ip, arptype, hwaddr2str(ha, dev_addr_len),
                        dev.name, nud_state))
+                if (v):
+                    print("   {}  arp_queue_len={}".format(s, s.arp_queue.qlen))
+                    if (v > 1 and s.arp_queue.qlen):
+                        for skb in walk_skb(s.arp_queue):
+                            print("\t{}\n\t\t{}".format(skb, skb_shinfo(skb)))
+                    print('-' * 78)
+
 
     # Now for permanent entries (phash_buckets/pneigh_entry)
     phash_buckets = tbl.phash_buckets
