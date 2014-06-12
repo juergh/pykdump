@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # module LinuxDump.inet.proto
-# Time-stamp: <14/05/06 10:53:41 alexs>
+# Time-stamp: <14/06/09 13:27:44 alexs>
 
 # (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
 #
@@ -771,6 +771,10 @@ def init_PseudoAttrs():
     inet_sock.user_data = "sk.sk_user_data"
     inet_sock.Socket = "sk.sk_socket"
 
+    inet_request_sock = AttrSetter("struct inet_request_sock")
+    inet_request_sock.loc_addr = ["loc_addr", "SKC.skc_rcv_saddr"]
+    inet_request_sock.rmt_addr = ["rmd_addr", "SKC.skc_daddr"]
+
     # ---  TCP-specific
     tcp_sock = AttrSetter("struct tcp_sock", "struct inet_sock")
     tcp_sock.ack_backlog = ["sk.sk_ack_backlog",
@@ -1222,8 +1226,8 @@ def print_accept_queue(pstr):
                 raddr = v4_req.rmt_addr
             else:
                 inet_sock = rq.sk.castTo("struct inet_sock")
-                laddr = inet_sock.rcv_saddr
-                raddr = inet_sock.daddr
+                laddr = inet_sock.Src
+                raddr = inet_sock.Dst
             print ('\t  laddr=%s raddr=%s' % (ntodots(laddr), ntodots(raddr)))
     # Now print syn_table. It can be either an explicitly-sized array, e.g.
     #   struct open_request     *syn_table[TCP_SYNQ_HSIZE];
