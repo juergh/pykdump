@@ -242,7 +242,9 @@ def printTasks(reverse = False):
             extra = ""
         uid = t.Uid
         extra = "%13s UID=%d" % (extra, uid)
-
+        if (is_task_active(long(t.ts))):
+            pid_s = ">" + pid_s[1:]
+                
         #RLIMIT_NPROC = 6
         #rlimit = t.signal.rlim[RLIMIT_NPROC].rlim_cur
         #pcount = t.user.processes.counter

@@ -15,7 +15,7 @@ Author: Alex Sidorenko <asid@hp.com>
 """
 
 # A minimal C-module version that is needed for API to work
-minimal_cmod_version = "0.8.1"
+minimal_cmod_version = "0.8.2"
 
 
 # The next subroutines are used for version compatibility control.

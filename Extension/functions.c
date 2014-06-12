@@ -1478,6 +1478,19 @@ py_get_pathname(PyObject *self, PyObject *args) {
   return PyString_FromString(pathname);
 }
 
+static PyObject *
+py_is_task_active(PyObject *self, PyObject *args) {
+  ulong taskaddr;
+  long rc;
+  if (!PyArg_ParseTuple(args, "k", &taskaddr)) {
+    PyErr_SetString(crashError, "invalid parameter type"); \
+    return NULL;
+  }
+
+  rc = is_task_active(taskaddr);
+  return PyBool_FromLong(rc);
+}
+
 /* Used fot changing Discovery daemon name */
 
 #include <sys/prctl.h>
@@ -1557,6 +1570,7 @@ static PyMethodDef crashMethods[] = {
   {"set_default_timeout", py_set_default_timeout, METH_VARARGS},
   {"get_pathname", py_get_pathname, METH_VARARGS},
   {"setprocname", py_setprocname, METH_VARARGS},
+  {"is_task_active", py_is_task_active,  METH_VARARGS},
   {NULL,      NULL}        /* Sentinel */
 };
 

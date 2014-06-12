@@ -117,7 +117,7 @@ from .wrapcrash import readU8, readU16, readU32, readS32, \
      struct_exists, symbol_exists,\
      Addr, Deref, SmartString, tPtr, \
      sym2addr, addr2sym, sym2alladdr, \
-     get_pathname, \
+     get_pathname, is_task_active, \
      readmem, uvtop, readProcessMem, set_readmem_task, \
      struct_size, union_size, member_offset, member_size, \
      getSizeOf, container_of, whatis, printObject,\
