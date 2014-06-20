@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # module LinuxDump.inet.proto
-# Time-stamp: <14/06/09 13:27:44 alexs>
+# Time-stamp: <14/06/20 11:01:05 alexs>
 
 # (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
 #
@@ -1213,7 +1213,8 @@ def get_AF_UNIX():
 def print_accept_queue(pstr):
     accept_queue = pstr.accept_queue
     syn_table = pstr.l_opt.syn_table
-    print ("    --- Accept Queue", accept_queue)
+    if (pstr.sk_ack_backlog):
+        print ("    --- Accept Queue", accept_queue)
     if (accept_queue.hasField("rskq_accept_head")):
         qhead = accept_queue.rskq_accept_head
     else:
