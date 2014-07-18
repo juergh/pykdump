@@ -168,8 +168,7 @@ def print_TCP_sock(o):
             print ("\t max_qlen_log=%d qlen=%d qlen_young=%d" %\
                     (l_opt.max_qlen_log, l_opt.qlen, l_opt.qlen_young))
             #printObject(l_opt)
-            if (pstr.sk_ack_backlog):
-                print_accept_queue(pstr)
+            print_accept_queue(pstr)
         # For special sockets only
         # e.g. for NFS this is "struct svc_sock"
         # for RPC this is "struct rpc_xprt *"
