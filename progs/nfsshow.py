@@ -109,6 +109,26 @@ NFS2_C = '''
 NFS2_PROCS = CDefine(NFS2_C)
 NFS3_PROCS = CDefine(NFS3_C)
 
+#  * Reserved bit positions in xprt->state (3.10 kernel)
+#  */
+__XPRT_C = '''
+#define XPRT_LOCKED             0
+#define XPRT_CONNECTED          1
+#define XPRT_CONNECTING         2
+#define XPRT_CLOSE_WAIT         3
+#define XPRT_BOUND              4
+#define XPRT_BINDING            5
+#define XPRT_CLOSING            6
+#define XPRT_CONNECTION_ABORT   7
+#define XPRT_CONNECTION_CLOSE   8
+#define XPRT_CONGESTED          9
+'''
+
+__XPRT_BITS = CDefine(__XPRT_C)
+# Convert it to proper bits
+XPRT_BITS = {k: 1<<v for k,v in __XPRT_BITS.items()}
+#print(XPRT_BITS)
+#print (dbits2str(17, XPRT_BITS))
 
 def init_Structures():
     load_Structures()
@@ -481,19 +501,23 @@ def print_xprt(xprt):
     pass
     
 # Decode and Print one RPC task (struct rpc_task)
-def print_rpc_task(s):
+def print_rpc_task(s, v = 0):
     # On a live system we can easily get bad addresses
     try:
         #print s
         cl_pi = s.CL_procinfo
         rpc_proc = s.P_proc
         tk_client = s.tk_client
+        tk_status = s.tk_status
 	#pn = cl_pi[rpc_proc].p_name
         #pn = tk_client.cl_protname
         cl_xprt= tk_client.cl_xprt
         addr_in = cl_xprt.addr.castTo("struct sockaddr_in")
 	ip = ntodots(addr_in.sin_addr.s_addr)
         print ("\tProtocol=",cl_xprt.prot, ", Server=", tk_client.cl_server, ip)
+        if (v > 1):
+            print("\t ", tk_client)
+            print("\t ", cl_xprt)
         
         print ("\t  procname=", tk_client.cl_protname)
        
@@ -505,7 +529,7 @@ def print_rpc_task(s):
             procname = "%d(%s)" % (rpc_proc, NFS3_PROCS.value2key(rpc_proc))
         else:
             procname = "%d" % rpc_proc
-        print ("\t  rpc_proc=", procname)
+        print ("\t  rpc_proc={}  tk_status={}".format(procname, tk_status))
 
         print ("\t  pmap_prog=", prog, ", pmap_vers=", vers)
 	
@@ -530,10 +554,13 @@ def print_all_rpc_tasks(v=1):
         flen = len(tasks)
     xprtlist = []
     print ("  ------- %d RPC Tasks ---------" % flen)
+    allc = get_all_rpc_clients()
+    if (allc):
+        print ("      --- %d RPC Clients ----" % len(allc))
     for t in tasks:
         if (v >= 0):
             print ("    ---", t)
-            print_rpc_task(t)
+            print_rpc_task(t, v)
         # On a live kernel pointers may get invalid while we are processing
         try:
             xprt = t.tk_rqstp.rq_xprt
@@ -548,6 +575,7 @@ def print_all_rpc_tasks(v=1):
     for xprt in xprtlist:
         try:
             print ("  ...", xprt, "...")
+            print("    state={}".format(dbits2str(xprt.state, XPRT_BITS)))
             jiffies = readSymbol("jiffies")
             print ("    last_used %s s ago" % __j_delay(xprt.last_used, jiffies))
             for qn in ("binding", "sending","resend", "pending", "backlog"):
@@ -628,23 +656,21 @@ def get_all_tasks_old():
 		print ("    ", t)
 		print_rpc_task(t)
 
-# Get all RPC tasks
-def oldnew_get_all_tasks():
-    out = []
-    for cl in get_all_clients():
-        tasks = readSUListFromHead(long(cl.cl_tasks), "tk_task",
-                                   "struct rpc_task")
-        print (cl, len(tasks))
-        for t in tasks:
-            print_rpc_task(t)
 
+# Get all RPC clients for kernels where they exist
+def get_all_rpc_clients():
+    all_clients = sym2addr("all_clients")
+    if (all_clients == -1):
+        return []
+    return readSUListFromHead(all_clients, "cl_clients", "struct rpc_clnt")
+    
 def get_all_rpc_tasks():
     all_taddr = sym2addr("all_tasks")
     if (all_taddr):
 	return readSUListFromHead(all_taddr, "tk_task", "struct rpc_task")
-    all_clients = sym2addr("all_clients")
-    allc = readSUListFromHead(all_clients, "cl_clients", "struct rpc_clnt")
+
     out = []
+    allc = get_all_rpc_clients()
     for cl in allc:
 	out += readSUListFromHead(long(cl.cl_tasks), "tk_task",
                                    "struct rpc_task")
