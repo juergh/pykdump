@@ -424,7 +424,11 @@ def __decode_sys_nanosleep(args):
             print ("\t %s  %dsec, %dnsec" % (name, sec, nsec))
 
 
-    
+def __decode_sys_ioctl(args):
+    # ioctl(int fd, unsigned int cmd, long arg)
+    print("       fd={}".format(args[0]))
+    print("      cmd={:#x}".format(args[1]))
+    print("     uarg={:#x}".format(args[2]))
 
 __C_SOCKET_SYSCALLS = '''
 #define SYS_SOCKET      1               /* sys_socket(2)                */
