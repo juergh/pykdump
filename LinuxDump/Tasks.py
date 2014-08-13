@@ -589,7 +589,7 @@ def tasksSummary():
     print ("")
     # Check whether there are any PID-namespaces. If yes, issue a warning
     if (tt.pidnamespaces):
-        pylog.warning("There are threads running in theor own PID-namespace\n"
+        pylog.warning("There are threads running in their own PID-namespace\n"
                       "\tUse 'taskinfo --ns' to get more details")
 
     return threadcount
