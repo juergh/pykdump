@@ -28,34 +28,18 @@ and scheduler.
 # Tasks and Pids
 
 from pykdump.API import *
+from pykdump.Misc import EmbeddedFrames
 
 from LinuxDump import percpu
 
+from collections import defaultdict
+import textwrap
+from textwrap import TextWrapper
+
+
 debug = API_options.debug
 
-
-PIDTYPE_c = '''
-enum pid_type
-{
-        PIDTYPE_PID,
-        PIDTYPE_TGID,
-        PIDTYPE_PGID,
-        PIDTYPE_SID,
-        PIDTYPE_MAX
-};
-'''
-
-PIDTYPE_26_c = '''
-enum pid_type
-{
-        PIDTYPE_PID,
-        PIDTYPE_PGID,
-        PIDTYPE_SID,
-        PIDTYPE_MAX
-};
-'''
-
-PIDTYPE = CEnum(PIDTYPE_c)
+_PIDTYPE = EnumInfo("enum pid_type")
 pointersize = sys_info.pointersize
 
 
@@ -163,6 +147,15 @@ class Task:
         
     threads = property(__get_threads)
 
+    # PID-namespace related stuff
+    def task_get_pid(self):
+        # task->pids[PIDTYPE_PID].pid;
+        return self.ts.pids[_PIDTYPE.PIDTYPE_PID].pid
+    def task_ns(self):
+        # ns = pid->numbers[pid->level].ns
+        pid = self.task_get_pid()
+        return pid.numbers[pid.level].ns
+    
     # Delegate all unknown attributes access to self.ts
     def __getattr__(self, attr):
         return getattr(self.ts, attr)
@@ -236,7 +229,8 @@ class _TaskTable:
         pids_d = {}
 
         self.tt = []
-        self.comms = {}
+        self.comms = defaultdict(list)
+        pidnamespaces = defaultdict(list)
         
         for t in tt:
             # In case we get a corrupted list
@@ -251,13 +245,21 @@ class _TaskTable:
                 pids_d[pid] = []
             if (pid == tgid):
                 self.tt.append(task)
+                try:
+                    pidns = task.task_ns()
+                    if (pidns.level):
+                        pidnamespaces[pidns].append(task)
+                except KeyError:
+                    # Old kernels
+                    pass
                 pids_d[pid].insert(0, task)
             else:
                 pids_d[tgid].append(task)
                 
-            self.comms.setdefault(t.comm, []).append(task)
+            self.comms[t.comm].append(task)
 
         self.pids = pids_d
+        self.pidnamespaces = pidnamespaces
         
         # A dict of all threads - we compute only if needed
         self.tids = {}
@@ -585,6 +587,11 @@ def tasksSummary():
     for k,v in counts.items():
         print ("  %-40s  %4d" %  (k, v))
     print ("")
+    # Check whether there are any PID-namespaces. If yes, issue a warning
+    if (tt.pidnamespaces):
+        pylog.warning("There are threads running in theor own PID-namespace\n"
+                      "\tUse 'taskinfo --ns' to get more details")
+
     return threadcount
     print ("       === # of Threads Sorted by CMD+State ===")
     print ("CMD               State                                 Threads")
@@ -678,6 +685,52 @@ def decode_tflags(flags, offset = 0):
             print(offset, "bit %d" %i, v)
         flags = (flags >> 1)
     
+
+# Print info abour PID-namespaces
+def print_pid_namespaces(tt, v = 0):
+    def get_nspids(t, v):
+        tspid = t.task_get_pid()
+        out = []
+        for l in range(tspid.level + 1):
+            upid = tspid.numbers[l]
+            out.append(str(upid.nr))
+
+        if (v > 0):
+            return out[0] + "[" + ",".join(out[1:]) + "]"
+        else:
+            return out[0]
+    # Frames indexed by ns
+    frames = {}
+
+    for ns, tasks in tt.pidnamespaces.items():
+        fr = EmbeddedFrames(str(ns))
+        frames[ns] = fr
+        out = []
+        for task in tasks:
+            nspids = get_nspids(task, v)
+            out.append("PID={} CMD={}".format(nspids, task.comm))
+            threads = []
+            for thread in task.threads:
+                nspids = get_nspids(thread, v)
+                threads.append(nspids)
+            if (len(threads) > 0):
+                sthreads = "Threads: " + " ".join(threads)
+                sthreads = textwrap.wrap(sthreads, width=70,
+                                         initial_indent=4 * ' ',
+                                         subsequent_indent = 8 * ' ')
+                out += sthreads
+        fr.addText("\n".join(out))
+
+    for ns, fr in frames.items():
+        parent = ns.parent
+        if (parent in frames):
+            pfr = frames[parent]
+            pfr.addFrame(fr)
+
+    # Now print only level-1 frames
+    for ns, fr in frames.items():
+        if (ns.level == 1):
+            print(fr)
     
 
 if ( __name__ == '__main__'):

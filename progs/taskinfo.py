@@ -1,10 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Time-stamp: <13/07/29 16:06:44 alexs>
+# Time-stamp: <14/08/12 14:40:53 alexs>
 
 # --------------------------------------------------------------------
-# (C) Copyright 2011-2013 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2011-2014 Hewlett-Packard Development Company, L.P.
 #
 # Author: Alex Sidorenko <asid@hp.com>
 #
@@ -15,12 +15,13 @@
 # To facilitate migration to Python-3, we start from using future statements/builtins
 from __future__ import print_function
 
-__version__ = "0.2"
+__version__ = "0.3"
 
 from pykdump.API import *
 
 from LinuxDump import percpu
-from LinuxDump.Tasks import TaskTable, Task, tasksSummary, ms2uptime, decode_tflags
+from LinuxDump.Tasks import TaskTable, Task, tasksSummary, ms2uptime, \
+     decode_tflags, print_pid_namespaces
 from LinuxDump.BTstack import exec_bt, bt_summarize
 
 debug = API_options.debug
@@ -393,6 +394,9 @@ if ( __name__ == '__main__'):
     op.add_option("-r", "--reverse", dest="Reverse", default = 0,
                     action="store_true",
                     help="Reverse order while sorting")
+    op.add_option("--ns", dest="Ns", default = 0,
+                    action="store_true",
+                    help="Print info about PID-namespaces")
     op.add_option("--version", dest="Version", default = 0,
                   action="store_true",
                   help="Print program version and exit")
@@ -423,6 +427,9 @@ if ( __name__ == '__main__'):
             pstree()
     elif (o.Pidinfo):
         find_and_print(o.Pidinfo)
+    elif (o.Ns):
+        tt = TaskTable()
+        print_pid_namespaces(tt, verbose)
     else:
         printTasks()
 
