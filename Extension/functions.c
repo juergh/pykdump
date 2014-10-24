@@ -131,7 +131,6 @@ static PyObject *
 py_crash_enumerator_value(PyObject *self, PyObject *args) {
   char *varname;
   long val;
-  int rc;
      
   if (!PyArg_ParseTuple(args, "s", &varname)) {
     PyErr_SetString(crashError, "invalid parameter type"); \
