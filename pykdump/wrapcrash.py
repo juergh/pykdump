@@ -629,6 +629,9 @@ class StructResult(long):
 
     def isNamed(self, sname):
         return sname == self.PYT_symbol
+    
+    def fieldOffset(self, fname):
+        return self.PYT_sinfo[fname].offset
 
     def getDeref(self):
         return self
@@ -1676,6 +1679,7 @@ union_size = struct_size
 import crash
 from crash import sym2addr, addr2sym, sym2alladdr
 from crash import  mem2long, readInt, FD_ISSET
+from crash import enumerator_value
 from crash import get_pathname, is_task_active
 def exec_gdb_command(cmd):
     return crash.get_GDB_output(cmd).replace('\r', '')
