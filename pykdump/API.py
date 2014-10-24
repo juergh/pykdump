@@ -1,8 +1,6 @@
 # -*- coding: utf-8 -*-
 # module pykdump.API
 #
-# Time-stamp: <14/05/06 10:54:36 alexs>
-
 
 # This is the only module from pykdump that should be directly imported
 # by applications. We want to hide the details of specific implementation from
@@ -10,7 +8,7 @@
 # depending on availability of low-level shared library dlopened from crash
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
 #
 # Author: Alex Sidorenko <asid@hp.com>
 #
@@ -119,7 +117,7 @@ from .wrapcrash import readU8, readU16, readU32, readS32, \
      sym2addr, addr2sym, sym2alladdr, \
      get_pathname, is_task_active, \
      readmem, uvtop, readProcessMem, set_readmem_task, \
-     struct_size, union_size, member_offset, member_size, \
+     struct_size, union_size, member_offset, member_size, enumerator_value, \
      getSizeOf, container_of, whatis, printObject,\
      exec_gdb_command, exec_crash_command, exec_crash_command_bg, \
      exec_crash_command_bg2, exec_command,\
@@ -643,12 +641,14 @@ if (_longsize == 4):
     uLong = unsigned32
     LONG_MASK = 0xffffffff
     LONG_SIZE = 4
+    BITS_PER_LONG = 32
 elif (_longsize == 8):
     readLong = readS64
     readULong = readU64
     uLong = unsigned64
     LONG_MASK = 0xffffffffffffffff
-    LONG_SIZE = 8    
+    LONG_SIZE = 8
+    BITS_PER_LONG = 64
 else:
     raise TypeError("Cannot find long size on this arch")
 

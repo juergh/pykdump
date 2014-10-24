@@ -124,6 +124,27 @@ py_crash_member_offset(PyObject *self, PyObject *args) {
   return Py_BuildValue("l", val);
 }
 
+// Interface to 'crash' internal subroutine
+// int enumerator_value(char *e, long *value)
+// Return None if not found
+static PyObject *
+py_crash_enumerator_value(PyObject *self, PyObject *args) {
+  char *varname;
+  long val;
+  int rc;
+     
+  if (!PyArg_ParseTuple(args, "s", &varname)) {
+    PyErr_SetString(crashError, "invalid parameter type"); \
+    return NULL;
+  }
+  if (enumerator_value(varname, &val)) {
+      return PyLong_FromLong(val);
+  } else {
+      Py_INCREF(Py_None);
+      return Py_None;
+  }
+}
+
 # if 0
 // This is not used anywhere but creates problems for portability 
 static PyObject *
@@ -1491,6 +1512,8 @@ py_is_task_active(PyObject *self, PyObject *args) {
   return PyBool_FromLong(rc);
 }
 
+
+
 /* Used fot changing Discovery daemon name */
 
 #include <sys/prctl.h>
@@ -1539,6 +1562,7 @@ static PyMethodDef crashMethods[] = {
   {"union_size",  py_crash_union_size, METH_VARARGS},
   {"member_offset",  py_crash_member_offset, METH_VARARGS},
   {"member_size",  py_crash_member_size, METH_VARARGS},
+  {"enumerator_value", py_crash_enumerator_value,  METH_VARARGS},
   //  {"get_symbol_type",  py_crash_get_symbol_type, METH_VARARGS},
   {"get_GDB_output",  py_get_GDB_output, METH_VARARGS},
   {"exec_crash_command",  py_exec_crash_command, METH_VARARGS},
