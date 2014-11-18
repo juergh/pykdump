@@ -626,12 +626,14 @@ if (_intsize == 4):
     uInt =  unsigned32
     INT_MASK = 0xffffffff
     INT_SIZE = 4
+    BITS_PER_INT = 32
 elif (_intsize == 8):
     readInt = readS64
     readUInt = readU64
     uInt =  unsigned64
     INT_MASK = 0xffffffffffffffff
     INT_SIZE = 8
+    BITS_PER_INT = 64
 else:
     raise TypeError("Cannot find int size on this arch")
 
