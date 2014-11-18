@@ -30,6 +30,7 @@ from pykdump.API import *
 from collections import namedtuple, defaultdict
 from LinuxDump.sysfs import *
 
+
 '''
 Attached devices:
 Host: scsi2 Channel: 03 Id: 00 Lun: 00
@@ -86,11 +87,11 @@ def get_SCSI_devices():
                 continue
         else:
             dev = container_of(knode, "struct device", "knode_bus")
-        #print(dev)        
+        #print(dev)
         out.append(container_of(dev, "struct scsi_device", "sdev_gendev"))
     return out
-   
-def print_SCSI_devices(v=0):   
+
+def print_SCSI_devices(v=0):
     for sdev in get_SCSI_devices():
         if (v > 0):
             print('{:-^39}{:-^39}'.format(str(sdev)[8:-1], str(sdev.host)[8:-1]))
@@ -104,6 +105,7 @@ def print_SCSI_devices(v=0):
 
         if (v > 1):
             gendev = sdev.sdev_gendev
+            # SD is either 'sysfs_dirent' or 'kernfs_node'
             sd = gendev2sd(gendev)
             print(sysfs_fullpath(sd))
             devname = blockdev_name(sd)
