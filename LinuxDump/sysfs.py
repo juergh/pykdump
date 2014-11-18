@@ -33,7 +33,7 @@ __SYSFS_c = '''
 
 _SYSFS_TYPES_311 = CDefine(__SYSFS_c)
 
-__SYSFS_c = '''    
+__SYSFS_c = '''
 #define SYSFS_ROOT              0x0001
 #define SYSFS_DIR               0x0002
 #define SYSFS_KOBJ_ATTR         0x0004
@@ -94,7 +94,7 @@ def sysfs_parent_2618(sd):
     parent_dentry = sd.s_dentry.d_parent
     sdaddr = parent_dentry.d_fsdata
     return readSU("struct sysfs_dirent",  sdaddr)
-    
+
 
 
 def for_all_dirents_2632(sd):
@@ -160,16 +160,27 @@ def blockdev_name(sd):
         elif (nsplit[0] == 'block' and etype == '@'):
             return nsplit[1]
     return bname
-                
-                       
-        
-# ======================================================================
-        
-# Decide what subroutines to use for our kernel
-__sn = "struct sysfs_dirent"
 
+# get blockdev name when sysfs is kernfs-based
+def blockdev_name_kernfs(sd):
+    bname = ""
+    try:
+        all_knodes = list(kernfs.kndir_iterate(sd))
+    except crash.error:
+        return "Bad sysfs_dirent"
+    for e in all_knodes:
+        name, etype = kernfs.decode_kernfs_node(e)
+        nsplit = name.split(':')        # For RHEL5
+        if (name == 'block' and etype == '/'):
+            # There should be one entry only
+            out = list(kernfs.kndir_iterate(e))
+            if (len(out) == 1):
+                (bname, btype) = kernfs.decode_kernfs_node(out[0])
+                return bname
+        elif (nsplit[0] == 'block' and etype == '@'):
+            return nsplit[1]
+    return bname
 
-# For debugging only - remove after
 def gendev2sd(gendev):
     kobj = gendev.kobj
     if (not kobj.ktype):
@@ -180,7 +191,23 @@ def gendev2sd_old(gendev):
     dentry = gendev.kobj.dentry
     return readSU("struct sysfs_dirent", dentry.d_fsdata)
 
-if (member_size(__sn, "s_rb") != -1):
+
+# ======================================================================
+
+# Decide what subroutines to use for our kernel
+
+# If we don't have that struct, the chances we have a newer kernel
+# where sysfs is a wrapper on top of kernfs
+
+__sn = "struct sysfs_dirent"
+
+if (not struct_exists(__sn)):
+    # Try to import kernfs
+    from LinuxDump import kernfs
+    sysfs_fullpath = kernfs.kernfs_fullpath
+    blockdev_name = blockdev_name_kernfs
+
+elif (member_size(__sn, "s_rb") != -1):
     # 3.11
     _SYSFS_TYPES = _SYSFS_TYPES_311
     decode_sysfs_dirent = decode_sysfs_dirent_311
@@ -206,20 +233,19 @@ elif (member_size(__sn, "s_sibling") != -1):
     for_all_dirents = for_all_dirents_3080
     sysfs_parent = sysfs_parent_311
     #gendev2sd = gendevsd_old
-    
-    
 
 
-__SYSFS2attr = {
-    _SYSFS_TYPES.SYSFS_DIR : '/',
-    _SYSFS_TYPES.SYSFS_KOBJ_ATTR : '.',
-    _SYSFS_TYPES.SYSFS_KOBJ_BIN_ATTR : '.',
-    _SYSFS_TYPES.SYSFS_KOBJ_LINK : '@'
+if (struct_exists(__sn)):
+    __SYSFS2attr = {
+        _SYSFS_TYPES.SYSFS_DIR : '/',
+        _SYSFS_TYPES.SYSFS_KOBJ_ATTR : '.',
+        _SYSFS_TYPES.SYSFS_KOBJ_BIN_ATTR : '.',
+        _SYSFS_TYPES.SYSFS_KOBJ_LINK : '@'
     }
 # MAIN
 
 if __name__ == "__main__":
-    # You should pass an address of 'struct device' 
+    # You should pass an address of 'struct device'
     addr = int(sys.argv[1], 16)
     gendev = readSU("struct device", addr)
     print(gendev)
