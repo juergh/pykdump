@@ -29,7 +29,7 @@ from LinuxDump.Tasks import TaskTable, Task, tasksSummary, getRunQueues,\
 from LinuxDump.inet import summary
 import LinuxDump.inet.netdevice as netdevice
 from LinuxDump import percpu, sysctl, Dev
-from LinuxDump.KernLocks import decode_mutex
+from LinuxDump.KernLocks import decode_mutex, spin_is_locked
 from LinuxDump.Dev import print_dm_devices, print_gendisk, decode_cmd_flags, \
         print_request_slab, print_request_queues, print_blk_cpu_done
     
@@ -41,6 +41,7 @@ import sys
 from stat import *
 from optparse import OptionParser
 from collections import Counter
+import textwrap
 
 # Python2 vs Python3
 _Pym = sys.version_info[0]
@@ -605,11 +606,15 @@ def check_runqueues():
     CFS = (member_offset("struct task_struct", "se") != -1)
     # Whether all 
     RT_hang = True
+    locked_rqs = []
     for cpu, rq in enumerate(getRunQueues()):
         RT_count = 0
         print ("  ---+ CPU=%d %s ----" % (cpu, str(rq)))
         print ("     | CURRENT TASK %s, CMD=%s" % \
                (rq.curr, rq.curr.comm))
+        if (spin_is_locked(rq.lock.raw_lock)):
+            print("         This runqueue is locked")
+            locked_rqs.append(cpu)
         if (CFS):
             print_CFS_runqueue(rq)
             RT_count = print_RT_runqueue(rq)
@@ -658,6 +663,15 @@ def check_runqueues():
             print ("    %d Real-Time processes on this CPU" % RT_count)
     if (RT_hang):
         pylog.warning("all CPUs are busy running Real-Time processes")
+    if (locked_rqs):
+        s = textwrap.fill(str(locked_rqs)[1:-1],  width=40,
+                          initial_indent=' ',
+                          subsequent_indent = 8 * ' ')
+        #pylog.warning("Runqueus on cpus {} are locked".format(s))
+        print ('-' * 60)
+        print(WARNING)
+            
+        print("Runqueus on cpus {} are locked".format(s))
         
 
 # Do some basic network subsystem check
@@ -1188,6 +1202,10 @@ op.add_option("--ls", dest="ls", default = "",
                 help="Emulate 'ls'. You can specify either dentry"
               " address or full pathname")
 
+op.add_option("--workqueues", dest="Workqueue", default = "",
+                action="store_true",
+                help="Print Workqueues - just for some kernels")
+
 op.add_option("--version", dest="Version", default = 0,
               action="store_true",
               help="Print program version and exit")
@@ -1281,6 +1299,11 @@ if (o.RWSema):
 
 if (o.Mutex):
     decode_mutex(o.Mutex)
+    sys.exit(0)
+
+if (o.Workqueue):
+    from LinuxDump.WorkQueues import print_all_workqueues
+    print_all_workqueues(verbose)
     sys.exit(0)
 
 if (o.ext3):
