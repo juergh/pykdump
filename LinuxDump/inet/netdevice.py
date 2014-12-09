@@ -996,5 +996,5 @@ def printBondMaster(bond):
         params = bond.params
     except KeyError:
         return
-    print ("    ...Bond params...")
+    print ("    ...Bond params...", bond)
     params.Dump()
