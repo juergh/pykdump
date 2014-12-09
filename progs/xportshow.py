@@ -76,13 +76,23 @@ def print_sock_rq(sock, v = 0):
 def print_sock_wq(sock,v = 0):
     wq = sock.sk_write_queue        # struct sk_buff_head
     send_head = sock.sk_send_head
+    no_send_head = True
     if (wq.qlen):
         print(" **  Write Queue (skbuff, data length)")
+    #print (wq, len(list(walk_skb(wq))))
     for skb in walk_skb(wq):
         pref = "                "
         if (long(skb) == long(send_head)):
             pref = "   send_head -> "
-        print (pref, skb, skb.data_len)
+            no_send_head = False
+        # if skb->data_len == 0, there are no fragments
+        if (skb.data_len == 0):
+            dlen = skb.len
+        else:
+            headlen = skb.len - skb.data_len
+            # Should compute fragments as well
+            dlen = headlen
+        print (pref, skb, dlen)
         # Does not make sense to decode as TSO etc. mean
         # that some pieces are not filled-in yet
         if (v > 0):
@@ -91,6 +101,8 @@ def print_sock_wq(sock,v = 0):
             #decode_skbuf(skb)
         if (skb.data_len > 65536):
             pylog.warning("Bad skb length, {}".format(str(skb)))
+        #if (no_send_head):
+        #    pylog.warning("No send_head for ", sock)
         
 
 def print_TCP_sock(o):
