@@ -125,6 +125,11 @@ __XPRT_C = '''
 '''
 
 __XPRT_BITS = CDefine(__XPRT_C)
+# For 3.0 we need to replace XPRT_CONGESTED->XPRT_INITIALIZED
+if (sys_info.kernel < "3.10.0"):
+    __XPRT_BITS["XPRT_INITIALIZED"] = __XPRT_BITS["XPRT_CONGESTED"]
+    del __XPRT_BITS["XPRT_CONGESTED"]
+    
 # Convert it to proper bits
 XPRT_BITS = {k: 1<<v for k,v in __XPRT_BITS.items()}
 #print(XPRT_BITS)
@@ -535,15 +540,42 @@ def print_rpc_task(s, v = 0):
 	
 	rqst = s.tk_rqstp
 	
-	if (rqst and rqst.rq_retries):
-	   print ("\t  rq_retries=", rqst.rq_retries, "rq_timeout=", rqst.rq_timeout,\
-	       "rq_majortimeo", rqst.rq_majortimeo)
+	if (rqst):
+            if(rqst.rq_retries):
+                print ("\t  rq_retries=", rqst.rq_retries, "rq_timeout=", rqst.rq_timeout,\
+                "rq_majortimeo", rqst.rq_majortimeo)
+            #print("\t  rq_slen={}".format(rqst.rq_snd_buf.len))
 	tk_callback = s.tk_callback
 	if (tk_callback):
 	    print ("\t  callback=%s" % addr2sym(tk_callback))
     except crash.error:
         pass
 
+# decode/print xprt
+def print_xprt(xprt, v = 0):
+    try:
+        print ("      ...", xprt, "...")
+        print("        state={}".format(dbits2str(xprt.state, XPRT_BITS)))
+        jiffies = readSymbol("jiffies")
+        print ("        last_used %s s ago" % __j_delay(xprt.last_used, jiffies))
+        if (v < 1):
+            return
+        for qn in ("binding", "sending","resend", "pending", "backlog"):
+            try:
+                print ("        len(%s) queue is %d" % (qn,
+                                                    getattr(xprt, qn).qlen))
+            except KeyError:
+                pass
+        try:
+            xprt.stat.Dump()
+        except KeyError:
+            # There is no 'stat' field in xprt on 2.6.9
+            pass
+    except (IndexError, crash.error):
+        # Null pointer and invalid addr
+        return
+    print("")
+    
 # print all rpc pending tasks
 def print_all_rpc_tasks(v=1):
     # Obtain all_tasks
@@ -573,26 +605,7 @@ def print_all_rpc_tasks(v=1):
     # Print XPRT vitals
     print (" --- XPRT Info ---")
     for xprt in xprtlist:
-        try:
-            print ("  ...", xprt, "...")
-            print("    state={}".format(dbits2str(xprt.state, XPRT_BITS)))
-            jiffies = readSymbol("jiffies")
-            print ("    last_used %s s ago" % __j_delay(xprt.last_used, jiffies))
-            for qn in ("binding", "sending","resend", "pending", "backlog"):
-                try:
-                    print ("    len(%s) queue is %d" % (qn,
-                                                       getattr(xprt, qn).qlen))
-                except KeyError:
-                    pass
-	    try:
-                xprt.stat.Dump()
-	    except KeyError:
-		# There is no 'stat' field in xprt on 2.6.9
-		pass
-	       
-        except (IndexError, crash.error):
-            # Null pointer and invalid addr
-            continue            
+        print_xprt(xprt, 2)
     
 def print_all_tasks():
     all_tasks = readSUListFromHead("all_tasks", "tk_task", "struct rpc_task")
@@ -916,6 +929,9 @@ def print_nfsmount(v = 0):
 	    ip = ntodots(addr_in.sin_addr.s_addr)
 	    print ("     ---", nfs_cl, nfs_cl.cl_hostname, ip)
 	    rpc_clnt = nfs_cl.cl_rpcclient
+	    # Print/decode the transport
+	    xprt = rpc_clnt.cl_xprt
+            print_xprt(xprt, detail)
 	    #print rpc_clnt, rpc_clnt.cl_metrics
     
     # Stats are per RPC program, and all clients are using "NFS" 
