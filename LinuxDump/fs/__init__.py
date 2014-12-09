@@ -99,5 +99,9 @@ def get_dentry_name(dentry):
 def IS_ROOT(x):
         return (x == x.Deref.d_parent)
 
-        
+__sb = AttrSetter("struct super_block")
+__sb.Frozen = ["s_frozen", "s_writers.frozen"]
+
+def sb_frozen(sb):
+    return sb.Frozen  
         

@@ -934,6 +934,20 @@ def check_UNINTERRUPTIBLE():
             print ('   ... ran %ds ago' % r)
             print (bt)
 
+# Check for frozen FS
+def check_frozen_fs():
+    once = TrueOnce(1)
+    for vfsmount, superblk, fstype, devname, mnt in getMount():
+        sb = readSU("struct super_block", superblk)
+        if (sb_frozen(sb)):
+            if (not verbose):
+                pylog.warning("There are frozen FS, rerun with '-v' to get a list")
+                return
+            else:
+                if (once):
+                    pylog.warning("There are frozen FS")
+                    print("\n --- A list of FS in frozen state ---")
+                print("Frozen:", sb, fstype, devname, mnt)
 
 
 #  Decode wait_queue_head_t - similar to 'waitq' crash command.
@@ -1382,9 +1396,9 @@ check_UNINTERRUPTIBLE()
 check_auditf()
 
 try:
-    check_event_workqueues()
+    check_frozen_fs()
 except:
-    pylog.warning("check_event_workqueues() not implemented on this kernel")
+    pylog.warning("Frozen FS test not implemented on this kernel")
 
 try:
     check_runqueues()
