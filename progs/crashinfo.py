@@ -3,10 +3,9 @@
 #
 # First-pass dumpanalysis
 #
-# Time-stamp: <13/07/29 10:30:00 alexs>
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
 #
 # Author: Alex Sidorenko <asid@hp.com>
 #
@@ -17,7 +16,7 @@
 from __future__ import print_function
 
 # 1st-pass dumpanalysis
-__version__ = "0.5.4"
+__version__ = "0.6.0"
 
 from pykdump.API import *
 
@@ -35,6 +34,9 @@ from LinuxDump.Dev import print_dm_devices, print_gendisk, decode_cmd_flags, \
     
 from LinuxDump import percpu
 from LinuxDump.Time import j_delay
+
+# For FS stuff
+from LinuxDump.fs import *
 
 
 import sys
@@ -612,9 +614,13 @@ def check_runqueues():
         print ("  ---+ CPU=%d %s ----" % (cpu, str(rq)))
         print ("     | CURRENT TASK %s, CMD=%s" % \
                (rq.curr, rq.curr.comm))
-        if (spin_is_locked(rq.lock.raw_lock)):
-            print("         This runqueue is locked")
-            locked_rqs.append(cpu)
+        # Don't have time to implement this ofr old kernels
+        try:
+            if (spin_is_locked(rq.lock.raw_lock)):
+                print("         This runqueue is locked")
+                locked_rqs.append(cpu)
+        except:
+            pass
         if (CFS):
             print_CFS_runqueue(rq)
             RT_count = print_RT_runqueue(rq)
