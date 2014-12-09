@@ -121,6 +121,7 @@ def WQ_header(wq, okprint = True):
 #   0 - just a summary - print how many work_structs are queued per
 #       each workqueue (sum all CPUs)
 #   1 - the same, but with per-CPU stats
+#   2 - print everything, even for empty queues
 def print_wq_simple_details(wq, v=0):
     once = TrueOnce(1)
     totalwork = 0
@@ -142,7 +143,8 @@ def print_wq_simple_details(wq, v=0):
             continue
 
         WQ_header(wq, once)
-        print ("     ----- CPU ", cpu, cwq)
+        comm = cwq.thread.comm
+        print ("     -- CPU {:3d} {} {}".format(cpu, cwq, comm))
 
         # worklist is embedded in struct work_struct
         # as 'struct list_head entry'
@@ -182,6 +184,7 @@ def __get_cpu_wqs(_wq):
             cwq = _wq.cpu_wq[cpu]
         out.append((cpu, cwq))
     return out
+
 
 # ========================================================================
 #
