@@ -658,6 +658,9 @@ else:
 INT_MAX = ~0&(INT_MASK)>>1
 LONG_MAX = ~0&(LONG_MASK)>>1
 
+def ALIGN(addr, align):
+    return (long(addr) + align-1)&(~(align-1))
+
 HZ = sys_info.HZ
 
 # Is this a per_cpu symbol? At this moment we do not check for modules yet

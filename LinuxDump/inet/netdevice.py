@@ -4,7 +4,7 @@
 # Time-stamp: <13/10/18 11:20:16 alexs>
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
 #
 # Author: Alex Sidorenko <asid@hp.com>
 #
@@ -276,9 +276,6 @@ def hwaddr2str(ha, l):
 # (char *)dev + ALIGN(sizeof(struct net_device), NETDEV_ALIGN);
 
 NETDEV_ALIGN = 32
-
-def ALIGN(addr, align):
-    return (long(addr) + align-1)&(~(align-1))
 
 if (member_size("struct net_device", "priv") != -1):
     def netdev_priv(dev): return dev.priv
