@@ -1127,6 +1127,55 @@ def longChainOfPids(tt, nmin):
                 for i, pid in enumerate(chain):
                     comm = tt.getByPid(pid).comm
                     print ('  ', '  ' * i, pid, comm)
+                    
+#  ==== Detect stack corruption ======
+_longsize = getSizeOf("long int")
+
+
+def checkTaskStack(task):
+    thread_info = readSU("struct thread_info", task.stack)
+    thread_struct = task.thread
+    sp0 = thread_struct.sp0
+    sp  = thread_struct.sp
+    sz = len(thread_info)
+    end_of_ti = ALIGN(long(thread_info) + sz, 16)
+    #print(thread_info, "{} bytes".format(sz))
+    #print("sp0={:#x} sp={:#x}".format(sp0, sp))
+    
+    # Test 1 - check pointers
+    if (not (sp <= sp0 and sp >= end_of_ti)):
+        return("SP out of boundaries")
+        
+    # Test 2 - check N long after thread_info
+    N = 0
+    for i in range(N):
+        addr = end_of_ti + i * _longsize
+        data = readLong(addr)
+        if (data):
+            #print("i={} addr={:#x} data={:#x} ".format(i, addr, data))
+            return ("Last {} bytes of stack are not empty".format(N * _longsize))
+    
+    # Test 3 - check whatis(thread_info.restart_block.fn)
+    sym = addr2sym(thread_info.restart_block.fn)
+    if(not sym):
+        return "Bad threadinfo pointer, stack.restart_block.fn"
+    wi = whatis(sym)
+    if (wi.ti.stype != '(func)'):
+        return "Bad threadinfo, stack.restart_block.fn does not point to a function"
+        
+    return False
+
+# Check for stack corruption for all tasks
+def checkAllStacks():
+    tt = get_tt()
+
+    for t in tt.allThreads():
+        task = t.ts
+        rc = checkTaskStack(task)
+        if (rc):
+            pylog.error("Corrupted Stack Detected\n\t%s\n\t  %s" % (str(t), rc))
+
+
 # ----------------------------------------------------------------------------
 
 op =  OptionParser()
@@ -1176,6 +1225,10 @@ op.add_option("--stacksummary", dest="stacksummary", default = 0,
 op.add_option("--findstacks", dest="findstacks", default = "",
                 action="store",
                 help="Print stacks (bt) containing functions that match the provided pattern")
+
+op.add_option("--checkstacks", dest="checkstacks", default = "",
+                action="store_true",
+                help=" Check stacks of all threads for corruption")
 
 op.add_option("--decodesyscalls", dest="decodesyscalls", default = "",
                 action="store",
@@ -1272,6 +1325,11 @@ if (o.sysctl):
 
 if (o.findstacks):
     find_stacks(o.findstacks.strip('\'"'))
+    sys.exit(0)
+
+if (o.checkstacks):
+    checkAllStacks()
+    pylog.cleanup()
     sys.exit(0)
 
 if (o.eventwq):
@@ -1418,6 +1476,11 @@ except crash.error:
     pylog.warning("cannot continue - the dump is probably incomplete "
             "or corrupted")
 
+try:
+    checkAllStacks()
+except:
+    # For those kernels where are test does not work
+    pass
 
 # After this line we put all routines that can produce significant output
 # We don't want to see hundreds of lines in the beginning!
