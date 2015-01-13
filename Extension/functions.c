@@ -1,17 +1,17 @@
 /* Python extension to interact with CRASH
-   
+
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
 #
 # Author: Alex Sidorenko <asid@hp.com>
 #
-# --------------------------------------------------------------------  
- 
+# --------------------------------------------------------------------
+
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation; either version 2 of the License, or
   (at your option) any later version.
- 
+
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -58,7 +58,7 @@ static PyObject *
 py_crash_symbol_exists(PyObject *self, PyObject *args) {
   char *varname;
   int val;
-     
+
   if (!PyArg_ParseTuple(args, "s", &varname)) {
     PyErr_SetString(crashError, "invalid parameter type"); \
     return NULL;
@@ -72,7 +72,7 @@ static PyObject *
 py_crash_struct_size(PyObject *self, PyObject *args) {
   char *varname;
   long val;
-     
+
   if (!PyArg_ParseTuple(args, "s", &varname)) {
     PyErr_SetString(crashError, "invalid parameter type"); \
     return NULL;
@@ -86,7 +86,7 @@ static PyObject *
 py_crash_union_size(PyObject *self, PyObject *args) {
   char *varname;
   long val;
-     
+
   if (!PyArg_ParseTuple(args, "s", &varname)) {
     PyErr_SetString(crashError, "invalid parameter type"); \
     return NULL;
@@ -100,7 +100,7 @@ static PyObject *
 py_crash_member_size(PyObject *self, PyObject *args) {
   char *name, *member;
   long val;
-     
+
   if (!PyArg_ParseTuple(args, "ss", &name, &member)) {
     PyErr_SetString(crashError, "invalid parameter(s) type"); \
     return NULL;
@@ -114,7 +114,7 @@ static PyObject *
 py_crash_member_offset(PyObject *self, PyObject *args) {
   char *name, *member;
   long val;
-     
+
   if (!PyArg_ParseTuple(args, "ss", &name, &member)) {
     PyErr_SetString(crashError, "invalid parameter(s) type"); \
     return NULL;
@@ -131,7 +131,7 @@ static PyObject *
 py_crash_enumerator_value(PyObject *self, PyObject *args) {
   char *varname;
   long val;
-     
+
   if (!PyArg_ParseTuple(args, "s", &varname)) {
     PyErr_SetString(crashError, "invalid parameter type"); \
     return NULL;
@@ -145,13 +145,13 @@ py_crash_enumerator_value(PyObject *self, PyObject *args) {
 }
 
 # if 0
-// This is not used anywhere but creates problems for portability 
+// This is not used anywhere but creates problems for portability
 static PyObject *
 py_crash_get_symbol_type(PyObject *self, PyObject *args) {
   char *name, *member = NULL;
   int val;
   struct gnu_request req;
-     
+
   if (!PyArg_ParseTuple(args, "s|s", &name, &member)) {
     PyErr_SetString(crashError, "invalid parameter(s) type"); \
     return NULL;
@@ -165,9 +165,9 @@ py_crash_get_symbol_type(PyObject *self, PyObject *args) {
 	 val, (int)req.length, req.name, req.typename, req.tagname);
 #else
   printf("val=%d, length=%d, name=%s, typename=%s, tagname=%s\n",
-         val, (int)req.length, req.name, req.type_name, req.tagname);  
+         val, (int)req.length, req.name, req.type_name, req.tagname);
 #endif
-  
+
   return Py_BuildValue("i", val);
 }
 #endif
@@ -179,7 +179,7 @@ py_get_GDB_output(PyObject *self, PyObject *args) {
 
   PyObject *out = PyString_FromString("");
   PyObject *newpart;
-     
+
   if (!PyArg_ParseTuple(args, "s", &cmd)) {
     PyErr_SetString(crashError, "invalid parameter type"); \
     return NULL;
@@ -201,19 +201,19 @@ py_get_GDB_output(PyObject *self, PyObject *args) {
   rewind(pc->tmpfile);
   while (fgets(buf, BUFSIZE, pc->tmpfile)) {
     newpart = PyString_FromString(buf);
-#if PY_MAJOR_VERSION >= 3    
+#if PY_MAJOR_VERSION >= 3
     // On Python3: PyObject* PyUnicode_Concat(PyObject *left, PyObject *right)
     // and returns a new reference
     out = PyUnicode_Concat(out, newpart);
-#else    
+#else
     // On Python2: void PyString_Concat(PyObject **string, PyObject *newpart)
     // The reference to the old value of string will be stolen
     PyString_Concat(&out, newpart);
-#endif    
+#endif
     Py_DECREF(newpart);
     //fputs(buf, stderr);
   }
-  
+
   close_tmpfile();
 
   //Py_INCREF(Py_None);
@@ -253,20 +253,20 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   clean_line(pc->command_line);
   strcpy(pc->orig_line, pc->command_line);
   strip_linefeeds(pc->orig_line);
-  
+
   argcnt = parse_line(pc->command_line, args);
   fflush(fp);
-  
+
   fp = tmpfile();
 
-  
+
   /*
     crash uses longjmp(pc->main_loop_env) to recover after some errors.
     This puts us into its main loop: read line/process command. As we
     don't want this, we'll replace pc->main_loop_env with our own location,
     and later will restore it.
    */
-  
+
   // Copy the old location
   memcpy(copy_pc_env, pc->main_loop_env, sizeof(jmp_buf));
   if (!setjmp(pc->main_loop_env)) {
@@ -288,7 +288,7 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   rlength =  fread(tmpbuf, 1, flength, fp);
   obj = PyString_FromStringAndSize(tmpbuf, flength);
   free(tmpbuf);
-  
+
   fclose(fp);
   fp = oldfp;
 
@@ -297,7 +297,7 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
     PyErr_SetObject(crashError, obj);
     return NULL;
   }
-  
+
   return obj;
 }
 
@@ -321,7 +321,7 @@ int fn2fd(const char *rpath) {
   int linknamesz;
 
   dirp = opendir(selffd);
-  
+
   // The following does not work as /proc is not POSIX-compliant!
   //linknamesz = sb.st_size + 1;
   linknamesz = PATH_MAX;
@@ -337,8 +337,7 @@ int fn2fd(const char *rpath) {
     strncpy(buf+selffdlen, dname, _MAXPATH-selffdlen-1);
     if (lstat(buf, &sb) == -1)
       continue;
-    
-    
+
     //if ((nbytes = readlink(buf, linkname, sb.st_size + 1)) >0) {
     if ((nbytes = readlink(buf, linkname, linknamesz-1)) >0) {
       lfd = atoi(dname);
@@ -365,12 +364,12 @@ py_exec_crash_command_bg2(PyObject *self, PyObject *pyargs) {
   char *cmd;
   int pipefd[2];		 /* For files redirection */
   int pid;
-  
+
   int dfd;                      /* FD used to read vmcore */
   static int fd = -1;           /* Original FD used by crash */
 
   unsigned long long saved_flags; /* To save pc->flags */
-  
+
   if (!PyArg_ParseTuple(pyargs, "s", &cmd)) {
     PyErr_SetString(crashError, "invalid parameter type"); \
     return NULL;
@@ -397,7 +396,7 @@ py_exec_crash_command_bg2(PyObject *self, PyObject *pyargs) {
       }
   }
   // We execute crash command in another thread (forked) and read its output
-  //printf(" Before fork: sockfd, nfd, mfd, kfd, dfd %d, %d,%d,%d,%d\n", 
+  //printf(" Before fork: sockfd, nfd, mfd, kfd, dfd %d, %d,%d,%d,%d\n",
   //       pc->sockfd, pc->nfd, pc->mfd, pc->kfd, pc->dfd);
   pid = fork();
 
@@ -425,8 +424,8 @@ py_exec_crash_command_bg2(PyObject *self, PyObject *pyargs) {
     lseek(fd, cpos, SEEK_SET);
     if (debug)
       printf("Reopening %d %s rc=%d\n", fd, py_vmcore_realpath, rc);
-    
-    
+
+
     // Child writes to pipe
     close(pipefd[0]);          /* Close unused read end */
     // Convert FD to 'fp'
@@ -441,17 +440,17 @@ py_exec_crash_command_bg2(PyObject *self, PyObject *pyargs) {
 
     fprintf(stderr, "\n**stderr**\n");
     */
-    
 
-    
+
+
     // Prepare the command line for crash
     strcpy(pc->command_line, cmd);
     clean_line(pc->command_line);
     strcpy(pc->orig_line, pc->command_line);
     strip_linefeeds(pc->orig_line);
-  
+
     argcnt = parse_line(pc->command_line, args);
-  
+
     /*
       crash uses longjmp(pc->main_loop_env) to recover after some errors.
       This puts us into its main loop: read line/process command. As we
@@ -489,7 +488,7 @@ static PyObject *
 py_exec_epython_command(PyObject *self, PyObject *pyargs) {
   int argc = PyTuple_Size(pyargs);
   int i;
-  
+
   char **argv = (char **) malloc(sizeof(char *) * argc);
 
   for (i=0; i < argc; i++)
@@ -506,7 +505,7 @@ py_sym2addr(PyObject *self, PyObject *args) {
   char *symbol;
   unsigned long long addr;
   struct syment *se;
-     
+ 
   if (!PyArg_ParseTuple(args, "s", &symbol)) {
     PyErr_SetString(crashError, "invalid parameter type"); \
     return NULL;
@@ -518,7 +517,7 @@ py_sym2addr(PyObject *self, PyObject *args) {
     addr = se->value;
   else
     addr = 0;
-  
+
   // ASID
   //printf("addr=%lx\n", addr);
   //return Py_BuildValue("K", (unsigned long long) addr);
@@ -530,7 +529,7 @@ extern  struct syment * symbol_search_next(char *, struct syment *) __attribute_
 
 /* =========================WARNING=====================================
    We have to copy the following code from crash sources as symbol_search_next()
-   is at this moment declared as static. Dave Anderson will make it visible 
+   is at this moment declared as static. Dave Anderson will make it visible
    in 5.0.9. As soon as it becomes visible, it'll be used automatically
 */
 
@@ -610,7 +609,7 @@ py_sym2_alladdr(PyObject *self, PyObject *args) {
       fprintf(fp, "Using my own version of symbol_search_next\n");
   }
 
-     
+
   if (!PyArg_ParseTuple(args, "s", &symbol)) {
     PyErr_SetString(crashError, "invalid parameter type"); \
     return NULL;
@@ -854,7 +853,7 @@ py_readPtr(PyObject *self, PyObject *args) {
     sprintf(pb, "readmem error at addr 0x%llx", addr);
     PyErr_SetString(crashError, pb);
     return NULL;
-    
+
   }
   return nu_void_p(&p);
 }
@@ -868,7 +867,7 @@ py_addr2sym(PyObject *self, PyObject *args) {
   int loose_match = 0;
 
   struct syment *se;
-     
+
   if (!PyArg_ParseTuple(args, "k|i", &addr,&loose_match)) {
     PyErr_SetString(crashError, "invalid parameter type"); \
     return NULL;
@@ -917,7 +916,7 @@ py_readmem(PyObject *self, PyObject *args) {
     return NULL;
   }
   */
-#if PY_MAJOR_VERSION < 3  
+#if PY_MAJOR_VERSION < 3
   if (PyInt_Check(arg1))
       addr = PyInt_AsLong(arg1);
   else
@@ -946,16 +945,15 @@ py_readmem(PyObject *self, PyObject *args) {
     sprintf(pb, "readmem error at addr 0x%llx, reading %ld bytes", addr, size);
     PyErr_SetString(crashError, pb);
     return NULL;
-    
+
   }
-#if PY_MAJOR_VERSION < 3  
+#if PY_MAJOR_VERSION < 3
   out = PyString_FromStringAndSize(buffer, size);
 #else
   out = PyBytes_FromStringAndSize(buffer, size);
 #endif
   free(buffer);
   return out;
-  
 }
 
 /* Read an integer (not an array of integers)
@@ -998,7 +996,7 @@ py_readInt(PyObject *self, PyObject *args) {
 	    addr, size);
     PyErr_SetString(crashError, pb);
     return NULL;
-    
+
   }
   if (size < 0 || size > sizeof(functable_signed)/sizeof(conversion_func))
     return nu_badsize(buffer);
@@ -1022,7 +1020,7 @@ py_readmem_task(PyObject *self, PyObject *args) {
 
   PyObject *arg0 = PyTuple_GetItem(args, 0);
 
-#if PY_MAJOR_VERSION < 3  
+#if PY_MAJOR_VERSION < 3
   if (PyInt_Check(arg0))
       tskaddr = PyInt_AsLong(arg0);
   else
@@ -1050,7 +1048,7 @@ py_readmem_task(PyObject *self, PyObject *args) {
 }
 
 
-/* 
+/*
    Copied from crash/kernel.c - it is declared as static there,
    so we have to duplicate
  */
@@ -1111,7 +1109,7 @@ py_uvtop(PyObject *self, PyObject *args) {
 
   return PyLong_FromUnsignedLongLong((ulonglong)physaddr);
 }
-  
+
 
 static PyObject *
 py_pageoffset(PyObject *self, PyObject *args) {
@@ -1124,9 +1122,7 @@ py_pageoffset(PyObject *self, PyObject *args) {
 
   return PyLong_FromUnsignedLong(PAGEOFFSET(vaddr));
 }
-				 
-  
-  
+
 
 
 static PyObject *
@@ -1161,7 +1157,7 @@ py_getFullBuckets(PyObject *self, PyObject *args) {
     sprintf(pb, "readmem error at addr 0x%llx", start);	\
     PyErr_SetString(crashError, pb);
     return NULL;
-    
+
   }
   list = PyList_New(0);
   for (i=0; i < items; i++) {
@@ -1206,7 +1202,7 @@ py_getFullBuckets_h(PyObject *self, PyObject *args) {
     sprintf(pb, "readmem error at addr 0x%llx", start); \
     PyErr_SetString(crashError, pb);
     return NULL;
-    
+
   }
   list = PyList_New(0);
   for (i=0; i < items; i++) {
@@ -1234,12 +1230,12 @@ py_getlistsize(PyObject *self, PyObject *args) {
   char *addr;
   long offset;
   long maxel;
-  
+
   char pb[256];
-  
+
   int count = 0;
   char *ptr, *next;
-  
+
   PyObject *arg0 = PyTuple_GetItem(args, 0);
   PyObject *arg1 = PyTuple_GetItem(args, 1);
   PyObject *arg2 = PyTuple_GetItem(args, 2);
@@ -1259,7 +1255,7 @@ py_getlistsize(PyObject *self, PyObject *args) {
 	  return NULL;
     }
 
-    //printf("addr=%p next=%p\n", addr, next); 
+    //printf("addr=%p next=%p\n", addr, next);
     if (next == addr)
       break;
     ptr = next;
@@ -1299,14 +1295,14 @@ py_le32_to_cpu(PyObject *self, PyObject *args) {
     PyErr_SetString(crashError, "invalid parameter type"); \
     return NULL;
   }
-  
+
   return PyLong_FromUnsignedLong(__le32_to_cpu(val));
 }
 
 static PyObject *
 py_le16_to_cpu(PyObject *self, PyObject *args) {
   ulong val;
-  
+
   if (!PyArg_ParseTuple(args, "k", &val)) {
     PyErr_SetString(crashError, "invalid parameter type"); \
     return NULL;
@@ -1321,7 +1317,7 @@ py_le16_to_cpu(PyObject *self, PyObject *args) {
 static PyObject *
 py_cpu_to_le32(PyObject *self, PyObject *args) {
   ulong val;
-  
+
   if (!PyArg_ParseTuple(args, "k", &val)) {
     PyErr_SetString(crashError, "invalid parameter type"); \
     return NULL;
@@ -1366,7 +1362,7 @@ py_register_epython_prog(PyObject *self, PyObject *args) {
   struct command_table_entry *ct = epython_curext->command_table;
   struct command_table_entry *ce;
 
-     
+
   if (!PyArg_ParseTuple(args, "ssss", &help_data[0],
 			&help_data[1],  &help_data[2],
 			&help_data[3])) {
@@ -1400,7 +1396,7 @@ py_register_epython_prog(PyObject *self, PyObject *args) {
 
   if (debug > 1)
     printf("nentries=%d\n", nentries);
-  
+
   ct = realloc(ct, sizeof(struct command_table_entry)*(nentries+2));
   if (!ct) {
     printf("Cannot realloc while registering epython/%s\n", cmd);
@@ -1443,7 +1439,7 @@ py_register_epython_prog(PyObject *self, PyObject *args) {
     // Update the table in crash
     epython_curext->command_table = ct;
   }
-  
+
   // Print cmd table for debugging
   if (debug > 1) {
     printf("--- Current command table ---\n");
@@ -1498,6 +1494,7 @@ py_get_pathname(PyObject *self, PyObject *args) {
   return PyString_FromString(pathname);
 }
 
+// Check whether task is active by calling crash internal subroutine
 static PyObject *
 py_is_task_active(PyObject *self, PyObject *args) {
   ulong taskaddr;
@@ -1509,6 +1506,42 @@ py_is_task_active(PyObject *self, PyObject *args) {
 
   rc = is_task_active(taskaddr);
   return PyBool_FromLong(rc);
+}
+
+// Map task to pid calling crash() internal subroutine
+static PyObject *
+py_task_to_pid(PyObject *self, PyObject *args) {
+  ulong taskaddr;
+  ulong pid;
+  if (!PyArg_ParseTuple(args, "k", &taskaddr)) {
+    PyErr_SetString(crashError, "invalid parameter type"); \
+    return NULL;
+  }
+
+  /* On error, it returns NO_PID   ((ulong)-1) */
+  pid = task_to_pid(taskaddr);
+
+  //printf("%lu  %lu\n", taskaddr, NO_PID);
+  if (pid == NO_PID) {
+    Py_INCREF(Py_None);
+    return Py_None;
+  } else
+    return PyLong_FromUnsignedLong(pid);
+}
+
+// Map pid to task calling crash() internal subroutine
+static PyObject *
+py_pid_to_task(PyObject *self, PyObject *args) {
+  ulong taskaddr;
+  ulong pid;
+  if (!PyArg_ParseTuple(args, "k", &pid)) {
+    PyErr_SetString(crashError, "invalid parameter type"); \
+    return NULL;
+  }
+
+
+  taskaddr = pid_to_task(pid);
+  return PyLong_FromUnsignedLong(taskaddr);
 }
 
 
@@ -1537,13 +1570,13 @@ py_setprocname(PyObject *self, PyObject *args) {
 
     if (!PyArg_ParseTuple(args, "s", &name))
             return NULL;
- 
+
     size = get_argv_size();
 
     memset(argv0, '\0', size);
     strncpy(argv0, name, size-1);
     //snprintf(argv0, size - 1, name);
-     
+
     prctl (15 /* PR_SET_NAME */, name, 0, 0, 0);
     Py_INCREF(Py_None);
     return Py_None;
@@ -1594,6 +1627,8 @@ static PyMethodDef crashMethods[] = {
   {"get_pathname", py_get_pathname, METH_VARARGS},
   {"setprocname", py_setprocname, METH_VARARGS},
   {"is_task_active", py_is_task_active,  METH_VARARGS},
+  {"pid_to_task", py_pid_to_task,  METH_VARARGS},
+  {"task_to_pid", py_task_to_pid,  METH_VARARGS},
   {NULL,      NULL}        /* Sentinel */
 };
 
@@ -1615,24 +1650,24 @@ extern const char * crashmod_version;
 
 static PyObject *
 initcrash23(void) {
-  
+
   int i;
 #if PY_MAJOR_VERSION >= 3
     m = PyModule_Create(&crashmodule);
-#else  
+#else
   m = Py_InitModule("crash", crashMethods);
 #endif
 
   if (m == NULL)
         return NULL;
-  
+
   d = PyModule_GetDict(m);
   crashError = PyErr_NewException("crash.error", NULL, NULL);
   Py_INCREF(crashError);
   PyModule_AddObject(m, "error", crashError);
 
   PyModule_AddObject(m, "version", PyString_FromString(crashmod_version));
-  
+
   PyModule_AddObject(m, "KVADDR", PyInt_FromLong(KVADDR));
   PyModule_AddObject(m, "UVADDR", PyInt_FromLong(UVADDR));
   PyModule_AddObject(m, "PHYSADDR", PyInt_FromLong(PHYSADDR));
@@ -1644,7 +1679,7 @@ initcrash23(void) {
   PyModule_AddObject(m, "HZ", PyInt_FromLong(machdep->hz));
 
   PyModule_AddObject(m, "WARNING", PyString_FromString("++WARNING+++"));
-  
+
   PyModule_AddObject(m, "Crash_run", PyString_FromString(build_version));
   PyModule_AddObject(m,
 		     "Crash_build",PyString_FromString(build_crash_version));
@@ -1659,7 +1694,7 @@ initcrash23(void) {
     functable_signed[i] = nu_badsize;
     functable_usigned[i] = nu_badsize;
   }
-  
+
   functable_signed[sizeof(char)-1] = nu_byte;
   functable_signed[sizeof(short)-1] = nu_short;
   functable_signed[sizeof(int)-1] = nu_int;

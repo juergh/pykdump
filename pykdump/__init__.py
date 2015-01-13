@@ -4,7 +4,7 @@ from __future__ import print_function
 """PyKdump Python API for CRASH Dumpanalysis Tool
 """
 # Version number
-__version__ = '0.5'
+__version__ = '0.6'
 
 import sys
 
@@ -15,7 +15,7 @@ Author: Alex Sidorenko <asid@hp.com>
 """
 
 # A minimal C-module version that is needed for API to work
-minimal_cmod_version = "0.8.3"
+minimal_cmod_version = "0.8.4"
 
 
 # The next subroutines are used for version compatibility control.

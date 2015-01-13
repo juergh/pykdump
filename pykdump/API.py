@@ -65,7 +65,7 @@ except ImportError as e:
 
 import pykdump                          # For version check
 require_cmod_version = pykdump.require_cmod_version
-  
+
 require_cmod_version(pykdump.minimal_cmod_version)
 
 
@@ -115,7 +115,7 @@ from .wrapcrash import readU8, readU16, readU32, readS32, \
      struct_exists, symbol_exists,\
      Addr, Deref, SmartString, tPtr, \
      sym2addr, addr2sym, sym2alladdr, \
-     get_pathname, is_task_active, \
+     get_pathname, is_task_active, pid_to_task, task_to_pid, \
      readmem, uvtop, readProcessMem, set_readmem_task, \
      struct_size, union_size, member_offset, member_size, enumerator_value, \
      getSizeOf, container_of, whatis, printObject,\
@@ -180,7 +180,7 @@ class PyLog:
     def cleanup(self):
         # Clear the cache
         self._cache.clear()
-        self._silent = ""        
+        self._silent = ""
     def onexit(self):
         # Are there any problems at all?
         if (not self._cache):
@@ -220,7 +220,7 @@ def isfileoutput():
         return False
     mode = os.fstat(sys.stdout.fileno())[stat.ST_MODE]
     return stat.S_ISREG(mode)
-    
+
 
 # Process common (i.e. common for all pykdump scripts) options.
 from optparse import OptionParser, Option
@@ -235,7 +235,7 @@ def __epythonOptions():
     op.add_option("--debug", dest="debug", default=-1,
               action="store", type="int",
               help="enable debugging output")
-    
+
     op.add_option("--timeout", dest="timeout", default=120,
               action="store", type="int",
               help="set default timeout for crash commands")
@@ -251,7 +251,7 @@ def __epythonOptions():
     op.add_option("--ofile", dest="filename",
                   help="write report to FILE", metavar="FILE")
 
-    op.add_option("--ehelp", default=0, dest="ehelp", 
+    op.add_option("--ehelp", default=0, dest="ehelp",
                   action = "store_true",
                   help="Print generic epython options")
 
@@ -259,7 +259,7 @@ def __epythonOptions():
         (aargs, uargs) = __preprocess(sys.argv[1:], op)
     else:
         aargs = uargs = []
- 
+
     (o, args) = op.parse_args(aargs)
     wrapcrash.experimental = API_options.experimental = o.experimental
     global debug, __timeout_exec
@@ -276,7 +276,7 @@ def __epythonOptions():
             if(k.split('.')[0] == 'LinuxDump' and m):
                 del sys.modules[k]
                 print ("--reloading", k)
-    
+
     if  (o.timeout):
         set_default_timeout(o.timeout)
         crash.default_timeout = o.timeout
@@ -286,7 +286,7 @@ def __epythonOptions():
         if (o.timeout > __timeout_exec):
             purge_memoize_cache(CU_TIMEOUT)
         __timeout_exec = o.timeout
-        
+
     if (o.filename):
         sys.stdout = open(o.filename, "w")
 
@@ -342,10 +342,10 @@ def enter_epython():
     t_start = ost[0]+ost[1]
     t_start_children = ost[2] + ost[3]
     t_starta = time.time()
-    
+
     # We might redefine stdout every time we execute a command...
     pp = pprint.PrettyPrinter(indent=4)
-    
+
     pylog.cleanup()     # Do cleanup every time
     #print ("Entering Epython")
 
@@ -363,10 +363,10 @@ def enter_epython():
     # Print vmcore name/path when not on tty
     if (isfileoutput()):
         print ("\n", 'o' * lpad, text, 'o' * lpad)
-    
+
     # Use KVADDR
     set_readmem_task(0)
-    
+
     # Insert directory of the file to sys.path
     pdir = os.path.dirname(sys.argv[0])
     #print ("pdir=", pdir)
@@ -402,7 +402,7 @@ def cleanup():
     sys.stdout.flush()
 
 
-    
+
 # The following function is used to do some black magic - adding methods
 # to classes dynmaically after dump is open.
 # E.g. we cannot obtain struct size before we have access to dump
@@ -436,7 +436,7 @@ def possibleModuleNames(topdir, fbase):
                 if (ext == e):
                     return os.path.join(d, fbase + e)
     return None
-        
+
 
 # Loading extra modules. Some defauls locations for debuginfo:
 
@@ -454,8 +454,8 @@ def possibleModuleNames(topdir, fbase):
 __loaded_Mods = {}
 def loadModule(modname, ofile = None, altname = None):
     """Load module file into crash"""
-    
-    # In some cases we load modules renaming them. 
+
+    # In some cases we load modules renaming them.
     # In this case modname is the original name (used to search for debug)
     # and altname is the name in 'mod' output
     if (not altname):
@@ -511,17 +511,17 @@ def delModule(modname):
     except KeyError:
         pass
 
-# get modules list. We need it mainly to find 
+# get modules list. We need it mainly to find
 __mod_list = []
 def lsModules():
     if (len(__mod_list) > 1):
         return __mod_list
-    
+
     try:
         # On older kernels, we have module_list
         kernel_module = sym2addr("kernel_module")
         if (kernel_module):
-            module_list = readSymbol("module_list")    
+            module_list = readSymbol("module_list")
             for m in readStructNext(module_list, "next", inchead = False):
                 if (long(m) != kernel_module):
                     __mod_list.append(m.name)
@@ -531,7 +531,7 @@ def lsModules():
             for m in lh.list:
                __mod_list.append(m.name)
     except:
-        # If anything went wrong, return a partial list 
+        # If anything went wrong, return a partial list
         pass
     return __mod_list
 
@@ -549,13 +549,13 @@ def _doSys():
 
 # -----------  initializations ----------------
 
-# What happens if we use 'epython' command several times without 
+# What happens if we use 'epython' command several times without
 # leaving 'crash'? The first time import statements really do imports running
 # some code, next time the import statement just sees that the code is already
 # imported and it does not execute statements inside modules. So the code
 # here is executed only the first time we import API (this might change if we
 # purge modules, e.g. for debugging).
-# 
+#
 # But the function enter_python() is called every time - the first time when
 # we do import, next times as it is registered as a hook
 
