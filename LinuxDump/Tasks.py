@@ -546,6 +546,10 @@ structSetAttr(__sts, "Uid", ["uid", "real_cred.uid.val", "real_cred.uid"])
 structSetAttr(__sts, "User", ["user", "real_cred.user"])
 
 # Print tasks summary and return the total number of threads
+try:
+    init_nsproxy =  readSymbol("init_nsproxy")
+except:
+    init_nsproxy = None
 
 def tasksSummary():
     tt = TaskTable()
@@ -561,7 +565,8 @@ def tasksSummary():
             acounts[1] += 1
         if (v <= 60):
             acounts[2] += 1
-           
+
+    n_of_ns_pids = 0
     for mt in tt.allTasks():
         #print mt.pid, mt.comm, mt.state
         state = mt.state
@@ -570,6 +575,13 @@ def tasksSummary():
         d_counts[(comm, state)] = d_counts.setdefault((comm, state), 0) + 1
         update_acounts((basems - mt.Last_ran)/1000)
         threadcount += 1
+        # Check whether we are running in our own namespace
+        if (init_nsproxy):
+            nsproxy = mt.ts.nsproxy
+            for na in ("uts_ns", "ipc_ns", "mnt_ns", "net_ns"):
+                if (getattr(nsproxy, na) != getattr(init_nsproxy, na)):
+                    n_of_ns_pids += 1
+                    break
         for t in mt.threads:
             #print "\t", t.pid, t.state
             state = t.state
@@ -588,9 +600,9 @@ def tasksSummary():
         print ("  %-40s  %4d" %  (k, v))
     print ("")
     # Check whether there are any PID-namespaces. If yes, issue a warning
-    if (tt.pidnamespaces):
-        pylog.warning("There are threads running in their own PID-namespace\n"
-                      "\tUse 'taskinfo --ns' to get more details")
+    if (tt.pidnamespaces or n_of_ns_pids):
+        pylog.warning("There are %d threads running in their own namespaces\n"
+                      "\tUse 'taskinfo --ns' to get more details" % n_of_ns_pids)
 
     return threadcount
     print ("       === # of Threads Sorted by CMD+State ===")
@@ -684,7 +696,27 @@ def decode_tflags(flags, offset = 0):
             v = __TIF_RHEL6.value2key(i)
             print(offset, "bit %d" %i, v)
         flags = (flags >> 1)
-    
+
+# Print info about namespaces being used
+
+def print_namespaces_info(tt, v = 0):
+    if (not init_nsproxy):
+        return
+    once = TrueOnce(1)
+    for t in tt.allTasks():
+        nsproxy = t.ts.nsproxy
+        nslist = []
+        for na in ("uts_ns", "ipc_ns", "mnt_ns",  "net_ns"):
+            if (getattr(nsproxy, na) != getattr(init_nsproxy, na)):
+                nslist.append(na)
+        if (nslist):
+            if (once):
+                print("   *** Processes with non-standard Namespaces ***")
+            print(t, "\n\tNon-standard namespaces:", nslist)
+    if (tt.pidnamespaces):
+        print("\n   *** PID Namespace Info ***")
+        print_pid_namespaces(tt, v)
+
 
 # Print info abour PID-namespaces
 def print_pid_namespaces(tt, v = 0):

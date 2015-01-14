@@ -103,7 +103,7 @@ def print_sock_wq(sock,v = 0):
             pylog.warning("Bad skb length, {}".format(str(skb)))
         #if (no_send_head):
         #    pylog.warning("No send_head for ", sock)
-        
+
 
 def print_TCP_sock(o):
     try:
@@ -111,6 +111,8 @@ def print_TCP_sock(o):
     except KeyError as msg:
         pylog.warning(msg)
         return
+    # Check whether it belong to our namespace
+    if (pstr.wrongNameSpace()): return
     jiffies = readSymbol("jiffies")
     tcp_state = pstr.state
     if(tcpstate_filter and tcpstate_filter != tcp_state):
@@ -162,7 +164,7 @@ def print_TCP_sock(o):
                     print_sock_wq(ss, details)
                 except KeyError:
                     pass
-                
+
             # Extra details when there are retransmissions
             if (pstr.Retransmits):
                 print("    -- Retransmissions --")
@@ -267,10 +269,10 @@ def decode_user_data(addr, saddr):
 
 
 # Print TCP info from TIMEWAIT buckets
-
-# Print TCP info from TIMEWAIT buckets
 def print_TCP_tw(tw):
     pstr = proto.IP_conn_tw(tw, details)
+    # Check whether it belongs to our namespace
+    if (pstr.wrongNameSpace()): return
 
     if (port_filter):
         if (pstr.sport != port_filter and pstr.dport != port_filter):
@@ -278,12 +280,13 @@ def print_TCP_tw(tw):
     if (details):
         print ('-' * 78)
         print (tw, '\t\tTCP')
-    
-    
+
+
     print (pstr)
+    print("\tNet:", pstr.net)
     if (details):
         print ("\ttw_timeout=%d, ttd=%d" % (pstr.tw_timeout, pstr.ttd))
-    
+
 
 def print_TCP():
     # Some notes about printing the contents of TCP sockets
@@ -307,8 +310,8 @@ def print_TCP():
     # inet_sock should be the 1st member
 
     global jiffies
-    
-    
+
+
     # print LISTEN
     if (print_listen):
         for o in proto.get_TCP_LISTEN():
@@ -316,7 +319,7 @@ def print_TCP():
             msg = pylog.getsilent()
             if (msg):
                 pylog.error("TCP_LISTEN", msg)
- 
+
             print_TCP_sock(o)
 
     if (not print_nolisten):
@@ -349,6 +352,9 @@ def print_UDP():
     for o in proto.get_UDP():
         count += 1
         pstr = IP_sock(o, details)
+        # Check whether it belongs to our namespace
+        if (pstr.wrongNameSpace()): continue
+
         # If we do not want LISTEN sockets only, ignore everything but
         # ESTABLISHED (there is no real LISTEN state for UDP)
         if (pstr.state == tcpState.TCP_ESTABLISHED):
@@ -364,7 +370,6 @@ def print_UDP():
         if (msg):
             pylog.error("UDP", msg)
 
-        print (pstr)
         if (details):
             print ("\trx_queue=%d, tx_queue=%d" % (pstr.rmem_alloc,
                                                   pstr.wmem_alloc))
@@ -399,6 +404,13 @@ def print_UNIX():
     print ("----------------------------------")
     for s in proto.get_AF_UNIX():
         state, ino, path = proto.unix_sock(s)
+        try:
+            net = s.Net
+            if (net != get_nsproxy().net_ns):
+                continue
+        except:
+            pass
+
         if (state == tcpState.TCP_LISTEN):
             if (not print_listen): continue
         else:
@@ -407,7 +419,7 @@ def print_UNIX():
         if (details):
             print ('-' * 78)
             print (s, '\t\tUnix')
-         
+
         statename = tcp_state_name(state)
         print ("unix   %-12s   %-6d  %s" % (statename, ino, path))
         if (details < 2):

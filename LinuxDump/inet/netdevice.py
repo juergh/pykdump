@@ -180,7 +180,7 @@ def get_inet6_ifaddr():
             for ifa in hlist_for_each_entry(sn, h, "addr_lst"):
                 yield ifa
 
-# Return a dictionary of inet ifas, key=devname, val=[list of ifas]
+# Return a dictionary of inet ifas, key=netdevice, val=[list of ifas]
 @memoize_cond(CU_LIVE|CU_LOAD)    
 def get_inet6_devs():
     inet6devs = defaultdict(list)
@@ -205,18 +205,17 @@ def get_inet6_devs():
                 #print i, hexl(pt)
                 ifa = readSU("struct inet6_ifaddr", pt)
                 #print ifa.addr
-                #print "  ", ntodots6(ifa.addr), ifa.Deref.idev.Deref.dev.name
-                inet6devs[ifa.idev.dev.name].append(ifa)
+                #print("  ", ntodots6(ifa.addr), ifa.idev.dev, ifa.idev.dev.name)
+                inet6devs[ifa.idev.dev].append(ifa)
     else:
         offset = member_offset(sn, "addr_lst")
         for h in readSymbol('inet6_addr_lst'):
             for ifa in hlist_for_each_entry(sn, h, "addr_lst"):
-                inet6devs[ifa.idev.dev.name].append(ifa)
+                inet6devs[ifa.idev.dev].append(ifa)
     return inet6devs
 
-            
-            
-        
+
+
 DEVSTATE_c = '''
 enum netdev_state_t
 {
@@ -832,8 +831,8 @@ def print_If(dev, details = 0):
             ipwithmask = "%-20s  %s" % (ipwithmask, ifalabel)
         print ("  inet4 addr: %s" % ipwithmask)
 
-    if (devname in if6devs):
-        for ifa in if6devs[devname]:
+    if (dev in if6devs):
+        for ifa in if6devs[dev]:
             print ("  inet6 addr: %s/%d" % (ntodots6(ifa.addr),
                                            ifa.prefix_len))
 

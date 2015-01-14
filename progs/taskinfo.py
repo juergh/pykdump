@@ -21,7 +21,7 @@ from pykdump.API import *
 
 from LinuxDump import percpu
 from LinuxDump.Tasks import TaskTable, Task, tasksSummary, ms2uptime, \
-     decode_tflags, print_pid_namespaces
+     decode_tflags, print_namespaces_info
 from LinuxDump.BTstack import exec_bt, bt_summarize
 
 debug = API_options.debug
@@ -396,7 +396,7 @@ if ( __name__ == '__main__'):
                     help="Reverse order while sorting")
     op.add_option("--ns", dest="Ns", default = 0,
                     action="store_true",
-                    help="Print info about PID-namespaces")
+                    help="Print info about namespaces")
     op.add_option("--version", dest="Version", default = 0,
                   action="store_true",
                   help="Print program version and exit")
@@ -429,7 +429,7 @@ if ( __name__ == '__main__'):
         find_and_print(o.Pidinfo)
     elif (o.Ns):
         tt = TaskTable()
-        print_pid_namespaces(tt, verbose)
+        print_namespaces_info(tt, verbose)
     else:
         printTasks()
 
