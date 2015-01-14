@@ -243,14 +243,15 @@ def get_fib_tables_v26(All= False):
             #static struct hlist_head fib_table_hash[FIB_TABLE_HASHSZ];
             fib_table_hash = readSymbol("fib_table_hash")
         elif (symbol_exists("init_net")): # 2.6.27
-            fib_table_hash = readSymbol("init_net").ipv4.fib_table_hash
+            net = get_nsproxy().net_ns
+            fib_table_hash = net.ipv4.fib_table_hash
         else:
             raise TypeError("Don't know how to get routes for this kernel")
 
         offset = member_offset("struct fib_table", "tb_hlist")
 
         table_main = None
-        
+
         # If fib_hash_table is an array, we do not need to guess
         if (type(fib_table_hash) == type([])):
             FIB_TABLE_HASHSZ = len(fib_table_hash)

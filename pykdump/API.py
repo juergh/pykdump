@@ -221,6 +221,28 @@ def isfileoutput():
     mode = os.fstat(sys.stdout.fileno())[stat.ST_MODE]
     return stat.S_ISREG(mode)
 
+# Return the current nsproxy
+try:
+    __init_proxy = readSymbol("init_nsproxy")
+except:
+    __init_proxy = None
+
+__proxy = __init_proxy
+def get_nsproxy():
+    return __proxy
+
+def set_nsproxy(pid = None):
+    global __proxy
+    if (pid == None):
+        __proxy = __init_proxy
+    else:
+        taskaddr = pid_to_task(pid)
+        if (taskaddr):
+            task = readSU("struct task_struct", taskaddr)
+            __proxy = task.nsproxy
+        else:
+            print("There is no PID={}".format(pid))
+            sys.exit(0)
 
 # Process common (i.e. common for all pykdump scripts) options.
 from optparse import OptionParser, Option
@@ -239,6 +261,10 @@ def __epythonOptions():
     op.add_option("--timeout", dest="timeout", default=120,
               action="store", type="int",
               help="set default timeout for crash commands")
+
+    op.add_option("--usens", dest="usens",
+              action="store", type="int",
+              help="use namespace of the specified PID")
 
     op.add_option("--reload", dest="reload", default=0,
               action="store_true",
@@ -286,6 +312,12 @@ def __epythonOptions():
         if (o.timeout > __timeout_exec):
             purge_memoize_cache(CU_TIMEOUT)
         __timeout_exec = o.timeout
+
+    # Reset nsproxy every time
+    set_nsproxy(None)
+    if  (o.usens):
+        print("Using namespaces of PID", o.usens)
+        set_nsproxy(o.usens)
 
     if (o.filename):
         sys.stdout = open(o.filename, "w")

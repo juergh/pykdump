@@ -1,9 +1,9 @@
 # module LinuxDump.inet.snmpstats
 #
-# Time-stamp: <13/10/18 12:18:25 alexs>
+# Time-stamp: <2015-01-14 09:02:18 alexs>
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
 #
 # Author: Alex Sidorenko <asid@hp.com>
 #
@@ -74,9 +74,8 @@ tabnames = {
 # #define TCP_INC_STATS(field)  SNMP_INC_STATS(tcp_statistics, field)
 
 # #define SNMP_INC_STATS(mib, field)    \
-#       (per_cpu_ptr(mib[!in_softirq()], 
+#       (per_cpu_ptr(mib[!in_softirq()],
 #         raw_smp_processor_id())->mibs[field]++)
-        
 
 class SnmpTable(dict):
     def __init__(self, tname):
@@ -97,10 +96,11 @@ class SnmpTable(dict):
 
 def __getSnmpTable_26(tname):
     # On 2.6.27 the tables are in init_net
-    try:
-        mib = readSymbol("init_net").mib
+    if (symbol_exists("init_net")):
+        net = get_nsproxy().net_ns
+        mib = net.mib
         table = mib.__getattr__(tname)
-    except (TypeError, KeyError):
+    else:
         table = readSymbol(tname)
     snmpname = tabnames[tname]
     out = []

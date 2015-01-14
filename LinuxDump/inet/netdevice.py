@@ -374,7 +374,7 @@ def print_mc_list(dev):
             print (" cannot find definition of struct inet6_dev")
 
 
-        
+
     print (" -------------------------")
 
 
@@ -713,15 +713,16 @@ try:
         return [readSU("struct net_device", a) \
                 for a in readList(__dev_base, __offset)]
 except TypeError:
-    # 2.6.22 and later
-    if (symbol_exists("init_net")):
-        __dev_base_head = readSymbol("init_net").dev_base_head
-    else:
-        __dev_base_head = readSymbol("dev_base_head")
     def dev_base_list():
+        # 2.6.22 and later
+        if (symbol_exists("init_net")):
+            net = get_nsproxy().net_ns
+            __dev_base_head = net.dev_base_head
+        else:
+            __dev_base_head = readSymbol("dev_base_head")
         return readSUListFromHead(Addr(__dev_base_head), "dev_list",
                                   "struct net_device")
-    
+
 
 # At this moment contains values 0-2, i.e. 3 bands
 prio2band = readSymbol("prio2band")

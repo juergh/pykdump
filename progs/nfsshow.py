@@ -55,7 +55,7 @@ into the same directory where vmcore resides. Here is the list of modules
 you need:
   ''' + "\n  ".join(__needed_kmods)
 
-__needed_structs = ("struct rpc_task", "struct nlm_wait", 
+__needed_structs = ("struct rpc_task", "struct nlm_wait",
                     "struct svc_export", "struct ip_map")
 
 __NO_NFSD = False
@@ -129,7 +129,7 @@ __XPRT_BITS = CDefine(__XPRT_C)
 if (sys_info.kernel < "3.10.0"):
     __XPRT_BITS["XPRT_INITIALIZED"] = __XPRT_BITS["XPRT_CONGESTED"]
     del __XPRT_BITS["XPRT_CONGESTED"]
-    
+
 # Convert it to proper bits
 XPRT_BITS = {k: 1<<v for k,v in __XPRT_BITS.items()}
 #print(XPRT_BITS)
@@ -138,7 +138,7 @@ XPRT_BITS = {k: 1<<v for k,v in __XPRT_BITS.items()}
 def init_Structures():
     load_Structures()
     finalize_Structures()
-    
+
 # Check whether all needed structures are present
 def load_Structures():
     def missingStructs():
@@ -153,12 +153,12 @@ def load_Structures():
         return
     # Do not try to load modules if they are not in use - maybe
     # this host does not use NFS at all!
-    
+
     if(not "nfs" in lsModules()):
         print("This host is not using NFS!")
         sys.exit(0)
-       
-    # Part I - try to load all modules from the required list. 
+
+    # Part I - try to load all modules from the required list.
     nodlkms = []
     for m in __needed_kmods:
         if (m in lsModules() and not loadModule(m)):
@@ -169,9 +169,9 @@ def load_Structures():
         print("+++Cannot find debuginfo for DLKMs: {}".format(s))
     # Now check whether all structs are available. If not, print
     # and explanation and exit
-    
+
     missing_structs = missingStructs()
-    # on RHEL5 NFS-client (no server), 'nfsd' is not loaded and 
+    # on RHEL5 NFS-client (no server), 'nfsd' is not loaded and
     # not really needed. So 'struct svc_export' is not needed either
     if (not 'nfsd' in lsModules()):
         global __NO_NFSD
@@ -185,7 +185,7 @@ def load_Structures():
         print("+++Cannot find symbolic info for:\n  {}".format(s))
         print(__needed_kmods_info)
         sys.exit(0)
-        
+
 # Computer offsets and create pseudoattrs
 def finalize_Structures():
     # A strange problem: sometimes after module is loaded, crash.gdb_typeinfo
@@ -210,8 +210,8 @@ def __j_delay(ts, jiffies):
         v = "%8.1f" % (float(v)/HZ)
     return v
 
-# To store IP-addr the older kernels use 'struct sockaddr_in, 
-# newer kernels use 
+# To store IP-addr the older kernels use 'struct sockaddr_in,
+# newer kernels use
 
 #struct __kernel_sockaddr_storage {
 #    short unsigned int ss_family;
@@ -241,7 +241,7 @@ def format_cl_addr(s):
 def getCache(cname):
     details = None
     cache_list = ListHead(sym2addr("cache_list"), "struct cache_detail")
-    
+
     for c in cache_list.others:
         if (c.name == cname):
             details = c
@@ -249,7 +249,7 @@ def getCache(cname):
 
     if (not details):
         return
-    
+
     table = details.hash_table
     size = details.hash_size
     for i in range(size):
@@ -323,7 +323,7 @@ def key_len_old(t):
     elif(t == 2):	return 12
     elif(t == 3):	return 8
     else: return 0
-    
+
 # NFS Export Cache (as reported by /proc/net/rpc/nfsd.export/contents)
 # #domain fsidtype fsid [path]
 # 192.168.0/24 1 0x00000000 /
@@ -357,12 +357,12 @@ def print_nfsd_fh(v=0):
         entries += 1
         if (v >=0):
             print (s)
- 
+
     if (v < 0):
         # Summary
         print("    {} entries".format(entries))
 
-        
+
 
 # NFS Export Cache (as reported by /proc/net/rpc/nfsd.export/contents)
 def print_nfsd_export(v=0):
@@ -391,7 +391,7 @@ def print_nfsd_export(v=0):
         # Summary
         print("    {} entries".format(entries))
 
-            
+
 # IP Map Cache (as reported by /proc/net/rpc/auth.unix.ip/contents)
 def print_ip_map_cache():
     ip_table = getCache("auth.unix.ip")
@@ -444,7 +444,7 @@ def print_unix_gid(v=0):
         for i in range(glen):
             out.append(" %d" % GROUP_AT(ug.gi, i))
         print ("".join(out))
-                   
+
 # On 2.4 and earlier 2.6:
 
 # struct rpc_task {
@@ -463,7 +463,7 @@ def print_unix_gid(v=0):
 # 	atomic_t		tk_count;	/* Reference count */
 # 	struct list_head	tk_task;	/* global list of tasks */
 
-	
+
 def __init_attrs():
     sn = "struct rpc_task"
     #
@@ -484,7 +484,7 @@ def __init_attrs():
     sn = "struct nlm_file"
     structSetAttr(sn, "Inode", ["f_file.f_path.dentry.d_inode",
                                 "f_file.f_dentry.d_inode"])
-                                
+
     sn = "struct file"
     structSetAttr(sn, "Dentry", ["f_dentry", "f_path.dentry"])
     structSetAttr(sn, "Mnt", ["f_vfsmnt", "f_path.mnt"])
@@ -499,12 +499,12 @@ def __init_attrs():
 
     sn = "struct svc_sock"
     structSetAttr(sn, "SockList", ["sk_list", "sk_xprt.xpt_list"])
-                                
+
 
 # Decode and print info about XPRT
 def print_xprt(xprt):
     pass
-    
+
 # Decode and Print one RPC task (struct rpc_task)
 def print_rpc_task(s, v = 0):
     # On a live system we can easily get bad addresses
@@ -523,9 +523,9 @@ def print_rpc_task(s, v = 0):
         if (v > 1):
             print("\t ", tk_client)
             print("\t ", cl_xprt)
-        
+
         print ("\t  procname=", tk_client.cl_protname)
-       
+
         vers = s.CL_vers
         prog = s.CL_prog
         if (prog == 100003 and vers == 2):
@@ -537,9 +537,9 @@ def print_rpc_task(s, v = 0):
         print ("\t  rpc_proc={}  tk_status={}".format(procname, tk_status))
 
         print ("\t  pmap_prog=", prog, ", pmap_vers=", vers)
-	
+
 	rqst = s.tk_rqstp
-	
+
 	if (rqst):
             if(rqst.rq_retries):
                 print ("\t  rq_retries=", rqst.rq_retries, "rq_timeout=", rqst.rq_timeout,\
@@ -575,7 +575,7 @@ def print_xprt(xprt, v = 0):
         # Null pointer and invalid addr
         return
     print("")
-    
+
 # print all rpc pending tasks
 def print_all_rpc_tasks(v=1):
     # Obtain all_tasks
@@ -606,7 +606,7 @@ def print_all_rpc_tasks(v=1):
     print (" --- XPRT Info ---")
     for xprt in xprtlist:
         print_xprt(xprt, 2)
-    
+
 def print_all_tasks():
     all_tasks = readSUListFromHead("all_tasks", "tk_task", "struct rpc_task")
     # Check whether it's 2.4 or 2.6
@@ -628,14 +628,14 @@ def print_rpc_status():
 	    #print hexl(Addr(lh))
 	    print (" [%d] " % getListSize(Addr(lh), 0, 10000000), end='')
 	print ("")
-    
+
     return
     # Print schedq elements
     shedq0 = readSU("struct rpc_wait_queue", sym2addr("schedq")).tasks[0]
     for ta in readList(Addr(shedq0), 0, maxel=20, inchead=False):
         rpct = readSU("struct rpc_task", ta)
 	print_rpc_task(rpct)
-	
+
 
 # Getting all tasks.
 #
@@ -676,7 +676,7 @@ def get_all_rpc_clients():
     if (all_clients == -1):
         return []
     return readSUListFromHead(all_clients, "cl_clients", "struct rpc_clnt")
-    
+
 def get_all_rpc_tasks():
     all_taddr = sym2addr("all_tasks")
     if (all_taddr):
@@ -687,9 +687,9 @@ def get_all_rpc_tasks():
     for cl in allc:
 	out += readSUListFromHead(long(cl.cl_tasks), "tk_task",
                                    "struct rpc_task")
-    
+
     return out
-	
+
 
 # Get dirty inodes
 #	struct list_head	s_dirty;	/* dirty inodes */
@@ -755,7 +755,7 @@ def print_svc_serv(srv):
 	print (" -- Temp Sockets")
         for s in ListHead(Addr(srv.sv_tempsocks), "struct svc_sock").SockList:
 	    print ("\t", s, "\n  ", IP_sock(s.sk_sk))
-	
+
 
 # On 2.6.35 we have a list of registered transports
 # static LIST_HEAD(svc_xprt_class_list);
@@ -768,7 +768,7 @@ def XXprint_nlm_serv():
         print (s)
     for c in get_all_clients():
         print (c, c.cl_protname)
-        
+
 # Print NLM stuff
 
 def print_nlm_serv():
@@ -795,7 +795,7 @@ def print_nlm_blocked_clnt(nlm_blocked):
 
     for block in lh.b_list:
 	fl_blocked = block.b_lock
-	owner = fl_blocked.fl_u.nfs_fl.owner.pid 
+	owner = fl_blocked.fl_u.nfs_fl.owner.pid
         haddr = block.b_host.h_addr.castTo("struct sockaddr_in")
 	ip = ntodots(haddr.sin_addr.s_addr)
 	print ("    ----  ", block)
@@ -838,15 +838,15 @@ def print_nlm_files():
 	    # struct nlm_file *nlm_files[32];
 	    # struct nlm_file {
 	    #     struct nlm_file *f_next;
-	    
+
             for e in nlm_files:
                 if (not e):
                     continue
                 # Deref the pointer
                 for e in readStructNext(e, "f_next"):
 		    yield e
-                
-           
+
+
     for e in get_all_nlm_files():
 	f_file = e.f_file
 	if (once):
@@ -875,8 +875,8 @@ def print_remote_nfs_server(nfs, mntpath):
 
 nfs_mounts = []
 
-# FIll-in and return a list of info about mounted NFS-shares. 
-def get_nfs_mounts():    
+# Fill-in and return a list of info about mounted NFS-shares.
+def get_nfs_mounts():
     del nfs_mounts[:]
     for vfsmount, superblk, fstype, devname, mnt in getMount():
         if (fstype in ("nfs", "nfs4")):
@@ -933,9 +933,9 @@ def print_nfsmount(v = 0):
 	    xprt = rpc_clnt.cl_xprt
             print_xprt(xprt, detail)
 	    #print rpc_clnt, rpc_clnt.cl_metrics
-    
-    # Stats are per RPC program, and all clients are using "NFS" 
-    cl_stats = rpc_clnt.cl_stats 
+
+    # Stats are per RPC program, and all clients are using "NFS"
+    cl_stats = rpc_clnt.cl_stats
     rpc_prog = cl_stats.program
     print ("  .... Stats for program ", rpc_prog.name)
     cl_stats.Dump()
@@ -971,7 +971,8 @@ def print_svc_xprt(v = 0):
             # On recent kernels, there are many  interesting
             # tables in "init_net", but not on 2.6.32 it is not available
             nfsd_net_id = readSymbol("nfsd_net_id") - 1
-            nfsd_net_ptr = readSymbol("init_net").gen.ptr[nfsd_net_id]
+            net = get_nsproxy().net_ns
+            nfsd_net_ptr = net.gen.ptr[nfsd_net_id]
             nfsd_net = readSU("struct nfsd_net", nfsd_net_ptr)
             nfsd_serv = nfsd_net.nfsd_serv
         except KeyError:
@@ -991,10 +992,10 @@ def print_svc_xprt(v = 0):
     for st, lst in (
         ("sv_permsocks", ListHead(nfsd_serv.sv_permsocks, sn)),
         ("sv_tempsocks", ListHead(nfsd_serv.sv_tempsocks, sn ))):
-        
+
         if (v >= 0):
             print("\n *** {} ***".format(st))
-        
+
         for x in getattr(lst, lnk):
             if (sn == "struct svc_xprt"):       # RHEL6
                 mutex =  x.xpt_mutex
@@ -1014,7 +1015,7 @@ def print_svc_xprt(v = 0):
                 print("   +++ mutex is in use +++", mutex)
                 decode_mutex(mutex)
 
-                                                   
+
 init_Structures()
 
 # The following exists on new kernels but not on old (e.g. 2.6.18)
@@ -1062,7 +1063,7 @@ def host_as_client(v = 0):
 
 #print_nlm_files()
 
-    
+
 
 # Printing info for NFS-server
 def host_as_server(v = 0):
@@ -1085,7 +1086,7 @@ def host_as_server(v = 0):
 
     # Locks we are holding for clients
     print_nlm_files()
-    
+
     print_svc_xprt(v)
 
     # Print RPC-reply cache only when verbosity>=2
@@ -1116,7 +1117,7 @@ def host_as_server(v = 0):
             rpc_list.sort()
             if (v < 0):
                 print(" -- {} RPC Reply-cache Entries in last 10s".format(
-                    len(rpc_list))) 
+                    len(rpc_list)))
                 return
             print ("  -- Recent RPC Reply-cache Entries (most recent first)")
             for secago, hc in rpc_list:
@@ -1127,7 +1128,7 @@ def host_as_server(v = 0):
 		except TypeError:
 		    saddr = "n/a"
                 print ("   ", hc, prot, saddr, secago, hc.c_state)
-                
+
 
 detail = 0
 
@@ -1140,15 +1141,15 @@ if ( __name__ == '__main__'):
     parser.add_argument("-a","--all", dest="All", default = 0,
                   action="store_true",
                   help="print all")
-		  
+
     parser.add_argument("--server", dest="Server", default = 0,
                   action="store_true",
                   help="print info about this host as an NFS-server")
-    
+
     parser.add_argument("--client", dest="Client", default = 0,
                   action="store_true",
                   help="print info about this host as an NFS-client")
-		  
+
     parser.add_argument("--rpctasks", dest="Rpctasks", default = 0,
                   action="store_true",
                   help="print RPC tasks")
@@ -1159,28 +1160,28 @@ if ( __name__ == '__main__'):
     parser.add_argument("--version", dest="Version", default = 0,
                   action="store_true",
                   help="Print program version and exit")
-    
+
 
     parser.add_argument("-v", dest="Verbose", default = 0,
 	action="count",
 	help="verbose output")
 
-    
+
     o = args = parser.parse_args()
 
     detail = o.Verbose
-    
+
     if (o.Version):
         print ("nfsshow version %s" % (__version__))
         sys.exit(0)
-        
+
     if (o.Client or o.All):
         if (get_nfs_mounts()):
 	    host_as_client(detail)
-	     
+
     if (o.Server or o.All):
         host_as_server(detail)
-    
+
     if (o.Rpctasks or o.All):
 	print_all_rpc_tasks(detail)
 
@@ -1188,20 +1189,20 @@ if ( __name__ == '__main__'):
         print ('*'*20, " NLM(lockd) Info", '*'*20)
 	print_nlm_files()
 	print_nlm_serv()
-	
+
     # If no options have been provided, print just a summary
     if (len(sys.argv) > 1):
         sys.exit(0)
-    
+
     if (get_nfs_mounts()):
         host_as_client()
-    
+
     # As server
     host_as_server(-1)
-    
+
     # RPC tasks
     print(" RPC ".center(70, '='))
     print_all_rpc_tasks(-1)
-    
+
 
 
