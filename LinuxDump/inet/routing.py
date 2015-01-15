@@ -140,7 +140,7 @@ def print_fib(All = False):
     fib_tables = get_fib_tables(All)
     for t in fib_tables:
         if (All):
-            print ("\n====", t, "ID", t.tb_id)
+            print ("\n====", t, _tableIdName(t.tb_id))
         g = get_fib_entries(t)
         do_fib_print(g)
 
@@ -216,12 +216,23 @@ else:
         _FIB_TABLE_HASHSZ = 2
     else:
         _FIB_TABLE_HASHSZ = 256
-    
+
+# Map table ID to its name if possible
+try:
+    __e = EnumInfo("enum rt_class_t")
+    RT_TABLE_MAIN = __e["RT_TABLE_MAIN"]
+    def _tableIdName(n):
+        return __e.getnam(n)
+except TypeError:
+    RT_TABLE_MAIN = 254
+    def _tableIdName(n):
+        return "Table ID {}".format(n)
+
     
 # Get fib_tables for v26, either just MAIN or all
-# Even for one table (MAIN) return it as a 1-element list
-
+# Even for one table (MAIN) return it as a 1-element list if is is not empty
 def get_fib_tables_v26(All= False):
+    global RT_TABLE_MAIN
     if (symbol_exists("fib_tables")):
         #struct fn_hash *table = (struct fn_hash *) ip_fib_main_table->tb_data;
         RT_TABLE_MAIN = readSymbol("main_rule").r_table
@@ -235,8 +246,7 @@ def get_fib_tables_v26(All= False):
         # Ignore optional 'table' argument for now
         if (symbol_exists("main_rule")):   # < 2.6.24
             RT_TABLE_MAIN = readSymbol("main_rule").common.table
-        else:
-            RT_TABLE_MAIN = 254
+
         #print "RT_TABLE_MAIN=",RT_TABLE_MAIN
 
         if (symbol_exists("fib_table_hash")):
@@ -281,7 +291,12 @@ def get_fib_tables_v26(All= False):
         if (All):
             return out
         else:
-            return [table_main]
+            # If table_main is None, this means no routing table
+            # (this can happen when using net_ns)
+            if (table_main):
+                return [table_main]
+            else:
+                return []
 
 
 # Walk fn_zone list for v26
@@ -411,17 +426,15 @@ def print_fib_rules():
     if (symbol_exists("fib_rules")):
         print_fib_rules_old()
         return
+    # The following should be fixed to work with namespaces
     if (symbol_exists("net_namespace_list")):
         # e.g. 2.6.35
-        net_namespace_list = readSymbol("net_namespace_list")
-        nslist = readSUListFromHead(Addr(net_namespace_list), "list", 
-                                "struct net")
-        for ns in nslist:
-            rules_ops = ns.ipv4.rules_ops
-            print ('--', ns, rules_ops)
-            rules_list = readSUListFromHead(Addr(rules_ops.rules_list), "list",
+        net = get_nsproxy().net_ns
+        rules_ops = net.ipv4.rules_ops
+        print ('--', net, rules_ops)
+        rules_list = readSUListFromHead(Addr(rules_ops.rules_list), "list",
                                         "struct fib_rule")
-            __print_rules_list(rules_list)
+        __print_rules_list(rules_list)
     else:
         # RHEL5 
         rules_ops = readSymbol("fib4_rules_ops")
@@ -434,7 +447,7 @@ def __print_rules_list(rules_list):
         # We support IPv4 only
         r = r.castTo("struct fib4_rule")
         c = r.common
-        print ("    --", r, c.table)
+        print ("    --", r, _tableIdName(c.table))
         print ('\tsrc', ntodots(r.src), 'srcmask', \
             ntodots(r.srcmask), 'src_len', r.src_len)
         print ('\tdst', ntodots(r.dst), 'dstmask', \

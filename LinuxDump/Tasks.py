@@ -703,16 +703,29 @@ def print_namespaces_info(tt, v = 0):
     if (not init_nsproxy):
         return
     once = TrueOnce(1)
+    # Group all tasks ny nsproxy they use
+    tdict = defaultdict(list)
     for t in tt.allTasks():
         nsproxy = t.ts.nsproxy
-        nslist = []
-        for na in ("uts_ns", "ipc_ns", "mnt_ns",  "net_ns"):
-            if (getattr(nsproxy, na) != getattr(init_nsproxy, na)):
-                nslist.append(na)
-        if (nslist):
-            if (once):
-                print("   *** Processes with non-standard Namespaces ***")
-            print(t, "\n\tNon-standard namespaces:", nslist)
+        tdict[nsproxy].append(t)
+    # We are not interested in init_nsproxy - a default NS
+    del tdict[init_nsproxy]
+    if(not tdict):
+        return
+
+    print("  {:*^60}".format("Non-standard Namespaces"))
+    for nsproxy, tlist in tdict.items():
+        print("    {!s:.^50}".format(nsproxy))
+        # On some kernels nsproxy can be NULL (bad - there were fixes)
+        if (nsproxy):
+            nslist = []
+            for na in ("uts_ns", "ipc_ns", "mnt_ns",  "net_ns"):
+                if (getattr(nsproxy, na) != getattr(init_nsproxy, na)):
+                    nslist.append(na)
+                    print("   ", nslist)
+        for t in tlist:
+            print("\t", t)
+              
     if (tt.pidnamespaces):
         print("\n   *** PID Namespace Info ***")
         print_pid_namespaces(tt, v)

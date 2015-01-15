@@ -236,6 +236,9 @@ def set_nsproxy(pid = None):
     if (pid == None):
         __proxy = __init_proxy
     else:
+        # Warning: on a live hos crash-internal subroutine does not
+        # always update task-table automatically, so we ask to refresh
+        exec_crash_command("set refresh on")
         taskaddr = pid_to_task(pid)
         if (taskaddr):
             task = readSU("struct task_struct", taskaddr)
@@ -316,7 +319,7 @@ def __epythonOptions():
     # Reset nsproxy every time
     set_nsproxy(None)
     if  (o.usens):
-        print("Using namespaces of PID", o.usens)
+        print(" *=*=* Using namespaces of PID {}  *=*=*".format(o.usens))
         set_nsproxy(o.usens)
 
     if (o.filename):

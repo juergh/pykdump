@@ -2,7 +2,7 @@
 #
 #  Generic classes and subroutines
 #
-# Time-stamp: <12/03/22 12:54:11 alexs>
+# Time-stamp: <2015-01-15 10:32:18 asid>
 #
 # --------------------------------------------------------------------
 # (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
@@ -335,11 +335,11 @@ class EnumInfo(dict):
             out.append("%s = %d" % (n, v))
         return self.stype + " {" + " ,".join(out) +"}"
     def getnam(self, v1):
-        for n,v in self.items():
+        for k,v in self.items():
             if (v == v1):
-                return n
-        return v1
-
+                return k
+        # Unknown value
+        return '<{}, bad value {}>'.format(self.stype, v1)
 
 
 
