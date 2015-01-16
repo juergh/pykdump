@@ -236,9 +236,6 @@ def set_nsproxy(pid = None):
     if (pid == None):
         __proxy = __init_proxy
     else:
-        # Warning: on a live hos crash-internal subroutine does not
-        # always update task-table automatically, so we ask to refresh
-        exec_crash_command("set refresh on")
         taskaddr = pid_to_task(pid)
         if (taskaddr):
             task = readSU("struct task_struct", taskaddr)

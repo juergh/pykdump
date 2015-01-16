@@ -1519,6 +1519,7 @@ py_task_to_pid(PyObject *self, PyObject *args) {
   }
 
   /* On error, it returns NO_PID   ((ulong)-1) */
+  tt->refresh_task_table();
   pid = task_to_pid(taskaddr);
 
   //printf("%lu  %lu\n", taskaddr, NO_PID);
@@ -1539,7 +1540,7 @@ py_pid_to_task(PyObject *self, PyObject *args) {
     return NULL;
   }
 
-
+  tt->refresh_task_table();
   taskaddr = pid_to_task(pid);
   return PyLong_FromUnsignedLong(taskaddr);
 }
