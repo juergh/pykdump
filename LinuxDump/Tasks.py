@@ -578,10 +578,10 @@ def tasksSummary():
         # Check whether we are running in our own namespace
         if (init_nsproxy):
             nsproxy = mt.ts.nsproxy
-            for na in ("uts_ns", "ipc_ns", "mnt_ns", "net_ns"):
-                if (getattr(nsproxy, na) != getattr(init_nsproxy, na)):
-                    n_of_ns_pids += 1
-                    break
+            # Do not report zombies here (they have nsproxy=NULL)
+            if (nsproxy and nsproxy != init_nsproxy):
+                n_of_ns_pids += 1
+                break
         for t in mt.threads:
             #print "\t", t.pid, t.state
             state = t.state
