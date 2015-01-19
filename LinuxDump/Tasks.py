@@ -721,10 +721,10 @@ def print_namespaces_info(tt, v = 0):
             for na in ("uts_ns", "ipc_ns", "mnt_ns",  "net_ns"):
                 if (getattr(nsproxy, na) != getattr(init_nsproxy, na)):
                     nslist.append(na)
-                    print("   ", nslist)
+            print("   ", nslist)
         for t in tlist:
             print("\t", t)
-              
+
     if (tt.pidnamespaces):
         print("\n   *** PID Namespace Info ***")
         print_pid_namespaces(tt, v)
