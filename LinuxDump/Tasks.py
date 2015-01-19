@@ -581,7 +581,6 @@ def tasksSummary():
             # Do not report zombies here (they have nsproxy=NULL)
             if (nsproxy and nsproxy != init_nsproxy):
                 n_of_ns_pids += 1
-                break
         for t in mt.threads:
             #print "\t", t.pid, t.state
             state = t.state
