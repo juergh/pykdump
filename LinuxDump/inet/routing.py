@@ -253,7 +253,7 @@ def get_fib_tables_v26(All= False):
             #static struct hlist_head fib_table_hash[FIB_TABLE_HASHSZ];
             fib_table_hash = readSymbol("fib_table_hash")
         elif (symbol_exists("init_net")): # 2.6.27
-            net = get_nsproxy().net_ns
+            net = get_ns_net()
             fib_table_hash = net.ipv4.fib_table_hash
         else:
             raise TypeError("Don't know how to get routes for this kernel")
@@ -429,7 +429,7 @@ def print_fib_rules():
     # The following should be fixed to work with namespaces
     if (symbol_exists("net_namespace_list")):
         # e.g. 2.6.35
-        net = get_nsproxy().net_ns
+        net = get_ns_net()
         rules_ops = net.ipv4.rules_ops
         print ('--', net, rules_ops)
         rules_list = readSUListFromHead(Addr(rules_ops.rules_list), "list",

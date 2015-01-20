@@ -40,6 +40,7 @@ else:
 
 from pykdump.API import *
 from LinuxDump import  percpu
+from LinuxDump.inet import get_ns_net
 
 
 __cpus = sys_info.CPUS
@@ -97,7 +98,7 @@ class SnmpTable(dict):
 def __getSnmpTable_26(tname):
     # On 2.6.27 the tables are in init_net
     if (symbol_exists("init_net")):
-        net = get_nsproxy().net_ns
+        net = get_ns_net()
         mib = net.mib
         table = mib.__getattr__(tname)
     else:

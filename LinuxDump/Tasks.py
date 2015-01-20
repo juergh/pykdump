@@ -95,7 +95,7 @@ class Task:
         threads = []
         for a in readList(saddr, maxel=200000, inchead = False):
             addr = a-Task.tgoffset
-            # Can we read from this addr? 
+            # Can we read from this addr?
             # This can be due to corruption or missing pages
             try:
                 readInt(addr)
@@ -104,12 +104,12 @@ class Task:
                 pylog.warning(" missing page")
         return threads
     def __get_threads_fast_265(self):
-        return self.__get_threads_fast()[:-1]   
+        return self.__get_threads_fast()[:-1]
     def __get_threads_fast_24(self):
         return self.ttable.pids[self.pid][1:]
     def __get_threads(self):
         tgoffset = member_offset("struct task_struct", "thread_group")
-        fast_method = Task.__get_threads_fast   
+        fast_method = Task.__get_threads_fast
         if (tgoffset != -1):
             # New 2.6
             Task.tgoffset = tgoffset
@@ -120,7 +120,7 @@ class Task:
             # Older 2.6. We have either
             # struct pid      pids[PIDTYPE_MAX];
             # then we need pids[PIDTYPE_TGID].pid_list
-            # 
+            #
             # Or, we have
             # struct pid_link pids[PIDTYPE_MAX];
             # then we need pids[PIDTYPE_TGID].pid.task_list
@@ -136,7 +136,7 @@ class Task:
                 fast_method = Task.__get_threads_fast_265
             else:
                 raise TypeError("Don't know how to find threads")
- 
+
             pl_off += struct_size(sn)
             #print sn, "pl_off=", pl_off
             Task.tgoffset = member_offset("struct task_struct", "pids") + \
@@ -144,7 +144,7 @@ class Task:
             #print "tgoffset=", Task.tgoffset
         Task.threads = property(fast_method)
         return self.threads
-        
+
     threads = property(__get_threads)
 
     # PID-namespace related stuff
@@ -155,21 +155,21 @@ class Task:
         # ns = pid->numbers[pid->level].ns
         pid = self.task_get_pid()
         return pid.numbers[pid.level].ns
-    
+
     # Delegate all unknown attributes access to self.ts
     def __getattr__(self, attr):
         return getattr(self.ts, attr)
-    
+
     def __repr__(self):
         return "PID=%d <struct task_struct 0x%x> CMD=%s" % (self.ts.pid,
-                                                     Addr(self.ts), 
+                                                     Addr(self.ts),
                                                      self.ts.comm)
 
     __str__ = __repr__
-    
+
     def __nonzero__(self):
         return True
-    
+
     # Get fds from 'task_struct'
     def taskFds(self, short = False):
         out = []
@@ -231,7 +231,7 @@ class _TaskTable:
         self.tt = []
         self.comms = defaultdict(list)
         pidnamespaces = defaultdict(list)
-        
+
         for t in tt:
             # In case we get a corrupted list
             try:
@@ -255,15 +255,15 @@ class _TaskTable:
                 pids_d[pid].insert(0, task)
             else:
                 pids_d[tgid].append(task)
-                
+
             self.comms[t.comm].append(task)
 
         self.pids = pids_d
         self.pidnamespaces = pidnamespaces
-        
+
         # A dict of all threads - we compute only if needed
         self.tids = {}
- 
+
         self.filepids = {}
         self.toffset = member_offset("struct task_struct", "thread_group")
 
@@ -272,7 +272,7 @@ class _TaskTable:
             self.__init_tids()
 
         self.basems = get_schedclockbase()
-        
+
         # File objects cache
         self.files_cache = {}
 
@@ -296,7 +296,7 @@ class _TaskTable:
     # Get all tasks
     def allTasks(self):
         return self.tt
-    
+
     # Get all threads
     def allThreads(self):
         self.__init_tids()
@@ -315,14 +315,14 @@ class _TaskTable:
             return self.tids[tid]
         except KeyError:
             return None
-                
+
     # get task by comm
     def getByComm(self, comm):
         try:
             return self.comms[comm]
         except KeyError:
             return []
-        
+
     # get task by 'struct file *' pointer. As there can be several
     # processes sharing the same file, we return a list
     def getByFile(self, filep):
@@ -335,9 +335,9 @@ class _TaskTable:
             return self.filepids[filep]
         except KeyError:
             return []
- 
 
-@memoize_cond(CU_LIVE |CU_PYMOD) 
+
+@memoize_cond(CU_LIVE |CU_PYMOD)
 def TaskTable():
     return _TaskTable()
 
@@ -405,7 +405,7 @@ def jiffies2ms(jiffies):
             else:
                 # We don't have unsigned ints in Python so make this negative
                 jiffies -= 2<<31
-                
+
             jiffies += 300*HZ
     return jiffies*1000/HZ
 
@@ -451,7 +451,7 @@ def ms2uptime(ms):
         return "%d days, %02d:%02d:%02d" % (days, hh, mm, ss)
     else:
         return "%02d:%02d:%02d" % (hh, mm, ss)
-    
+
 def get_uptime():
     return ms2uptime(jiffie_clock_base())
 
@@ -517,7 +517,7 @@ else:
     else:
         sched_clock2ms = sched_clock2ms_24
 
-runqueues_addrs = percpu.get_cpu_var("runqueues") 
+runqueues_addrs = percpu.get_cpu_var("runqueues")
 sys_info.runqueues_addrs = runqueues_addrs
 
 # Older 2.6 use 'struct runqueue', newer ones 'struct rq'
@@ -613,16 +613,16 @@ def tasksSummary():
         comm, state = k
         print ("%-15s %-40s  %4d" % (comm, state, v))
     return threadcount
-    
-    
+
+
 # IOCTX list of the task
 
 def get_ioctx_list(task):
     # struct kioctx
     head = task.mm.ioctx_list
     return readStructNext(head, "next")
-    
-    
+
+
 # SLES10
 __TIF_SLES10 = '''
 #define TIF_SYSCALL_TRACE       0       /* syscall trace active */
@@ -635,7 +635,7 @@ __TIF_SLES10 = '''
 #define TIF_SECCOMP             8       /* secure computing */
 #define TIF_RESTORE_SIGMASK     9       /* restore signal mask in do_signal */
 #define TIF_POLLING_NRFLAG      16      /* true if poll_idle() is polling TIF_NEED_RESCHED */
-#define TIF_IA32                17      /* 32bit process */ 
+#define TIF_IA32                17      /* 32bit process */
 #define TIF_FORK                18      /* ret_from_fork */
 #define TIF_ABI_PENDING         19
 #define TIF_MEMDIE              20
@@ -654,7 +654,7 @@ __TIF_RHEL5 = '''
 #define TIF_SECCOMP             8       /* secure computing */
 #define TIF_RESTORE_SIGMASK     9       /* restore signal mask in do_signal */
 /* 16 free */
-#define TIF_IA32                17      /* 32bit process */ 
+#define TIF_IA32                17      /* 32bit process */
 #define TIF_FORK                18      /* ret_from_fork */
 #define TIF_MEMDIE              20
 #define TIF_FORCED_TF           21      /* true if TF in eflags artificially */
@@ -685,8 +685,8 @@ __TIF_RHEL6_c = '''
  #define TIF_LAZY_MMU_UPDATES    27      /* task is updating the mmu lazily */
  #define TIF_SYSCALL_TRACEPOINT  28      /* syscall tracepoint instrumentation */
  '''
- 
-__TIF_RHEL6 = CDefine(__TIF_RHEL6_c) 
+
+__TIF_RHEL6 = CDefine(__TIF_RHEL6_c)
 # Decode flags
 def decode_tflags(flags, offset = 0):
     offset = ' ' * offset
@@ -713,17 +713,33 @@ def print_namespaces_info(tt, v = 0):
         return
 
     print("  {:*^60}".format("Non-standard Namespaces"))
+    net_ns_set = set()          # A set of net that have PID owners
+    net_ns_set.add(init_nsproxy.net_ns)
+    once = TrueOnce(1)
     for nsproxy, tlist in tdict.items():
-        print("    {!s:.^50}".format(nsproxy))
+        if (once):
+            print("    {:~^58}".format("Namespaces Associated with PID"))
+        print("      {!s:.^50}".format(nsproxy))
         # On some kernels nsproxy can be NULL (bad - there were fixes)
         if (nsproxy):
             nslist = []
             for na in ("uts_ns", "ipc_ns", "mnt_ns",  "net_ns"):
                 if (getattr(nsproxy, na) != getattr(init_nsproxy, na)):
                     nslist.append(na)
-            print("   ", nslist)
+                net_ns_set.add(nsproxy.net_ns)
+            print("     ", nslist)
         for t in tlist:
             print("\t", t)
+
+    net_namespace_list = readSymbol("net_namespace_list")
+    nslist = readSUListFromHead(Addr(net_namespace_list), "list",
+                                "struct net")
+    once = TrueOnce(1)
+    for net in nslist:
+        if (not net in net_ns_set):
+            if(once):
+                print("    {:~^58}".format("NET_NS without any task"))
+            print("    ", net)
 
     if (tt.pidnamespaces):
         print("\n   *** PID Namespace Info ***")
@@ -775,7 +791,7 @@ def print_pid_namespaces(tt, v = 0):
     for ns, fr in frames.items():
         if (ns.level == 1):
             print(fr)
-    
+
 
 if ( __name__ == '__main__'):
     tt = TaskTable()
@@ -783,6 +799,6 @@ if ( __name__ == '__main__'):
     for t in tt.tt:
         print (t.comm, t.pid)
         #threads = tt.getThreads(t)
-            
+
 
 

@@ -971,7 +971,7 @@ def print_svc_xprt(v = 0):
             # On recent kernels, there are many  interesting
             # tables in "init_net", but not on 2.6.32 it is not available
             nfsd_net_id = readSymbol("nfsd_net_id") - 1
-            net = get_nsproxy().net_ns
+            net = get_ns_net()
             nfsd_net_ptr = net.gen.ptr[nfsd_net_id]
             nfsd_net = readSU("struct nfsd_net", nfsd_net_ptr)
             nfsd_serv = nfsd_net.nfsd_serv

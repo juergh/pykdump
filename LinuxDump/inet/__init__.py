@@ -11,6 +11,8 @@ __copyright__ = """\
 
 #__all__ = ["proto", "routing"]
 
+from pykdump.API import *
+
 import socket, struct, re
 from socket import ntohs, ntohl, htonl
 
@@ -77,3 +79,42 @@ def ipv6_addr_v4mapped(in6_addr):
     return ((a.u6_addr32[0] | a.u6_addr32[1] | \
              (a.u6_addr32[2] ^ htonl(0x0000ffff))) == 0)
 
+__net_ns = None
+__net_all = False
+def get_ns_net():
+    if (__net_ns):
+        return __net_ns
+    else:
+        return get_nsproxy().net_ns
+
+def net_all():
+    return __net_all
+
+def set_ns_net(addr = None):
+    global __net_ns, __net_all
+    if(addr == None):
+        # Reset to default
+        nsproxy = get_nsproxy()
+        if (not nsproxy):
+            # Old kernels - do nothing
+            return True
+        __net_ns =  get_nsproxy().net_ns
+        __net_all = False
+    elif (addr == 'all'):
+        # Do not change __net_ns but just set __all_net
+        # for those commands that know how to intepret it
+        __net_all = True
+    else:
+        addrlist = [long(n) for n in get_net_namespace_list()]
+        if (addr in addrlist):
+            __net_ns = readSU("struct net", addr)
+            print(" *=*=* Using <struct net {:#x} *=*=*".format(addr))
+        else:
+            # Incorrect value - could not set
+            return False
+    return True
+
+def get_net_namespace_list():
+    net_namespace_list = readSymbol("net_namespace_list")
+    return readSUListFromHead(Addr(net_namespace_list), "list",
+                              "struct net")

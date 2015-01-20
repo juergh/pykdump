@@ -220,7 +220,7 @@ class IP_sock(object):
             return
     # Check namespace
     def wrongNameSpace(self):
-        return (self.net and self.net != get_nsproxy().net_ns)
+        return (self.net and self.net != get_ns_net())
 
     def __getattr__(self, fname):
         return getattr(self.__casted_sock, fname)

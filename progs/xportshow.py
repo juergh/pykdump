@@ -9,7 +9,7 @@
 # --------------------------------------------------------------------
 
 
-# Print info about connections and sockets 
+# Print info about connections and sockets
 
 # To facilitate migration to Python-3, we start from using future statements/builtins
 from __future__ import print_function
@@ -131,7 +131,7 @@ def print_TCP_sock(o):
     # Here we print things that are not kernel-dependent
     if (details):
         sfamily = P_FAMILIES.value2key(pstr.family)
-        if (tcp_state != tcpState.TCP_LISTEN 
+        if (tcp_state != tcpState.TCP_LISTEN
             and tcp_state != tcpState.TCP_TIME_WAIT):
             topt = pstr.topt
             snd_wnd = topt.snd_wnd
@@ -249,7 +249,7 @@ def decode_user_data(addr, saddr):
 
     # On recent 2.6 kernels, we try to find the offset of sockaddr_storage
 
-    
+
     offset = LONG_SIZE *2 + LONG_SIZE * 3 + INT_SIZE*2
     #print ("offset=", offset)
     saname = None
@@ -325,15 +325,15 @@ def print_TCP():
     if (not print_nolisten):
         return
     # Print ESTABLISHED TCP
-    
+
     for o in proto.get_TCP_ESTABLISHED():
         msg = pylog.getsilent()
         if (msg):
             pylog.error("TCP_ESTABLISHED", msg)
- 
+
         print_TCP_sock(o)
-        
-   
+
+
     # Print TIME_WAIT
     if (tcpstate_filter and tcpstate_filter != tcpState.TCP_TIME_WAIT):
         return
@@ -396,7 +396,7 @@ def tcp_state_name(state):
     except KeyError:
         statename = "|%d|" % state
     return statename
-    
+
 # print AF_UNIX
 
 def print_UNIX():
@@ -406,7 +406,7 @@ def print_UNIX():
         state, ino, path = proto.unix_sock(s)
         try:
             net = s.Net
-            if (net != get_nsproxy().net_ns):
+            if (net != get_ns_net()):
                 continue
         except:
             pass
@@ -431,7 +431,7 @@ def print_UNIX():
             statename = tcp_state_name(state)
             print ("  Peer %-12s   %-6d  %s" % (statename, ino, path))
 
-  
+
 
 def print_RAW():
     for o in list(proto.get_RAW()) + list(proto.get_RAW6()):
@@ -443,6 +443,13 @@ def print_RAW():
         if (not print_listen and pstr.state != tcpState.TCP_ESTABLISHED):
             continue
 
+        try:
+            net = o.Net
+            if (net != get_ns_net()):
+                continue
+        except:
+            pass
+
         if (details):
             print ('-' * 78)
             print (o, '\t\tRAW')
@@ -453,7 +460,7 @@ def print_RAW():
             print ("\trcvbuf=%d, sndbuf=%d" % (pstr.rcvbuf, pstr.sndbuf))
 
 
-    
+
 def print_FragmentCache():
     pass
 
@@ -536,7 +543,7 @@ def testFiles(tasks):
             if (not socketaddr): continue
             socket = readSU("struct socket", socketaddr)
             print("  ", socket.sk)
-                
+
 
 def getAllSocks(tasks):
     out = defaultdict(list)
@@ -582,7 +589,7 @@ def printTaskSockets(t):
         # If we are not using port-filters, we print all families
         if (not port_filter):
             strue = True
-        
+
         print ("%3d  0x%-16x  0x%-16x" % (fd, filep, socketaddr), file=prn, end=' ')
         # Find family/type of this socket
         print (" %-8s %-12s %-5s" % (P_FAMILIES.value2key(family),
@@ -610,7 +617,7 @@ def printTaskSockets(t):
                     print ("     |%s  %-12s   %-6d  %s" % (h,
                                                   statename, ino, path), file=prn)
                     sock = us.Socket
-                        
+
                     if (h == "peer" and sock):
                         filep = sock.file
                         pids = tt.getByFile(filep)
@@ -618,7 +625,7 @@ def printTaskSockets(t):
                         for pid in pids:
                             print ("     |   ", pid, file=prn)
                     print (hdr, file=prn)
-            
+
     print ("")
     if (strue):
         print (prn.getvalue())
@@ -653,7 +660,7 @@ def get_net_sysctl():
         if (not m):
             ddef[n] = vals
     return (dall, ddef)
-    
+
 def print_sysctl():
     try:
         (dall, ddef) = get_net_sysctl()
@@ -719,10 +726,10 @@ def print_softnet_data(details):
             for skb in readStructNext(skbhead, "next", inchead = False):
                 print (skb)
                 decode_skbuf(skb)
-        
+
         print ("    ..Completion queue")
         print_skbuff_head(sd.completion_queue)
-        
+
 def print_Everything():
     print_listen = True
     nf()
@@ -737,7 +744,7 @@ def print_Everything():
     print_UDP()
     print_RAW()
     print_UNIX()
-    
+
 
 # Printing TCP delays relative to jiffies
 # Compute delay between a given timestamp and jiffies
@@ -757,22 +764,27 @@ def j_delay(ts, jiffies):
     return v
 
 
-     
+
 if ( __name__ == '__main__'):
 
 
     import sys
-    
+
     __experimental ='PYKDUMPDEV'in  os.environ
-    
+
     #from argparse import OptionParser, OptionGroup, SUPPRESS_HELP
     import argparse
 
     class hexact(argparse.Action):
         def __call__(self,parser, namespace, values, option_string=None):
-            setattr(namespace, self.dest, int(values,16))
+            # A special value 'all'
+            if (values == 'all'):
+                val = 'all'
+            else:
+                val =  int(values,16)
+            setattr(namespace, self.dest, val)
             return
-        
+
     def e_help(help):
         global __experimental
         if (__experimental):
@@ -781,7 +793,7 @@ if ( __name__ == '__main__'):
             return SUPPRESS_HELP
 
     parser =  argparse.ArgumentParser()
-    
+
 
     parser.add_argument("-a", dest="All", default = 0,
                   action="store_true",
@@ -799,7 +811,7 @@ if ( __name__ == '__main__'):
     parser.add_argument("--program", dest="Program", default = "",
                   action="store",
                   help="print sockets for cmdname")
-                 
+
     parser.add_argument("--pid", dest="Pid", nargs='?',
                   default = -1, const = '-2',
                   action="store", type=int,
@@ -817,7 +829,7 @@ if ( __name__ == '__main__'):
     parser.add_argument("--summary", dest="Summary", default = 0,
                   action="store_true",
                   help="Print A Summary")
-    
+
     parser.add_argument("-s", "--statistics", dest="Stats", default = 0,
                   action="store_true",
                   help="Print Statistics")
@@ -834,7 +846,7 @@ if ( __name__ == '__main__'):
                   nargs='+', action="store",
                   help="Decode iph/th/uh")
 
-    
+
     parser.add_argument("--port", dest="port", default = -1,
                   action="store", type=int,
                   help="Limit output to the specified port (src or dst)")
@@ -849,7 +861,7 @@ if ( __name__ == '__main__'):
     parser.add_argument("--tcpstate", default = "",
                   action="store",
                   help="Limit display for this state only, e.g. SYN_SENT")
-    
+
 
     parser.add_argument("-u", "--udp", dest="UDP", default = 0,
                   action="store_true",
@@ -882,6 +894,10 @@ if ( __name__ == '__main__'):
     parser.add_argument("--skbuffhead", dest="Skbuffhead", default = -1,
                   action=hexact,
                   help="Print sk_buff_head")
+
+    parser.add_argument("--netns", dest="Netns", default = -1,
+                  action=hexact,
+                  help="Set net ns address")
 
 
     parser.add_argument("--version", dest="Version", default = 0,
@@ -920,6 +936,16 @@ if ( __name__ == '__main__'):
     o = args = parser.parse_args()
 
     verbose = details = o.Verbose
+
+    # Reset net_ns to default
+    set_ns_net()
+    if (o.Netns != -1):
+        if (o.Netns == 'all'):
+            set_ns_net('all')
+        elif (not set_ns_net(o.Netns)):
+            print("Invalid net ns {:#x}".format(o.Netns))
+            sys.exit(0)
+
     #__experimental = O.experimental
     if (o.Pid > -1):
         tt = TaskTable()
@@ -928,14 +954,14 @@ if ( __name__ == '__main__'):
         if (task):
             printTaskSockets(task)
         sys.exit(0)
-       
+
     tcpstate_filter = None
     _tasksocktable = None
     if (o.Pid == -2):
         tt = TaskTable()
         tasks = tt.allTasks()
         _tasksocktable = getAllSocks(tasks)
-        
+
     # Check whether it is one of standard values
     if (o.tcpstate):
         try:
@@ -946,7 +972,7 @@ if ( __name__ == '__main__'):
             print(textwrap.fill(str(names), initial_indent='   ',
                                 subsequent_indent='    '))
             sys.exit(0)
-            
+
 
     if (o.Version):
         print ("XPORTSHOW version %s" % (__version__))
@@ -1024,7 +1050,16 @@ if ( __name__ == '__main__'):
         #sys.exit(0)
 
     if (o.Ifaces):
-        print_iface(o.If1, details)
+        if (net_all()):
+            once = TrueOnce(1)
+            for net in get_net_namespace_list():
+                if (not once):
+                    print("\n\n")
+                print('+'*76)
+                set_ns_net(net)
+                print_iface(o.If1, details)
+        else:
+            print_iface(o.If1, details)
         sys.exit(0)
 
     if (o.Summary):
@@ -1064,15 +1099,16 @@ if ( __name__ == '__main__'):
             printTaskSockets(task)
         sys.exit(0)
 
- 
 
-    
+
+
     # Netstat-like options
     if (o.Listen):
         print_listen = True
         print_nolisten = False
     if (o.All):
         print_listen = True
+
     if (o.TCP or o.UDP or o.RAW or o.UNIX or o.tcpstate):
         if (o.TCP or o.tcpstate):
             print_TCP()
@@ -1087,5 +1123,4 @@ if ( __name__ == '__main__'):
             print_TCP()
             print_UDP()
             print_RAW()
-            print_UNIX()
-
+            #print_UNIX()

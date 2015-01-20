@@ -715,7 +715,7 @@ except TypeError:
     def dev_base_list():
         # 2.6.22 and later
         if (symbol_exists("init_net")):
-            net = get_nsproxy().net_ns
+            net = get_ns_net()
             __dev_base_head = net.dev_base_head
         else:
             __dev_base_head = readSymbol("dev_base_head")
