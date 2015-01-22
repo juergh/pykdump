@@ -400,17 +400,21 @@ def __decode_sys_mount(args):
     # long sys_mount(char __user * dev_name, char __user * dir_name,
     #             char __user * type, unsigned long flags,
     #             void __user * data)
-    print (hexl(args[0]))
     dev_name = readmem(args[0], 256).split('\0')[0]
     dir_name = readmem(args[1], 256).split('\0')[0]
     print ("\t dev_name=%s, dir_name=%s" % (dev_name, dir_name))
     
 def __decode_sys_umount(args):
     # long sys_umount(char __user *name, int flags);
-    print (hexl(args[0]))
     dev_name = readmem(args[0], 256).split('\0')[0]
     flags = int(args[1])
     print ("\t dev_name=%s, flags=%d" % (dev_name, flags))
+
+def __decode_sys_readlink(args):
+    #sys_readlink(const char __user *path, char __user *buf,
+    #                             int bufsiz)
+    path = readmem(args[0], 256).split('\0')[0]
+    print ("\t path=%s" % path)
     
 def __decode_sys_nanosleep(args):
     # nanosleep(const struct timespec *req, struct timespec *rem)
