@@ -100,7 +100,7 @@ def IS_ROOT(x):
         return (x == x.Deref.d_parent)
 
 __sb = AttrSetter("struct super_block")
-__sb.Frozen = ["s_frozen", "s_writers.frozen"]
+__sb.Frozen = ["s_writers.frozen", "s_frozen"]
 
 def sb_frozen(sb):
     return sb.Frozen  
