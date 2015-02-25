@@ -283,7 +283,9 @@ def print_TCP_tw(tw):
 
 
     print (pstr)
-    print("\tNet:", pstr.net)
+    # Do not print net where it does not exist (old kernels)
+    if (pstr.net):
+        print("\tNet:", pstr.net)
     if (details):
         print ("\ttw_timeout=%d, ttd=%d" % (pstr.tw_timeout, pstr.ttd))
 
