@@ -1447,7 +1447,7 @@ if (not quiet):
 if (not quiet):
     print_args5()
 #check_activetasks()
-check_spinlocks()
+#check_spinlocks()
 check_mem()
 
 # Tests that make sense for non-panic situations
@@ -1457,7 +1457,8 @@ print_blkreq(-1)
 print_gendisk(0)
 
 check_UNINTERRUPTIBLE()
-check_auditf()
+# The next test is very slow and I have never seen it to be useful
+#check_auditf()
 
 try:
     check_frozen_fs()
@@ -1477,7 +1478,8 @@ except crash.error:
             "or corrupted")
 
 try:
-    checkAllStacks()
+    if (not sys_info.livedump):
+        checkAllStacks()
 except:
     # For those kernels where are test does not work
     pass
