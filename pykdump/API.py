@@ -611,8 +611,9 @@ kernel = re.search(r'^(\d+\.\d+\.\d+)', sys_info.RELEASE).group(1)
 sys_info.kernel = gen.KernelRev(kernel)
 sys_info.HZ = HZ
 
-# Convert CPUS to integer
-sys_info.CPUS = int(sys_info.CPUS)
+# Convert CPUS to integer. Usually we just have an integer, but sometimes
+# CPUS: 64 [OFFLINE: 32]
+sys_info.CPUS = int(sys_info.CPUS.split()[0])
 
 # Extract hardware from MACHINE
 sys_info.machine = wrapcrash.machine = sys_info["MACHINE"].split()[0]
