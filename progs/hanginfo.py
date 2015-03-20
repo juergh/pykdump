@@ -63,22 +63,6 @@ def getUNTasks():
         bt = exec_bt("bt %d" % pid)[0]
         b.bt = bt
         outUN[pid] = b
-        continue
-        tgid = t.tgid
-        if (pid != tgid):
-            print ("!!!", pid, tgid)
-            pid_s =  "  %5d" % pid
-        else:
-            pid_s =  " %5d " % pid
-        
-        print ("%s %15s %2d %15d  %s" \
-                        % (pid_s, t.comm,  t.cpu,
-                            int(ran_ms_ago), sstate))
-
-        bt = exec_bt("bt %d" % pid)
-        print (bt[0])
-        print(" ....................................................................")
-  
     return outUN
 
 # Print pidlist according to verbosity setting
@@ -148,8 +132,100 @@ def check_all_files():
         waiters[inode] = (v, pids)
 
     return waiters
+
+# A test to check heuristically whether a pointer looks like mutex
+# On RHEL6 and later
+#struct mutex {
+    #atomic_t count;
+    #spinlock_t wait_lock;
+    #struct list_head wait_list;
+    #struct thread_info *owner;
+#}
+
+# On RHEL5, no 'owner'
+
+def if_mutexOK(addr):
+    try:
+        mutex = readSU("struct mutex", addr)
+        wait_list = mutex.wait_list
+        _next = wait_list.next
+        return True
+    except:
+        return False
+
+__mutexfunc = "__mutex_lock_slowpath"
+def check_mutex_lock(tasksref):
+    mutexlist = set()
+    for pid in sorted(tasksref.keys()):
+        bt = tasksref[pid].bt
+        frames = bt.frames
+        if (not bt.hasfunc(__mutexfunc)):
+            continue
+        #print(bt)
+        b1 = exec_bt("bt -f {}".format(pid))[0]
+        for f in b1.frames:
+            if (f.func.find(__mutexfunc) != -1):
+                addrs = __stackdata2array(f.data)
+                maddr = addrs[6]
+                if (if_mutexOK(maddr)):
+                    mutexlist.add(readSU("struct mutex", maddr))
+
+    if (not mutexlist):
+        return
+    # Now print info about each found mutex
+    print(" === Waiting on mutexes =========")
+    for mutex in mutexlist:
+        pids = get_mutex_waiters(mutex)
+        if (not pids):
+            continue
+        print_mutex(mutex)
+        print_pidlist(pids, tasksref)
+        remove_pidlist(tasksrem, pids)
+
+
+# Get a list of pids waiting on mutex
+def get_mutex_waiters(mutex):
+    if (mutex.count.counter >= 0):
+        return []
+    wait_list = readSUListFromHead(Addr(mutex.wait_list), "list",
+            "struct mutex_waiter")
+    return [w.task.pid for w in wait_list]
+
+# Try to classify the mutex and print its type and its owner
+def print_mutex(mutex):
+    mtype = ''
+    if (long(mutex) == sym2addr("rtnl_mutex")):
+        mtype = "rtnl_mutex"
+    else:
+        kmem_s = exec_crash_command("kmem -s {:#x}".format(mutex)).splitlines()
+        if (len(kmem_s) > 1):
+            mtype = kmem_s[1].split()[1]
+    # Try to get the owner
+    if (mutex.hasField("owner") and mutex.owner):
+        try:
+            ownertask = mutex.owner.task
+        except:
+            ownertask = mutex.owner
+    else:
+        ownertask = ''
+    if (ownertask):
+        ownertask = "\n   Owner: pid={0.pid} cmd={0.comm}".format(ownertask)
+    print("  -- {} {} {}".format(mutex, mtype, ownertask))
+            
         
 
+# stack data consists of lines like
+#    ffff8b71e4a21558: 0000000000000082 ffff8b71e4a20010 
+#    ffff8b71e4a21568: 0000000000011800 0000000000011800 
+
+# Convert it to an array of integers
+
+def __stackdata2array(lines):
+    arr = []
+    for l in lines:
+        for d in re.split(r'[:\s]+', l.strip())[1:]:
+            arr.append(int(d, 16))
+    return arr
 
 # Remove a list of pids from the provided dictionary
 
@@ -194,6 +270,7 @@ if ( __name__ == '__main__'):
         sys.exit(0)
 
     print (" *** UNINTERRUPTIBLE threads, classified ***")
+    # Fin mutexes we are waiting on
     # Stage one - analyze global structures
     mutex_waiters = check_all_files()
     if (mutex_waiters):
@@ -203,6 +280,8 @@ if ( __name__ == '__main__'):
             print_pidlist(pids, tasksref)
             remove_pidlist(tasksrem, pids)
 
+    check_mutex_lock(tasksrem)
+   
     mmapsem_waiters = check_all_tasks()
     if (mmapsem_waiters):
         print(" === Waiting on mmap sempahores =========")
