@@ -228,19 +228,22 @@ py_get_GDB_output(PyObject *self, PyObject *args) {
 // Use exec_crash_command_bg for reliable timeouts
 static int __default_timeout = 60;
 
+
 static PyObject *
 py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   char *cmd;
   // char buf[BUFSIZE];
   FILE *oldfp = fp;
+  FILE *old_stdpipe = pc->stdpipe;
   int flength;			/* Length of a temporary file */
   int rlength;
   char *tmpbuf;
   PyObject *obj;
+  int no_stdout = 0;
 
   int internal_error = 0;	/* crash/GDB error */
 
-  if (!PyArg_ParseTuple(pyargs, "s", &cmd)) {
+  if (!PyArg_ParseTuple(pyargs, "s|i", &cmd, &no_stdout)) {
     PyErr_SetString(crashError, "invalid parameter type"); \
     return NULL;
   }
@@ -270,7 +273,12 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   // Copy the old location
   memcpy(copy_pc_env, pc->main_loop_env, sizeof(jmp_buf));
   if (!setjmp(pc->main_loop_env)) {
+    // Suppress output to stdout if stdpipe is NULL
+    if (!pc->stdpipe && no_stdout)
+        pc->stdpipe = pc->nullfp;
     exec_command();
+    if (no_stdout)
+        pc->stdpipe = old_stdpipe;
     free_all_bufs();
   } else {
     // There was an internal GDB/crash error

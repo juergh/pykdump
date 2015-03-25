@@ -1,9 +1,8 @@
 /* Python extension to interact with CRASH
    
-  Time-stamp: <12/10/23 15:32:24 alexs>
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2015 Hewlett-Packard Development Company, L.P.
 #
 # Author: Alex Sidorenko <asid@hp.com>
 #
@@ -37,7 +36,7 @@
 
 int debug = 0;
 
-static char crashmod_version_s[] = "@(#)pycrash 0.8.4";
+static char crashmod_version_s[] = "@(#)pycrash 0.8.5";
 const char * crashmod_version = crashmod_version_s + 12;
 
 extern const char *build_crash_version;
