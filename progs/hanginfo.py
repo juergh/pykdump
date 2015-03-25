@@ -169,7 +169,10 @@ def check_mutex_lock(tasksref):
         for f in b1.frames:
             if (f.func.find(__mutexfunc) != -1):
                 addrs = __stackdata2array(f.data)
+                l_addrs = len(addrs)
                 for pos in range(6,9):
+                    if (pos >= l_addrs):
+                        continue
                     maddr = addrs[pos]
                     if (if_mutexOK(maddr)):
                         mutexlist.add(readSU("struct mutex", maddr))
