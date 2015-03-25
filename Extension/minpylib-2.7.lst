@@ -16,6 +16,7 @@ code.py
 UserDict.py
 _abcoll.py
 functools.py
+contextlib.py
 abc.py
 gzip.py
 socket.py
