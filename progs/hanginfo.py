@@ -1,10 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Time-stamp: <13/07/29 16:04:57 alexs>
-
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2015 Hewlett-Packard Development Company, L.P.
 #
 # Author: Alex Sidorenko <asid@hp.com>
 #
@@ -14,7 +12,7 @@
 # To facilitate migration to Python-3, we start from using future statements/builtins
 from __future__ import print_function
 
-__version__ = "0.1"
+__version__ = "0.2"
 
 import sys
 import textwrap
@@ -148,7 +146,12 @@ def if_mutexOK(addr):
     try:
         mutex = readSU("struct mutex", addr)
         wait_list = mutex.wait_list
-        _next = wait_list.next
+        owner = mutex.Owner
+        _next_wait_list = wait_list.next
+        _next_tasks = owner.tasks.next
+        for i in range(5):
+            _next_wait_list = _next_wait_list.next 
+            _next_tasks = _next_tasks.next
         return True
     except:
         return False
@@ -166,9 +169,11 @@ def check_mutex_lock(tasksref):
         for f in b1.frames:
             if (f.func.find(__mutexfunc) != -1):
                 addrs = __stackdata2array(f.data)
-                maddr = addrs[6]
-                if (if_mutexOK(maddr)):
-                    mutexlist.add(readSU("struct mutex", maddr))
+                for pos in range(6,9):
+                    maddr = addrs[pos]
+                    if (if_mutexOK(maddr)):
+                        mutexlist.add(readSU("struct mutex", maddr))
+                        continue
 
     if (not mutexlist):
         return
@@ -191,21 +196,20 @@ def get_mutex_waiters(mutex):
             "struct mutex_waiter")
     return [w.task.pid for w in wait_list]
 
+structSetAttr("struct mutex", "Owner", ["owner.task", "owner"])
 # Try to classify the mutex and print its type and its owner
 def print_mutex(mutex):
     mtype = ''
     if (long(mutex) == sym2addr("rtnl_mutex")):
         mtype = "rtnl_mutex"
     else:
-        kmem_s = exec_crash_command("kmem -s {:#x}".format(mutex)).splitlines()
+        kmem_s = exec_crash_command("kmem -s {:#x}".format(mutex),
+                                    1).splitlines()
         if (len(kmem_s) > 1):
             mtype = kmem_s[1].split()[1]
     # Try to get the owner
     if (mutex.hasField("owner") and mutex.owner):
-        try:
-            ownertask = mutex.owner.task
-        except:
-            ownertask = mutex.owner
+        ownertask = mutex.Owner
     else:
         ownertask = ''
     if (ownertask):
@@ -277,6 +281,7 @@ if ( __name__ == '__main__'):
         print(" === Waiting on inode mutexes ==========")
         for inode, (fn, pids) in mutex_waiters.items():
             print ("  --", inode, fn)
+            print_mutex(inode.i_mutex)
             print_pidlist(pids, tasksref)
             remove_pidlist(tasksrem, pids)
 

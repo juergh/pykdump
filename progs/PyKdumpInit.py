@@ -76,3 +76,21 @@ is located.
 rprog("nfsshow", "Information about NFS subsystem",
       "-h   - list available optoions",
       help)
+
+help = '''
+Print information about UNINTERRUPTIBLE threads.
+This is mosly useful when you have a hang and many Un threads. This program
+will try to categorize them - for example, PIDs of all processes waiting for
+mutexes/sempahores.
+
+WARNING:
+--------
+Algorithms for finding addresses of mutexes/sempahores are
+kernel-dependent and as a result, they are not 100% reliable for some
+kernels. Still, they are quite useful for many 'production'
+distributions such as RHEL{6,7} and SLES11.
+'''
+
+rprog("hanginfo", "Information about hanging threads",
+      "-h   - list available optoions",
+      help)
