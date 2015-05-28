@@ -517,11 +517,11 @@ def lb_get_stats(priv):
 
 # Bond statistics
 def bond_get_stats(priv):
-    bond = readSU("struct bonding", priv)
     # We can find the stats field only with the real bonding.ko
     try:
+        bond = readSU("struct bonding", priv)
         stats = bond.stats
-    except KeyError:
+    except:
         return
     stats.Dump()
 
@@ -792,6 +792,7 @@ def print_If(dev, details = 0):
     ipwithmask = ''
     print (('=' * 22 + " " +  devname + " " + str(dev) + "  " + '=' *46)[:78])
     #print ""
+    #print(hexl(dev.netdev_ops.ndo_start_xmit))
     ipm_list = []
     for ifa in get_ifa_list(dev):
         mask = ifa.ifa_mask
@@ -874,9 +875,8 @@ def print_If(dev, details = 0):
 
     # Bonding info
     if (dev.flags & IFF_FLAGS.IFF_MASTER):
-        print    (" ---Bond Master-----")
-        bond = readSU("struct bonding", netdev_priv(dev))
-        printBondMaster(bond)
+        bondaddr = netdev_priv(dev)
+        printBondMaster(bondaddr)
 
     # This is no ready for all kernel versions yet, so let us make it safe
     try:
@@ -981,14 +981,19 @@ def __init_bonding():
         if (rc):
             return
 
-    sdef2ArtSU(__stub_bonding)
-    sdef2ArtSU(__stub_slave)
+    #sdef2ArtSU(__stub_bonding)
+    #sdef2ArtSU(__stub_slave)
 
 __init_bonding()
 
 # Print master parameters
-def printBondMaster(bond):
+def printBondMaster(bondaddr):
     # We can do this only with a real struct bonding
+    try:
+        bond = readSU("struct bonding", bondaddr)
+    except TypeError:
+        return
+    print    (" ---Bond Master-----")
     try:
         params = bond.params
     except KeyError:
