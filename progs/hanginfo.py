@@ -243,6 +243,21 @@ def remove_pidlist(tdict, pids):
         except KeyError:
             pass
     
+# Print backing_dev_info
+def print_backing_dev_info(bdi):
+    work_list = bdi.work_list
+    lh = ListHead(work_list, "struct wb_writeback_work")
+    task = bdi.wb.task
+    print(" ------ {}, {} PID={}".format(
+        str(bdi), task.comm, task.pid))
+    for wb in lh.list:
+        print(wb)
+    print_bdi_writeback(bdi.wb)
+
+# BDI wb_writeback
+def print_bdi_writeback(wb):
+    for inode in ListHead(wb.b_io.prev, 'struct inode').i_list:
+        print(inode, inode.i_state, inode.i_mapping)
 
 if ( __name__ == '__main__'):
     from optparse import OptionParser
@@ -332,4 +347,9 @@ if ( __name__ == '__main__'):
     for vfsmount, superblk, fstype, devname, mnt in getMount():
         sb = readSU("struct super_block", superblk)
         um = sb.s_umount
-        print(um.activity, um.wait_lock.raw_lock.slock, devname)
+        if (um.count):
+            print(devname, sb)
+            bdi = sb.s_bdi
+            if (bdi):
+                print_backing_dev_info(bdi)
+        #print(um.activity, um.wait_lock.raw_lock.slock, devname)
