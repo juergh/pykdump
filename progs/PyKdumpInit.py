@@ -94,3 +94,14 @@ distributions such as RHEL{6,7} and SLES11.
 rprog("hanginfo", "Information about hanging threads",
       "-h   - list available optoions",
       help)
+
+help = '''
+Decode and print information about subroutines registers and arguments,
+as available from stack frames. 
+
+This is very useful when you are trying to find arguments of subroutines.
+'''
+
+rprog("fregs", "Decode and print stack frame registers",
+      "-h   - list available options",
+      help)

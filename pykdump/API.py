@@ -8,7 +8,7 @@
 # depending on availability of low-level shared library dlopened from crash
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2015 Hewlett-Packard Development Company, L.P.
 #
 # Author: Alex Sidorenko <asid@hp.com>
 #
@@ -118,7 +118,7 @@ from .wrapcrash import readU8, readU16, readU32, readS32, \
      get_pathname, is_task_active, pid_to_task, task_to_pid, \
      readmem, uvtop, readProcessMem, set_readmem_task, \
      struct_size, union_size, member_offset, member_size, enumerator_value, \
-     getSizeOf, container_of, whatis, printObject,\
+     getSizeOf, container_of, whatis, funcargs, printObject,\
      exec_gdb_command, exec_crash_command, exec_crash_command_bg, \
      exec_crash_command_bg2, exec_command,\
      structSetAttr, structSetProcAttr, sdef2ArtSU, AttrSetter

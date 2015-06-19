@@ -282,8 +282,20 @@ class TypeInfo(object):
         suff = ''.join(out)
         return (self.stype, pref,suff)
   
+    # A string without a terminating ';', suitable for function args description
+    def typestr(self):
+        stype, pref, suff = self.fullname()
+        if (self.details):
+            rc = "{} {} {}".format(self.details.fullstr(), pref, suff);
+        else:
+            if(pref == '' and suff == ''):
+                return stype
+            else:
+                rc = "{} {}{}".format(stype, pref, suff)
+        return rc
         
-    # A full form with embedded structs unstubbed
+    # A full form with embedded structs unstubbed. 
+    # Terminated by ;, to emulate C-style definition
     def fullstr(self, indent = 0):
         stype, pref, suff = self.fullname()
         if (self.details):

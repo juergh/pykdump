@@ -49,12 +49,16 @@ class BTStack:
     __regexps = {}
     def __init__(self):
         pass
-    def __repr__(self):
+    def __str__(self):
         out = ["\nPID=%d  CPU=%d CMD=%s" % (self.pid, self.cpu, self.cmd)]
         for f in self.frames:
             out.append(str(f))
         return "\n".join(out)
-
+    def __repr__(self):
+        out = ["\nPID=%d  CPU=%d CMD=%s" % (self.pid, self.cpu, self.cmd)]
+        for f in self.frames:
+            out.append(repr(f))
+        return "\n".join(out)
     # A simplified repr - just functions on the stack
     def simplerepr(self):
         out =[]
@@ -167,7 +171,7 @@ class BTStack:
 class BTFrame:
     def __init__(self):
         pass
-    def __repr__(self):
+    def __str__(self):
         if (self.data):
             datalen = len(' '.join(self.data))
             data = ', %d bytes of data' % datalen
@@ -184,8 +188,36 @@ class BTFrame:
             # From text file - no real offset
             return "  #%-2d  %s 0x%x%s%s" % \
                    (self.level, self.func, self.addr, data, via)
+    def __repr__(self):
+        if (self.data):
+            datalen = len(' '.join(self.data))
+            data = self.data
+        else:
+            data = ''
+        if (self.via):
+            via = " , (via %s)" % self.via
+        else:
+            via = ''
+        if (self.offset !=-1):
+            out = [ "  #%-2d  %s+0x%x%s" % \
+                   (self.level, self.func, self.offset, via)]
+            # if there is data, append it
+            for l in data:
+                out.append(l)
+            return "\n".join(out)
+        else:
+            # From text file - no real offset
+            return "  #%-2d  %s 0x%x%s%s" % \
+                   (self.level, self.func, self.addr, data, via)
     def simplerepr(self):
         return  "  #%-2d  %s" %  (self.level, self.func)
+    # All details about this frame
+    def fullstr(self):
+        out = ["\n** Frame details **"]
+        out.append("  #{} func=<{}>  via=<{}>".format(self.level, self.func, self.via))
+        out.append("      addr={:#x}  offset={}".format(self.addr, self.offset))
+        return "\n".join(out)
+                   
 
 
 import pprint
@@ -302,12 +334,16 @@ re_via = re.compile(r'(\S+)\s+\(via\s+([^)]+)\)$')
 # Regex to remove (via funcname)
 re_rmvia = re.compile(r'\s*\(via\s+([^)]+)\)')
 
+# Regex to capture lines like:
+#     [exception RIP: sysrq_handle_crash+22]
+re_exception_rip = re.compile(r'\[exception RIP: ([^+]+)\+([\da-f]+)')
+
 @memoize_cond(CU_LIVE | CU_PYMOD | CU_TIMEOUT)
 def exec_bt(crashcmd = None, text = None):
     #print "Doing exec_bt('%s')" % crashcmd
     btslist = []
     # Debugging
-    if (crashcmd != None):
+    if (crashcmd is not None):
         # Execute a crash command...
         # For some vmcores, 'bt pid' is very slow the first time but 
         # the next time is much faster, even with different pid.
@@ -359,11 +395,26 @@ def exec_bt(crashcmd = None, text = None):
             else:
                 viafunc = ''
                 fls = fl
-            m = (re_f1.match(fls) or re_f1_t.match(fls))
+            m = (re_f1.match(fls) or re_f1_t.match(fls) or re_exception_rip.search(fls))
+            #if (m):
+            #    print(m.groups())
             #print '-- <%s>' % fls, m, viafunc
 
             if (m):
                 f = BTFrame()
+                # For exception RIP limes there is no frame 
+                if (len(m.groups()) < 3):
+                    # exception RIP
+                    f.level = -1
+                    f.addr = -1
+                    f.frame = -1
+                    f.func = m.group(1)
+                    f.via = ''
+                    f.offset = int(m.group(2), 10)
+                    f.data = []
+                    bts.frames.append(f)
+                    continue
+                    
                 f.level = level
                 level += 1
                 f.func = m.group(2)
@@ -373,12 +424,14 @@ def exec_bt(crashcmd = None, text = None):
                 except ValueError:
                     f.frame = None
                 
-                f.via = viafunc
 
                 # If we have a pattern like 'error_code (via page_fault)'
                 # it makes more sense to use 'via' func as a name
+                f.via = viafunc
+
                 f.addr = int(m.group(3), 16)
                 f.module = m.group(4)
+                    
                 if (crashcmd):
                     # Real dump environment
                     f.offset = f.addr - sym2addr(f.func)

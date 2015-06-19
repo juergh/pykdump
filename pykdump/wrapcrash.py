@@ -6,7 +6,7 @@
 # high-level functions that do not depend on internal
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2015 Hewlett-Packard Development Company, L.P.
 #
 # Author: Alex Sidorenko <asid@hp.com>
 #
@@ -1465,6 +1465,17 @@ def whatis(symbol):
     vi.ctype = ti.stype
     __whatis_cache[symbol] = vi
     return vi
+
+# get types of function arguments (as an list of strings)
+# If there is no data or if this is not a function, return None
+def funcargs(symbol):
+    try:
+        ti = whatis(symbol).ti
+    except TypeError:
+        return None
+    if (ti.stype != '(func)'):
+        return None
+    return [a.typestr() for a in ti.prototype[1:]]
 
 # We cannot subclass from ArtStructInfo as signature is different
 
