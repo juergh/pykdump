@@ -65,7 +65,8 @@ print(" C-bindings version %s" % c_vers(sys.argv[2]))
 
 print("\n   --- Programs Included ------")
 
-__commands = ["xportshow", "crashinfo", "taskinfo", "nfsshow", "hanginfo"]
+__commands = ["xportshow", "crashinfo", "taskinfo", "nfsshow", "hanginfo",
+	"fregs"]
 
 for c in __commands:
     try:
