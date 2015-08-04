@@ -101,7 +101,8 @@ class Task:
                 readInt(addr)
                 threads.append(Task(readSU("struct task_struct", addr), self))
             except crash.error:
-                pylog.warning(" missing page")
+                pylog.warning(" missing page for PID={}".format(self.pid))
+                threads = []
         return threads
     def __get_threads_fast_265(self):
         return self.__get_threads_fast()[:-1]
@@ -249,8 +250,8 @@ class _TaskTable:
                     pidns = task.task_ns()
                     if (pidns.level):
                         pidnamespaces[pidns].append(task)
-                except KeyError:
-                    # Old kernels
+                except:
+                    # Old kernels or corrupted task_struct
                     pass
                 pids_d[pid].insert(0, task)
             else:
