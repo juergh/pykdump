@@ -5,7 +5,7 @@
 #
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2015 Hewlett-Packard Development Company, L.P.
 #
 # Author: Alex Sidorenko <asid@hp.com>
 #
@@ -16,15 +16,15 @@
 from __future__ import print_function
 
 # 1st-pass dumpanalysis
-__version__ = "0.6.0"
+__version__ = "0.6.2"
 
 from pykdump.API import *
 
 from LinuxDump import BTstack
 from LinuxDump.BTstack import exec_bt, bt_summarize, bt_mergestacks
 from LinuxDump.kmem import parse_kmemf, print_Zone
-from LinuxDump.Tasks import TaskTable, Task, tasksSummary, getRunQueues,\
-            TASK_STATE, sched_clock2ms
+from LinuxDump.Tasks import (TaskTable, Task, tasksSummary, getRunQueues,
+            TASK_STATE, sched_clock2ms, decode_waitq)
 from LinuxDump.inet import summary
 import LinuxDump.inet.netdevice as netdevice
 from LinuxDump import percpu, sysctl, Dev
@@ -60,13 +60,6 @@ else:
 
 Panic = False
 Fast = False
-
-tt = None
-def get_tt():
-    global tt
-    if (not tt):
-        tt = TaskTable()
-    return tt
 
 #print ("%7.2f s to parse, %d entries" % (t1 - t0, len(btsl)))
 
@@ -227,7 +220,7 @@ def check_mem():
         pass
     
     # Now check user-space memory. Print anything > 25% for thread group leaders
-    tt = get_tt()
+    tt = TaskTable()
     for pid, ppid, cpu, task, st, pmem, vsz, rss, comm in parse_ps():
         if (pmem > 25.0 and tt.getByPid(pid)):
             pylog.warning("PID=%d CMD=%s uses %5.1f%% of total memory" %\
@@ -299,7 +292,7 @@ def dump_reason(dmesg):
 def stackSummary():
     btsl = exec_bt("foreach bt")
     #print_(memoize_cache())
-    tt = get_tt()
+    tt = TaskTable()
     #bt_summarize(btsl)
     bt_mergestacks(btsl, reverse=True, tt=tt, verbose=verbose)
     
@@ -348,7 +341,7 @@ def check_sysctl():
 # Check whether active (bt -a) tasks are looping
 def check_activetasks():
 
-    tt = get_tt()
+    tt = TaskTable()
     basems = tt.basems
     for cpu, stack in enumerate(bta):
         pid = stack.pid
@@ -609,6 +602,7 @@ def check_runqueues():
     # Whether all 
     RT_hang = True
     locked_rqs = []
+    tt = TaskTable()
     for cpu, rq in enumerate(getRunQueues()):
         RT_count = 0
         print ("  ---+ CPU=%d %s ----" % (cpu, str(rq)))
@@ -808,7 +802,7 @@ def decode_wq(_wq):
 # I don't like to duplicate the code but until I find a better way,
 # here it goes...
 def check_event_workqueues():
-    tt = get_tt()
+    tt = TaskTable()
     basems = tt.basems
     _wq = readSymbol("keventd_wq")
     warning = False
@@ -838,7 +832,7 @@ def print_args5():
     printHeader("5 Most Recent Threads")
     print ("  PID  CMD                Age    ARGS")
     print ("-----  --------------   ------  ----------------------------")
-    tt = get_tt()
+    tt = TaskTable()
     basems = tt.basems
     # Most recent first
     out = []
@@ -881,7 +875,7 @@ def print_args5():
 
 
 def check_UNINTERRUPTIBLE():
-    tt = get_tt()
+    tt = TaskTable()
     basems = tt.basems
     bts = []
     count = 0
@@ -915,10 +909,7 @@ def check_UNINTERRUPTIBLE():
             print (bt)
             print ("\n   ......  last_ran %ds ago\n" % ran_s_ago)
             print ('-' * 70)
-        if ((bt.cmd == "syslogd" or bt.cmd == "syslog-ng") and 
-                    ran_s_ago > bigtime):
-            pylog.warning("syslogd is in UNINTERRUPTIBLE state, last_ran %ds ago"\
-                   %ran_s_ago)
+
         if (bt.hasfunc(re_nfs) and ran_s_ago > bigtime):
             nfscount += 1
         if (bt.hasfunc(re_journal)):
@@ -955,23 +946,6 @@ def check_frozen_fs():
                     print("\n --- A list of FS in frozen state ---")
                 print("Frozen:", sb, fstype, devname, mnt)
 
-
-#  Decode wait_queue_head_t - similar to 'waitq' crash command.
-# Returns a list of 'struct task_struct'
-structSetAttr("struct __wait_queue", "Task", ["task", "private"])
-def decode_waitq(wq):
-    tt = get_tt()
-    # 2.4 used to have 'struct __wait_queue'
-    # 2.6 has 'wait_queue_head_t' = 'struct __wait_queue_head'
-    out = []
-    for l in ListHead(wq, "struct __wait_queue").task_list:
-        task = readSU("struct task_struct", l.Task)
-        out.append(Task(task, tt))
-    return out
- 
-        
-     
-    
 
 # Decode struct rw_semaphore - waiting-list etc.
 
@@ -1077,7 +1051,7 @@ def parse_ps():
 def user_space_memory_report():
     # Get processes/thread group leaders only
     
-    tt = get_tt()
+    tt = TaskTable()
     rss_tot = pmem_tot = 0
     # Get processes/thread group leaders only
     for pid, ppid, cpu, task, st, pmem, vsz, rss, comm in parse_ps():
@@ -1167,7 +1141,7 @@ def checkTaskStack(task):
 
 # Check for stack corruption for all tasks
 def checkAllStacks():
-    tt = get_tt()
+    tt = TaskTable()
 
     for t in tt.allThreads():
         task = t.ts
@@ -1380,7 +1354,11 @@ if (o.Mutex):
     sys.exit(0)
 
 if (o.Workqueue):
-    from LinuxDump.WorkQueues import print_all_workqueues
+    try:
+        from LinuxDump.WorkQueues import print_all_workqueues
+    except:
+        print("Workqueues analysis not implemented for this kernel")
+        sys.exit(0)
     print_all_workqueues(verbose)
     sys.exit(0)
 
@@ -1439,7 +1417,7 @@ else:
 print_basics()
 dump_reason(dmesg)
 check_loadavg()
-longChainOfPids(get_tt(), 20)
+longChainOfPids(TaskTable(), 20)
 if (not quiet):
     printHeader("Tasks Summary")
     threadcount = tasksSummary()
@@ -1489,6 +1467,10 @@ except:
 if (not quiet):
     print_mount()
     print_dmesg()
+
+from hanginfo import print_wait_for_AF_UNIX
+print_wait_for_AF_UNIX(-1)
+
 if (verbose):
     printHeader("A Summary Of Threads Stacks")
     stackSummary()

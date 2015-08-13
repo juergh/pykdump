@@ -23,6 +23,7 @@ from pykdump.API import *
 from LinuxDump import Dev, percpu
 
 from LinuxDump.idr import idr_for_each
+from LinuxDump.Tasks import decode_waitq
 
 # Workqueues are implemented in very different ways on different kernels.
 # Here we are talking about CMWQ only, but even that code on different kernels
@@ -81,17 +82,6 @@ def cpu_to_node(cpu):
 def LH_isempty(lh):
     return Addr(lh) == lh.next
 
-#  Decode wait_queue_head_t - similar to 'waitq' crash command.
-# Returns a list of 'struct task_struct'
-structSetAttr("struct __wait_queue", "Task", ["task", "private"])
-def decode_waitq(wq):
-    # 2.4 used to have 'struct __wait_queue'
-    # 2.6 has 'wait_queue_head_t' = 'struct __wait_queue_head'
-    out = []
-    for l in ListHead(wq.task_list, "struct __wait_queue").task_list:
-        task = readSU("struct task_struct", l.Task)
-        out.append(task)
-    return out
 
 # Print WQ-header - common in many places
 def WQ_header(wq, okprint = True):

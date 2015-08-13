@@ -16,6 +16,7 @@ __version__ = "0.2"
 
 import sys
 import textwrap
+import operator
 
 from pykdump.API import *
 from LinuxDump.fs import *
@@ -24,8 +25,11 @@ from pykdump.API import *
 from pykdump.Generic import Bunch
 
 from LinuxDump import percpu
-from LinuxDump.Tasks import TaskTable, Task, tasksSummary, ms2uptime, decode_tflags
+from LinuxDump.Tasks import TaskTable, Task, tasksSummary, ms2uptime, decode_tflags, decode_waitq
 from LinuxDump.BTstack import exec_bt, bt_summarize, bt_mergestacks
+from LinuxDump.inet import proto
+
+from collections import namedtuple, defaultdict
 
 debug = API_options.debug
 
@@ -258,27 +262,99 @@ def print_backing_dev_info(bdi):
 def print_bdi_writeback(wb):
     for inode in ListHead(wb.b_io.prev, 'struct inode').i_list:
         print(inode, inode.i_state, inode.i_mapping)
-
-if ( __name__ == '__main__'):
-    from optparse import OptionParser
-    op =  OptionParser()
-
-    op.add_option("-v", dest="Verbose", default = 0,
-                action="count",
-                help="verbose output")    
-
-    op.add_option("--version", dest="Version", default = 0,
-                  action="store_true",
-                  help="Print program version and exit")
-
+        
+# Print processes waiting for UNIX sockets (usuallu syslog /dev/log)
+def print_wait_for_AF_UNIX(v=0):
+    tt = TaskTable()
+    basems = tt.basems
     
-    (o, args) = op.parse_args()
-    
-    verbose = o.Verbose
-    if (o.Version):
-        print ("HANGINFO version %s" % (__version__))
-        sys.exit(0)
+    # Part I - find all Unix sockets with peers
+    peers_dict = defaultdict(list)              # peer-> (task, sock) list
+    socks_dict = defaultdict(list)              # sock-> owners
+    for t in tt.allTasks():
+        once = TrueOnce(1)
+        try:
+            task_fds = t.taskFds()
+        except crash.error:
+            # page excluded
+            continue
+        last_ran = float(basems - t.Last_ran)/1000
+        for fd, filep, dentry, inode in task_fds:
+            socketaddr = proto.inode2socketaddr(inode)
+            if (not socketaddr): continue
 
+            socket = readSU("struct socket", socketaddr)
+            sock = Deref(socket.sk)
+            family, sktype, protoname, inet = proto.decodeSock(sock)
+            if (family != proto.P_FAMILIES.PF_FILE):
+                continue
+    
+            # AF_UNIX. on 2.4 we have just 'struct sock',
+            # on 2.6 'struct unix_sock'
+            if (not proto.sock_V1):
+                sock = sock.castTo("struct unix_sock")
+
+            #u_sock = readSU("struct unix_sock", 0xffff81073a7c3180)
+            state, ino, path = proto.unix_sock(sock)
+            socks_dict[sock].append((last_ran, t))
+            # Check whether we have a peer
+            peer = sock.Peer
+            if (peer):
+                peers_dict[peer].append((t, sock))
+            
+    # Part II - look at all peers
+    nonempty_tasklist = []
+    for peer, lst in peers_dict.items():
+        state, ino, path = proto.unix_sock(peer)
+        #if (path != "/dev/log"):
+        #    continue
+        #sleep = peer.sk.sk_sleep
+        try:
+            waitq = peer.peer_wait
+        except:
+            waitq = peer.peer_wq.wait
+        tasklist = decode_waitq(waitq)
+        if (tasklist):
+            owners = sorted(socks_dict[peer])
+            last_ran, t = owners[0]
+            pids = [tt.pid for tt in tasklist]
+            state, ino, path = proto.unix_sock(peer)
+             # if last_ran is greater than this, issue a warning
+            __max_time = 5
+            if (v < 1 and last_ran < __max_time):
+                continue
+            if (v < 1 and path == "/dev/log"):
+                # Just issue warnings
+                msg = ("A problem with syslog daemon <{}> pid={} state={}\n"
+                    "       It ran {:5.2f}s ago and {} processes"
+                    " are waiting for it"
+                     "".format(t.comm, t.pid,
+                                                t.state[5:7], last_ran,
+                                                len(tasklist)))
+                if (v < 0):
+                    msg += ("\n       Run 'hanginfo --syslogger -v' to get"
+                                " more details")
+                if (t.pid in pids):
+                    msg += ("\n       Task pid={} CMD={} is waiting for"
+                    " its own socket".format(t.pid, t.comm))
+ 
+                pylog.warning(msg)
+                if (v < 0):
+                    return
+                        
+            print(" -- Socket we wait for: {} {}".format(peer, path))
+            print("   Youngest process with this socket <{}> pid={}({}) ran "
+                "{:5.2f}s ago".format(t.comm, t.pid, t.state[5:7], last_ran))
+            print("   ...  {} tasks waiting for this socket".format(len(tasklist)))
+            if (v > 0):
+                for task in sorted(tasklist, key=operator.attrgetter('pid')):
+                    print("     pid=%7d   CMD=%s" % (task.pid, task.comm))
+
+    #if (once):
+    #    print("--pid={} comm={} ran {:5.2f}s ago".format(t.pid, t.comm, last_ran))
+
+# Classify UNINTERRUPTIBLE threads
+def classify_UN(v):
     # This is a reference list - we do not touch it
     tasksref = getUNTasks()
     
@@ -288,8 +364,8 @@ if ( __name__ == '__main__'):
     tasksrem = tasksref.copy()
 
     if (not tasksref):
-        print ("There are no UNINTERRUPTIBLE tasks, nothing to analyze!")
-        sys.exit(0)
+        print ("There are no UNINTERRUPTIBLE tasks")
+        return
 
     print (" *** UNINTERRUPTIBLE threads, classified ***")
     # Fin mutexes we are waiting on
@@ -335,7 +411,7 @@ if ( __name__ == '__main__'):
         
     un = tasksrem
     if (not un):
-        sys.exit(0)
+        return
 
     print ("\n\n ********  Non-classified UN Threads **********")
     
@@ -343,7 +419,9 @@ if ( __name__ == '__main__'):
     btlist = [b.bt for b in un.values()]
     bt_mergestacks(btlist, verbose=1)
     #print(un)
-    sys.exit(0)
+    return
+
+    # The following code is not ready yet
     for vfsmount, superblk, fstype, devname, mnt in getMount():
         sb = readSU("struct super_block", superblk)
         um = sb.s_umount
@@ -353,3 +431,37 @@ if ( __name__ == '__main__'):
             if (bdi):
                 print_backing_dev_info(bdi)
         #print(um.activity, um.wait_lock.raw_lock.slock, devname)
+
+
+if ( __name__ == '__main__'):
+    from optparse import OptionParser
+    op =  OptionParser()
+
+    op.add_option("-v", dest="Verbose", default = 0,
+                action="count",
+                help="verbose output")    
+
+    op.add_option("--version", dest="Version", default = 0,
+                  action="store_true",
+                  help="Print program version and exit")
+
+    op.add_option("--syslogger", dest="Syslogger", default = 0,
+                  action="store_true",
+                  help="Print info about hangs on AF_UNIX sockets (such as used by syslogd")
+
+    (o, args) = op.parse_args()
+    
+    v = verbose = o.Verbose
+    if (o.Version):
+        print ("HANGINFO version %s" % (__version__))
+        sys.exit(0)
+        
+    if (o.Syslogger):
+        print_wait_for_AF_UNIX(verbose)
+        sys.exit(0)
+        
+    classify_UN(v)
+    
+    print("\n")
+    print_wait_for_AF_UNIX(0)
+

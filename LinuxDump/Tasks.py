@@ -793,6 +793,17 @@ def print_pid_namespaces(tt, v = 0):
         if (ns.level == 1):
             print(fr)
 
+#  Decode wait_queue_head_t - similar to 'waitq' crash command.
+# Returns a list of 'struct task_struct'
+structSetAttr("struct __wait_queue", "Task", ["task", "private"])
+def decode_waitq(wq):
+    # 2.4 used to have 'struct __wait_queue'
+    # 2.6 has 'wait_queue_head_t' = 'struct __wait_queue_head'
+    out = []
+    for l in ListHead(wq.task_list, "struct __wait_queue").task_list:
+        task = readSU("struct task_struct", l.Task)
+        out.append(task)
+    return out
 
 if ( __name__ == '__main__'):
     tt = TaskTable()
