@@ -347,8 +347,11 @@ def decodeSock(sock):
             protoname = "UNIX"
         sktype = sock.type
     else:
-        skcomm = sock.__sk_common
-        family = skcomm.skc_family
+        try:
+            skcomm = sock.__sk_common
+            family = skcomm.skc_family
+        except crash.error:
+            return -1, 1, "CORRUPTED", False
         try:
             protoname =  skcomm.skc_prot.Deref.name
         except KeyError:
