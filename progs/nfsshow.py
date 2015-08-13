@@ -1,11 +1,10 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
-# Time-stamp: <14/06/04 12:14:22 alexs>
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2015 Hewlett-Packard Development Company, L.P.
 #
-# Author: Alex Sidorenko <asid@hp.com>
+# Author: Alex Sidorenko <asid@hpe.com>
 #
 # --------------------------------------------------------------------
 
@@ -13,7 +12,7 @@
 
 from __future__ import print_function
 
-__version__ = "1.0.1"
+__version__ = "1.0.2"
 
 from collections import Counter
 
@@ -673,7 +672,7 @@ def get_all_tasks_old():
 # Get all RPC clients for kernels where they exist
 def get_all_rpc_clients():
     all_clients = sym2addr("all_clients")
-    if (all_clients == -1):
+    if (all_clients == 0):
         return []
     return readSUListFromHead(all_clients, "cl_clients", "struct rpc_clnt")
 
