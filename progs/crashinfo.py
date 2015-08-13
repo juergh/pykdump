@@ -1468,7 +1468,9 @@ if (not quiet):
     print_mount()
     print_dmesg()
 
-from hanginfo import print_wait_for_AF_UNIX
+
+from LinuxDump.Analysis import print_wait_for_AF_UNIX
+        
 print_wait_for_AF_UNIX(-1)
 
 if (verbose):
