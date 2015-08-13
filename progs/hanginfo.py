@@ -161,7 +161,7 @@ def if_mutexOK(addr):
         return False
 
 __mutexfunc = "__mutex_lock_slowpath"
-def check_mutex_lock(tasksref):
+def check_mutex_lock(tasksref, tasksrem):
     mutexlist = set()
     for pid in sorted(tasksref.keys()):
         bt = tasksref[pid].bt
@@ -379,7 +379,7 @@ def classify_UN(v):
             print_pidlist(pids, tasksref)
             remove_pidlist(tasksrem, pids)
 
-    check_mutex_lock(tasksrem)
+    check_mutex_lock(tasksref, tasksrem)
    
     mmapsem_waiters = check_all_tasks()
     if (mmapsem_waiters):
