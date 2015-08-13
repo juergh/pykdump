@@ -2,10 +2,9 @@
 #
 #  Generic classes and subroutines
 #
-# Time-stamp: <2015-01-15 10:32:18 asid>
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2015 Hewlett-Packard Development Company, L.P.
 #
 # Author: Alex Sidorenko <asid@hp.com>
 #
@@ -170,7 +169,12 @@ CU_TIMEOUT = 8                          # Update on timeout change
 
 def memoize_cond(condition):
     def deco(fn):
-        def newfunc(*args):
+        def newfunc(*args, **keyargs):
+            memoize = keyargs.get("MEMOIZE", True)
+            #print('fn=',fn, "memoize=", memoize)
+            newfunc.__memoize = memoize
+            if (not memoize):
+                return fn(*args)
             key = (condition, fn.__name__) + args
             # If CU_LIVE is set and we are on live kernel, do not
             # memoize

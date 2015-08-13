@@ -16,7 +16,7 @@
 # figure everything out (which is probably impossible); this is a debugging
 # aid, not a tool that attempts to do all crash analysis automatically.
 
-__version__ = "1.01"
+__version__ = "1.02"
 
 import argparse
 from pykdump.API import *
@@ -412,7 +412,8 @@ def look_for_reg (fname, sp, stack):
                         if (True):
                             rdcmd = "rd {:#x}".format(addr)
                             try:
-                                rdout = memoize_cond(CU_LIVE)(exec_crash_command)(rdcmd)
+                                rdout = memoize_cond(CU_LIVE)(exec_crash_command)\
+                                    (rdcmd, MEMOIZE=False)
                             except crash.error:
                                 print "rd failed",addr,line,basereg,dstreg
                                 regval[dstreg] = "invalid"
@@ -678,8 +679,11 @@ def decode_pid_args(pid):
     # Make sure we're on an x86_64 vmcore, or this will fail miserably.
     if (sys_info.machine != "x86_64"):
         print "Supported on x86_64 dumps only, sorry."
-        sys.exit(1)        
-    s = exec_bt("bt " + pid)[0]
+        sys.exit(1)
+    #s = exec_bt("bt " + pid)[0]
+    # We don't memoize as if we use 'fregs' without expilicit pid, it relies
+    # on context as set by 'set pid' in crash
+    s = exec_bt("bt " + pid, MEMOIZE=False)[0]
 
     # For last frame, empty string for from_func
     lastf = s.frames[-1]
