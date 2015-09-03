@@ -1,15 +1,15 @@
-# frameregs.py - Python extension for crash utility that attempts to
+# fregs.py - Python extension for crash utility that attempts to
 # determine register contents at entry to each routine in stack frame
 
 # --------------------------------------------------------------------
 # (C) Copyright 2015 Hewlett-Packard Development Company, L.P.
 #
-# Author: Martin Moore (martin.moore@hp.com)
+# Author: Martin Moore (martin.moore@hpe.com)
 #
 # --------------------------------------------------------------------
 
 #
-# Usage: Load pykdump extension, then "epython frameregs.py <options>"
+# Usage: Load pykdump extension, then "freg <options>"
 #
 # General philosophy: try to find register contents that can be determined
 # with a high degree of confidence and not too much work.  Don't try to
@@ -27,27 +27,14 @@ from LinuxDump.BTstack import exec_bt
 
 ARG_REG = ['RDI','RSI','RDX','RCX','R8','R9']
 
-
-# Function parse_whatis - Parse whatis output from crash.
-#
-# Returns a dictionary of the argument types.
-
-def parse_whatis (finfo):
-    "Parse whatis output from crash into a dictionary of argument types"
-
-    argdict = {}
-    lparen = finfo.find("(")
-    rparen = finfo.find(")")
-    arginfo = finfo[(lparen+1):rparen]
-
-    if len(arginfo) == 0:
-        return argdict     # Probably an unnecessary check
-
-    fields = arginfo.split(",")
-    fields = [field.lstrip() for field in fields]
-    argdict = dict(zip(ARG_REG,fields))
-
-    return argdict
+REG64 = ['RAX','RBX','RCX','RDX','RSI','RDI','RBP','RSP','R8','R9','R10',
+         'R11','R12','R13','R14','R15']
+REG32 = ['EAX','EBX','ECX','EDX','ESI','EDI','EBP','ESP','R8D','R9D','R10D',
+         'R11D','R12D','R13D','R14D','R15D']
+REG16 = ['AX','BX','CX','DX','SI','DI','BP','SP','R8W','R9W','R10W',
+         'R11W','R12W','R13W','R14W','R15W']
+REG8 = ['AL','BL','CL','DL','SIL','DIL','BPL','SPL','R8B','R9B','R10B',
+         'R11B','R12B','R13B','R14B','R15B']
 
 def funcargs_dict(funcname):
     fields = funcargs(funcname)
@@ -56,10 +43,10 @@ def funcargs_dict(funcname):
         return {}
     return dict(zip(ARG_REG,fields))
 
-@memoize_cond(CU_LIVE)
-def disasm(cmd):
-    #print(" === dis {}".format(cmd))
-    return exec_crash_command("dis {}".format(cmd))
+@memoize_cond(CU_LIVE|CU_LOAD)
+def disasm(addr,nlines):
+    return exec_gdb_command("x/{}i {}".format(nlines,addr))
+
 
 # Function look_for_reg - Look for saved registers
 #
@@ -72,16 +59,9 @@ def look_for_reg (fname, sp, stack):
 
     # If we're getting arguments, get information from crash
 
-    if False and showargs:
-        try:
-            finfo = exec_crash_command("whatis " + fname)
-            arg_types = parse_whatis(finfo)
-        except crash.error:
-            print "Can't identify arguments for", fname
-            arg_types = {}
-
-    if True and showargs:
+    if showargs:
         arg_types = funcargs_dict(fname)
+
     # Start by finding registers saved on the stack at routine entry (this
     # is fairly straightforward).  Build a dictionary of the found values.
 
@@ -94,19 +74,30 @@ def look_for_reg (fname, sp, stack):
     # Disassemble the first 12 instructions in the routine.  This should be
     # more than enough to handle the initial register saving.
 
-    disout = disasm("-x " + fname + " 12")
+    disout = disasm(fname,12)
+    try:
+        disinst = disout.splitlines()
+    except AttributeError:
+        symout = exec_crash_command("sym " + fname)
+        addr = symout.split()[0]
+        #print("Trying disasm {} for {}".format(addr,fname))
+        disout = disasm("0x"+addr,12)
+        disinst = disout.splitlines()
+
 
     # Parse the entry sequence where registers are saved on the stack.
     # We're only interested in push, sub, and mov instructions.  When we
     # find something else, we've presumably finished the entry, so stop looking.
 
-    for line in disout.splitlines():
+    for line in disinst:
+        colon = line.index(":")
+        inst = line[colon+1:]
         if debug:
-            print line
-        fields = line.split()
-        opcode = fields[2]
+            print line, inst
+        fields = inst.split()
+        opcode = fields[0]
         try:
-            operand = fields[3]
+            operand = fields[1]
         except IndexError:
             break
 
@@ -121,14 +112,14 @@ def look_for_reg (fname, sp, stack):
                 try:
                     val = stack[rsp]
                     if verbose:
-                        print "  {:s}: {:#x} from {:#x} (push)".format(
+                        print " +{:s}: {:#x} from {:#x} (push)".format(
                             register,val,rsp)
                     elif showargs and register in arg_types:
                         argno = ARG_REG.index(register)
-                        print "  {:s}: {:#x} arg{:d} {:s}".format(
+                        print " +{:s}: {:#x} arg{:d} {:s}".format(
                             register,val,argno,arg_types[register])
                     else:
-                        print "  {:s}: {:#x}".format(register,val)
+                        print " +{:s}: {:#x}".format(register,val)
 
                     regval[register] = val
 
@@ -184,14 +175,14 @@ def look_for_reg (fname, sp, stack):
                 try:
                     val = stack[addr]
                     if verbose:
-                        print "  {:s}: {:#x} from {:#x} {:s}".format(
+                        print " +{:s}: {:#x} from {:#x} {:s}".format(
                             register,val,addr,dest)
                     elif showargs and register in arg_types:
                         argno = ARG_REG.index(register)
-                        print "  {:s}: {:#x} arg{:d} {:s}".format(
+                        print " +{:s}: {:#x} arg{:d} {:s}".format(
                             register,val,argno,arg_types[register])
                     else:
-                        print "  {:s}: {:#x}".format(register,val)
+                        print " +{:s}: {:#x}".format(register,val)
 
                     regval[register] = val
 
@@ -214,29 +205,80 @@ def look_for_reg (fname, sp, stack):
     if sp not in stack:    # If we don't have the stack data, give up
         return
 
+    # To disassemble, we use the gdb "x/i" command, which is much faster
+    # than using crash's "dis" command (especially "dis -r)".  However,
+    # since instructions are variable length, we can't just ask for the
+    # last N instructions before the RIP.  We have to go from the beginning
+    # of the routine and guess how many instructions to disassemble.  We
+    # guess by assuming an average instruction length of 5 bytes (which
+    # seems optimal by empirical testing.)
+
     rsp = stack[sp] + 8    # SP before call
     rip = stack[sp]
     ripstr = "{:#x}".format(rip)
-    disout = disasm("-r " + ripstr)
 
+    symout = exec_crash_command("sym " + ripstr)
+    sym = symout.split()[2]
+    fields = sym.split("+")
+    func = fields[0]
+    try:
+        offset = int(fields[1])
+    except IndexError:
+        offset = 0
+
+    start = rip - offset   # start address of this routine
+
+    # Guess number of instructions to disassemble
+
+    nlines = offset // 5 + 1
+    dstr = "{:#x}".format(start)
+    disout = disasm(dstr,nlines)
+    disinst = disout.splitlines()
+
+    # Did we find the RIP yet?  This check takes advantage of the fact that
+    # fixed-length hex numbers with consistent case sort the same way 
+    # lexically and numerically.
+
+    # If we haven't found the RIP yet, guess again for the remaining 
+    # instructions; keep going until we reach the RIP.  Note that we
+    # add an extra instruction (+2 below) to avoid asking for only one
+    # and getting stuck in a loop.
+
+    addr = disinst[-1].split()[0].rstrip(":")
+
+    while addr < ripstr:
+        disinst.pop()  # discard last line, since it will come back
+        nlines = (rip - int(addr,16)) // 5 + 2
+        disout = disasm(addr,nlines)
+        disinst.extend(disout.splitlines())
+        addr = disinst[-1].split()[0].rstrip(":")
+
+    # Discard everything after the ripstr
+
+    while addr > ripstr:
+        line = disinst.pop()
+        addr = disinst[-1].split()[0].rstrip(":")
+
+
+    # At this point, list disinst contains the disassembled instructions.
     # Run through the disassembled instructions in reverse up to a limit,
     # since the further back we go the more likely it is that control flow
-    # will make the results less certain.  Skip the first (i.e. last) line,
-    # since it's the instruction after the call and won't have been executed.
+    # will make the results less certain.  Skip the first (i.e. last) 2 lines,
+    # since they should be the call to this routine and the next instruction.
 
     lines_parsed = 0
-    for line in reversed(disout.splitlines()):
+    for line in reversed(disinst):
         if debug:
             print line
 
-        if lines_parsed == 0:
-            lines_parsed = 1
+        lines_parsed += 1
+
+        if lines_parsed < 3:
             continue           # skip this line
 
-        if lines_parsed == 10:
+        if lines_parsed > 10:
             break              # quit after 10 lines
 
-        lines_parsed += 1
 
         # Parse the instruction and see if we can learn any new information.
         # Let's think about the register dictionary we built above.  On entry
@@ -254,15 +296,16 @@ def look_for_reg (fname, sp, stack):
         # Invalid - Contents have been set, but aren't valid for use (because
         # the register is modified at a later point in time than we're looking)
 
-        fields = line.split()
-        opcode = fields[2]
+        colon = line.index(":")
+        inst = line[colon+1:]
+        fields = inst.split()
+        opcode = fields[0]
         try:
-            operand = fields[3]
+            operand = fields[1]
         except IndexError:
             continue		# Ignore instructions with no operand
 
-        if opcode.startswith("nop") or opcode == "test":
-            continue		# Skip NOP instructions
+        # Process the various opcodes
 
         # Parse MOV instruction.  There are 5 possible cases:
         #
@@ -274,7 +317,7 @@ def look_for_reg (fname, sp, stack):
         #
         # We don't need to worry about the writes to memory.
 
-        if opcode == "mov":
+        if opcode.startswith("mov"):
             fields = operand.split(",")
             src = fields[0]
             dst = fields[1]
@@ -283,7 +326,23 @@ def look_for_reg (fname, sp, stack):
                 # Destination is a register.  If it's already invalid, just continue.
                 # Otherwise, determine the source type.
 
-                dstreg = dst.lstrip("%").upper()
+                rawdstreg = dst.lstrip("%").upper()
+
+                if rawdstreg in REG64:
+                    dstreg = rawdstreg
+                    dstmask = 0xffffffffffffffff
+                elif rawdstreg in REG32:
+                    dstreg = REG64[REG32.index(rawdstreg)]
+                    dstmask = 0xffffffff
+                elif rawdstreg in REG16:
+                    dstreg = REG64[REG16.index(rawdstreg)]
+                    dstmask = 0xffff
+                elif rawdstreg in REG8:
+                    dstreg = REG64[REG8.index(rawdstreg)]
+                    dstmask = 0xff
+                else:
+                    continue    # Must be a control register, ignore
+
                 try:
                     if regval[dstreg] == "invalid":
                         continue
@@ -296,7 +355,23 @@ def look_for_reg (fname, sp, stack):
                     #
                     # If both registers are the same (can this happen?), skip this one.
 
-                    srcreg = src.lstrip("%").upper()
+                    rawsrcreg = src.lstrip("%").upper()
+
+                    if rawsrcreg in REG64:
+                        srcreg = rawsrcreg
+                        srcmask = 0xffffffffffffffff
+                    elif rawsrcreg in REG32:
+                        srcreg = REG64[REG32.index(rawsrcreg)]
+                        srcmask = 0xffffffff
+                    elif rawsrcreg in REG16:
+                        srcreg = REG64[REG16.index(rawsrcreg)]
+                        srcmask = 0xffff
+                    elif rawsrcreg in REG8:
+                        srcreg = REG64[REG8.index(rawsrcreg)]
+                        srcmask = 0xff
+                    else:
+                        continue    # Must be a control register, ignore
+
                     if srcreg == dstreg:
                         continue
 
@@ -306,7 +381,7 @@ def look_for_reg (fname, sp, stack):
                     #    If src is known, report its value as the dst value.  Then
                     #       invalidate dst (regarldess of src state).
                     # If dst is known:
-                    #    If src is unknown, report src contents as dst value.  Set src
+                    #    If src is unknown, report dst contents as src value.  Set src
                     #       to dst (regardless of src state).
                     # If dst is invalid:
                     #    Do nothing (we can't learn anything new).
@@ -317,7 +392,8 @@ def look_for_reg (fname, sp, stack):
                         elif regval[srcreg] == "invalid":
                             regval[dstreg] = "invalid"
                         else:
-                            val = regval[srcreg]
+                            val = regval[srcreg] & srcmask
+
                             regval[dstreg] = "invalid"
                             if verbose:
                                 print "  {:s}: {:#x} from caller: {:s} {:s}".format(
@@ -332,7 +408,7 @@ def look_for_reg (fname, sp, stack):
                     elif regval[dstreg] != "invalid":  # dst is known
                         if srcreg == "RSP":  # Don't do this for RSP
                             continue         # (handled separately)
-                        val = regval[dstreg]
+                        val = regval[dstreg] & dstmask
                         if srcreg not in regval: # src is unknown
                             if verbose:
                                 print "  {:s}: {:#x} from caller: {:s} {:s}".format(
@@ -347,15 +423,13 @@ def look_for_reg (fname, sp, stack):
 
                 # MOV const,reg
                 #
-                # If this is a new register, display it; either way, set/update the value 
-                # for this register in the dictionary.
+                # If this is a new register, display it; either way,
+                # invalidate it.
 
                 elif src.startswith("$"):
-                    val = int(src.lstrip("$"),16)
-                    if dstreg in regval:
-                        if debug:
-                            print "Updated {:s} to {:#x}".format(dstreg,val)
-                    else:
+                    val = int(src.lstrip("$"),16) & dstmask
+
+                    if dstreg not in regval:
                         if verbose:
                             print "  {:s}: {:#x} from caller: {:s} {:s}".format(
                                 dstreg,val,opcode,operand)
@@ -366,7 +440,7 @@ def look_for_reg (fname, sp, stack):
                         else:
                             print "  {:s}: {:#x}".format(dstreg,val)
 
-                    regval[dstreg] = val
+                    regval[dstreg] = "invalid"
 
                 # MOV mem,reg
                 #
@@ -390,9 +464,7 @@ def look_for_reg (fname, sp, stack):
                         offset = int(src[:paren],16)
 
                     basereg = src[(paren+2):-1].upper()
-                    if basereg == "RSP":
-                        addr = rsp + offset
-                    elif basereg in regval:
+                    if basereg in regval:
                         val = regval[basereg]
                         if val == "invalid":
                             regval[dstreg] = "invalid"
@@ -409,11 +481,10 @@ def look_for_reg (fname, sp, stack):
                     if addr in stack:
                         val = stack[addr]
                     else:
-                        if (True):
+                        if (False):
                             rdcmd = "rd {:#x}".format(addr)
                             try:
-                                rdout = memoize_cond(CU_LIVE)(exec_crash_command)\
-                                    (rdcmd, MEMOIZE=False)
+                                rdout = memoize_cond(CU_LIVE)(exec_crash_command)(rdcmd)
                             except crash.error:
                                 print "rd failed",addr,line,basereg,dstreg
                                 regval[dstreg] = "invalid"
@@ -425,11 +496,16 @@ def look_for_reg (fname, sp, stack):
                                 print rdout
                             fields = rdout.split()
                             val = int(fields[1],16)
+                            if debug:
+                                val2 = readULong(addr)
+                                print "val={:x} val2={:x}".format(val,val2)
                         else:
                             # Read using direct pydkump API
                             val = readULong(addr)
 
                     if dstreg not in regval:
+
+                        val &= dstmask
 
                         if verbose:
                             print "  {:s}: {:#x} from caller: {:s} {:s}".format(
@@ -456,6 +532,8 @@ def look_for_reg (fname, sp, stack):
         # "lea (reg),reg" (although the latter seems unlikely, since the compiler
         # could do the same thing with a mov) and ignore more complex address
         # formats.  Maybe change this later if it seems worthwhile.
+        # We also assume this will only come up for 64-bit registers in
+        # a 64-bit kernel; is this a valid assumption?
 
         elif opcode == "lea":
             fields = operand.split(",")
@@ -471,9 +549,7 @@ def look_for_reg (fname, sp, stack):
                 offset = int(src[:paren],16)
 
             basereg = src[(paren+2):-1].upper()
-            if basereg == "RSP":
-                addr = rsp + offset
-            elif basereg in regval:
+            if basereg in regval:
                 val = regval[basereg]
                 if val == "invalid":
                     regval[dstreg] = "invalid"
@@ -502,16 +578,101 @@ def look_for_reg (fname, sp, stack):
                 regval[dstreg] = "invalid"
                 continue
 
-        # For any other instruction that modified the contents of a register,
-        # invalid the register.
+        # XCHG instruction.
 
-        elif opcode in ['add','sub','inc','dec','imul','idiv','and',
-            'or','xor','not','neg','shl','shr']:
+        elif opcode.startswith('xchg'):
+            fields = operand.split(",")
+            src = fields[0]
+            dst = fields[1]
+
+            # If src and dst are the same, this is a common no-op.
+
+            if src == dst:
+                continue
+
+            # Now we should have either XCHG reg,mem or XCHG regA,regB.
+            # We'll just invalidate the registers, although we could possibly
+            # learn a little more from them in some cases.
+
+            if not src.startswith("%"):
+                continue     # sanity check (shouldn't happen)
+
+            rawsrcreg = src.lstrip("%").upper()
+
+            if rawsrcreg in REG64:
+                srcreg = rawsrcreg
+                srcmask = 0xffffffffffffffff
+            elif rawsrcreg in REG32:
+                srcreg = REG64[REG32.index(rawsrcreg)]
+                srcmask = 0xffffffff
+            elif rawsrcreg in REG16:
+                srcreg = REG64[REG16.index(rawsrcreg)]
+                srcmask = 0xffff
+            elif rawsrcreg in REG8:
+                srcreg = REG64[REG8.index(rawsrcreg)]
+                srcmask = 0xff
+            else:
+                continue    # Must be a control register, ignore
+
+            regval[srcreg] = "invalid"
+
+            if dst.startswith("%"):
+                rawdstreg = dst.lstrip("%").upper()
+
+                if rawdstreg in REG64:
+                    dstreg = rawdstreg
+                    dstmask = 0xffffffffffffffff
+                elif rawdstreg in REG32:
+                    dstreg = REG64[REG32.index(rawdstreg)]
+                    dstmask = 0xffffffff
+                elif rawdstreg in REG16:
+                    dstreg = REG64[REG16.index(rawdstreg)]
+                    dstmask = 0xffff
+                elif rawdstreg in REG8:
+                    dstreg = REG64[REG8.index(rawdstreg)]
+                    dstmask = 0xff
+                else:
+                    continue    # Must be a control register, ignore
+
+                regval[dstreg] = "invalid"
+
+
+        # For any other instruction that modified the contents of a register,
+        # invalidate the register.
+
+        elif opcode.startswith(('add','sub','inc','dec','imul','idiv','and',
+            'or','xor','not','sbb','adc','neg','shl','shr','pop','bt')):
             fields = operand.split(",")
             dst = fields[-1]
             if dst.startswith("%"):
-                dstreg = dst.lstrip("%").upper()
+                rawdstreg = dst.lstrip("%").upper()
+                if rawdstreg in REG64:
+                    dstreg = rawdstreg
+                elif rawdstreg in REG32:
+                    dstreg = REG64[REG32.index(rawdstreg)]
+                elif rawdstreg in REG16:
+                    dstreg = REG64[REG16.index(rawdstreg)]
+                elif rawdstreg in REG8:
+                    dstreg = REG64[REG8.index(rawdstreg)]
+                else:
+                    continue    # Must be a control register, ignore
+
                 regval[dstreg] = "invalid"
+
+        # Instructions whose effect on registers is indeterminate. 
+        # Stop parsing.
+
+        elif opcode.startswith(("call","cmov")):
+            break
+
+        # Instructions that don't change registers.  Ignore.
+
+        elif opcode.startswith(("nop","j","test","cmp","push","data32",
+             "lock","prefetch")):
+            continue		# Skip NOP instructions
+
+        else:
+            print("Unparsed: {}".format(inst))
 
     return
 
@@ -532,158 +693,15 @@ class DisasmFlavor():
             print("Restoring flavor to {}".format(self.oldflavor))
             exec_gdb_command("set disassembly-flavor {}".format(self.oldflavor))
 
-#--------------------------------------------------------------
-#   Main program begins here. 
-#--------------------------------------------------------------
-
-def olddecode_pid_args(pid):
-    stack = {}    # Stack dictionary - address:value pairs
-    # Make sure we're on an x86_64 vmcore, or this will fail miserably.
-    if (sys_info.machine != "x86_64"):
-        print "Supported on x86_64 dumps only, sorry."
-        sys.exit(1)
-
-
-    btfout = exec_crash_command("bt -f " + pid)
-
-    # Look through the "bt -f" output for lines that show stack values.
-    # Use these to build a dictionary of the stack contents.
-    # Lines have the following form (with either 1 or 2 values):
-    #
-    #     ffff88200e7d7e08: ffffe8dfe8801648 ffff88200e7d7e30
-
-    for line in btfout.splitlines():
-        if line.lstrip().startswith("ffff"):
-            fields = line.split()
-            addr = int(fields[0].rstrip(':'),16)
-            val1 = int(fields[1],16)
-            stack[addr] = val1
-
-            if len(fields) == 3:
-                addr += 8
-                val2 = int(fields[2],16)
-                stack[addr] = val2
-
-    if debug:
-        print "Stack dictionary:"
-        for key in sorted(stack):
-            print "{:#x}: {:#x}".format(key, stack[key])
-
-    # Now let's get just the basic bt output.  We'll use this to build three
-    # parallel lists: 
-    #   1. frames contains the list of entered routines
-    #   2. stackptr contains either:
-    #      if called, the stack address of the saved return address (caller)
-    #      if entered via exception, a list containing the eframe output
-    #   3. retaddr contains either:
-    #      if called, the saved return address (caller)
-    #      if entered via exception, the string "eframe"
-    #
-    # Note that frames is one element longer than the others, since the bottom
-    # routine doesn't have anything to return to.  To expand on this:
-    #
-    # frames[i] contains the routine name and is set on interation [i].
-    # stackptr[i] and retaddr[i] contain the address and value of the RA
-    # when frames[i] is entered.  Since these come from the caller, they are
-    # set on iteration [i+1].  Or looking at the other way, on iteration [i]
-    # we set frames[i], stackptr[i-1], and retaddr[i-1].  We do this by skipping
-    # the latter two on the first time through and letting the lists build
-    # by appending to them.  As such, stackptr and retaddr will each
-    # have one fewer element than frames.
-
-    frames = []
-    stackptr = []
-    retaddr = []
-    btout = exec_crash_command("bt " + pid)
-    top = True
-    elist_remaining = 0
-
-    for line in btout.splitlines():
-        if line.lstrip().startswith("#"):
-            if debug:
-                print line
-            fields = line.split()
-            fname = fields[2]
-
-    # See comments below for reason we need to check for duplicate names
-    # in consecutive entries.  
-
-            if top:
-                frames.append(fname)
-                top = False
-            else:
-                saddr = int(fields[1].strip("[]"),16)
-                raddr = int(fields[4],16)
-                if fname != frames[-1]:
-                    frames.append(fname)
-                    stackptr.append(saddr)
-                    retaddr.append(raddr)
-
-    # Process exception entries.  This is a little tricky because sometimes
-    # crash shows a separate frame for the routine in which the exception
-    # occurred, and sometimes it doesn't.  So we try to deal with both cases
-    # here by immediately setting up an entry for the routine that hit the 
-    # exception.  But in the call frame entry processing above, we have to
-    # check for consecutive calls to the same routine, and when this happens
-    # we just update the entries for that routine instead of appending new
-    # ones to the lists.
-
-        elif line.lstrip().startswith("[exception RIP:"):
-            if debug:
-                print line
-            fields = line.split()
-            rip = fields[2]
-            fname = rip.split("+")[0]
-            frames.append(fname)
-            retaddr.append("eframe")
-
-    # Build a list containing the exception frame lines from the bt output.
-    # This includes the current and next 7 lines.
-
-            elist = []
-            elist.append(line)
-            elist_remaining = 7
-
-        elif elist_remaining > 0:
-            elist.append(line)
-            elist_remaining -= 1
-            if elist_remaining == 0:
-                stackptr.append(elist)
-
-    if debug:
-        for i in range(len(retaddr)):
-            if retaddr[i] == "eframe":
-                print "{:s} eframe".format(frames[i])
-            else:
-                print "{:s} {:#x}".format(frames[i],retaddr[i])
-
-    # Now loop through our lists to print each routine entered and
-    # whatever we can determine about register contents at the time of entry.
-
-    for i in range(len(stackptr)):
-        fname = frames[i]
-
-        if type(stackptr[i]) is list:
-            print "\n{:s} entered by exception".format(fname)
-            elist = stackptr[i]
-            for efline in elist:
-                print efline
-        else:
-            rip = retaddr[i]
-            out = disasm("{:#x}".format(rip))
-            inst = out.split()[1].rstrip(":")
-            print "\n{:s} called from {:#x} {:s}".format(fname, rip, inst)
-            look_for_reg(fname, stackptr[i], stack)
-
 def decode_pid_args(pid):
     # Make sure we're on an x86_64 vmcore, or this will fail miserably.
     if (sys_info.machine != "x86_64"):
         print "Supported on x86_64 dumps only, sorry."
-        sys.exit(1)
-    #s = exec_bt("bt " + pid)[0]
-    # We don't memoize as if we use 'fregs' without expilicit pid, it relies
-    # on context as set by 'set pid' in crash
-    s = exec_bt("bt " + pid, MEMOIZE=False)[0]
+        sys.exit(1)        
+    s = exec_bt("bt " + pid,MEMOIZE=False)[0]
+
+    for f in s.frames:
+        print f
 
     # For last frame, empty string for from_func
     lastf = s.frames[-1]
@@ -692,25 +710,36 @@ def decode_pid_args(pid):
     for f, nf in zip(s.frames[:-1], s.frames[1:]):
         calledfrom = nf.func
         
-        if (f.level != -1 and nf.level != -1 and f is not lastf):
-            #print f.fullstr()
-            start = f.frame + LONG_SIZE
+        if (f is not lastf):
+            # Keep previous start if in a routine that resulted in exception
+            if (f.level != -1):
+                start = f.frame + LONG_SIZE
+
             end = nf.frame
             arrsize = (end-start)//LONG_SIZE + 1
+
+            for l in f.data:
+                if (l.startswith("---")):
+                    print l
 
             if (arrsize > 0 and arrsize < 8192):
                 #print("===reading {} longwords".format(arrsize))
                 us = readmem(start, arrsize*LONG_SIZE)
                 f.stackdata = stackdata = crash.mem2long(us, array=arrsize)
-                for addr in range(start,end+LONG_SIZE, 8):
-                    stackdict[addr] = readULong(addr)
+
+                addr = start
+                for val in stackdata:
+                    stackdict[addr] = val
+                    addr += 8
 
         if (nf.level == -1):
-            f.from_func = "entered by exception"
+            f.from_func = "entered by exception at <{}+{}>".format(
+                nf.func, nf.offset)
             f.lookup_regs = False
+            f.data = nf.data
         else:
             f.from_func = "called from {:#x} <{}+{}>".format(nf.addr, nf.func, nf.offset)
-            f.lookup_regs = (f.level != -1)
+            f.lookup_regs = True
         #print(f, f.from_func)
         f.sp = nf.frame
     
@@ -722,6 +751,7 @@ def decode_pid_args(pid):
         #print f.fullstr()
         #for k in stack:
         #    print("  {:#x}".format(k))
+        #print "\n{:s} {:s}".format(f.func, f.from_func)
         print "\n{:s} {:s}".format(f.func, f.from_func)
         if (f.lookup_regs):
             look_for_reg(f.func, f.sp, stack)
@@ -729,6 +759,9 @@ def decode_pid_args(pid):
             for l in f.data:
                 print l
             
+#--------------------------------------------------------------
+#   Main program begins here. 
+#--------------------------------------------------------------
     
 if ( __name__ == '__main__'):
 
@@ -769,10 +802,5 @@ if ( __name__ == '__main__'):
         pid = args.pid
 
     with DisasmFlavor('att'):
-        if (args.old):
-            olddecode_pid_args(pid)
-        else:
-            decode_pid_args(pid)
-
-
+        decode_pid_args(pid)
 
