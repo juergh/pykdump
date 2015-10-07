@@ -365,6 +365,7 @@ def print_UDP():
             # LISTEN socket
             if (not print_listen): continue
 
+        print(pstr)
         if (details):
             print ('-' * 78)
             print (o, '\t\tUDP')
