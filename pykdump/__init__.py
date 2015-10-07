@@ -11,11 +11,11 @@ import sys
 # Copyright notice string
 __copyright__ = """\
 (C) Copyright 2006-2015 Hewlett-Packard Development Company, L.P.
-Author: Alex Sidorenko <asid@hp.com>
+Author: Alex Sidorenko <asid@hpe.com>
 """
 
 # A minimal C-module version that is needed for API to work
-minimal_cmod_version = "0.8.5"
+minimal_cmod_version = "0.8.6"
 
 
 # The next subroutines are used for version compatibility control.

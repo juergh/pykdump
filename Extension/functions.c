@@ -1,9 +1,9 @@
 /* Python extension to interact with CRASH
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2015 Hewlett-Packard Development Company, L.P.
 #
-# Author: Alex Sidorenko <asid@hp.com>
+# Author: Alex Sidorenko <asid@hpe.com>
 #
 # --------------------------------------------------------------------
 
@@ -1553,6 +1553,16 @@ py_pid_to_task(PyObject *self, PyObject *args) {
   return PyLong_FromUnsignedLong(taskaddr);
 }
 
+// char *get_uptime(char *buf, ulonglong *j64p)
+// Return uptime in jiffies - as returned by crash subroutine
+static PyObject *
+py_get_uptime(PyObject *self, PyObject *args) {
+  ulonglong jiffies;
+
+  get_uptime(NULL, &jiffies);
+  return PyLong_FromUnsignedLongLong(jiffies);
+}
+
 
 
 /* Used fot changing Discovery daemon name */
@@ -1638,6 +1648,7 @@ static PyMethodDef crashMethods[] = {
   {"is_task_active", py_is_task_active,  METH_VARARGS},
   {"pid_to_task", py_pid_to_task,  METH_VARARGS},
   {"task_to_pid", py_task_to_pid,  METH_VARARGS},
+  {"get_uptime", py_get_uptime,  METH_VARARGS},
   {NULL,      NULL}        /* Sentinel */
 };
 

@@ -4,7 +4,7 @@
 # --------------------------------------------------------------------
 # (C) Copyright 2006-2015 Hewlett-Packard Development Company, L.P.
 #
-# Author: Alex Sidorenko <asid@hp.com>
+# Author: Alex Sidorenko <asid@hpe.com>
 #
 # --------------------------------------------------------------------  
 
@@ -36,7 +36,7 @@
 
 int debug = 0;
 
-static char crashmod_version_s[] = "@(#)pycrash 0.8.5";
+static char crashmod_version_s[] = "@(#)pycrash 0.8.6";
 const char * crashmod_version = crashmod_version_s + 12;
 
 extern const char *build_crash_version;
