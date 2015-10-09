@@ -12,7 +12,7 @@
 
 from __future__ import print_function
 
-__version__ = "1.0.2"
+__version__ = "1.0.3"
 
 from collections import Counter
 
@@ -134,6 +134,26 @@ XPRT_BITS = {k: 1<<v for k,v in __XPRT_BITS.items()}
 #print(XPRT_BITS)
 #print (dbits2str(17, XPRT_BITS))
 
+__XPT_C = '''
+#define XPT_BUSY        0               /* enqueued/receiving */
+#define XPT_CONN        1               /* conn pending */
+#define XPT_CLOSE       2               /* dead or dying */
+#define XPT_DATA        3               /* data pending */
+#define XPT_TEMP        4               /* connected transport */
+#define XPT_DEAD        6               /* transport closed */
+#define XPT_CHNGBUF     7               /* need to change snd/rcv buf sizes */
+#define XPT_DEFERRED    8               /* deferred request pending */
+#define XPT_OLD         9               /* used for xprt aging mark+sweep */
+#define XPT_DETACHED    10              /* detached from tempsocks list */
+#define XPT_LISTENER    11              /* listening endpoint */
+#define XPT_CACHE_AUTH  12              /* cache auth info */
+'''
+
+__XPT_BITS = CDefine(__XPT_C)
+# Convert it to proper bits
+XPT_BITS = {k: 1<<v for k,v in __XPT_BITS.items()}
+#print(XPT_BITS)
+
 def init_Structures():
     load_Structures()
     finalize_Structures()
@@ -237,6 +257,7 @@ def format_cl_addr(s):
 # -- get a generator for a cache with a given name. We iterate
 # both through hash-table and its buckets and return non-null
 # 'struct cache_head'
+#
 def getCache(cname):
     details = None
     cache_list = ListHead(sym2addr("cache_list"), "struct cache_detail")
@@ -278,6 +299,7 @@ def getCache(cname):
 
 __CACHE_VALID = 0
 __CACHE_NEGATIVE = 1
+__CACHE_PENDING = 2
 
 def test_bit(nbit, val):
     return ((val >> nbit) == 1)
@@ -287,6 +309,9 @@ def _test_cache(ch):
     #    !test_bit(CACHE_NEGATIVE, &h->flags))
     return (test_bit(__CACHE_VALID, ch.flags) and not
             test_bit(__CACHE_NEGATIVE, ch.flags))
+
+def _test_cache_pending(ch):
+    return test_bit(__CACHE_PENDING, ch.flags)
 
 
 # static inline int key_len(int type)
@@ -368,9 +393,11 @@ def print_nfsd_export(v=0):
     ip_table = getCache("nfsd.export")
     print ("----- NFS Exports (/proc/net/rpc/nfsd.export)------------")
     entries = 0
+    tot_pending =  0
     for ch in ip_table:
         exp = container_of(ch, "struct svc_export", "h")
-        if (_test_cache(ch)):
+        pending = _test_cache_pending(ch)
+        if (_test_cache(ch) or pending):
             # On older kernels we have exp.ex_mnt and exp.ex_dentry
             # On newer ones exp.ex_path.mnt and exp.exp_path.dentry
             try:
@@ -378,17 +405,24 @@ def print_nfsd_export(v=0):
                 pathname = get_pathname(path.dentry, path.mnt)
             except:
                 pathname = get_pathname(exp.ex_dentry, exp.ex_mnt)
-            entries += 1
+            if (not pending):
+                entries += 1
+            else:
+                tot_pending += 1
             if (v > 0):
                 extra = "  {}".format(exp)
             else:
                 extra = ""
             if (v >=0):
-                print ("    ", pathname, exp.ex_client.name, extra)
+                pref = " (p)" if pending else "    "
+                print (pref, pathname, exp.ex_client.name, extra)
 
     if (v < 0):
         # Summary
-        print("    {} entries".format(entries))
+        print("    {} valid entries".format(entries))
+    if(tot_pending):
+        pylog.warning("pending entries in nfsd.export cache: {}".\
+            format(tot_pending))
 
 
 # IP Map Cache (as reported by /proc/net/rpc/auth.unix.ip/contents)
@@ -500,9 +534,6 @@ def __init_attrs():
     structSetAttr(sn, "SockList", ["sk_list", "sk_xprt.xpt_list"])
 
 
-# Decode and print info about XPRT
-def print_xprt(xprt):
-    pass
 
 # Decode and Print one RPC task (struct rpc_task)
 def print_rpc_task(s, v = 0):
@@ -550,7 +581,7 @@ def print_rpc_task(s, v = 0):
     except crash.error:
         pass
 
-# decode/print xprt
+# decode/print rpc_xprt
 def print_xprt(xprt, v = 0):
     try:
         print ("      ...", xprt, "...")
@@ -574,7 +605,20 @@ def print_xprt(xprt, v = 0):
         # Null pointer and invalid addr
         return
     print("")
+    
+# decode/print svc_xprt
+def print_svc_xprt(xprt, v = 0, indent = 0):
+    indent_str = ' ' * indent
+    s_struct ='{!s:-^50}'.format(xprt)
+    laddr = (l_ip, l_port) = decode_ksockaddr(xprt.xpt_local)
+    raddr = (r_ip, r_port) = decode_ksockaddr(xprt.xpt_remote)
+    s_addr = "  Local: {} Remote: {}".format(laddr, raddr)
+    flags = "        flags={}".format(dbits2str(xprt.xpt_flags, XPT_BITS))
+    print(indent_str, s_struct, sep='')
+    print(indent_str, s_addr, sep='')
+    print(indent_str, flags, sep='')
 
+    
 # print all rpc pending tasks
 def print_all_rpc_tasks(v=1):
     # Obtain all_tasks
@@ -959,7 +1003,7 @@ def decode_ksockaddr(ksockaddr):
     else:
         return ("Unknown family {}".format(family), None)
 
-def print_svc_xprt(v = 0):
+def print_all_svc_xprt(v = 0):
     # Get nfsd_serv. On 2.6.32 it was a global variable, later it was moved
     # to init_net.gen[nfsd_net_id]
     # On 2.6.18 it is a global variable but lists are different
@@ -1002,18 +1046,46 @@ def print_svc_xprt(v = 0):
                 laddr = (l_ip, l_port) = decode_ksockaddr(x.xpt_local)
                 raddr = (r_ip, r_port) = decode_ksockaddr(x.xpt_remote)
                 s_addr = "  Local: {} Remote: {}".format(laddr, raddr)
+                flags = "        flags={}".format(dbits2str(x.xpt_flags, XPT_BITS))
+                #print("         xpt_flags={:#x}".format(x.xpt_flags))
             else:
                 mutex = x.sk_mutex
                 s_struct = '{!s:-^78}'.format(x)
                 s_addr = str(IP_sock(x.sk_sk))
+                flags = ''
             counter = mutex.count.counter
             if (v >= 0 or counter != 1):
                 print(s_struct)
                 print(s_addr)
+                if(flags):
+                    print(flags)
             if (counter != 1):
                 print("   +++ mutex is in use +++", mutex)
                 decode_mutex(mutex)
 
+# Print from cache_defer_hash.
+# v=-1 is for summary
+def print_deferred(v = 0):
+    if (v >= 0):
+        print (" {:-^78}".format("cache_defer_hash"))
+    svc_revisit = sym2addr("svc_revisit")
+    total = 0
+    for hb in readSymbol("cache_defer_hash"):
+        first = hb.first
+        if (not first):
+            continue
+        for a in readList(first):
+            total += 1
+            if (v < 0):
+                continue
+            dreq = container_of(a, "struct cache_deferred_req", "hash")
+            print("  {!s:=^60}".format(dreq))
+            if (dreq.revisit == svc_revisit):
+                dr =  container_of(dreq, "struct svc_deferred_req", "handle")
+                print("       ", dr)
+                print_svc_xprt(dr.xprt, indent=8)
+        if (v == -1 and total):
+            pylog.warning("{} deferred requests".format(total))
 
 init_Structures()
 
@@ -1086,7 +1158,13 @@ def host_as_server(v = 0):
     # Locks we are holding for clients
     print_nlm_files()
 
-    print_svc_xprt(v)
+    print_all_svc_xprt(v)
+
+    # Print number of deferred rqequest (if any)
+    try:
+        print_deferred(-1)
+    except:
+        print("cannot print deferred requests for this kernel yet")
 
     # Print RPC-reply cache only when verbosity>=2
     if (v >=0 and v < 2):
@@ -1156,6 +1234,10 @@ if ( __name__ == '__main__'):
     parser.add_argument("--locks", dest="Locks", default = 0,
 		    action="store_true",
 		    help="print NLM locks")
+    parser.add_argument("--deferred",  default = 0,
+                  action="store_true",
+                  help="Print Deferred Requests")
+
     parser.add_argument("--version", dest="Version", default = 0,
                   action="store_true",
                   help="Print program version and exit")
@@ -1188,6 +1270,9 @@ if ( __name__ == '__main__'):
         print ('*'*20, " NLM(lockd) Info", '*'*20)
 	print_nlm_files()
 	print_nlm_serv()
+    
+    if (o.deferred):
+        print_deferred(detail)
 
     # If no options have been provided, print just a summary
     if (len(sys.argv) > 1):
