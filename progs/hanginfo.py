@@ -34,6 +34,8 @@ from collections import namedtuple, defaultdict
 
 debug = API_options.debug
 
+# Get UNINTERRUPTIBLE tasks
+# In reality, get STOPPED, TRACED, ZOMBIE, DEAD and WAKING etc too - everygthing > 1
 #@memoize_cond(CU_LIVE)
 def getUNTasks():
     basems = None
@@ -57,8 +59,10 @@ def getUNTasks():
     #print ("--------   ------------  --  ------------- -----")
 
     for ran_ms_ago, pid, t in out:
-        sstate = t.state[5:7]
-        if (sstate != 'UN'):
+        #sstate = t.state[5:7]
+        #if (sstate != 'UN'):
+        #    continue
+        if (t.ts.state < 2):
             continue
         
         b = Bunch()
@@ -147,19 +151,26 @@ def check_all_files():
 
 # On RHEL5, no 'owner'
 
+# In some cases, owner=NULL
+# We return:
+# 0 - this is not a mutex
+# 1 - this is a mutex with owner=NULL
+# 2 - this is a mutex with owner
 def if_mutexOK(addr):
     try:
         mutex = readSU("struct mutex", addr)
         wait_list = mutex.wait_list
-        owner = mutex.Owner
         _next_wait_list = wait_list.next
-        _next_tasks = owner.tasks.next
+        owner = mutex.Owner
+        if (owner):
+            _next_tasks = owner.tasks.next
         for i in range(5):
             _next_wait_list = _next_wait_list.next 
-            _next_tasks = _next_tasks.next
-        return True
+            if (owner):
+                _next_tasks = _next_tasks.next
+        return 2 if owner else 1
     except:
-        return False
+        return 0
 
 __mutexfunc = "__mutex_lock_slowpath"
 def check_mutex_lock(tasksref, tasksrem):
@@ -180,7 +191,8 @@ def check_mutex_lock(tasksref, tasksrem):
                         continue
                     maddr = addrs[pos]
                     if (if_mutexOK(maddr)):
-                        mutexlist.add(readSU("struct mutex", maddr))
+                        mutex = readSU("struct mutex", maddr)
+                        mutexlist.add(mutex)
                         continue
 
     if (not mutexlist):
@@ -188,8 +200,9 @@ def check_mutex_lock(tasksref, tasksrem):
     # Now print info about each found mutex
     print(" === Waiting on mutexes =========")
     for mutex in mutexlist:
+        owner = mutex.Owner
         pids = get_mutex_waiters(mutex)
-        if (not pids):
+        if (owner and not pids):
             continue
         print_mutex(mutex)
         print_pidlist(pids, tasksref)
@@ -198,7 +211,7 @@ def check_mutex_lock(tasksref, tasksrem):
 
 # Get a list of pids waiting on mutex
 def get_mutex_waiters(mutex):
-    if (mutex.count.counter >= 0):
+    if (mutex.Owner and mutex.count.counter >= 0):
         return []
     wait_list = readSUListFromHead(Addr(mutex.wait_list), "list",
             "struct mutex_waiter")
@@ -222,6 +235,8 @@ def print_mutex(mutex):
         ownertask = ''
     if (ownertask):
         ownertask = "\n   Owner: pid={0.pid} cmd={0.comm}".format(ownertask)
+    else:
+        ownertask = "\n   No Owner"
     print("  -- {} {} {}".format(mutex, mtype, ownertask))
             
         

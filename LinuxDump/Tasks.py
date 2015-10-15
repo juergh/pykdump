@@ -377,6 +377,59 @@ TASK_STATE_24 = CDefine(TASK_STATE_c_24)
 TASK_STATE_26 = CDefine(TASK_STATE_c_26)
 TASK_STATE = TASK_STATE_26
 
+# Get states from "task_state_array" if available
+__sstates = '''running
+sleeping
+disk sleep
+stopped
+tracing stop
+zombie
+dead
+dead
+wakekill
+waking'''.splitlines()
+
+__snames = '''TASK_RUNNING
+TASK_INTERRUPTIBLE
+TASK_UNINTERRUPTIBLE
+TASK_STOPPED
+TASK_TRACED
+EXIT_ZOMBIE
+EXIT_DEAD
+TASK_DEAD
+TASK_WAKEKILL
+TASK_WAKING'''.splitlines()
+
+def __get_states_from_array():
+    try:
+        tsarray = readSymbol("task_state_array")
+    except:
+        return None
+    class _CDefine(CDefine):
+        def __init__(self):
+            d = {}
+            dict.__init__(self, d)
+            self.__dict__.update(d)
+            self.__reversedict = {}
+
+    __lstates = len(__snames)
+
+    tstate = _CDefine()
+
+    for pos, s in enumerate(tsarray):
+        if (pos > __lstates):
+            break
+        ss = s[3:-1]
+        ind = __sstates.index(ss)
+        val = 1<< (pos-1) if pos else 0
+        tstate[__snames[ind]] = val
+    
+    return tstate
+
+__tstate = __get_states_from_array()
+if (__tstate):
+    TASK_STATE = __tstate
+
 # Return a symbolic representation of task state
 def task_state2str(state):
     if (state == TASK_STATE.TASK_RUNNING):

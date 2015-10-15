@@ -87,6 +87,12 @@ def LH_isempty(lh):
 def WQ_header(wq, okprint = True):
     if (okprint):
         print('   {:-^25}   {}'.format(wq.name, str(wq)))
+        try:
+            ff = wq.first_flusher
+            if (ff):
+                print("        First flusher:", ff)
+        except:
+            pass
 
 
 # ========================================================================
