@@ -387,7 +387,8 @@ zombie
 dead
 dead
 wakekill
-waking'''.splitlines()
+waking
+parked'''.splitlines()
 
 __snames = '''TASK_RUNNING
 TASK_INTERRUPTIBLE
@@ -398,7 +399,8 @@ EXIT_ZOMBIE
 EXIT_DEAD
 TASK_DEAD
 TASK_WAKEKILL
-TASK_WAKING'''.splitlines()
+TASK_WAKING
+TASK_PARKING'''.splitlines()
 
 def __get_states_from_array():
     try:
@@ -420,9 +422,12 @@ def __get_states_from_array():
         if (pos > __lstates):
             break
         ss = s[3:-1]
-        ind = __sstates.index(ss)
         val = 1<< (pos-1) if pos else 0
-        tstate[__snames[ind]] = val
+        try:
+            ind = __sstates.index(ss)
+            tstate[__snames[ind]] = val
+        except ValueError:
+            pass
     
     return tstate
 
