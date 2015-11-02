@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2015 Hewlett-Packard Development Company, L.P.
 #
-# Author: Alex Sidorenko <asid@hp.com>
+# Author: Alex Sidorenko <asid@hpe.com>
 #
 # --------------------------------------------------------------------
 
@@ -111,7 +111,7 @@ def print_TCP_sock(o):
     except KeyError as msg:
         pylog.warning(msg)
         return
-    # Check whether it belong to our namespace
+    # Check whether it belongs to our namespace
     if (pstr.wrongNameSpace()): return
     jiffies = readSymbol("jiffies")
     tcp_state = pstr.state
@@ -281,11 +281,10 @@ def print_TCP_tw(tw):
         print ('-' * 78)
         print (tw, '\t\tTCP')
 
-
+    # Check whether it belongs to our namespace
+    if (pstr.wrongNameSpace()): return
     print (pstr)
-    # Do not print net where it does not exist (old kernels)
-    if (pstr.net):
-        print("\tNet:", pstr.net)
+
     if (details):
         print ("\ttw_timeout=%d, ttd=%d" % (pstr.tw_timeout, pstr.ttd))
 
@@ -738,8 +737,11 @@ def print_Everything():
     nf()
     print_sysctl()
     print_dev_pack()
-    print_fib()
-    print_rt_hash()
+    try:
+        print_fib()
+        print_rt_hash()
+    except:
+        print("\n+++Skipping routing tests for this kernel\n")
     print_iface(o.If1, details)
     summary.TCPIP_Summarize()
     print_Stats()
@@ -987,7 +989,10 @@ if ( __name__ == '__main__'):
     if (o.Everything):
         from LinuxDump.inet.netfilter import nf
         from LinuxDump.inet import neighbour
-        from LinuxDump.inet.routing import print_fib, print_rt_hash
+        try:
+            from LinuxDump.inet.routing import print_fib, print_rt_hash
+        except TypeError:
+            print("Cannot print routing info this kernel")
 
         details = 2
 

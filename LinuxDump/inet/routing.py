@@ -3,9 +3,9 @@
 #
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2015 Hewlett-Packard Development Company, L.P.
 #
-# Author: Alex Sidorenko <asid@hp.com>
+# Author: Alex Sidorenko <asid@hpe.com>
 #
 # --------------------------------------------------------------------
 # This program is free software; you can redistribute it and/or modify
@@ -25,6 +25,7 @@ from __future__ import print_function
 from pykdump.API import *
 
 from LinuxDump.inet import *
+from LinuxDump.inet.fib_trie40 import get_fib_entries_v40
 
 debug = API_options.debug
 
@@ -252,7 +253,7 @@ def get_fib_tables_v26(All= False):
         if (symbol_exists("fib_table_hash")):
             #static struct hlist_head fib_table_hash[FIB_TABLE_HASHSZ];
             fib_table_hash = readSymbol("fib_table_hash")
-        elif (symbol_exists("init_net")): # 2.6.27
+        elif (symbol_exists("init_net")):
             net = get_ns_net()
             fib_table_hash = net.ipv4.fib_table_hash
         else:
@@ -762,6 +763,10 @@ elif (struct_exists("struct rt_trie_node")):
     #  kernels 3.0
     get_fib_tables = get_fib_tables_v26
     get_fib_entries = get_fib_entries_v30
+elif (struct_exists("struct key_vector")):
+    # Kernel 4.2
+    get_fib_tables = get_fib_tables_v26
+    get_fib_entries = get_fib_entries_v40
 else:
     raise TypeError("Cannot work with this kernel yet")
 

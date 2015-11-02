@@ -1,11 +1,10 @@
 # -*- coding: utf-8 -*-
 
 # module LinuxDump.inet.proto
-# Time-stamp: <14/06/20 11:01:05 alexs>
 
-# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2015 Hewlett-Packard Development Company, L.P.
 #
-# Author: Alex Sidorenko <asid@hp.com>
+# Author: Alex Sidorenko <asid@hpe.com>
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
@@ -523,7 +522,7 @@ def init_PseudoAttrs():
                            "struct unix_sock")
     
     inet_sock.family = "sk.__sk_common.skc_family"
-    inet_sock.Net = "sk.__sk_common.skc_net"
+    inet_sock.Net = ["SKC.skc_net.net", "SKC.skc_net"]
     inet_sock.protocol = "sk_protocol","sk.sk_protocol"
     inet_sock.type =  ["sl_type", "sk.sk_type"]
     inet_sock.state = "sk.__sk_common.skc_state"
@@ -618,7 +617,7 @@ def init_PseudoAttrs():
     # The following attributes are part of 'sock_common'
     tws.state = "SKC.skc_state"
     tws.Family = "SKC.skc_family"
-    tws.Net = "SKC.skc_net"
+    tws.Net = ["SKC.skc_net.net", "SKC.skc_net"]
     tws.Src =  ["tw_sk.tw_rcv_saddr", "SKC.skc_rcv_saddr"]
     tws.Dst =  ["tw_sk.tw_daddr","SKC.skc_daddr"]
     tws.Sport = ["tw_sk.tw_sport","SKC.skc_sport"]
@@ -626,7 +625,7 @@ def init_PseudoAttrs():
 
     # These two are really TW-specific
     tws.Timeout = "tw_sk.tw_timeout"
-    tws.Ttd = "tw_sk.tw_ttd"
+    tws.Ttd = ["tw_sk.tw_ttd", "tw_sk.tw_timer.expires"]
 
     # Programmatic attrs
     def getSrc6(tw):
