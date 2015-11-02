@@ -723,14 +723,16 @@ def decode_pid_args(pid):
                     print l
 
             if (arrsize > 0 and arrsize < 8192):
-                #print("===reading {} longwords".format(arrsize))
+                #print("===reading {} longwords at level {}".format(arrsize,nf.level))
                 us = readmem(start, arrsize*LONG_SIZE)
                 f.stackdata = stackdata = crash.mem2long(us, array=arrsize)
-
-                addr = start
-                for val in stackdata:
-                    stackdict[addr] = val
-                    addr += 8
+                if (arrsize == 1):
+                    stackdict[start] = stackdata
+                else:
+                    addr = start
+                    for val in stackdata:
+                        stackdict[addr] = val
+                        addr += 8
 
         if (nf.level == -1):
             f.from_func = "entered by exception at <{}+{}>".format(
