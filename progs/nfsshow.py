@@ -14,7 +14,7 @@ from __future__ import print_function
 
 __version__ = "1.0.3"
 
-from collections import Counter
+from collections import Counter, OrderedDict
 
 from pykdump.API import *
 
@@ -153,6 +153,41 @@ __XPT_BITS = CDefine(__XPT_C)
 # Convert it to proper bits
 XPT_BITS = {k: 1<<v for k,v in __XPT_BITS.items()}
 #print(XPT_BITS)
+
+__NFSEXP_C = '''
+#define NFSEXP_READONLY         0x0001
+#define NFSEXP_INSECURE_PORT    0x0002
+#define NFSEXP_ROOTSQUASH       0x0004
+#define NFSEXP_ALLSQUASH        0x0008
+#define NFSEXP_ASYNC            0x0010
+#define NFSEXP_GATHERED_WRITES  0x0020
+/* 40 80 100 currently unused */
+#define NFSEXP_NOHIDE           0x0200
+#define NFSEXP_NOSUBTREECHECK   0x0400
+#define NFSEXP_NOAUTHNLM        0x0800          /* Don't authenticate NLM requests - just trust */
+#define NFSEXP_MSNFS            0x1000  /* do silly things that MS clients expect; no longer supported */
+#define NFSEXP_FSID             0x2000
+#define NFSEXP_CROSSMOUNT       0x4000
+#define NFSEXP_NOACL            0x8000  /* reserved for possible ACL related use */
+#define NFSEXP_V4ROOT           0x10000
+#define NFSEXP_ALLFLAGS         0x17E3F
+'''
+
+__NFSEXP_BITS = CDefine(__NFSEXP_C)
+
+__EXPFLAGS = OrderedDict((
+    ("NFSEXP_READONLY", ("ro", "rw")),
+    ("NFSEXP_INSECURE_PORT", ("insecure", "")),
+    ("NFSEXP_ROOTSQUASH", ("root_squash", "no_root_squash")),
+    ("NFSEXP_ALLSQUASH", ("all_squash", "")),
+    ("NFSEXP_ASYNC", ("async", "sync")),
+    ("NFSEXP_GATHERED_WRITES", ("wdelay", "no_wdelay")),
+    ("NFSEXP_NOHIDE", ("nohide", "")),
+    ("NFSEXP_CROSSMOUNT", ("crossmnt", "")),
+    ("NFSEXP_NOSUBTREECHECK", ("no_subtree_check", "")),
+    ("NFSEXP_NOAUTHNLM", ("insecure_locks", "")),
+    ("NFSEXP_V4ROOT", ("v4root", ""))
+))
 
 def init_Structures():
     load_Structures()
@@ -386,7 +421,42 @@ def print_nfsd_fh(v=0):
         # Summary
         print("    {} entries".format(entries))
 
+# Decode and print svc_export
+#define EX_UUID_LEN             16
+EX_UUID_LEN = 16
+#       #192.168.0.0/24(ro,no_root_squash,sync,no_wdelay,no_subtree_check,v4root,fsid=0,
+# uuid=b30dfe99:2e754043:92c9d2d2:e0bfaabf,sec=1)
+#/data   192.168.0.0/24(rw,no_root_squash,async,wdelay,uuid=f24a2605:e915401a:b11dcefb:f823f865,sec=1)
 
+def print_svc_export(exp):
+    mask = __NFSEXP_BITS.NFSEXP_ALLFLAGS
+    flags = exp.ex_flags & mask
+    #print("mask={:#0x} flags={:#0x}".format(mask, flags))
+    out = []
+    for f in __EXPFLAGS.keys():
+        bit = __NFSEXP_BITS[f]
+        t = __EXPFLAGS[f]
+        s = t[0] if flags&bit else t[1]
+        if(s):
+            out.append(s)
+    if (flags & __NFSEXP_BITS.NFSEXP_FSID):
+        out.append("fsid={}".format(exp.ex_fsid))
+            
+    # UUID
+    if (exp.ex_uuid):
+        out1 = ["uuid="]
+        for i in range(EX_UUID_LEN):
+            if ((i&3) == 0 and i):
+                out1.append(':')
+            out1.append("{:02x}".format(exp.ex_uuid[i]))
+        uuid = ''.join(out1)
+        out.append(uuid)
+        
+    # show_secinfo part
+    
+    # Now assemble options line and print it
+    print(','.join(out))
+                
 
 # NFS Export Cache (as reported by /proc/net/rpc/nfsd.export/contents)
 def print_nfsd_export(v=0):
@@ -416,6 +486,7 @@ def print_nfsd_export(v=0):
             if (v >=0):
                 pref = " (p)" if pending else "    "
                 print (pref, pathname, exp.ex_client.name, extra)
+                print_svc_export(exp)
 
     if (v < 0):
         # Summary
