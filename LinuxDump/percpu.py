@@ -1,13 +1,13 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <12/03/22 17:46:19 alexs>
+
 
 # Per-cpu functions
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2015 Hewlett-Packard Development Company, L.P.
 #
-# Author: Alex Sidorenko <asid@hp.com>
+# Author: Alex Sidorenko <asid@hpe.com>
 #
 # --------------------------------------------------------------------
 
@@ -169,7 +169,7 @@ if (symbol_exists("per_cpu__runqueues")):
 
 elif (symbol_exists("runqueues")):
     # Either 2.4 _or_ 2.6.35+ :-)
-    if (symbol_exists("percpu_counters")):
+    if (symbol_exists("__per_cpu_offset")):
         # 2.6.35+
         per_cpu_offsets = readSymbol("__per_cpu_offset")
         get_cpu_var = get_cpu_var_26_new
