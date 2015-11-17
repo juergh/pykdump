@@ -157,6 +157,14 @@ if (symbol_exists("per_cpu__runqueues")):
             per_cpu_offsets.append(offset)
     elif (symbol_exists("__per_cpu_offset")):
         per_cpu_offsets = readSymbol("__per_cpu_offset")
+    elif (symbol_exists("paca")):
+        #Symbol is used for powerpc systems
+        paca_ptr_arr = readSymbol("paca")
+
+        per_cpu_offsets = []
+        for cpu in range(0, sys_info.CPUS):
+            offset = paca_ptr_arr[cpu].Deref.data_offset
+            per_cpu_offsets.append(offset)
     else:
         per_cpu_offsets = [0]
 
