@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
 #
-# Author: Alex Sidorenko <asid@hp.com>
+# Author: Alex Sidorenko <asid@hpe.com>
 #
 # --------------------------------------------------------------------
 # This program is free software; you can redistribute it and/or modify
@@ -52,9 +52,11 @@ class pidFiles(object):
     def fileInfo(self, fd):
         return self.files[fd]
     def printFiles(self):
+        print(" FD       FILE            DENTRY           INODE       TYPE PATH")
         fds = sorted(self.files.keys())
         for fd in fds:
-            print ("     %3d" % fd, self.fileInfo(fd))
+            flist = self.fileInfo(fd)
+            print (" {:3d} {:16x} {:16x} {:16x} {:4s} {}".format(fd, *flist))
         
 
 def filesR(ref):
