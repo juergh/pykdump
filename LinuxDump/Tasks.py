@@ -3,9 +3,9 @@
 # module LinuxDump.Tasks
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
 #
-# Author: Alex Sidorenko <asid@hp.com>
+# Author: Alex Sidorenko <asid@hpe.com>
 #
 # --------------------------------------------------------------------
 # This program is free software; you can redistribute it and/or modify
@@ -67,6 +67,10 @@ class Task:
         return sched_clock2ms(self.ts._Last_ran)
     Last_ran = property(__get_last_ran)
 
+    def __get_ran_ago(self):
+        return self.ttable.basems - self.Last_ran 
+    Ran_ago = property(__get_ran_ago)
+
     # -- Get CPU --
     def __get_cpu(self):
         ts = self.ts
@@ -99,7 +103,8 @@ class Task:
             # This can be due to corruption or missing pages
             try:
                 readInt(addr)
-                threads.append(Task(readSU("struct task_struct", addr), self))
+                threads.append(Task(readSU("struct task_struct", addr),
+                                    self.ttable))
             except crash.error:
                 pylog.warning(" missing page for PID={}".format(self.pid))
                 threads = []
