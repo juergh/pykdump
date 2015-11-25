@@ -2,9 +2,9 @@
 # -*- coding: utf-8 -*-
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2015 Hewlett Packard Enterprise Development LP
 #
-# Author: Alex Sidorenko <asid@hp.com>
+# Author: Alex Sidorenko <asid@hpe.com>
 #
 # --------------------------------------------------------------------
 # This program is free software; you can redistribute it and/or modify
@@ -35,6 +35,7 @@ except ImportError:
 
 import string, re
 import time, os, sys
+from collections import namedtuple, defaultdict
 
 # 5.1.0 started to show modules, e.g.
  #3 [ffff8102d6551d50] nlm_lookup_host at ffffffff88639781 [lockd]
@@ -70,54 +71,6 @@ class BTStack:
     # 'func' is either a string, or compiled regexp
     # If this is a string, we compile it and add to a table of precompiled
     # regexps
-    # We can supply multiple func arguments, in this case the stack should
-    # have all of them (logical AND)
-    def oldhasfunc(self,  *funcs, **kwargs):
-        try:
-            reverse = kwargs['reverse']
-        except KeyError:
-            reverse = False
-
-        negate = False
-        res = {}
-        n = len(funcs)
-        frames = self.frames[:]
-        if (reverse):
-            frames.reverse()
-        for f in frames:
-            for t in funcs:
-                if (type(t) == type("")):
-                    if (t[0] == '!'):
-                        t = t[1:]
-                        negate = True
-                    # Check whether we need to compile it
-                    try:
-                        tc = BTStack.__regexps[t]
-                    except KeyError:
-                        tc = re.compile(t)
-                        BTStack.__regexps[t] = tc
-                else:
-                    tc = t
-                # A regexp
-                m1 = tc.search(f.func)
-                m2 = tc.search(f.via)
-
-                # A special case
-                if (negate and not m1):
-                    return f.func
-                if (m1 and not negate):
-                    if (n == 1):
-                        return m1.group(0)
-                    res[t] = m1.group(0)
-                elif (m2 and not negate):
-                    if (n == 1):
-                        return m2.group(0)
-                    res[t] = m2.group(0)
-        if (len(res) == n):
-            return True
-        else:
-            return False
-
     # Returns False or (framenum, func) tuple
     def hasfunc(self,  func, reverse = False):
         if (reverse):
@@ -131,12 +84,10 @@ class BTStack:
             frames = self.frames
 
         # Check whether we need to compile it
-        try:
-            tc = BTStack.__regexps[func]
-        except KeyError:
+        if (hasattr(func, 'match')):
+            tc = func
+        else:
             tc = re.compile(func)
-            BTStack.__regexps[func] = tc
-
         for nf, f in enumerate(frames):
             # A regexp
             m1 = tc.search(f.func)
@@ -182,8 +133,10 @@ class BTFrame:
         else:
             via = ''
         if (self.offset !=-1):
-            return "  #%-2d  %s+0x%x%s%s" % \
-                   (self.level, self.func, self.offset, data, via)
+            return "  #{:<2d}  {:s}{:+#x}{:s}{:s}".format(
+                self.level, self.func, self.offset, data, via)
+            #return "  #%-2d  %s+0x%x%s%s" % \
+            #       (self.level, self.func, self.offset, data, via)
         else:
             # From text file - no real offset
             return "  #%-2d  %s 0x%x%s%s" % \
@@ -199,8 +152,10 @@ class BTFrame:
         else:
             via = ''
         if (self.offset !=-1):
-            out = [ "  #%-2d  %s+0x%x%s" % \
-                   (self.level, self.func, self.offset, via)]
+            #out = [ "  #%-2d  %s+0x%x%s" % \
+            #       (self.level, self.func, self.offset, via)]
+            out = ["  #{:<2d}  {:s}{:+#x}{:s}".format(
+                self.level, self.func, self.offset, via)]
             # if there is data, append it
             for l in data:
                 out.append(l)
@@ -521,7 +476,153 @@ def bt_mergestacks(btlist, precise = False,
                 print (str(pid).rjust(6), end=' ')
             print ("")
 
-    
+@memoize_cond(CU_LIVE | CU_TIMEOUT)
+def __get_bt_r():
+    return exec_crash_command("foreach bt -r")
+
+@memoize_cond(CU_LIVE | CU_TIMEOUT)
+def __get_bt_t():
+    return exec_crash_command("foreach bt -t")
+
+
+# This subroutine is fast but not 100%-reliable.
+# we just search strings on 'bt -r' and sometimes there are fake
+# positives. So you should check real 'bt' output for threads
+# found here if you want to be sure
+@memoize_cond(CU_LIVE | CU_TIMEOUT)
+def get_threads_subroutines_r():
+    all = __get_bt_r()
+    ptrdigits = PTR_SIZE * 2
+    re_hex = re.compile(r"^[0-9a-fA-F]+$")
+    def hextest(s):
+        return len(s) == ptrdigits and re_hex.match(s)
+    def hextest(s):
+        if(len(s) == ptrdigits+1):
+            s = s[:-1]
+        if(len(s) != ptrdigits):
+            return False
+        try:
+            int(s, 16)
+        except ValueError:
+            return False
+        return True
+
+
+    funcpids = defaultdict(set)
+    functasks = defaultdict(set)
+    alltaskaddrs = []       # A list of all taskaddrs - we get it here anyway...
+
+    for ss in all.split("PID:"):
+        # Extract strings that look like function names
+        if (len(ss) < 2):
+            continue
+        spl = ss.split()
+        #  0         2             4            6
+        # pid TASK: taskaddr CPU: cpu COMMAND: command
+        try:
+            pid = int(spl[0])
+            taskaddr = int(spl[2], 16)
+            cpu = int(spl[4])
+        except:
+            pylog.warning("Corrupted 'bt -r' entry")
+            continue
+        alltaskaddrs.append(taskaddr)
+        good = [f.split('+')[0] for f in spl[7:] if not hextest(f)]
+        funcs = set()
+        for f in good:
+            funcs.add(f)
+        for f in funcs:
+            funcpids[f].add(pid)
+            functasks[f].add(taskaddr)
+
+    return funcpids, functasks, alltaskaddrs   
+
+def get_threads_subroutines():
+    all = __get_bt_t()
+    funcpids = defaultdict(set)
+    functasks = defaultdict(set)
+    alltaskaddrs = []  # A list of all taskaddrs - we get it here anyway...
+
+    for ss in all.split("PID:"):
+        # Extract strings that look like function names
+        if (len(ss) < 2):
+            continue
+        splines = ss.splitlines()
+        spl = splines[0].split()
+        #  0         2             4            6
+        # pid TASK: taskaddr CPU: cpu COMMAND: command
+        try:
+            pid = int(spl[0])
+            taskaddr = int(spl[2], 16)
+            cpu = int(spl[4])
+        except:
+            pylog.warning("Corrupted 'bt -t' entry")
+            continue
+        alltaskaddrs.append(taskaddr)
+        funcs = set()
+        for l in splines[1:]:
+            func = None
+            spl = l.split()
+            if (not spl):
+                continue
+            if (spl[0] == 'START:'):
+                if (spl[1] == 'thread_return'):
+                    func = 'schedule'
+            elif (spl[0][0] == '['):
+                func = spl[1]
+            else:
+                continue
+            if (func):
+                funcpids[func].add(pid)
+                functasks[func].add(taskaddr)
+
+    return funcpids, functasks, alltaskaddrs   
+
+def get_threads_subroutines_slow():
+    btsl = exec_bt("foreach bt")
+    funcpids = defaultdict(set)
+    functasks = defaultdict(set)
+    alltaskaddrs = []  # A list of all taskaddrs - we get it here anyway...
+    for bts in btsl:
+        pid = bts.pid
+        taskaddr = bts.addr
+        alltaskaddrs.append(taskaddr)
+        for f in bts.frames:
+            func = f.func
+            via = f.via
+            funcpids[func].add(pid)
+            functasks[func].add(taskaddr)
+
+    return funcpids, functasks, alltaskaddrs 
+
+# Search funcpids and other similar objects for functions matching a pattern.
+# E.g we might want to match both _raw_spin_lock and _raw_spin_lock_irqsave
+def funcsMatch(dsets, refunc):
+    tset = set()
+    # Find matching keys
+    __recomp = re.compile(refunc)
+    for k, v in dsets.items():
+        #print(k)
+        if __recomp.match(k):
+            #print("   +",k)
+            tset |= v
+    # Remove false positives
+    out = set()
+    for pid in tset:
+        bts = exec_bt("bt {}".format(pid))[0]
+        #print(bts)
+        if (bts.hasfunc(__recomp)):
+            out.add(pid)
+    return out
+
+# Verified set of pids obtained via fast method by using an
+# extra test
+def verifyFastSet(dset, func):
+    def __testfunc(pid):
+        bts = exec_bt("bt {}".format(pid))[0]
+        return bts.hasfunc(func)
+    bad = {p for p in dset if not __testfunc(p)}
+    return dset - bad
 
 # This module can be useful as a standalone program for parsing
 # text files created from crash
