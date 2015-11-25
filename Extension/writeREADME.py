@@ -1,6 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# --------------------------------------------------------------------
+# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+#
+# Author: Alex Sidorenko <asid@hpe.com>
+#
+# --------------------------------------------------------------------
+
 
 # Write README file to be added to ZIP-archive
 

@@ -1,5 +1,13 @@
 #! /usr/bin/env python
 
+# --------------------------------------------------------------------
+# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+#
+# Author: Alex Sidorenko <asid@hpe.com>
+#
+# --------------------------------------------------------------------
+
+
 from __future__ import print_function
 
 import os, sys

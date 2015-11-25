@@ -4,9 +4,9 @@
 #
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
 #
-# Author: Alex Sidorenko <asid@hp.com>
+# Author: Alex Sidorenko <asid@hpe.com>
 #
 # --------------------------------------------------------------------
 

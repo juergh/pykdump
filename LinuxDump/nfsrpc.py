@@ -1,6 +1,12 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <12/03/20 12:17:33 alexs>
+#
+# --------------------------------------------------------------------
+# (C) Copyright 2012-2015 Hewlett Packard Enterprise Development LP
+#
+# Author: Alex Sidorenko <asid@hpe.com>
+#
+# --------------------------------------------------------------------
 
 # NFS & RPC  functions
 from __future__ import print_function

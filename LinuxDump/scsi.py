@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
 # module LinuxDump.Dev
 #
-# Time-stamp: <14/04/08 12:59:52 alexs>
-#
 # --------------------------------------------------------------------
-# (C) Copyright 2013-2014 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2013-2015 Hewlett Packard Enterprise Development LP
 #
-# Author: Alex Sidorenko <asid@hp.com>
+# Author: Alex Sidorenko <asid@hpe.com>
 #
 # --------------------------------------------------------------------
 #

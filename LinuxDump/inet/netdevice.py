@@ -1,12 +1,10 @@
 # -*- coding: utf-8 -*-
 # module LinuxDump.inet.netdevice
 #
-# Time-stamp: <13/10/18 11:20:16 alexs>
-#
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2014 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
 #
-# Author: Alex Sidorenko <asid@hp.com>
+# Author: Alex Sidorenko <asid@hpe.com>
 #
 # --------------------------------------------------------------------
 #

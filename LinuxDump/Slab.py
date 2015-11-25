@@ -2,12 +2,10 @@
 # Time-stamp: <13/07/29 16:02:26 alexs>
 # module LinuxDump.Slab
 #
-# Time-stamp: <08/03/05 15:51:52 alexs>
-#
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
 #
-# Author: Alex Sidorenko <asid@hp.com>
+# Author: Alex Sidorenko <asid@hpe.com>
 #
 # --------------------------------------------------------------------
 #

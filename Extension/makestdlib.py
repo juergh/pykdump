@@ -1,6 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+# --------------------------------------------------------------------
+# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+#
+# Author: Alex Sidorenko <asid@hpe.com>
+#
+# --------------------------------------------------------------------
+
 # Python3.2 introduced __pycache__ stuff (PEP 3147) but we do not want to put
 # all this into our ZIP. This script copies/renames files to follow
 # the old directory structure

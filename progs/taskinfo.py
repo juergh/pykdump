@@ -4,9 +4,9 @@
 # Time-stamp: <14/08/12 14:40:53 alexs>
 
 # --------------------------------------------------------------------
-# (C) Copyright 2011-2014 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
 #
-# Author: Alex Sidorenko <asid@hp.com>
+# Author: Alex Sidorenko <asid@hpe.com>
 #
 # --------------------------------------------------------------------
 

@@ -1,12 +1,10 @@
 
 # module LinuxDump.inet.summary
 #
-# Time-stamp: <13/07/29 16:00:42 alexs>
-#
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
 #
-# Author: Alex Sidorenko <asid@hp.com>
+# Author: Alex Sidorenko <asid@hpe.com>
 #
 # --------------------------------------------------------------------
 # This program is free software; you can redistribute it and/or modify

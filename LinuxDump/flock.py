@@ -1,6 +1,11 @@
 #
 # -*- coding: latin-1 -*-
-# Time-stamp: <12/03/20 12:23:05 alexs>
+# --------------------------------------------------------------------
+# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+#
+# Author: Alex Sidorenko <asid@hpe.com>
+#
+# --------------------------------------------------------------------
 
 # File-locking functions
 

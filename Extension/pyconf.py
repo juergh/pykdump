@@ -1,4 +1,12 @@
 # Find different python locations that we need to use in Makefile
+
+# --------------------------------------------------------------------
+# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+#
+# Author: Alex Sidorenko <asid@hpe.com>
+#
+# --------------------------------------------------------------------
+
 from __future__ import print_function
 
 import sys

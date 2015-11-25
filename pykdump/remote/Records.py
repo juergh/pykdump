@@ -1,6 +1,12 @@
 #! /usr/bin/env python
 
-# Time-stamp: <12/06/28 11:27:18 alexs>
+# --------------------------------------------------------------------
+# (C) Copyright 2012-2015 Hewlett Packard Enterprise Development LP
+#
+# Author: Alex Sidorenko <asid@hpe.com>
+#
+# --------------------------------------------------------------------
+
 # Implementing logical records with channels
 
 from __future__ import print_function

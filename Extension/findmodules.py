@@ -1,5 +1,12 @@
 #!/usr/bin/env python
 
+# --------------------------------------------------------------------
+# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+#
+# Author: Alex Sidorenko <asid@hpe.com>
+#
+# --------------------------------------------------------------------
+
 import sys, os, os.path
 import shutil
 

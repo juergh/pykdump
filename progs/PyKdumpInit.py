@@ -2,6 +2,8 @@
 # This script is run once when pykdump extension is loaded
 #
 # This can be used to register extra commands or anything else
+# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+
 
 from crash import register_epython_prog as rprog
 

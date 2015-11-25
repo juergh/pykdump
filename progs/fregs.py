@@ -2,7 +2,7 @@
 # determine register contents at entry to each routine in stack frame
 
 # --------------------------------------------------------------------
-# (C) Copyright 2015 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
 #
 # Author: Martin Moore (martin.moore@hpe.com)
 #

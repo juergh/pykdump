@@ -2,9 +2,12 @@
 
 # module LinuxDump.inet.proto
 
-# (C) Copyright 2006-2015 Hewlett-Packard Development Company, L.P.
+# --------------------------------------------------------------------
+# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
+#
+# --------------------------------------------------------------------
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as published by
