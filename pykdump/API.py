@@ -104,24 +104,24 @@ except AttributeError:
 
 from . import wrapcrash
 
-from .wrapcrash import readU8, readU16, readU32, readS32, \
-     readU64, readS64, readInt, readPtr, \
-     readSymbol, readSU, \
-     sLong, le32_to_cpu, cpu_to_le32, le16_to_cpu, \
-     readList, readBadList, getListSize, readListByHead,  list_for_each_entry, \
-     ListHead, hlist_for_each_entry, \
-     readSUArray, readSUListFromHead, readStructNext, \
-     getStructInfo, getFullBuckets, getFullBucketsH, FD_ISSET, \
-     struct_exists, symbol_exists,\
-     Addr, Deref, SmartString, tPtr, \
-     sym2addr, addr2sym, sym2alladdr, \
-     get_pathname, is_task_active, pid_to_task, task_to_pid, \
-     readmem, uvtop, readProcessMem, set_readmem_task, \
-     struct_size, union_size, member_offset, member_size, enumerator_value, \
-     getSizeOf, container_of, whatis, funcargs, printObject,\
-     exec_gdb_command, exec_crash_command, exec_crash_command_bg, \
-     exec_crash_command_bg2, exec_command,\
-     structSetAttr, structSetProcAttr, sdef2ArtSU, AttrSetter
+from .wrapcrash import (readU8, readU16, readU32, readS32,
+     readU64, readS64, readInt, readPtr,
+     readSymbol, readSU,
+     sLong, le32_to_cpu, cpu_to_le32, le16_to_cpu,
+     readList, readBadList, getListSize, readListByHead,  list_for_each_entry,
+     ListHead, hlist_for_each_entry,
+     readSUArray, readSUListFromHead, readStructNext,
+     getStructInfo, getFullBuckets, getFullBucketsH, FD_ISSET,
+     struct_exists, symbol_exists,
+     Addr, Deref, SmartString, tPtr,
+     sym2addr, addr2sym, sym2alladdr, addr2mod,
+     get_pathname, is_task_active, pid_to_task, task_to_pid,
+     readmem, uvtop, readProcessMem, set_readmem_task,
+     struct_size, union_size, member_offset, member_size, enumerator_value,
+     getSizeOf, container_of, whatis, funcargs, printObject,
+     exec_gdb_command, exec_crash_command, exec_crash_command_bg,
+     exec_crash_command_bg2, exec_command,
+     structSetAttr, structSetProcAttr, sdef2ArtSU, AttrSetter)
 
 gen.d = wrapcrash
 # Add all GDB-registered types as Generic and wrapcrash variables

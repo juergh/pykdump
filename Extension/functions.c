@@ -532,6 +532,7 @@ py_sym2addr(PyObject *self, PyObject *args) {
   return PyLong_FromUnsignedLong(addr);
 }
 
+
 extern  struct syment * symbol_search_next(char *, struct syment *) __attribute__ ((weak));
 
 
@@ -644,6 +645,57 @@ py_sym2_alladdr(PyObject *self, PyObject *args) {
   //return Py_BuildValue("K", (unsigned long long) addr);
   return list;
 }
+
+static PyObject *
+py_addr2sym(PyObject *self, PyObject *args) {
+  // char *symbol;
+  unsigned long addr;
+  ulong offset;
+  int loose_match = 0;
+
+  struct syment *se;
+
+  if (!PyArg_ParseTuple(args, "k|i", &addr,&loose_match)) {
+    PyErr_SetString(crashError, "invalid parameter type"); \
+    return NULL;
+  }
+
+  se = value_search(addr, &offset);
+
+  if (loose_match) {
+    if (se)
+      return Py_BuildValue("sk", se->name, offset);
+    else
+      return Py_BuildValue("ss", NULL, NULL);
+  } else {
+    if (se && offset == 0)
+      return Py_BuildValue("s", se->name);
+    else
+      return Py_BuildValue("s", NULL);
+  }
+}
+
+static PyObject *
+py_addr2mod(PyObject *self, PyObject *args) {
+  // char *symbol;
+  unsigned long addr;
+  int loose_match = 0;
+
+  struct load_module *lm;
+  if (!PyArg_ParseTuple(args, "k|i", &addr,&loose_match)) {
+    PyErr_SetString(crashError, "invalid parameter type"); \
+    return NULL;
+  }
+  
+  if (module_symbol(addr, NULL, &lm, NULL, 0))
+    return Py_BuildValue("s", lm->mod_name);
+  else {
+    Py_INCREF(Py_None);
+    return Py_None;
+  }
+}
+
+
 
 // A switch table - call the needed function based on integer object
 // size
@@ -867,34 +919,6 @@ py_readPtr(PyObject *self, PyObject *args) {
 }
 
 
-static PyObject *
-py_addr2sym(PyObject *self, PyObject *args) {
-  // char *symbol;
-  unsigned long addr;
-  ulong offset;
-  int loose_match = 0;
-
-  struct syment *se;
-
-  if (!PyArg_ParseTuple(args, "k|i", &addr,&loose_match)) {
-    PyErr_SetString(crashError, "invalid parameter type"); \
-    return NULL;
-  }
-
-  se = value_search(addr, &offset);
-
-  if (loose_match) {
-    if (se)
-      return Py_BuildValue("sk", se->name, offset);
-    else
-      return Py_BuildValue("ss", NULL, NULL);
-  } else {
-    if (se && offset == 0)
-      return Py_BuildValue("s", se->name);
-    else
-      return Py_BuildValue("s", NULL);
-  }
-}
 
 //int readmem(ulonglong addr, int memtype, void *buffer, long size,
 //	char *type, ulong error_handle)
@@ -1621,8 +1645,9 @@ static PyMethodDef crashMethods[] = {
   {"exec_epython_command",  py_exec_epython_command, METH_VARARGS},
   {"get_epython_cmds",  py_get_epython_cmds, METH_VARARGS},
   {"sym2addr",  py_sym2addr, METH_VARARGS},
-  {"sym2alladdr",  py_sym2_alladdr, METH_VARARGS},
+  {"sym2alladdr", py_sym2_alladdr, METH_VARARGS},
   {"addr2sym",  py_addr2sym, METH_VARARGS},
+  {"addr2mod",  py_addr2mod, METH_VARARGS},
   {"mem2long",  (PyCFunction)py_mem2long, METH_VARARGS | METH_KEYWORDS},
   {"uvtop",  py_uvtop, METH_VARARGS},
   {"PAGEOFFSET",  py_pageoffset, METH_VARARGS},

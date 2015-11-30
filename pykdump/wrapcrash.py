@@ -1687,7 +1687,7 @@ union_size = struct_size
 
 
 import crash
-from crash import sym2addr, addr2sym, sym2alladdr
+from crash import sym2addr, addr2sym, sym2alladdr, addr2mod
 from crash import  mem2long, readInt, FD_ISSET
 from crash import enumerator_value
 from crash import get_pathname, is_task_active, pid_to_task, task_to_pid
