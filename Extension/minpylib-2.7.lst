@@ -4,6 +4,7 @@ sets.py
 encodings/aliases.py
 encodings/ascii.py
 encodings/__init__.py
+importlib/__init__.py
 linecache.py
 types.py
 _strptime.py
