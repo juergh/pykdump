@@ -177,28 +177,25 @@ def print_bdi_writeback(wb):
     for inode in ListHead(wb.b_io.prev, 'struct inode').i_list:
         print(inode, inode.i_state, inode.i_mapping)
 
-# Special tests for HANA-hangs. When we are out of memory, we are spinning
-# trying to shrink VM zones and can hold mmap semaphores
-# Find all do_page_fault threads that are RUNNABLE
-__pagefaultfunc = "do_page_fault"
-def find_pagefault():
+# To find possible mmap semaphore owners, we get a list of
+# RU/UN threads that have this mmap_sem and have a credible
+# subroutine on the stack
+def get_sema_owners():
     tt = T_table
     out = defaultdict(list)
-    goodpids = funcpids[__pagefaultfunc]
+    goodpids = funcpids["do_page_fault"] | funcpids["dup_mm"]
     #print(goodpids)
     for t in tt.allThreads():
         if (not t.pid in goodpids):
             continue
         if (t.ts.state in (TASK_STATE.TASK_RUNNING, TASK_STATE.TASK_UNINTERRUPTIBLE)):
-            #bt = exec_bt("bt %d" % t.pid)[0]
-            #if (not bt.hasfunc(__pagefaultfunc)):
             out[t.mm.mmap_sem].append(t.pid)
     return out
 
 # Print statistics for threads trying to srhink zones. 
 __shrinkfunc = "shrink_all_zones"
 def find_shrinkzones():
-    shrinkpids = funcpids[__shrinkfunc]
+    shrinkpids = funcpids[__shrinkfunc] | funcpids["shrink_zone"]
     # we do not need to be 100% sure, this is just for information
     #verifyFastSet(shrinkpids, __shrinkfunc)
     if (not shrinkpids):
@@ -210,7 +207,7 @@ def find_shrinkzones():
         d[t.state] += 1
         total += 1
     # Print
-    print_header(" There are {} threads doing {}".format(total, __shrinkfunc))
+    print_header(" There are {} threads shrinking zone".format(total))
     for k,v in d.items():
         print("  {:3d} in {}".format(v, k))
 
@@ -240,7 +237,7 @@ def check_mmap_sem(tasksrem):
             waiters[s] = pids
 
     mmapsem_waiters = waiters
-    possible_owners = find_pagefault()
+    possible_owners = get_sema_owners()
     if (mmapsem_waiters):
         print_header("Waiting on mmap semaphores")
         for sema, pids in mmapsem_waiters.items():
@@ -406,17 +403,18 @@ def classify_UN(v):
     check_mmap_sem(tasksrem)
     check_congestion_queues(tasksrem)
 
-    
-    un = tasksrem
-    if (not un):
-        return
-
-    print ("\n\n ********  Non-classified UN Threads ********** {} in total".
-           format(len(un)))
-    
-    # Print what remains
-    btlist = [exec_bt("bt %d" % pid)[0] for pid in un]
-    bt_mergestacks(btlist, verbose=1)
+    if (tasksrem):
+        print ("\n\n ********  Non-classified UN Threads ********** {}"
+            " in total".format(len(tasksrem)))
+        # Print what remains
+        btlist = []
+        for pid in tasksrem:
+            try:
+                btlist.append(exec_bt("bt %d" % pid)[0])
+            except IndexError:
+                pylog.warning("Cannot get stack for PID={}".format(pid))
+        #btlist = [exec_bt("bt %d" % pid)[0] for pid in tasksrem]
+        bt_mergestacks(btlist, verbose=1)
     #print(un)
     # Print resource owners
     if (__resource_owners):
