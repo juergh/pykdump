@@ -572,6 +572,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
       fprintf(fp,"  C-module version=%s\n", crashmod_version);
       fprintf(fp,"  crash used for build: %s\n", build_crash_version);
       // Check for other programs embedded in zipfile
+      fprintf(fp, "\n --- Using %s ---", ext_filename);
       run_fromzip("README", ext_filename);
       return;
     case 'p':
