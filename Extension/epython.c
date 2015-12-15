@@ -36,7 +36,8 @@
 
 int debug = 0;
 
-static char crashmod_version_s[] = "@(#)pycrash 0.8.7";
+/* This is C-module version */
+static char crashmod_version_s[] = "@(#)pycrash 1.0.0";
 const char * crashmod_version = crashmod_version_s + 12;
 
 extern const char *build_crash_version;
@@ -379,6 +380,8 @@ run_fromzip(const char *progname, const char *zipfilename) {
   evalPyObject *code;
   PyObject *d, *v;
   //PyObject *ZipImportError;
+  if (debug)
+      printf("run_fromzip(%s, %s)\n", progname, zipfilename);
   m = PyImport_ImportModule("zipimport");
   if (!m) {
     printf("Cannot import <zipimport> module\n");
@@ -391,7 +394,8 @@ run_fromzip(const char *progname, const char *zipfilename) {
 					      progname);
   Py_DECREF(importer);
   if (!code) {
-    // printf("Cannot getcode for <%s>\n", progname);
+    if (debug)
+      printf("Cannot getcode for <%s>\n", progname);
     PyErr_Clear();
     return 0;
   }
@@ -564,8 +568,11 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
       ep_usage();
       return;
     case 'v':
-      fprintf(fp,"  Epython version=%s\n", crashmod_version);
+      fprintf(fp," ***  C-module Information ***\n");
+      fprintf(fp,"  C-module version=%s\n", crashmod_version);
       fprintf(fp,"  crash used for build: %s\n", build_crash_version);
+      // Check for other programs embedded in zipfile
+      run_fromzip("README", ext_filename);
       return;
     case 'p':
       PyRun_SimpleString("import sys; print (sys.version); print (sys.path)");

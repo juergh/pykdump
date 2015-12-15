@@ -61,6 +61,7 @@ def get_glibc():
     fd.close()
     return glib
 
+print("__info = '''")
 print("   === Information About This Archive === ")
 print("")
 print(" Created on", time.asctime())
@@ -69,6 +70,11 @@ pi = sys.version_info
 print(" Python: %d.%d.%d" % (pi[0], pi[1], pi[2]))
 print(" The build is based on crash-%s" % sys.argv[1])
 print(" C-bindings version %s" % c_vers(sys.argv[2]))
+
+# We do not expect this to fail as its __init__.py does not use C-api
+from pykdump import __version__
+print("\n   --- PyKdump API Version: {} ----".format(__version__))
+
 
 print("\n   --- Programs Included ------")
 
@@ -80,3 +86,6 @@ for c in __commands:
         exec ("import " + c)
     except ImportError as e:
         print (e)
+
+print("'''")
+print("print(__info)")

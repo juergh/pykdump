@@ -12,6 +12,9 @@ ZIPPROGS := $(addprefix progs/, $(PROGS))
 FULLPROGS =  $(addprefix ../progs/, $(PROGS))
 INITPROG := PyKdumpInit.py
 
+# File with imformation about this build, used for imnformational purposes
+# We create it as a simple Python program, so that we can invoke it
+README = README.py
 
 # Check whether we ran configure
 
@@ -49,7 +52,7 @@ EXT_FULLAPI = API.so
 # Finally, the complete file suitable for production and distribution
 EXT_FULL = mpykdump.so
 
-.PHONY: clean distclean README subdirs
+.PHONY: clean distclean $(README) subdirs
 .DELETE_ON_ERROR:
 
 # We don't want this to get changed when we 'cd'
@@ -128,11 +131,11 @@ $(EXT_FULLAPI):  $(EXT_C_PY) $(TOPDIR)/pykdump/API.py
 
 EXT_FULL_PATH = $(CPWD)/$(EXT_FULL) 
 
-$(EXT_FULL): $(EXT_FULLAPI) README
+$(EXT_FULL): $(EXT_FULLAPI) $(README)
 	find $(TOPDIR)/LinuxDump -name \*.pyc | xargs rm -f
 	$(PYTHON) $(COMPALL) -f $(TOPDIR)/LinuxDump
 	cp $(EXT_FULLAPI) $(EXT_FULL)
-	zip $(EXT_FULL) README
+	zip $(EXT_FULL) $(README)
 	cd $(TOPDIR); $(call FIND, LinuxDump)  |  zip  $(EXT_FULL_PATH) -@
 	cd $(TOPDIR); zip  $(EXT_FULL_PATH) $(ZIPPROGS)
 	cd $(TOPDIR)/progs;  zip  $(EXT_FULL_PATH) $(INITPROG)
@@ -143,15 +146,15 @@ $(EXT_FULL): $(EXT_FULLAPI) README
 # Create a file with basic info about this build, to be added to mpykdump.so
 # for identification purposes
 
-README:
-	$(PYTHON) $(SRCDIR)/writeREADME.py  "$(CRASHVERS) $(TARGET)" "$(EXT_C)" >README
+$(README):
+	$(PYTHON) $(SRCDIR)/writeREADME.py  "$(CRASHVERS) $(TARGET)" "$(EXT_C)" >$(README)
 
 clean:
 	rm -f $(OBJS) $(EXT_C) $(EXT_C_PY) $(EXT_FULLAPI) $(EXT_FULL) \
-		$(PYLIB) pyparsing.pyo $(PYLIB) README
+		$(PYLIB) pyparsing.pyo $(PYLIB) $(README)
 
 distclean: clean
-	rm -rf  pyparsing.pyo *~ *.mk X86 X86_64 README
+	rm -rf  pyparsing.pyo *~ *.mk X86 X86_64 $(README)
 
 install:
 	if test -z "$(prefix)" ; then \
