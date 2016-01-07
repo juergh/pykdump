@@ -445,15 +445,12 @@ def task_state2str(state):
     if (state == TASK_STATE.TASK_RUNNING):
         return "TASK_RUNNING"
 
-    out = ""
+    out = []
     for name, val in TASK_STATE.items():
         if (val and (state & val)):
-            if (out == ""):
-                out = name
-            else:
-                out += "|" + name
-    return out
-
+            out.append(name)
+ 
+    return "|".join(out) if out else "state:{}".format(state)
 
 def jiffies2ms(jiffies):
     if (symbol_exists("jiffies_64")):
