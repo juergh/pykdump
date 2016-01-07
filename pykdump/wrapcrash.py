@@ -45,9 +45,9 @@ if (_Pym == 2):
     from StringIO import StringIO
     from tparser import parseSUDef
     import Generic as Gen
-    from Generic import Bunch, TypeInfo, VarInfo, PseudoVarInfo, \
-         SUInfo, ArtStructInfo, \
-         memoize_cond, CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT
+    from Generic import (Bunch, TypeInfo, VarInfo, PseudoVarInfo,
+         SUInfo, ArtStructInfo, EnumInfo,
+         memoize_cond, CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT)
     def b2str(s): return s
 
     _bjoin = ''
@@ -663,6 +663,22 @@ class StructResult(long):
 if (_Pym == 3):
     StructResult = subStructResult('StructResult', (StructResult,), {})
 
+# A factory function for Enum readers. If understand correctly,
+# in C we cannot have enums in bitfields (but we can in C++!)
+# GCC-5 let me compile C-program with enum bitfields
+# At this moment we do a spcial processing for scalar (not array)
+# only. for array we fall back to normal int reader
+def ti_enumReader(ti):
+    #print("ti_enumReader")
+    def signedReader(addr):
+        #s = readmem(addr, size)
+        #return mem2long(s, signed = True)
+        return tEnum(readIntN(addr, size, True), einfo)
+    einfo = EnumInfo(ti.stype)
+    size = ti.size
+    if (ti.dims is not None):
+        return ti_intReader(ti)
+    return signedReader
 
 # A factory function for integer readers
 def ti_intReader(ti, bitoffset = None, bitsize = None):
@@ -1029,7 +1045,7 @@ def newDereferencer(ti):
             #ptrlev = tti.ptrlev
         #return ptrReader(self, ptrlev)
     elif (codetype == TYPE_CODE_ENUM):     # TYPE_CODE_ENUM
-        reader = ti_intReader(ti)
+        reader = ti_enumReader(ti)
     else:
         return None
         raise TypeError("don't know how to read codetype "+str(codetype))
@@ -1037,7 +1053,15 @@ def newDereferencer(ti):
     # Attache basetype size to the reader
     reader.basesize = tti.size
     return reader
-    
+
+# Enums representation - integers plus some data
+class tEnum(long):
+    def __new__(cls, l, einfo):
+        return long.__new__(cls, l)
+    def __init__(self, l, einfo):
+        self.einfo = einfo
+    def __repr__(self):
+        return self.einfo.getnam(self)
 
 # With Python2 readmem() returns 'str', with Python3 'bytes'
 

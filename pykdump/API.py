@@ -36,6 +36,7 @@ not call low-level functions directly but use this module instead.
 # Messages to be used for warnings and errors
 WARNING = "+++WARNING+++"
 ERROR =   "+++ERROR+++"
+INFO = "...INFO..."
 
 debug = 0
 
@@ -161,6 +162,9 @@ class PyLog:
     def warning(self, *args, **kwargs):
         name = WARNING
         self._printandcache(name, (args, kwargs))
+    def info(self, *args, **kwargs):
+        name = INFO
+        self._addtocache(name, (args, kwargs))
     def error(self, *args, **kwargs):
         name = ERROR
         self._printandcache(name, (args, kwargs))
@@ -182,8 +186,23 @@ class PyLog:
         self._cache.clear()
         self._silent = ""
     def onexit(self):
-        # Are there any problems at all?
+        # Is there anything to print?
         if (not self._cache):
+            return
+        self.__print_problems()
+        self.__print_info()
+    def __print_info(self):
+        if (not self._cache.has_key(INFO)):
+            return
+        print("")
+        print(" Additional Info ".center(78, '~'))
+        for args, kwargs in self._cache[INFO]:
+            print(end="    ")
+            print(*args, **kwargs)
+        print('~'*78)
+    def __print_problems(self):
+        _keys = set(self._cache.keys()) - {INFO}
+        if (not _keys):
             return
         print("")
         print('*'*78)

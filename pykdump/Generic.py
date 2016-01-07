@@ -429,7 +429,8 @@ class VarInfo(object):
                  ptrlev = ti.ptrlev
              return d.ptrReader(self, ptrlev)
          elif (codetype == TYPE_CODE_ENUM):     # TYPE_CODE_ENUM
-             return d.ti_intReader(ti, bitoffset, self.bitsize)
+             return d.ti_enumReader(ti)
+             #return d.ti_intReader(ti, bitoffset, self.bitsize)
          else:
              raise TypeError("don't know how to read codetype "+str(codetype))
 
