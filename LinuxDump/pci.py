@@ -14,35 +14,7 @@ from __future__ import print_function
 from pykdump.API import *
 
 from LinuxDump.sysfs import *
-
-# Iterate klist_devices
-def klistAll(klist):
-    try:
-        return readSUListFromHead(klist.k_list, "n_node", "struct klist_node")
-    except KeyError:
-        return readSUListFromHead(klist.list, "n_node", "struct klist_node")
-
-#static inline const char *dev_name(const struct device *dev)
-#{
-        #/* Use the init name until the kobject becomes available */
-        #if (dev->init_name)
-                #return dev->init_name;
-
-        #return kobject_name(&dev->kobj);
-#}
-
-def dev_name(dev):
-    if (dev.init_name):
-        return dev.init_name
-    return kobj_name(dev.kobj)
-
-#static inline const char *kobject_name(const struct kobject *kobj)
-#{
-        #return kobj->name;
-#}
-
-def kobj_name(kobj):
-    return kobj.name
+from LinuxDump.kobjects import *
 
 #static inline const char *pci_name(const struct pci_dev *pdev)
 #{
