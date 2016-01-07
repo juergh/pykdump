@@ -16,7 +16,7 @@
 # figure everything out (which is probably impossible); this is a debugging
 # aid, not a tool that attempts to do all crash analysis automatically.
 
-__version__ = "1.02"
+__version__ = "1.04"
 
 import argparse
 from pykdump.API import *
@@ -171,6 +171,8 @@ def look_for_reg (fname, sp, stack):
                     addr = rbp + offset
                 elif basereg == "rsp":
                     addr = rsp + offset
+                else:
+                    continue
 
                 try:
                     val = stack[addr]
@@ -189,6 +191,9 @@ def look_for_reg (fname, sp, stack):
                 except KeyError:
                     if debug:
                         print "Don't have stack entry at {:#x}".format(rsp)
+
+        elif opcode.startswith("nop"):
+            continue   # Ignore NOP instructions
 
         else:
             break # from for loop (done with routine entry processing)
@@ -501,7 +506,12 @@ def look_for_reg (fname, sp, stack):
                                 print "val={:x} val2={:x}".format(val,val2)
                         else:
                             # Read using direct pydkump API
-                            val = readULong(addr)
+                            try:
+                                val = readULong(addr)
+                            except crash.error:
+                                print "rd failed",addr,line,basereg,dstreg
+                                regval[dstreg] = "invalid"
+                                continue
 
                     if dstreg not in regval:
 
