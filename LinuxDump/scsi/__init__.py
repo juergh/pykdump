@@ -29,6 +29,7 @@ from collections import namedtuple, defaultdict
 from LinuxDump.sysfs import *
 from LinuxDump.kobjects import *
 
+
 '''
 Attached devices:
 Host: scsi2 Channel: 03 Id: 00 Lun: 00
@@ -117,10 +118,13 @@ def get_SCSI_devices():
 
 # For v=0 list only different model/vendor combinations, how many a busy
 # and different Scsi_Host
+# For v=1 we additionally print all scsi devices that are busy/active
+# For v=2 we print all scsi devices
 def print_SCSI_devices(v=0):
     __enum_st_state = EnumInfo("enum scsi_target_state")
     shosts = set()
     n_busy = 0
+    n_iocnt = 0         # Number of devies with iorequest_cnt-iodone_cnt > 0
     tot_devices = 0
     different_types = set()
     for sdev in get_SCSI_devices():
@@ -138,7 +142,12 @@ def print_SCSI_devices(v=0):
                    sdev.scsi_level - (sdev.scsi_level > 1)))
         s_descr = "\n".join(_a)
         different_types.add(s_descr)
-        if (v > 0):
+        
+        # iorequest_cnt-iodone_cnt
+        cntdiff = sdev.iorequest_cnt.counter - sdev.iodone_cnt.counter
+        if (cntdiff):
+            n_iocnt += 1
+        if (v > 1 or (v > 0 and (cntdiff or busy))):
             print('{:-^39}{:-^39}'.format(str(sdev)[8:-1], str(shost)[8:-1]))
             print("Host: scsi{} Channel: {:02} Id: {:02} Lun: {:02}".format(
                 shost.host_no, sdev.channel, sdev.id, sdev.lun))
@@ -161,6 +170,7 @@ def print_SCSI_devices(v=0):
             #if (is_fc):
             print("  {} state = {}".format(starget, st_state))
             
+            print("  iorequest_cnt-iodone_cnt = {}".format(cntdiff))
             continue
             rport = starget_to_rport(starget)
             print("    ", shost.hostt)
@@ -169,8 +179,8 @@ def print_SCSI_devices(v=0):
             #print(scsi_target(sdev).dev.parent)
     if (v == 0 and different_types):
         print("\n{:=^70}".format(" Summary "))
-        print("   -- {} SCSI Devices, {} Are Busy --".format(
-            tot_devices, n_busy))
+        print("   -- {} SCSI Devices, {} Are Busy, {} with I/O --".\
+            format(tot_devices, n_busy, n_iocnt))
         print("{:.^70}".format(" Vendors/Types "))
         for _a in different_types:
             print(_a)
@@ -194,7 +204,7 @@ def print_Scsi_Host(shost, v=0):
     
     print("     ", end='')  
     for _a in ("last_reset", "host_busy", "host_failed", "host_eh_scheduled"):
-        print(" {:s}={}".format(_a, getattr(shost, _a)), end='')
+        print(" {:s}={}".format(_a, atomic_t(getattr(shost, _a))), end='')
     print()
     do_driver_specific(shost)
 

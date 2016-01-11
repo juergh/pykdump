@@ -30,6 +30,12 @@ def print_extra(shost):
     hba = vport.phba
     print("    {}  {}".format(vport, hba))
     link_state = __hba_state_enum.getnam(hba.link_state)
+    model = hba.ModelDesc
+    if (len(model) == 0):
+        pylog.warning("It seems that you are using an incorrect"
+            " lpfc debuginfo")
+        return
+    print("      Model: {}".format(model))
     print("      Link state: {!r}".format(hba.link_state))
 
 def dummy_print_extra(shost):
