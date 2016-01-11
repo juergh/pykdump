@@ -124,14 +124,13 @@ def print_SCSI_devices(v=0):
     __enum_st_state = EnumInfo("enum scsi_target_state")
     shosts = set()
     n_busy = 0
-    n_iocnt = 0         # Number of devies with iorequest_cnt-iodone_cnt > 0
     tot_devices = 0
     different_types = set()
     for sdev in get_SCSI_devices():
         tot_devices += 1
         shost = sdev.host
         shosts.add(shost)
-        busy = sdev.device_busy
+        busy = atomic_t(sdev.device_busy)
         if (busy):
             n_busy += 1
         _a = []
@@ -144,10 +143,10 @@ def print_SCSI_devices(v=0):
         different_types.add(s_descr)
         
         # iorequest_cnt-iodone_cnt
+        iorequest_cnt = atomic_t(sdev.iorequest_cnt)
+        iodone_cnt = atomic_t(sdev.iodone_cnt)
         cntdiff = sdev.iorequest_cnt.counter - sdev.iodone_cnt.counter
-        if (cntdiff):
-            n_iocnt += 1
-        if (v > 1 or (v > 0 and (cntdiff or busy))):
+        if (v > 1 or (v > 0 and (busy))):
             print('{:-^39}{:-^39}'.format(str(sdev)[8:-1], str(shost)[8:-1]))
             print("Host: scsi{} Channel: {:02} Id: {:02} Lun: {:02}".format(
                 shost.host_no, sdev.channel, sdev.id, sdev.lun))
@@ -170,17 +169,18 @@ def print_SCSI_devices(v=0):
             #if (is_fc):
             print("  {} state = {}".format(starget, st_state))
             
-            print("  iorequest_cnt-iodone_cnt = {}".format(cntdiff))
+            print("  iorequest_cnt={}, iodone_cnt={}, diff={}".\
+                  format(iorequest_cnt, iodone_cnt, cntdiff))
             continue
             rport = starget_to_rport(starget)
             print("    ", shost.hostt)
             if (rport):
                 print("   ", rport)
             #print(scsi_target(sdev).dev.parent)
-    if (v == 0 and different_types):
+    if (different_types):
         print("\n{:=^70}".format(" Summary "))
-        print("   -- {} SCSI Devices, {} Are Busy, {} with I/O --".\
-            format(tot_devices, n_busy, n_iocnt))
+        print("   -- {} SCSI Devices, {} Are Busy --".\
+            format(tot_devices, n_busy))
         print("{:.^70}".format(" Vendors/Types "))
         for _a in different_types:
             print(_a)
