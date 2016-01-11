@@ -263,6 +263,15 @@ def set_nsproxy(pid = None):
             print("There is no PID={}".format(pid))
             sys.exit(0)
 
+# Some kernels use a simple integer and some use atomic_t wrapper
+# This subroutine returns a.counter if argument is atomic_t or
+# just argument without any changes otherwise
+def atomic_t(o):
+    try:
+        return o.counter
+    except AttributeError:
+        return o
+
 # Process common (i.e. common for all pykdump scripts) options.
 from optparse import OptionParser, Option
 def __epythonOptions():
