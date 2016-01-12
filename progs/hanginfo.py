@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -12,7 +12,7 @@
 # To facilitate migration to Python-3, we start from using future statements/builtins
 from __future__ import print_function
 
-__version__ = "0.3"
+__version__ = "0.3.1"
 
 import sys
 import re
@@ -102,7 +102,10 @@ def if_mutexOK(addr):
         mutex = readSU("struct mutex", addr)
         wait_list = mutex.wait_list
         _next_wait_list = wait_list.next
-        owner = mutex.Owner
+        try:
+            owner = mutex.Owner
+        except KeyError:
+            owner = None
         if (owner):
             _next_tasks = owner.tasks.next
         for i in range(5):
@@ -115,7 +118,11 @@ def if_mutexOK(addr):
 
 # Get a list of pids waiting on mutex
 def get_mutex_waiters(mutex):
-    if (mutex.Owner and mutex.count.counter >= 0):
+    try:
+        owner = mutex.Owner
+    except KeyError:
+        owner = None
+    if (owner and mutex.count.counter >= 0):
         return []
     wait_list = readSUListFromHead(Addr(mutex.wait_list), "list",
             "struct mutex_waiter")
@@ -151,12 +158,21 @@ def print_mutex(mutex):
 #    ffff8b71e4a21558: 0000000000000082 ffff8b71e4a20010 
 #    ffff8b71e4a21568: 0000000000011800 0000000000011800 
 
+# For x86 (32 bits):
+#    [RA: c06278ad  SP: e0ad1e28  FP: e0ad1e40  SIZE: 28]
+#    e0ad1e28: ed826aec  ed826aec  d62354d0  ed826ae4  
+#    e0ad1e38: 00000000  ed826a70  c06278ad  
+
 # Convert it to an array of integers
 
 def __stackdata2array(lines):
     arr = []
     for l in lines:
-        for d in re.split(r'[:\s]+', l.strip())[1:]:
+        l = l.strip()
+        # For 32-bit x86, skip line starting with [
+        if (l[0] == '['):
+            continue
+        for d in re.split(r'[:\s]+', l)[1:]:
             arr.append(int(d, 16))
     return arr
 
@@ -307,6 +323,7 @@ def check_cred_guard_mutex(task):
     gm = task.Cred_guard_mutex
     return gm
     
+__x86 = (sys_info.machine in ("i386", "i686", "athlon"))
 __mutexfunc = "__mutex_lock_slowpath"
 def check_other_mutexes(tasksrem):
     #print(mutexlist)
@@ -322,10 +339,12 @@ def check_other_mutexes(tasksrem):
             if (f.func.find(__mutexfunc) != -1):
                 addrs = __stackdata2array(f.data)
                 l_addrs = len(addrs)
-                for pos in range(6,9):
+                __srange = range(3,4) if __x86 else range(6,9)
+                for pos in __srange:
                     if (pos >= l_addrs):
                         continue
                     maddr = addrs[pos]
+                    #print(":::", hexl(maddr))
                     if (if_mutexOK(maddr)):
                         mutex = readSU("struct mutex", maddr)
                         mutexlist.add(mutex)
@@ -336,7 +355,10 @@ def check_other_mutexes(tasksrem):
     # Now print info about each found mutex
     once = TrueOnce(1)
     for mutex in mutexlist:
-        owner = mutex.Owner
+        try:
+            owner = mutex.Owner
+        except KeyError:
+            owner = None
         pids = get_mutex_waiters(mutex)
         if (owner and not pids):
             continue
@@ -464,7 +486,7 @@ if ( __name__ == '__main__'):
     if (o.Version):
         print ("HANGINFO version %s" % (__version__))
         sys.exit(0)
-        
+
     if (o.Syslogger):
         print_wait_for_AF_UNIX(verbose)
         sys.exit(0)
