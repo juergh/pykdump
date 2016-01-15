@@ -6,7 +6,7 @@
 # high-level functions that do not depend on internal
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -1659,6 +1659,8 @@ def exec_crash_command_bg(cmd, timeout = None):
     if (not timeout):
         timeout = crash.default_timeout
     #print("Timeout=", timeout)
+    # Flush stdout before exec in background
+    sys.stdout.flush()
     fileno, pid = exec_crash_command_bg2(cmd)
     out = []
     endtime = time.time() + timeout
