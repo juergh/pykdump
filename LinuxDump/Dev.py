@@ -3,7 +3,7 @@
 #
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -736,6 +736,9 @@ def decode_request(rq, v = 0):
 
 # Print stuff from block/blk-softirq.c
 def print_blk_cpu_done(v = 0):
+    if (not symbol_exists("blk_cpu_done")):
+        # This is an old kernel (e.g. RHEL4)
+        return
     total = 0
     out = []
     for cpu, val in enumerate(get_cpu_var("blk_cpu_done")):
