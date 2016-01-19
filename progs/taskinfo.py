@@ -59,6 +59,19 @@ def __rlim2str(v):
     
 structSetAttr("struct task_struct", "Realparent", ["real_parent", "parent"])
 
+# Old kernels have typedef unsigned int gid_t;
+# new kernels
+#typedef struct {
+#    gid_t val;
+#} kgid_t;
+
+def gid_t(v):
+    try:
+        return int(v.val)
+    except AttributeError:
+        return int(v)
+
+
 def printTaskDetails(t):
     sstate = t.state[5:7]
     print ("---- %6d(%s) %s %s" % (t.pid, sstate, str(t.ts), t.comm))
@@ -129,8 +142,12 @@ def printTaskDetails(t):
             extra = " sigpending=%d" % u.sigpending.counter
         else:
             extra = ""
-        print ("\t  processes=%d files=%d%s" % \
-              (u.processes.counter, u.files.counter, extra))
+        if u.hasField("files"):
+            print ("\t  processes={} files={}{}".format(
+                atomic_t(u.processes), atomic_t(u.files), extra))
+        else:
+            print ("\t  processes={}{}".format(
+                atomic_t(u.processes), extra))
         if (c.hasField("group_info")):
             g = c.group_info
             ngroups = g.ngroups
@@ -144,12 +161,9 @@ def printTaskDetails(t):
         if (ngroups <= len(small_block)):
             out = []
             for i in range(ngroups):
-                out.append(str(small_block[i]))
+                out.append(gid_t(small_block[i]))
             print ("     ", out)
-                
-            
-
-        
+         
     # for EXIT_DEAD processes, it does not make sense to continue
     if (sstate == 'DE'):
         return
@@ -168,7 +182,12 @@ def printTaskDetails(t):
     # Accounting info
     thread_info = readSU("struct thread_info", t.stack)
     print("   --- thread_info", thread_info)
+
+    # Don't print accounting info as this nees to be redesigned
+    # to make sense
+    return
     _e = EnumInfo("enum cgroup_subsys_id")
+    print(t.cgroups.subsys)
     cs_state = t.cgroups.subsys[_e.cpuacct_subsys_id]
     ca = container_of(cs_state, "struct cpuacct", "css")
     print("   --- Accounting Info")
