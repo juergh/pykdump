@@ -1,10 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-# Time-stamp: <14/08/12 14:40:53 alexs>
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -15,7 +14,7 @@
 # To facilitate migration to Python-3, we start from using future statements/builtins
 from __future__ import print_function
 
-__version__ = "0.3"
+__version__ = "0.4"
 
 from pykdump.API import *
 
@@ -58,6 +57,7 @@ def __rlim2str(v):
     else:
         return "%d" % v
     
+structSetAttr("struct task_struct", "Realparent", ["real_parent", "parent"])
 
 def printTaskDetails(t):
     sstate = t.state[5:7]
@@ -65,10 +65,7 @@ def printTaskDetails(t):
     print("   cpu", t.cpu)
     parent = t.parent
     flags = t.flags
-    if (t.hasField("real_parent")):
-        real_parent = t.real_parent
-    else:
-        real_parent = parent
+    real_parent = t.Realparent
     if (parent):
         print ("   -- Parent:", parent.pid, parent.comm)
         if (real_parent != parent):

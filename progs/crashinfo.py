@@ -5,7 +5,7 @@
 #
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -16,7 +16,7 @@
 from __future__ import print_function
 
 # 1st-pass dumpanalysis
-__version__ = "0.6.2"
+__version__ = "0.6.3"
 
 from pykdump.API import *
 
@@ -1062,6 +1062,10 @@ def user_space_memory_report():
 
 # Check for long (>nmin) chains of processes. E.g. custom script is looping and
 # spawns more and more processes recursively
+#
+# We should differentiate between parent and real parent in relationship
+# analysis. Process can be reparented temporarily by ptrace
+
 def longChainOfPids(tt, nmin):
     # Convert to tree structure, ignore pid=0
     # Each element is (ppid, [children]) tuple
@@ -1072,7 +1076,7 @@ def longChainOfPids(tt, nmin):
             continue
         # Thread pointers may get corrupted because of kernel bugs
         try:
-            ppid = t.parent.pid
+            ppid = t.Realparent.pid
         except crash.error:
             pylog.error("corrupted", t)
             continue
@@ -1080,21 +1084,28 @@ def longChainOfPids(tt, nmin):
         if (not pid in ptree):
             ptree[pid] = (ppid, [])
     
-        ptree.setdefault(ppid, (t.parent.parent.pid, []))[1].append(pid)
+        ptree.setdefault(ppid, (t.Realparent.Realparent.pid, []))[1].append(pid)
     
     for pid, l in ptree.items():
         ppid, children = l
         if (not children):
+            # It is possible that one of 
+            loop_info = {pid}
             # Check distance from the top
             dist = 0
-            #print (pid)
+            #print ("---pid={}".format(pid))
             chain = [pid]
             while (ppid > 1):
                 dist += 1
                 ppid = ptree[ppid][0]
+                if (ppid in loop_info):
+                    pylog.error("Corrupted task table - pid/ppid loop at"
+                        " pids={}".format(ppid))
+                    break
+                loop_info.add(ppid)
                 if (dist < 10):
                     chain.insert(0, ppid)
-                #print ("\t", ppid)
+                print ("\t", ppid, dist)
             if (dist > nmin):
                 pylog.warning("a long chain of processes, N=%d, last pid=%d" % (dist, pid))
                 print ("  Last 10 Processes in this chain")
@@ -1418,6 +1429,7 @@ print_basics()
 dump_reason(dmesg)
 check_loadavg()
 longChainOfPids(TaskTable(), 20)
+print("Checkpoint")
 if (not quiet):
     printHeader("Tasks Summary")
     threadcount = tasksSummary()
