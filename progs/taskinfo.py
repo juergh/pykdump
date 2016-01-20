@@ -57,7 +57,6 @@ def __rlim2str(v):
     else:
         return "%d" % v
     
-structSetAttr("struct task_struct", "Realparent", ["real_parent", "parent"])
 
 # Old kernels have typedef unsigned int gid_t;
 # new kernels

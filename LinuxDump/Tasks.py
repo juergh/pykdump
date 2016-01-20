@@ -605,6 +605,7 @@ __sts = "struct task_struct"
 
 structSetAttr(__sts, "Uid", ["uid", "real_cred.uid.val", "real_cred.uid"])
 structSetAttr(__sts, "User", ["user", "real_cred.user"])
+structSetAttr(__sts, "Realparent", ["real_parent", "parent"])
 
 # Print tasks summary and return the total number of threads
 try:

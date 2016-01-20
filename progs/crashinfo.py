@@ -1105,7 +1105,6 @@ def longChainOfPids(tt, nmin):
                 loop_info.add(ppid)
                 if (dist < 10):
                     chain.insert(0, ppid)
-                print ("\t", ppid, dist)
             if (dist > nmin):
                 pylog.warning("a long chain of processes, N=%d, last pid=%d" % (dist, pid))
                 print ("  Last 10 Processes in this chain")
@@ -1429,7 +1428,7 @@ print_basics()
 dump_reason(dmesg)
 check_loadavg()
 longChainOfPids(TaskTable(), 20)
-print("Checkpoint")
+
 if (not quiet):
     printHeader("Tasks Summary")
     threadcount = tasksSummary()
