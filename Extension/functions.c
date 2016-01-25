@@ -1141,7 +1141,32 @@ py_uvtop(PyObject *self, PyObject *args) {
 
   return PyLong_FromUnsignedLongLong((ulonglong)physaddr);
 }
+ 
+/*
+  page = phys_to_page(physaddr_t phys)
+*/
 
+static PyObject *
+py_phys_to_page(PyObject *self, PyObject *args) {
+  physaddr_t physaddr;
+  ulong page;
+
+  PyObject *arg0 = PyTuple_GetItem(args, 0);
+
+  physaddr = PyLong_AsUnsignedLong(arg0);
+
+  //int phys_to_page(physaddr_t phys, ulong *pp)
+
+  if (!phys_to_page(physaddr, &page)) {
+    // We cannot convert
+    char pb[256];
+    sprintf(pb, "phys_to_page error at physaddr 0x%llx", (long long unsigned) physaddr);
+    PyErr_SetString(crashError, pb);
+    return NULL;
+  }
+
+  return PyLong_FromUnsignedLongLong((ulonglong)page);
+}
 
 static PyObject *
 py_pageoffset(PyObject *self, PyObject *args) {
@@ -1650,6 +1675,7 @@ static PyMethodDef crashMethods[] = {
   {"addr2mod",  py_addr2mod, METH_VARARGS},
   {"mem2long",  (PyCFunction)py_mem2long, METH_VARARGS | METH_KEYWORDS},
   {"uvtop",  py_uvtop, METH_VARARGS},
+  {"phys_to_page", py_phys_to_page, METH_VARARGS},
   {"PAGEOFFSET",  py_pageoffset, METH_VARARGS},
   {"readmem", py_readmem, METH_VARARGS},
   {"readPtr", py_readPtr, METH_VARARGS},

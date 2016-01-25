@@ -1926,6 +1926,14 @@ uvtop - convert virtual to physical
 physaddr = uvtop(tskaddr, vaddr)
 \end_layout
 
+\begin_layout Description
+phys_to_page - convert physical to page pointer
+\end_layout
+
+\begin_layout Code
+page = phys_to_page(physaddr)
+\end_layout
+
 \begin_layout Standard
 where 
 \series bold

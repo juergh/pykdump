@@ -1733,6 +1733,7 @@ le32_to_cpu = crash.le32_to_cpu
 le16_to_cpu = crash.le16_to_cpu
 cpu_to_le32 = crash.cpu_to_le32
 uvtop = crash.uvtop
+phys_to_page = crash.phys_to_page
 getListSize = crash.getListSize
 # For some reason the next line runs slower than GDB version
 #GDB_sizeof = crash.struct_size
