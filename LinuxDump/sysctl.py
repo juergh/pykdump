@@ -1,7 +1,7 @@
 # module LinuxDump.sysctl
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -150,7 +150,8 @@ def getCtlData(ct):
     data = ct.data
     if (data == 0):
         return "(?)"
-    if (phandler in ("proc_doulongvec_minmax",
+    if (phandler in ("proc_doulongvec_minmax", 
+                     "dirty_background_bytes_handler", "dirty_bytes_handler",
                      "proc_ipc_doulongvec_minmax", "ipv4_tcp_mem")):
         sz = maxlen//longsize
         readsub = readULong
