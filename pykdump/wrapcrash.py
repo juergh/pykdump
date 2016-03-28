@@ -1185,16 +1185,18 @@ def readProcessMem(taskaddr, uvaddr, size):
 # If we pass a string as 'headaddr', this is the symbol pointing
 # to structure itself, not its listhead member
 def readSUListFromHead(headaddr, listfieldname, mystruct, maxel=_MAXEL,
-                     inchead = False):
+                     inchead = False, warn = True):
     msi = getStructInfo(mystruct)
     offset = msi[listfieldname].offset
     if (type(headaddr) == type("")):
         headaddr = sym2addr(headaddr) + offset
     out = []
-    for p in readList(headaddr, 0, maxel, inchead):
+    for p in readList(headaddr, 0, maxel+1, inchead, warn):
         out.append(readSU(mystruct, p - offset))
-    if (len(out) == maxel):
-        pylog.warning("We have reached the limit while reading a list")
+    if (len(out) > maxel):
+        del out[-1]
+        if (warn):
+            pylog.warning("We have reached the limit while reading a list")
 
     return out
 
@@ -1264,8 +1266,8 @@ def SUArray(sname, addr, maxel = _MAXEL):
 # In most cases the head is standalone and other list_heads are embedded
 # in parent structures.
 
-def readListByHead(start, offset=0, maxel = _MAXEL):
-    return readList(start, offset, maxel, False)
+def readListByHead(start, offset=0, maxel = _MAXEL, warn = True):
+    return readList(start, offset, maxel, False, warn)
 
 # An alias
 list_for_each_entry = readListByHead
@@ -1284,14 +1286,15 @@ list_for_each_entry = readListByHead
 #
 
 class ListHead(list):
-    def __new__(cls, lhaddr, sname = None, maxel = _MAXEL):
+    def __new__(cls, lhaddr, sname = None, maxel = _MAXEL, warn = True):
         return list.__new__(cls)
-    def __init__(self, lhaddr, sname = None, maxel = _MAXEL):
+    def __init__(self, lhaddr, sname = None, maxel = _MAXEL, warn = True):
         self.sname = sname
         self.maxel = _MAXEL
+        self.warn = warn
         count = 0
         next = lhaddr
-        while (count < maxel):
+        while (count < maxel+1):
             next = readPtr(next)
             if (next == 0 or next == lhaddr):
                 break
@@ -1301,8 +1304,10 @@ class ListHead(list):
                 # A special case - return list_head object, not just address
                 self.append(readSU("struct list_head", next))
             count += 1
-        if (count == maxel):
-            pylog.warning("We have reached the limit while reading a list")
+        if (count > maxel):
+            del self[-1]
+            if (self.warn):
+                pylog.warning("We have reached the limit while reading a list")
         
     def __getattr__(self, fname):
         off = member_offset(self.sname, fname)
@@ -1319,7 +1324,7 @@ class ListHead(list):
 # For list declared using LIST_HEAD, the empty list is when both next and prev
 # of LIST_HEAD point to its own address
 
-def readList(start, offset=0, maxel = _MAXEL, inchead = True):
+def readList(start, offset=0, maxel = _MAXEL, inchead = True, warn = True):
     start = long(start)     # equivalent to (void *) cast
     if (start == 0):
         return []
@@ -1330,7 +1335,7 @@ def readList(start, offset=0, maxel = _MAXEL, inchead = True):
         out = []
         count = 0
     next = start
-    while (count < maxel):
+    while (count < maxel+1):
         # If we get an error while reading lists, report it but return what we
         # have already collected anyway
         try:
@@ -1342,8 +1347,10 @@ def readList(start, offset=0, maxel = _MAXEL, inchead = True):
             break
         out.append(next)
         count += 1
-    if (count == maxel):
-        pylog.warning("We have reached the limit while reading a list")
+    if (count > maxel):
+        del out[-1]
+        if (warn):
+            pylog.warning("We have reached the limit while reading a list")
 
     return out
 
