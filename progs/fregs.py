@@ -2,7 +2,7 @@
 # determine register contents at entry to each routine in stack frame
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2015-2016 Hewlett Packard Enterprise Development LP
 #
 # Author: Martin Moore (martin.moore@hpe.com)
 #
@@ -508,8 +508,9 @@ def look_for_reg (fname, sp, stack):
                             # Read using direct pydkump API
                             try:
                                 val = readULong(addr)
-                            except crash.error:
-                                print "rd failed",addr,line,basereg,dstreg
+                            except:
+                                if debug:
+                                    print "rd failed",addr,line,basereg,dstreg
                                 regval[dstreg] = "invalid"
                                 continue
 
