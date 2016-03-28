@@ -689,18 +689,34 @@ def print_svc_xprt(xprt, v = 0, indent = 0):
     print(indent_str, s_addr, sep='')
     print(indent_str, flags, sep='')
 
-    
-# print all rpc pending tasks
-def print_all_rpc_tasks(v=1):
-    # Obtain all_tasks
-    tasks = get_all_rpc_tasks()
+
+# Find total number of tasks, even if it very high
+def count_rpc_tasks():
+    __max = 10000000
     if (symbol_exists("all_tasks")):
-        flen = getListSize(sym2addr("all_tasks"), 0, 10000000)
+        flen = getListSize(sym2addr("all_tasks"), 0, __max)
     else:
-        flen = len(tasks)
-    xprtlist = []
-    print ("  ------- %d RPC Tasks ---------" % flen)
+        all_clients = get_all_rpc_clients()
+        if(not all_clients):
+            return 0
+        flen = 0
+        for cl in all_clients:
+            flen += getListSize(cl.cl_tasks, 0, __max)
+    return flen
+
+# print all rpc pending tasks
+def print_all_rpc_tasks(v=1, maxtoprint = 20):
+    # Obtain all_tasks
+    flen = count_rpc_tasks()
+    if (v >= 0 and flen > maxtoprint):
+        print ("  ----Printing first {} out of total {} RPC Tasks ---------".\
+            format(maxtoprint, flen))
+    else:
+        print ("  ------- %d RPC Tasks ---------" % flen)
+    
+    tasks = get_all_rpc_tasks(maxtoprint)
     allc = get_all_rpc_clients()
+    xprtlist = []
     if (allc):
         print ("      --- %d RPC Clients ----" % len(allc))
     for t in tasks:
@@ -759,30 +775,6 @@ def print_rpc_status():
 # */
 #static LIST_HEAD(all_clients);
 
-def get_all_clients():
-    all_clients = sym2addr("all_clients")
-    allc = readSUListFromHead(all_clients, "cl_clients",
-                              "struct rpc_clnt")
-    return allc
-
-# Get all RPC tasks
-def get_all_tasks_old():
-    all_taddr = sym2addr("all_tasks")
-    all_tasks = readSUListFromHead(all_taddr, "tk_task", "struct rpc_task")
-    clients = {}
-    for t in all_tasks:
-        clients.setdefault(t.tk_client, []).append(t)
-
-    for cl, v in clients.items():
-        # Print Client Info
-        print (cl)
-        # Print Task Info
-        for ft in v:
-	    for t in readSUListFromHead(long(ft.tk_task), "tk_task",
-                                   "struct rpc_task"):
-		print ("    ", t)
-		print_rpc_task(t)
-
 
 # Get all RPC clients for kernels where they exist
 def get_all_rpc_clients():
@@ -791,16 +783,21 @@ def get_all_rpc_clients():
         return []
     return readSUListFromHead(all_clients, "cl_clients", "struct rpc_clnt")
 
-def get_all_rpc_tasks():
+def get_all_rpc_tasks(nmax = 100):
     all_taddr = sym2addr("all_tasks")
     if (all_taddr):
-	return readSUListFromHead(all_taddr, "tk_task", "struct rpc_task")
+	return readSUListFromHead(all_taddr, "tk_task", "struct rpc_task",
+                           maxel= nmax, warn = False)
 
     out = []
     allc = get_all_rpc_clients()
+    nleft = nmax
     for cl in allc:
-	out += readSUListFromHead(long(cl.cl_tasks), "tk_task",
-                                   "struct rpc_task")
+	tasks = readSUListFromHead(long(cl.cl_tasks), "tk_task",
+                                   "struct rpc_task",
+                                   maxel = nleft, warn = False)
+        out += tasks
+        nleft -= len(tasks)
 
     return out
 
@@ -870,18 +867,6 @@ def print_svc_serv(srv):
         for s in ListHead(Addr(srv.sv_tempsocks), "struct svc_sock").SockList:
 	    print ("\t", s, "\n  ", IP_sock(s.sk_sk))
 
-
-# On 2.6.35 we have a list of registered transports
-# static LIST_HEAD(svc_xprt_class_list);
-
-def XXprint_nlm_serv():
-    # This exists on 2.6.18 but not on 2.6.35
-    addr = sym2addr("svc_xprt_class_list")
-    ll = ListHead(addr, "struct svc_xprt_class").xcl_list
-    for s in ll:
-        print (s)
-    for c in get_all_clients():
-        print (c, c.cl_protname)
 
 # Print NLM stuff
 
@@ -1301,7 +1286,10 @@ if ( __name__ == '__main__'):
     parser.add_argument("--rpctasks", dest="Rpctasks", default = 0,
                   action="store_true",
                   help="print RPC tasks")
-
+    parser.add_argument("--maxrpctasks", dest="Maxrpctasks", default = 20,
+                  type=int, action="store",
+                  help="Maximum number of RPC tasks tp print")
+    
     parser.add_argument("--locks", dest="Locks", default = 0,
 		    action="store_true",
 		    help="print NLM locks")
@@ -1335,7 +1323,7 @@ if ( __name__ == '__main__'):
         host_as_server(detail)
 
     if (o.Rpctasks or o.All):
-	print_all_rpc_tasks(detail)
+	print_all_rpc_tasks(detail, o.Maxrpctasks)
 
     if (o.Locks or o.All):
         print ('*'*20, " NLM(lockd) Info", '*'*20)
