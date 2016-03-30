@@ -59,6 +59,11 @@ __needed_structs = ("struct rpc_task", "struct nlm_wait",
 
 __NO_NFSD = False
 
+NFS4_C = '''
+#define NFSPROC4_NUL		0
+#define NFSPROC4_COMPOUND	1
+'''
+
 NFS3_C = '''
 #define NFS3PROC_NULL		0
 #define NFS3PROC_GETATTR	1
@@ -107,6 +112,7 @@ NFS2_C = '''
 
 NFS2_PROCS = CDefine(NFS2_C)
 NFS3_PROCS = CDefine(NFS3_C)
+NFS4_PROCS = CDefine(NFS4_C)
 
 #  * Reserved bit positions in xprt->state (3.10 kernel)
 #  */
@@ -633,6 +639,8 @@ def print_rpc_task(s, v = 0):
             procname = "%d(%s)" % (rpc_proc, NFS2_PROCS.value2key(rpc_proc))
         elif (prog == 100003 and vers == 3):
             procname = "%d(%s)" % (rpc_proc, NFS3_PROCS.value2key(rpc_proc))
+        elif (prog == 100003 and vers == 4):
+            procname = "%d(%s)" % (rpc_proc, NFS4_PROCS.value2key(rpc_proc))
         else:
             procname = "%d" % rpc_proc
         print ("\t  rpc_proc={}  tk_status={}".format(procname, tk_status))
