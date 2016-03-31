@@ -440,13 +440,19 @@ __tstate = __get_states_from_array()
 if (__tstate):
     TASK_STATE = __tstate
 
+# Create a list of (value, name) sorted by value
+__TASK_STATE = sorted([(v, name) for name, v in TASK_STATE.items()])
+
 # Return a symbolic representation of task state
+# Put names matching lower bits first!
+@memoize_cond(CU_PYMOD)
 def task_state2str(state):
     if (state == TASK_STATE.TASK_RUNNING):
         return "TASK_RUNNING"
 
     out = []
-    for name, val in TASK_STATE.items():
+    
+    for val, name in __TASK_STATE[1:]:
         if (val and (state & val)):
             out.append(name)
  
@@ -657,7 +663,7 @@ def tasksSummary():
     print ("   last    60s   %5d" % acounts[2])
     print ("")
     print (" ----- Total Numbers of Threads per State ------")
-    for k,v in counts.items():
+    for k,v in sorted(counts.items()):
         print ("  %-40s  %4d" %  (k, v))
     print ("")
     # Check whether there are any PID-namespaces. If yes, issue a warning
