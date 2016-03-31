@@ -560,7 +560,8 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
     for(i=0; i < argc; i++)
       fprintf(fp,"  argv[%d] = %s\n", i, argv[i]);
   }
-  
+
+  optind = 1;
   while ((c = getopt_long(argc, argv, "+hvpmd:",
 			  long_options, &option_index)) != -1) {
     switch(c) {
