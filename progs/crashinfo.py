@@ -16,15 +16,18 @@
 from __future__ import print_function
 
 # 1st-pass dumpanalysis
-__version__ = "0.6.3"
+__version__ = "0.6.4"
 
 from pykdump.API import *
 
 from LinuxDump import BTstack
-from LinuxDump.BTstack import exec_bt, bt_summarize, bt_mergestacks
+from LinuxDump.BTstack import (exec_bt, bt_summarize, bt_mergestacks,
+                               fastSubroutineStacks)
 from LinuxDump.kmem import parse_kmemf, print_Zone
 from LinuxDump.Tasks import (TaskTable, Task, tasksSummary, getRunQueues,
             TASK_STATE, sched_clock2ms, decode_waitq)
+from LinuxDump.Analysis import (check_possible_hang, check_saphana,
+                                check_memory_pressure)
 from LinuxDump.inet import summary
 import LinuxDump.inet.netdevice as netdevice
 from LinuxDump import percpu, sysctl, Dev
@@ -138,7 +141,7 @@ def print_dmesg():
 def check_mem():
     if (not quiet):
         printHeader("Memory Usage (kmem -i)")
-        kmemi = exec_crash_command_bg("kmem -i")
+        kmemi = memoize_cond(CU_LIVE | CU_TIMEOUT)(exec_crash_command_bg)("kmem -i")
         if (kmemi):
             print (kmemi)
         else:
@@ -148,7 +151,7 @@ def check_mem():
     # Checking for fragmentation (mostly useful on 32-bit systems)
     # In some patological cases this can be _very_ slow
     try:
-        kmemf = exec_crash_command_bg("kmem -f")
+        kmemf = memoize_cond(CU_LIVE | CU_TIMEOUT)(exec_crash_command_bg)("kmem -f")
     except crash.error:
         kmemf = None
         pylog.warning("Cannot Execute kmem -f")
@@ -197,7 +200,7 @@ def check_mem():
         
     # Check whether NR_WRITEBACK is below vm_dirty_ratio
     try:
-        kmemz = exec_crash_command_bg("kmem -z")
+        kmemz = exec_crash_command_bg("kmem -V")
         nr_writeback = 0
         for l in kmemz.splitlines():
             spl = l.split(':')
@@ -1160,6 +1163,7 @@ def checkAllStacks():
             pylog.error("Corrupted Stack Detected\n\t%s\n\t  %s" % (str(t), rc))
 
 
+
 # ----------------------------------------------------------------------------
 
 op =  OptionParser()
@@ -1472,6 +1476,22 @@ try:
 except:
     # For those kernels where are test does not work
     pass
+
+# Check hangs/memory pressure/SAP HANA stuff
+stacks_helper = fastSubroutineStacks()
+_funcpids = stacks_helper.find_pids_byfuncname
+_SAPHANA = check_saphana()
+_p_hang = check_possible_hang()
+if (_p_hang):
+    pylog.warning("   Run 'hanginfo' to get more details")
+_p_memory_pressure = check_memory_pressure(_funcpids)
+
+if (_SAPHANA == 2 and _p_hang and _p_memory_pressure):
+    pylog.warning("This host is running SAP HANA and is under memory pressure"
+        "\n\tMost probably, it is not properly tuned and this is the root cause"
+        "\n\tof the hang"
+        "\n\tRun 'hanginfo --saphana' for explanations and tuning suggestions")
+
 
 # After this line we put all routines that can produce significant output
 # We don't want to see hundreds of lines in the beginning!
