@@ -28,10 +28,12 @@ from pykdump.Generic import Bunch
 from LinuxDump import percpu
 from LinuxDump.Tasks import (TaskTable, Task, tasksSummary, ms2uptime, decode_tflags,
                              decode_waitq, TASK_STATE)
-from LinuxDump.BTstack import (exec_bt, bt_mergestacks,
-                               get_threads_subroutines, verifyFastSet)
+from LinuxDump.BTstack import (exec_bt, bt_mergestacks, fastSubroutineStacks,
+                               verifyFastSet)
 from LinuxDump.inet import proto
-from LinuxDump.Analysis import print_wait_for_AF_UNIX
+from LinuxDump.Analysis import (print_wait_for_AF_UNIX, print_pidlist,
+                                check_possible_hang,
+                                check_saphana, check_memory_pressure)
 from LinuxDump.Files import pidFiles
 
 from collections import namedtuple, defaultdict
@@ -45,7 +47,7 @@ __resource_owners = set()
 
 # Print header: what we are waiting for and number of pids
 def print_header(msg, n = None):
-    print("\n {:=^50}".format(" " + msg + " "))
+    print("\n {:=^60}".format(" " + msg + " "))
 
 # Get UNINTERRUPTIBLE tasks
 # In reality, get STOPPED, TRACED, ZOMBIE, DEAD and WAKING etc too - 
@@ -60,26 +62,6 @@ def getUNTasks():
 def remove_pidlist(pset, pids):
     pset -= set(pids)
 
-# Print pidlist according to verbosity setting
-def print_pidlist(pids):
-    # Prepare a list of (ran_ms_ago, pid) list to sort them
-    mlist = []
-    for pid in pids:
-        t = T_table.getByTid(pid)
-        mlist.append((t.Ran_ago, pid))
-    mlist = sorted(mlist)
-    if (verbose):
-        print("        PID     Ran ms ago")
-        print("       -----   ------------")
-        for ran_ms_ago, pid in mlist:
-            print("    %8d  %10d" % (pid, ran_ms_ago))
-    else:
-        ran_y = mlist[0][0]
-        ran_o = mlist[-1][0]
-        spids = [p[1] for p in mlist]
-        print("    Sorted pids (youngest first) [%d, %d] ms ago" % \
-            (ran_y, ran_o))
-        print(textwrap.fill(str(spids), initial_indent=' '*6, subsequent_indent=' ' *7))
 
 # A test to check heuristically whether a pointer looks like mutex
 # On RHEL6 and later
@@ -199,7 +181,8 @@ def print_bdi_writeback(wb):
 def get_sema_owners():
     tt = T_table
     out = defaultdict(list)
-    goodpids = funcpids["do_page_fault"] | funcpids["dup_mm"]
+    goodpids = _funcpids("do_page_fault|do_page_fault")
+    #goodpids = funcpids["do_page_fault"] | funcpids["dup_mm"]
     #print(goodpids)
     for t in tt.allThreads():
         if (not t.pid in goodpids):
@@ -208,25 +191,33 @@ def get_sema_owners():
             out[t.mm.mmap_sem].append(t.pid)
     return out
 
-# Print statistics for threads trying to srhink zones. 
-__shrinkfunc = "shrink_all_zones"
-def find_shrinkzones():
-    shrinkpids = funcpids[__shrinkfunc] | funcpids["shrink_zone"]
-    # we do not need to be 100% sure, this is just for information
-    #verifyFastSet(shrinkpids, __shrinkfunc)
-    if (not shrinkpids):
+# Pritn statistics for threads having a given subroutine on the stack
+def summarize_subroutines(funcnames, title = None):
+    subpids = _funcpids(funcnames)
+    # funcnames are specified using | operator
+    if (not subpids):
         return
     d = defaultdict(int)
     total = 0
-    for pid in shrinkpids:
+    for pid in subpids:
         t = T_table.getByTid(pid)
         d[t.state] += 1
         total += 1
     # Print
-    print_header(" There are {} threads shrinking zone".format(total))
+    if (title):
+        header = "There are {} threads {}".format(total, title)
+    else:
+        header = "There are {} threads doing {}".format(total, funcnames)
+    print_header(header)
     for k,v in d.items():
         print("  {:3d} in {}".format(v, k))
+    print_pidlist(subpids, maxpids = _MAXPIDS, verbose = _VERBOSE,
+                  sortbytime = _SORTBYTIME)
 
+__shrinkfunc = "shrink_all_zones"
+def find_shrinkzones():
+    return summarize_subroutines("shrink_all_zones|shrink_zone",
+                                 title='shrinking zone')
 
 # Find all PIDs that match a give mm,mmap_sem address
 def find_pids_mmap(addr):
@@ -240,7 +231,7 @@ def find_pids_mmap(addr):
 #
 def check_mmap_sem(tasksrem):
     waiters = {}
-    for addr in alltaskaddrs:
+    for addr in stacks_helper.alltaskaddrs:
         task = readSU("struct task_struct", addr)
         if (not task.mm or not task.mm.mmap_sem):
             continue
@@ -258,7 +249,8 @@ def check_mmap_sem(tasksrem):
         print_header("Waiting on mmap semaphores")
         for sema, pids in mmapsem_waiters.items():
             print ("  --", sema)
-            print_pidlist(pids)
+            print_pidlist(pids, maxpids = _MAXPIDS, verbose = _VERBOSE,
+                          sortbytime = _SORTBYTIME)
             powners = possible_owners.get(sema, None)
             if (powners):
                 pid_set = set(pids)
@@ -273,8 +265,8 @@ def check_mmap_sem(tasksrem):
       
 
 def check_inode_mutexes(tasksrem):
-    goodpids = funcpids[__mutexfunc] | \
-        funcpids["__mutex_lock_killable_slowpath"]
+    goodpids = _funcpids(__mutexfunc +\
+        "| __mutex_lock_killable_slowpath")
     inode_addrs = {}
     for pid in goodpids:
         finfo = pidFiles(pid).files
@@ -309,7 +301,8 @@ def check_inode_mutexes(tasksrem):
         for inode, (fn, pids) in mutex_waiters.items():
             print ("  --", inode, fn)
             print_mutex(inode.i_mutex)
-            print_pidlist(pids)
+            print_pidlist(pids, maxpids = _MAXPIDS, verbose = _VERBOSE,
+                          sortbytime = _SORTBYTIME)
             remove_pidlist(tasksrem, pids)
 
 
@@ -328,7 +321,7 @@ __mutexfunc = "__mutex_lock_slowpath"
 def check_other_mutexes(tasksrem):
     #print(mutexlist)
     mutexlist = set()
-    goodpids = funcpids[__mutexfunc]
+    goodpids = _funcpids(__mutexfunc)
     for pid in tasksrem:
         if (not pid in goodpids):
         #if (not bt.hasfunc(__mutexfunc)):
@@ -365,7 +358,8 @@ def check_other_mutexes(tasksrem):
         if (once):
             print_header("Waiting on mutexes")
         print_mutex(mutex)
-        print_pidlist(pids)
+        print_pidlist(pids, maxpids = _MAXPIDS, verbose = _VERBOSE,
+                      sortbytime = _SORTBYTIME)
         remove_pidlist(tasksrem, pids)
 
 def check_congestion_queues(tasksrem):
@@ -386,19 +380,62 @@ def check_congestion_queues(tasksrem):
                 print(" ---- waiting on the read congestion queue ---")
             else:
                 print(" ---- waiting on the write congestion queue ---")
-                print(textwrap.fill(str(pids), initial_indent=' '*3, subsequent_indent=' ' *4))
-                remove_pidlist(tasksrem, pids)
+            print_pidlist(pids, maxpids = _MAXPIDS, verbose = _VERBOSE,
+                          sortbytime = _SORTBYTIME)
+            remove_pidlist(tasksrem, pids)
 
 # Check and print based on functions on the stack
 def check_stack_and_print(funcname, tasksrem):
-    pids = funcpids[funcname] & tasksrem
+    pids = _funcpids(funcname) & tasksrem
     verifyFastSet(pids, funcname)
     if (not pids):
         return
     print_header("Waiting in {}".format(funcname))
-    print_pidlist(pids)
+    print_pidlist(pids, maxpids = _MAXPIDS, verbose = _VERBOSE,
+                  sortbytime = _SORTBYTIME)
     remove_pidlist(tasksrem, pids)
 
+
+# kthread_create_list
+
+def check_kthread_create_list(tasksrem):
+    try:
+        head = ListHead(readSymbol("kthread_create_list"),
+                        "struct kthread_create_info")
+    except TypeError:
+        return
+    tasks = []
+    for create in head.list:
+        tasks += decode_waitq(create.done.wait)
+
+    pids_on_the_queue = [t.pid for t in tasks]
+    
+    # Check pids of processes having kthread_create_on_node
+    extra = _funcpids("kthread_create_on_node")
+    extra = list( extra - set(pids_on_the_queue))
+    
+    if (tasks):
+        print_header("Waiting for kthreadd")
+        print_pidlist(pids_on_the_queue, title="On the queue: ",
+                      maxpids = _MAXPIDS, verbose = _VERBOSE,
+                      sortbytime = _SORTBYTIME)
+        if (extra):
+            print("   Dequeued but not processed yet: {}".format(extra))
+        remove_pidlist(tasksrem, pids_on_the_queue + extra)
+
+ 
+# Check threads that have throttle_direct_reclaim
+# They are waiting for kswapd
+__tdr_func = "throttle_direct_reclaim"
+def check_throttle_direct_reclaim(tasksrem):
+    pids = _funcpids(__tdr_func)
+    #verifyFastSet(pids, __tdr_func)
+    if (pids):
+        print_header("Waiting for kswapd")
+        print_pidlist(pids, maxpids = _MAXPIDS, verbose = _VERBOSE, 
+                      sortbytime = _SORTBYTIME)
+        remove_pidlist(tasksrem, pids)
+        
 
 # ==============end of check subroutines=======================   
        
@@ -424,6 +461,8 @@ def classify_UN(v):
     check_other_mutexes(tasksrem)
     check_mmap_sem(tasksrem)
     check_congestion_queues(tasksrem)
+    check_kthread_create_list(tasksrem)
+    check_throttle_direct_reclaim(tasksrem)
 
     if (tasksrem):
         print ("\n\n ********  Non-classified UN Threads ********** {}"
@@ -475,35 +514,70 @@ if ( __name__ == '__main__'):
                   action="store_true",
                   help="Print program version and exit")
 
+    op.add_option("--maxpids", dest="Maxpids", default = 10,
+                  action="store", type='int',
+                  help="Maximum number of PIDs to print")
+    
+    op.add_option("--sortbypid", dest="Sortbypid", default = 0,
+                  action="store_true",
+                  help="Sort by pid (the default is by ran_ago)")
+    
     op.add_option("--syslogger", dest="Syslogger", default = 0,
                   action="store_true",
                   help="Print info about hangs on AF_UNIX sockets (such as used by syslogd")
 
+    op.add_option("--saphana", dest="Saphana", default = 0,
+                  action="store_true",
+                  help="Print recommendations for SAP HANA specific hangs")
+
     (o, args) = op.parse_args()
     
-    v = verbose = o.Verbose
+    v = _VERBOSE = o.Verbose
+    _MAXPIDS = o.Maxpids
+    _SORTBYTIME = not o.Sortbypid
     T_table = TaskTable()
+    _SAPHANA = check_saphana()
+    
     if (o.Version):
         print ("HANGINFO version %s" % (__version__))
         sys.exit(0)
 
     if (o.Syslogger):
-        print_wait_for_AF_UNIX(verbose)
+        print_wait_for_AF_UNIX(_VERBOSE)
         sys.exit(0)
-     
-    funcpids, functasks, alltaskaddrs  = get_threads_subroutines()
-    #find_shrinkzones()
-    #for pid in funcsMatch(funcpids, r'^io_schedule'):
-    #    print(pid)
-    
-    #sys.exit(0)    
-    zvm_pids = set(funcpids[__shrinkfunc])
 
-    #find_pids_mmap(0xffff8b1b7c858ee0)
-    #sys.exit(0)
+    if (o.Saphana):
+        try:
+            from LinuxDump.SapHana import doSapHana
+        except ImportError:
+            def doSapHana():
+                print("See https://www.suse.com/documentation/sles_for_sap_11/book_s4s/data/s4s_configuration.html")
+        if _SAPHANA == 2:
+            doSapHana()
+        else:
+            print("This host is _not_ running SAP HANA!")
+        sys.exit(0)
+       
+    stacks_helper = fastSubroutineStacks()
+    _funcpids = stacks_helper.find_pids_byfuncname
+    
+
+
     classify_UN(v)
     find_shrinkzones()
     
+    summarize_subroutines("balance_dirty_pages")
+    
     print("\n")
     print_wait_for_AF_UNIX(0)
+
+    _p_hang = check_possible_hang()
+    _p_memory_pressure = check_memory_pressure(_funcpids)
+    
+    if (_SAPHANA == 2 and _p_hang and _p_memory_pressure):
+        pylog.warning("This host is running SAP HANA and is under memory pressure"
+            "\n\tMost probably, it is not properly tuned and this is the root cause"
+            "\n\tof the hang"
+            "\n\tRun 'hanginfo --saphana' for explanations and tuning suggestions")
+ 
 
