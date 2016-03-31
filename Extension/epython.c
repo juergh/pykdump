@@ -2,7 +2,7 @@
    
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -561,7 +561,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
       fprintf(fp,"  argv[%d] = %s\n", i, argv[i]);
   }
 
-  optind = 1;
+  optind = 0;
   while ((c = getopt_long(argc, argv, "+hvpmd:",
 			  long_options, &option_index)) != -1) {
     switch(c) {
