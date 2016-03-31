@@ -476,68 +476,23 @@ def bt_mergestacks(btlist, precise = False,
                 print (str(pid).rjust(6), end=' ')
             print ("")
 
-@memoize_cond(CU_LIVE | CU_TIMEOUT)
-def __get_bt_r():
-    return exec_crash_command("foreach bt -r")
+
+
+# An auxiliary class to get subroutine-stack results quickly even though not 
+# 100%-reliable
+# 
+# we just search strings on 'bt -r' and sometimes there are fake
+# positives. So you should check real 'bt' output for threads
+# found here if you want to be sure
+
+# First, some helper subroutines. They do not depend on class instance and
+# making them static members is not really needed
 
 @memoize_cond(CU_LIVE | CU_TIMEOUT)
 def __get_bt_t():
     return exec_crash_command("foreach bt -t")
 
-
-# This subroutine is fast but not 100%-reliable.
-# we just search strings on 'bt -r' and sometimes there are fake
-# positives. So you should check real 'bt' output for threads
-# found here if you want to be sure
-@memoize_cond(CU_LIVE | CU_TIMEOUT)
-def get_threads_subroutines_r():
-    all = __get_bt_r()
-    ptrdigits = PTR_SIZE * 2
-    re_hex = re.compile(r"^[0-9a-fA-F]+$")
-    def hextest(s):
-        return len(s) == ptrdigits and re_hex.match(s)
-    def hextest(s):
-        if(len(s) == ptrdigits+1):
-            s = s[:-1]
-        if(len(s) != ptrdigits):
-            return False
-        try:
-            int(s, 16)
-        except ValueError:
-            return False
-        return True
-
-
-    funcpids = defaultdict(set)
-    functasks = defaultdict(set)
-    alltaskaddrs = []       # A list of all taskaddrs - we get it here anyway...
-
-    for ss in all.split("PID:"):
-        # Extract strings that look like function names
-        if (len(ss) < 2):
-            continue
-        spl = ss.split()
-        #  0         2             4            6
-        # pid TASK: taskaddr CPU: cpu COMMAND: command
-        try:
-            pid = int(spl[0])
-            taskaddr = int(spl[2], 16)
-            cpu = int(spl[4])
-        except:
-            pylog.warning("Corrupted 'bt -r' entry")
-            continue
-        alltaskaddrs.append(taskaddr)
-        good = [f.split('+')[0] for f in spl[7:] if not hextest(f)]
-        funcs = set()
-        for f in good:
-            funcs.add(f)
-        for f in funcs:
-            funcpids[f].add(pid)
-            functasks[f].add(taskaddr)
-
-    return funcpids, functasks, alltaskaddrs   
-
-def get_threads_subroutines():
+def _get_threads_subroutines():
     all = __get_bt_t()
     funcpids = defaultdict(set)
     functasks = defaultdict(set)
@@ -578,6 +533,25 @@ def get_threads_subroutines():
 
     return funcpids, functasks, alltaskaddrs   
 
+# Now the class itself - this should be used by other modules
+class fastSubroutineStacks(object):
+    def __init__(self):
+        out = _get_threads_subroutines()
+        self.funcpids, self.functasks, self.alltaskaddrs = out
+    # Find pids matching funcnames. This subroutine does not support
+    # wildcards/regexps, just one or more exact names joined by '|'
+    def find_pids_byfuncname(self, funcnames):
+        # funcnames are specified using | operator
+        subpids = set()
+        for fn in funcnames.split("|"):
+            fn = fn.strip()
+            subpids |= self.funcpids[fn]
+
+        # we do not need to be 100% sure, this is just for information
+        #verifyFastSet(shrinkpids, __shrinkfunc)
+        return subpids
+
+# A slow but 100% reliable version - needed mainly for testing
 def get_threads_subroutines_slow():
     btsl = exec_bt("foreach bt")
     funcpids = defaultdict(set)
