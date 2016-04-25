@@ -47,7 +47,8 @@ if (_Pym == 2):
     import Generic as Gen
     from Generic import (Bunch, TypeInfo, VarInfo, PseudoVarInfo,
          SUInfo, ArtStructInfo, EnumInfo,
-         memoize_cond, CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT)
+         memoize_cond, CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT,
+         memoize_typeinfo, purge_typeinfo)
     def b2str(s): return s
 
     _bjoin = ''
@@ -73,8 +74,7 @@ hexl = Gen.hexl
 
 _MAXEL = 10000
 
-# Memoize gdb_typeinfo until we find a better way to cache the results
-@memoize_cond(CU_LOAD)
+@memoize_typeinfo
 def gdb_typeinfo(sname):
     return crash.gdb_typeinfo(sname)
 
@@ -1466,7 +1466,7 @@ def hlist_for_each_entry(emtype, head, member):
     return
     
 
-
+@memoize_typeinfo
 def getStructInfo(stype):
     si = SUInfo(stype)
     return si
@@ -1566,26 +1566,14 @@ def sdef2ArtSU(sdef):
 # works for any type, not just for structs
 # We cache the results (even negative ones). The cache should be invalidated
 
-__struct_size_cache = {}
-# when we load/unload modules
+@memoize_typeinfo
 def struct_size(sname):
-    try:
-        return __struct_size_cache[sname]
-    except KeyError:
-        pass
     try:
         si = TypeInfo(sname)
         sz = si.size
     except:
         sz = -1
-    __struct_size_cache[sname]= sz
     return sz
-
-def invalidate_cache_info(sname = None):
-    if (sname and sname in __struct_size_cache):
-        del __struct_size_cache[sname]
-    else:
-        __struct_size_cache.clear()
 
 def struct_exists(sname):
     if (struct_size(sname) == -1):
@@ -1593,7 +1581,7 @@ def struct_exists(sname):
     else:
         return True
     
-@memoize_cond(CU_LOAD | CU_PYMOD)
+@memoize_typeinfo
 def member_size(sname, fname):
     #print "++member_size", sname, fname
     sz = -1
@@ -1609,7 +1597,7 @@ def member_size(sname, fname):
 # best trying to find its offset checking intermediate structures as
 # needed
 
-@memoize_cond(CU_LOAD | CU_PYMOD)
+@memoize_typeinfo
 def member_offset(sname, fname):
     try:
         si = getStructInfo(sname)

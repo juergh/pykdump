@@ -4,7 +4,7 @@
 #
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -137,20 +137,46 @@ class MemoizeTI(type):
             return rc
 
 class MemoizeSU(type):
-    __cache = {}
     def __call__(cls, *args):
-        sname = args[0]
+        key = (args[0], MemoizeSU)
         try:
-            return MemoizeSU.__cache[sname]
+            return _typeinfo_cache[key]
         except KeyError:
             rc =  super(MemoizeSU, cls).__call__(*args)
-            MemoizeSU.__cache[sname] = rc
+            _typeinfo_cache[key] = rc
             return rc
     @staticmethod
-    def purgecache():
-        MemoizeSU.__cache.clear()
-        print ("SU Cache purged, len=", len(MemoizeSU.__cache))
- 
+    def purgecache(sn = None):
+        purge_typeinfo(sn)
+
+
+
+# A cache for anything typeinfo-related. The key to memoize on is
+# (sn, function) -and we assume that 'sn' is always the first argument
+# (sn, arg1, ...) where 'sn' is struct/type name. The idea is that when we need
+# to change structure definition on the fly (e.g. multiple definitons)
+# we want to do just purge_type_info(sn) and it will purge all related caches
+
+_typeinfo_cache = {}
+def memoize_typeinfo(fn):
+    def newfunc(*args, **keyargs):
+        key = (args[0], fn.__name__) + args[1:]
+        try:
+            return _typeinfo_cache[key]
+        except KeyError:
+            #print ("Memoizing", key)
+            val =  fn(*args)
+            _typeinfo_cache[key] = val
+            return val
+    return newfunc
+
+def purge_typeinfo(sn = None):
+    if (sn is None):
+        _typeinfo_cache.clear()
+        return
+    for k in _typeinfo_cache.keys():
+        if (k[0] == sn):
+            del _typeinfo_cache[k]  
 
 
 # Memoize cache. Is mainly used for expensive exec_crash_command

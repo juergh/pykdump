@@ -8,7 +8,7 @@
 # depending on availability of low-level shared library dlopened from crash
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -74,9 +74,10 @@ require_cmod_version(pykdump.minimal_cmod_version)
 # visible to API
 
 from . import Generic as gen
-from .Generic import Bunch, TrueOnce, ArtStructInfo, EnumInfo, iterN, \
-     memoize_cond, purge_memoize_cache, \
-     CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT
+from .Generic import (Bunch, TrueOnce, ArtStructInfo, EnumInfo, iterN,
+     memoize_cond, purge_memoize_cache,
+     CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT,
+     memoize_typeinfo, purge_typeinfo)
 
 hexl = gen.hexl
 unsigned16 = gen.unsigned16
@@ -554,9 +555,7 @@ def loadModule(modname, ofile = None, altname = None):
     success = (rc.find("MODULE") != -1)
     __loaded_Mods[modname] = success
     # Invalidate typeinfo caches
-    wrapcrash.invalidate_cache_info()
-    # Invalidate memoize_cache entries with CU_LOAD set
-    purge_memoize_cache(CU_LOAD)
+    purge_typeinfo()
     return success
 
 # Unload module
