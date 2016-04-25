@@ -348,16 +348,22 @@ def old_print_blkdevs(v = 0):
 #}
 
 def print_dm_devices(verbose = 0):
-    sn = "struct hash_cell"
+    sn = "struct dm_table"
     # Check whether this struct info is present
     if (not struct_exists(sn)):
         loadModule("dm_mod")
     if (not struct_exists(sn)):
         print ("To decode DeviceMapper structures, you need a debuggable dm_mod")
         return
+    # Some kernels have multiple 'struct dm_table" definitions, we need
+    # the correct one!
+    # See https://www.redhat.com/archives/dm-devel/2015-December/msg00045.html
+    if (symbol_exists("dm_table_create")):
+        exec_crash_command("set scope dm_table_create")
+    purge_typeinfo(sn)      # Purge old definitions
     nameb = readSymbol("_name_buckets")
     out = []
-    off = member_offset(sn, "name_list")
+    off = member_offset("struct hash_cell", "name_list")
     for b in nameb:
         for a in readListByHead(b):
             hc = readSU("struct hash_cell", a - off)
