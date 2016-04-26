@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -13,7 +13,7 @@
 # To facilitate migration to Python-3, we start from using future statements/builtins
 from __future__ import print_function
 
-__version__ = "0.8.5"
+__version__ = "0.9.0"
 
 
 from pykdump.API import *
@@ -21,17 +21,18 @@ from pykdump.API import *
 # For INET stuff
 from LinuxDump.inet import *
 from LinuxDump.inet import proto, netdevice
-#reload(proto)
-from LinuxDump.inet.proto import tcpState, sockTypes, \
-     IP_sock,  P_FAMILIES, decodeSock, print_accept_queue,\
-     print_skbuff_head, \
-     decode_skbuf, decode_IP_header, decode_TCP_header, \
-     skb_shinfo, walk_skb
+
+from LinuxDump.inet.proto import (tcpState, sockTypes,
+     IP_sock,  P_FAMILIES, decodeSock, print_accept_queue,
+     print_skbuff_head,
+     decode_skbuf, decode_IP_header, decode_TCP_header,
+     skb_shinfo, walk_skb)
 
 from LinuxDump.Tasks import TaskTable
 from LinuxDump.inet import summary
 
 import string, textwrap
+import itertools
 
 from collections import namedtuple, defaultdict
 
@@ -273,6 +274,9 @@ def print_TCP_tw(tw):
     # Check whether it belongs to our namespace
     if (pstr.wrongNameSpace()): return
 
+    if(tcpstate_filter and tcpstate_filter !=  tcpState.TCP_TIME_WAIT):
+        return
+
     if (port_filter):
         if (pstr.sport != port_filter and pstr.dport != port_filter):
             return
@@ -286,6 +290,27 @@ def print_TCP_tw(tw):
 
     if (details):
         print ("\ttw_timeout=%d, ttd=%d" % (pstr.tw_timeout, pstr.ttd))
+
+# Print "struct request_sock"
+def print_TCP_rqs(rqs):
+    pstr = proto.IP_rqs(rqs, details)
+    # Check whether it belongs to our namespace
+    if (pstr.wrongNameSpace()): return
+
+    if(tcpstate_filter and tcpstate_filter !=  tcpState.TCP_SYN_RECV):
+        return
+
+    if (details):
+        print ('-' * 78)
+        if (_tasksocktable):
+            pids = " pids={}".format(_tasksocktable[long(o)])
+        else:
+            pids = ""
+        print (rqs, '\t\tTCP' + pids)
+    print (pstr)
+    if (not details):
+        return
+    print("\tmss={}, num_retrans={}".format(rqs.mss, rqs.num_retrans))
 
 
 def print_TCP():
@@ -324,26 +349,27 @@ def print_TCP():
 
     if (not print_nolisten):
         return
-    # Print ESTABLISHED TCP
 
-    for o in proto.get_TCP_ESTABLISHED():
+    # Print ESTABLISHED TCP. It would be more correct to say:
+    # "print the contents of ehash" as on kernels 3.x and later
+    # we have both TIME_WAIT and SYN_RECV here
+    # So we loop over everything at once
+
+    all_tcp = itertools.chain(proto.get_TCP_ESTABLISHED(),
+                             proto.get_TCP_TIMEWAIT())
+    for o, otype in  all_tcp :
         msg = pylog.getsilent()
         if (msg):
             pylog.error("TCP_ESTABLISHED", msg)
 
-        print_TCP_sock(o)
+        # The returned object can be
+        if (otype == "tcp"):
+            print_TCP_sock(o)
+        elif (otype == "tw"):
+            print_TCP_tw(o)
+        elif (otype == "rqs"):
+            print_TCP_rqs(o)
 
-
-    # Print TIME_WAIT
-    if (tcpstate_filter and tcpstate_filter != tcpState.TCP_TIME_WAIT):
-        return
-    jiffies = readSymbol("jiffies")
-    for tw in proto.get_TCP_TIMEWAIT():
-        msg = pylog.getsilent()
-        if (msg):
-            pylog.error("TCP_TIMEWAIT", msg)
-
-        print_TCP_tw(tw)
 
 # print UDP
 

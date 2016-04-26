@@ -2,7 +2,7 @@
 # module LinuxDump.inet.summary
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -25,10 +25,12 @@ These summaries are used both in 'xportshow' and 'crashinfo'
 '''
 
 from pykdump.API import *
-from LinuxDump.inet import proto, netdevice
+from LinuxDump.inet import (proto, netdevice)
 
-from LinuxDump.inet.proto import tcpState, sockTypes, \
-     IP_sock,  P_FAMILIES
+from LinuxDump.inet.proto import (tcpState, sockTypes,
+     IP_sock,  P_FAMILIES)
+
+import itertools
 
 
 
@@ -65,39 +67,49 @@ def TCPIP_Summarize(quiet = False):
     nodelay = 0
     w_rcv_closed = 0
     w_snd_closed = 0
-    for o in proto.get_TCP_ESTABLISHED():
+
+    # Process ESTABLISHED + TIME_WAIT
+    all_tcp = itertools.chain(proto.get_TCP_ESTABLISHED(),
+                             proto.get_TCP_TIMEWAIT())
+    for o, otype in  all_tcp :
         pylog.silenterror("TCP_ESTABLISHED")
         try:
-            pstr = IP_sock(o, True)
+            if (otype == "tcp"):
+                pstr = IP_sock(o, True)
+            elif (otype == "tw"):
+                pstr = proto.IP_conn_tw(o, True)
+            elif (otype == "rqs"):
+                pstr = proto.IP_rqs(o, True)
+            else:
+                pylog.error("Unknown socket type")
+                continie
         except KeyError as msg:
             pylog.error(msg)
             continue
-        if (pstr.protocol != 6):
-            pylog.warning("non-TCP socket in TCP-hash", o, pstr.protocol)
-            continue
-        counts[pstr.state] = counts.setdefault(pstr.state, 0) + 1
-        if (pstr.user_data):
-            udata += 1
-        #nonagle=pstr.Tcp.nonagle
-        nonagle = pstr.topt.nonagle
-        if (nonagle == 1):
-            nodelay += 1
-        snd_wnd = pstr.topt.snd_wnd
-        rcv_wnd = pstr.topt.rcv_wnd
-        if (rcv_wnd == 0):
-            w_rcv_closed += 1
-        if (snd_wnd == 0):
-            w_snd_closed += 1
-
-
-        
-   
-    # TIME_WAIT
-    jiffies = readSymbol("jiffies")
-    for tw in proto.get_TCP_TIMEWAIT():
-        pylog.silenterror("get_TCP_TIMEWAIT")
-        pstr = proto.IP_conn_tw(tw, True)
-        counts[pstr.state] = counts.setdefault(pstr.state, 0) + 1
+        if (otype == "tcp"):
+            if (pstr.protocol != 6):
+                pylog.warning("non-TCP socket in TCP-hash", o, pstr.protocol)
+                continue
+            counts[pstr.state] = counts.setdefault(pstr.state, 0) + 1
+            if (pstr.user_data):
+                udata += 1
+            #nonagle=pstr.Tcp.nonagle
+            nonagle = pstr.topt.nonagle
+            if (nonagle == 1):
+                nodelay += 1
+            snd_wnd = pstr.topt.snd_wnd
+            rcv_wnd = pstr.topt.rcv_wnd
+            if (rcv_wnd == 0):
+                w_rcv_closed += 1
+            if (snd_wnd == 0):
+                w_snd_closed += 1
+        elif (otype == "tw"):
+            # TIME_WAIT
+            jiffies = readSymbol("jiffies")
+            counts[pstr.state] = counts.setdefault(pstr.state, 0) + 1
+        elif (otype == "rqs"):
+            # NEW_SYN_RECV
+            counts[pstr.state] = counts.setdefault(pstr.state, 0) + 1
 
     states = sorted(counts.keys())
     if (not quiet):

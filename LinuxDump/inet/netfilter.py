@@ -1,7 +1,7 @@
 # module LinuxDump.inet.netfilter
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -70,11 +70,16 @@ enum nf_ip_hook_priorities {
 #NF_IP_HOOK_PRIORITIES = CEnum(_NF_IP_HOOK_PRIORITIES_c)
 
 def nf():
-    symi = whatis("nf_hooks")
-    NPROTO = symi.array[0]
-    NF_MAX_HOOKS = symi.array[1]
+    if (symbol_exists("nf_hooks")):
+        symi = whatis("nf_hooks")
+        NPROTO = symi.array[0]
+        NF_MAX_HOOKS = symi.array[1]
+        nf_hooks = readSymbol("nf_hooks")
+    else:
+        net_ns = get_ns_net()
+        nf_hooks = net_ns.nf.hooks
+        NPROTO, NF_MAX_HOOKS = len(nf_hooks), len(nf_hooks[0])
     offset = member_offset("struct nf_hook_ops", "list")
-    nf_hooks = readSymbol("nf_hooks")
     print ("NPROTO=%d, NF_MAX_HOOKS=%d" % (NPROTO, NF_MAX_HOOKS))
     for np in range(NPROTO):
         headerprinted = False

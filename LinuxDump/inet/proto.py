@@ -271,6 +271,77 @@ class IP_sock(object):
                    formatIPv4(self.dst, self.dport)+\
                self.right
 
+# "struct request_sock"
+class IP_rqs(object):
+    def __init__(self, o, details=False):
+        s = o.castTo("struct inet_sock")
+        self.__casted_sock = s
+        #print o, s
+        self.left = self.right = ''
+        self.family = family = s.family
+        self.protocol = s.protocol
+        self.sktype = s.type
+        self.user_data = s.user_data
+        self.state =  s.state   # Makes sense mainly for TCP
+
+        if (family == P_FAMILIES.PF_INET):
+            self.src = s.Src
+            self.sport = ntohs(s.sport)
+            self.dst = s.Dst
+            self.dport = ntohs(s.dport)
+        elif (family == P_FAMILIES.PF_INET6):
+            self.src = s.Src6
+            self.sport = ntohs(s.sport)
+            self.dst = s.Dst6
+            self.dport = ntohs(s.dport)
+            self.state =  s.state   # Makes sense mainly
+        else:
+            raise TypeError("family=%d o=%s" % (family, str(o)))
+
+        try:
+            self.net = s.Net
+        except:
+            self.net = None
+
+        # Protocol-specific details
+        if (not details):
+            return
+        
+    # Check namespace
+    def wrongNameSpace(self):
+        return (self.net and self.net != get_ns_net())
+
+    def __getattr__(self, fname):
+        return getattr(self.__casted_sock, fname)
+
+
+    def __str__(self):
+        #Local Address           Foreign Address
+        #0.0.0.0:45959           0.0.0.0:*
+        pname = "tcp"
+
+        if (self.right == ''):
+            self.right = ' ' + "SYN_RECV"
+
+        if (self.family == P_FAMILIES.PF_INET6):
+            pname += "6"
+            if (self.left == ''):
+                self.left = pname.ljust(5)
+            return  self.left+ ' ' + \
+                   formatIPv6(self.src, self.sport)+\
+                   formatIPv6(self.dst, self.dport)+\
+                   self.right
+
+        else:
+            # PF_INET
+            if (self.left == ''):
+                self.left = pname.ljust(5)
+
+            return  self.left+ ' ' + \
+                   formatIPv4(self.src, self.sport)+\
+                   formatIPv4(self.dst, self.dport)+\
+               self.right
+
 
 
 class IP_conn_tw(IP_sock):
@@ -577,6 +648,10 @@ def init_PseudoAttrs():
                          "tcp.ca_state"]
     tcp_sock.l_opt = ["inet_conn.icsk_accept_queue.listen_opt",
                       "tcp.listen_opt"]
+    # On new kernels (4.4), there is no l_opt at all! Emulate all
+    # needed subroutines programatically...
+    if (tcp_sock.l_opt is False):
+        structSetProcAttr("struct tcp_sock", "l_opt", _emulate_lopt)
     tcp_sock.rx_opt = ["tcp", "rx_opt"]
     tcp_sock.rcv_tstamp = ["tcp.rcv_tstamp", "rx_opt.rcv_tstamp"]
     tcp_sock.lsndtime =  ["tcp.lsndtime", "rx_opt.lsndtime"]
@@ -698,7 +773,28 @@ def init_PseudoAttrs():
         else:
            structSetProcAttr(sn, "Peer", getPeer26old)
 
-        
+
+class _emulate_lopt(object):
+    def __init__(self, tcp):
+        self.tcp = tcp
+        self.icsk_accept_queue = tcp.accept_queue
+    @property
+    def max_qlen_log(self):
+        return 1
+    @property
+    def qlen(self):
+        qlen = atomic_t(self.icsk_accept_queue.qlen)
+        return qlen
+    @property
+    def qlen_young(self):
+        young = atomic_t(self.icsk_accept_queue.young)
+        return young
+    @property
+    def syn_table(self):
+        # There is no syn_table in kernel 4.4. We insert incoming
+        # requests (converted to sock) directly into ehash
+        return []
+
 # TCP structures are quite different for 2.4 and 2.6 kernels, it makes sense to
 # have two different versions of code
 
@@ -729,7 +825,7 @@ def get_TCP_LISTEN():
                     yield s
  
 
-def get_TCP_ESTABLISHED(tw=False):
+def get_TCP_ESTABLISHED():
     # ESTABLISHED
     t = INET_Stuff
     if (t.Kernel24):
@@ -740,35 +836,24 @@ def get_TCP_ESTABLISHED(tw=False):
             while (next):
                 s = readSU(t.sockname, next)
                 next = s.next
-            yield s
+            yield (s, "tcp")
     else:
         # 2.6
-        # On 3.13 TCP_WAIT socks are intermixed with others
+        # On 3.13 TCP_WAIT socks are in this hash too
+        # on 4.X SYN_RECV are in this has too
         for h, b in getFullBucketsH(t.ehash_addr, t.eb_size, t.ehash_size, t.chain_off):
             for a in inet_sk_for_each(b, h):
                 s = readSU("struct tcp_sock", a)
+                # two special cases: this table can contain
+                # TIME_WAIT and SYN_RECV
                 if (s.state == tcpState.TCP_TIME_WAIT):
-                    if (tw):
-                        yield s.castTo("struct tcp_timewait_sock")
-                elif(not tw):
-                    yield s
+                        yield (s.castTo("struct tcp_timewait_sock"), "tw")
+                elif (s.state == tcpState.TCP_NEW_SYN_RECV):
+                        yield (s.castTo("struct request_sock"), "rqs")
+                else:
+                    yield (s, "tcp")
 
 
-'''
-def get_TCP_ESTABLISHED_debug():
-    t = INET_Stuff
-    ehash = t.ehash_addr
-    for h in range(t.ehash_size):
-        b = ehash[h]
-        #print(b)
-        if (not b):
-            continue
-        chain = b.chain.first
-        for a in inet_sk_for_each(chain, h):
-            s = readSU("struct tcp_sock", a)
-            yield s
-'''
-#get_TCP_ESTABLISHED = get_TCP_ESTABLISHED_debug
 
 # For kernels 2.X
 def get_TCP_TIMEWAIT_2():
@@ -782,7 +867,7 @@ def get_TCP_TIMEWAIT_2():
             while (next):
                 s = readSU('struct tcp_tw_bucket', next)
                 next = s.next
-                yield s
+                yield (s, "tw")
     else:
         # 2.6
         if (t.tw_chain_off != -1):
@@ -795,14 +880,14 @@ def get_TCP_TIMEWAIT_2():
         for h, b in getFullBucketsH(ehash_tw, t.eb_size, t.ehash_size, chain_off):
             for a in inet_sk_for_each(b, h):
                 tw = readSU(t.tw_type, a)
-                yield tw
+                yield (tw, "tw")
 
 def get_TCP_TIMEWAIT():
     __e = EnumInfo("enum tcp_seq_states")
     if ("TCP_SEQ_STATE_TIME_WAIT" in __e):
         return get_TCP_TIMEWAIT_2()
     else:
-        return get_TCP_ESTABLISHED(tw=True)
+        return []               # this is in ehash
 
 # ----------------- UDP ----------------------------
 
@@ -1100,12 +1185,19 @@ enum {
   TCP_LAST_ACK,
   TCP_LISTEN,
   TCP_CLOSING,   /* now a valid state */
+  TCP_NEW_SYN_RECV,  /* 4.x kernels */
 
   TCP_MAX_STATES /* Leave at the end! */
 };
 '''
 
 tcpState = CEnum(tcp_state_c)
+
+# Adjust TCP_MAX_STATES if needed. This is hack, needs to be reimplemented
+
+__TCP_MAX_STATES = enumerator_value("TCP_MAX_STATES")
+if (__TCP_MAX_STATES):
+    tcpState.lookup["TCP_MAX_STATES"] = __TCP_MAX_STATES
 
 sock_type_c = '''
 enum sock_type {
