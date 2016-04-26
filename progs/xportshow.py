@@ -179,8 +179,17 @@ def print_TCP_sock(o):
             print ("\t backlog=%d(%d)" % (pstr.sk_ack_backlog,
                                          pstr.sk_max_ack_backlog))
             l_opt = pstr.l_opt
+            # For kernel 4.2:
+            # qlen = qlen_inc - qlen_dec
+            # young = young_inc - young_dec
+            if (l_opt.hasField("qlen")):
+                qlen = l_opt.qlen
+                qlen_young = l_opt.qlen_young
+            else:
+                qlen = l_opt.qlen_inc - l_opt.qlen_dec
+                qlen_young = l_opt.young_inc - l_opt.young_dec
             print ("\t max_qlen_log=%d qlen=%d qlen_young=%d" %\
-                    (l_opt.max_qlen_log, l_opt.qlen, l_opt.qlen_young))
+                    (l_opt.max_qlen_log, qlen, qlen_young))
             #printObject(l_opt)
             print_accept_queue(pstr)
         # For special sockets only
