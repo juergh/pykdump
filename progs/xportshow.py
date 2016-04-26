@@ -186,8 +186,8 @@ def print_TCP_sock(o):
                 qlen = l_opt.qlen
                 qlen_young = l_opt.qlen_young
             else:
-                qlen = l_opt.qlen_inc - l_opt.qlen_dec
-                qlen_young = l_opt.young_inc - l_opt.young_dec
+                qlen = atomic_t(l_opt.qlen_inc) - atomic_t(l_opt.qlen_dec)
+                qlen_young=atomic_t(l_opt.young_inc)-atomic_t(l_opt.young_dec)
             print ("\t max_qlen_log=%d qlen=%d qlen_young=%d" %\
                     (l_opt.max_qlen_log, qlen, qlen_young))
             #printObject(l_opt)
