@@ -41,6 +41,9 @@ All modern distributions usually include Python. But you still need to compile
 it from sources. Python-2.6 and later should be fine; we recommend to use
 the latest version of Python-2.7.
 
+After downloading and extracting the Python source, run:
+  $ configure CFLAGS='-fPIC'
+  $ make
 
 Installing Pykdump
 ------------------
