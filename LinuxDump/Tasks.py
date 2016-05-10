@@ -219,7 +219,7 @@ class Task:
     # Get children
     def taskChildren(self):
         clist = readSUListFromHead(self.ts.children, "sibling",
-                                  "struct task_struct", maxel=50000)
+                                  "struct task_struct", maxel=200000)
         return [Task(c, self.ttable) for c in clist]
 
 class _TaskTable:
