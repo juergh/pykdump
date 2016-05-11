@@ -325,10 +325,35 @@ def __epythonOptions():
     if (o.ehelp):
         op.print_help()
         print ("Current debug level=%d" % debug)
+    # pdir <module 'pdir' from '/tmp/pdir.py'>
+    # thisdir <module 'thisdir' from './thisdir.pyc'>
+    # subdir.otherdir <module 'subdir.otherdir' from './subdir/otherdir.pyc'>
+
+    # Last two entries in sys.path are mpydkump location + pylib, e.g.
+    # /usr/local/lib/mpykdump64.so
+    # /usr/local/lib/mpykdump64.so/pylib
+    __stdlib = sys.path[-2:]
+    __pylib = __stdlib[1]
+
+    # We don't reload:
+    # - anythng from mpydkump.so as found from __stdlib
+    # - anything from pylib module
+    # We do not reload __main__
     if (o.reload):
         purge_memoize_cache(CU_PYMOD)
         for k, m in list(sys.modules.items())[:]:
-            if(k.split('.')[0] == 'LinuxDump' and m):
+            if (hasattr(m, '__file__')):
+                mod1 = k.split('.')[0]
+                fdir = os.path.dirname(m.__file__)
+                # Skip standard library
+                if (fdir in __stdlib):
+                    continue
+                # Don't reload pykdump/
+                if (fdir.startswith(__pylib) or 
+                        mod1 in ('pykdump', '__main__')):
+                    continue
+                #print(k, fdir, m.__file__)
+                
                 del sys.modules[k]
                 print ("--reloading", k)
 
