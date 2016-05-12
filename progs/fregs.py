@@ -16,7 +16,7 @@
 # figure everything out (which is probably impossible); this is a debugging
 # aid, not a tool that attempts to do all crash analysis automatically.
 
-__version__ = "1.04"
+__version__ = "1.05"
 
 import argparse
 from pykdump.API import *
@@ -44,9 +44,127 @@ def funcargs_dict(funcname):
     return dict(zip(ARG_REG,fields))
 
 @memoize_cond(CU_LIVE|CU_LOAD)
-def disasm(addr,nlines):
+def disasm(addr,nlines) :
     return exec_gdb_command("x/{}i {}".format(nlines,addr))
 
+@memoize_cond(CU_LIVE|CU_LOAD)
+def dentry_to_filename (dentry) :
+    try:
+        crashout = exec_crash_command ("files -d {:#x}".format(dentry))
+        filename = crashout.split()[-1]
+        if filename == "DIR" :
+            filename = "<blank>"
+        return filename
+    except:
+        return "<invalid>"
+
+@memoize_cond(CU_LIVE|CU_LOAD)
+def get_argdata (addr, type) :
+    #if type == "char *" :
+    #    try:
+    #        crashout = exec_crash_command ("rd -a {:#x}".format(addr))
+    #        return "= " + crashout
+    #    except:
+    #        return ""
+    if type == "struct dentry *" :
+        return "= " + dentry_to_filename (addr)
+    elif type == "struct file *" :
+        offset = member_offset ("struct file", "f_path.dentry")
+        dentry = readULong (addr + offset)
+        return "= " + dentry_to_filename (dentry)
+    elif type == "struct path *" :
+        offset = member_offset ("struct path", "dentry")
+        dentry = readULong (addr + offset)
+        return "= " + dentry_to_filename (dentry)
+    elif type == "struct nameidata *" :
+        offset = member_offset ("struct nameidata", "path.dentry")
+        dentry = readULong (addr + offset)
+        return "= " + dentry_to_filename (dentry)
+    elif type == "struct filename *" :
+        crashout = exec_crash_command("filename.name {:#x}".format(addr))
+        filename = crashout.split()[-1]
+        return "= " + filename
+    elif type == "struct qstr *" :
+        crashout = exec_crash_command("qstr.name {:#x}".format(addr))
+        filename = crashout.split()[-1]
+        return "= " + filename
+    elif type == "struct vfsmount *" :
+        offset = member_offset ("struct vfsmount", "mnt_mountpoint")
+        dentry = readULong (addr + offset)
+        return "= " + dentry_to_filename (dentry)
+    elif type == "struct task_struct *" :
+        crashout = exec_crash_command("task_struct.pid {:#x}".format(addr))
+        pid = crashout.split()[-1]
+        return "= pid " + pid
+    elif type == "struct device *" :
+        crashout = exec_crash_command("device.kobj.name {:#x}".format(addr))
+        devname = crashout.split()[-1]
+        return "= " + devname
+    elif type == "struct scsi_device *" :
+        crashout = exec_crash_command(
+                   "scsi_device.sdev_gendev.kobj.name {:#x}".format(addr))
+        devname = crashout.split()[-1]
+        crashout = exec_crash_command(
+                   "scsi_device.sdev_state {:#x}".format(addr))
+        state = crashout.split()[-1]
+        return "({:s} {:s})".format(devname,state)
+    elif type == "struct scsi_target *" :
+        crashout = exec_crash_command(
+                   "scsi_target.dev.kobj.name {:#x}".format(addr))
+        devname = crashout.split()[-1]
+        crashout = exec_crash_command(
+                   "scsi_target.state {:#x}".format(addr))
+        state = crashout.split()[-1]
+        return "({:s} {:s})".format(devname,state)
+    elif type == "struct Scsi_Host *" :
+        offset = member_offset ("struct Scsi_Host", "host_no")
+        hostno = readU32 (addr + offset)
+        return "(host{})".format(hostno)
+    elif type == "struct bio *" :
+        offset = member_offset ("struct bio", "bi_bdev")
+        bdev = readULong (addr + offset)
+        #print "bdev={:#x}".format(bdev)
+        dev = readU32 (bdev)	# dev has offset 0
+        major = dev // 1048576
+        minor = dev % 1048576
+        return "(device {}:{})".format(major,minor)        
+    elif type == "struct mutex *" :
+        offset = member_offset ("struct mutex", "owner")
+        owner_thread = readULong (addr + offset)
+        owner_task = readULong (owner_thread) # task has offset 0
+        offset = member_offset ("struct task_struct", "pid")
+        pid = readU32 (owner_task + offset)
+        return "(owner pid: {})".format(pid)
+    elif type == "struct linux_binprm *" :
+        crashout = exec_crash_command("linux_binprm.filename {:#x}".format(addr))
+        filename = crashout.split()[-1]
+        return "= " + filename
+    else:
+        return ""
+
+def show_reg_from_caller (conf, reg, val, opcode, operand) :
+    "Display register contents based on format options"
+
+    if verbose:
+        print "{} {:s}: {:#x} from caller: {:s} {:s}".format(
+            conf,reg,val,opcode,operand)
+
+    elif arglevel == 0 or reg not in arg_types:
+        print "{} {:s}: {:#x}".format(conf,reg,val)
+
+    else:
+        argno = ARG_REG.index(reg)
+        argtype = arg_types[reg]
+        if arglevel == 1:
+            argdata = ""
+        else:
+            try:
+                argdata = get_argdata (val, argtype)
+            except:
+                argdata = "<invalid>"
+        print "{} {:s}: {:#x} arg{:d} {:s} {:s}".format(
+                                          conf,reg,val,argno,argtype,argdata)
+    return {}
 
 # Function look_for_reg - Look for saved registers
 #
@@ -59,7 +177,8 @@ def look_for_reg (fname, sp, stack):
 
     # If we're getting arguments, get information from crash
 
-    if showargs:
+    global arg_types
+    if arglevel > 0:
         arg_types = funcargs_dict(fname)
 
     # Start by finding registers saved on the stack at routine entry (this
@@ -114,12 +233,17 @@ def look_for_reg (fname, sp, stack):
                     if verbose:
                         print " +{:s}: {:#x} from {:#x} (push)".format(
                             register,val,rsp)
-                    elif showargs and register in arg_types:
-                        argno = ARG_REG.index(register)
-                        print " +{:s}: {:#x} arg{:d} {:s}".format(
-                            register,val,argno,arg_types[register])
-                    else:
+                    elif arglevel == 0 or register not in arg_types:
                         print " +{:s}: {:#x}".format(register,val)
+                    else:
+                        argno = ARG_REG.index(register)
+                        argtype = arg_types[register]
+                        if arglevel == 1:
+                            argdata = ""
+                        else:
+                            argdata = get_argdata (val, argtype)
+                        print " +{:s}: {:#x} arg{:d} {:s} {:s}".format(
+                            register,val,argno,argtype,argdata)
 
                     regval[register] = val
 
@@ -179,12 +303,17 @@ def look_for_reg (fname, sp, stack):
                     if verbose:
                         print " +{:s}: {:#x} from {:#x} {:s}".format(
                             register,val,addr,dest)
-                    elif showargs and register in arg_types:
-                        argno = ARG_REG.index(register)
-                        print " +{:s}: {:#x} arg{:d} {:s}".format(
-                            register,val,argno,arg_types[register])
+                    elif arglevel == 0 or register not in arg_types:
+                       print " +{:s}: {:#x}".format(register,val)
                     else:
-                        print " +{:s}: {:#x}".format(register,val)
+                        argno = ARG_REG.index(register)
+                        argtype = arg_types[register]
+                        if arglevel == 1:
+                            argdata = ""
+                        else:
+                            argdata = get_argdata (val,argtype)
+                        print " +{:s}: {:#x} arg{:d} {:s} {:s}".format(
+                            register,val,argno,argtype,argdata)
 
                     regval[register] = val
 
@@ -192,7 +321,7 @@ def look_for_reg (fname, sp, stack):
                     if debug:
                         print "Don't have stack entry at {:#x}".format(rsp)
 
-        elif opcode.startswith("nop"):
+        elif opcode.startswith(("nop","data32")):
             continue   # Ignore NOP instructions
 
         else:
@@ -284,6 +413,7 @@ def look_for_reg (fname, sp, stack):
         if lines_parsed > 10:
             break              # quit after 10 lines
 
+        conf = lines_parsed - 2	# confidence value (distance from call)
 
         # Parse the instruction and see if we can learn any new information.
         # Let's think about the register dictionary we built above.  On entry
@@ -400,30 +530,14 @@ def look_for_reg (fname, sp, stack):
                             val = regval[srcreg] & srcmask
 
                             regval[dstreg] = "invalid"
-                            if verbose:
-                                print "  {:s}: {:#x} from caller: {:s} {:s}".format(
-                                    dstreg,val,opcode,operand)
-                            elif showargs and dstreg in arg_types:
-                                argno = ARG_REG.index(dstreg)
-                                print "  {:s}: {:#x} arg{:d} {:s}".format(
-                                    dstreg,val,argno,arg_types[dstreg])
-                            else:
-                                print "  {:s}: {:#x}".format(dstreg,val)
+                            show_reg_from_caller (conf,dstreg,val,opcode,operand)
 
                     elif regval[dstreg] != "invalid":  # dst is known
                         if srcreg == "RSP":  # Don't do this for RSP
                             continue         # (handled separately)
                         val = regval[dstreg] & dstmask
                         if srcreg not in regval: # src is unknown
-                            if verbose:
-                                print "  {:s}: {:#x} from caller: {:s} {:s}".format(
-                                    srcreg,val,opcode,operand)
-                            elif showargs and srcreg in arg_types:
-                                argno = ARG_REG.index(srcreg)
-                                print "  {:s}: {:#x} arg{:d} {:s}".format(
-                                    srcreg,val,argno,arg_types[srcreg])
-                            else:
-                                print "  {:s}: {:#x}".format(srcreg,val)
+                            show_reg_from_caller (conf,srcreg,val,opcode,operand)
                         regval[srcreg] = val
 
                 # MOV const,reg
@@ -435,15 +549,7 @@ def look_for_reg (fname, sp, stack):
                     val = int(src.lstrip("$"),16) & dstmask
 
                     if dstreg not in regval:
-                        if verbose:
-                            print "  {:s}: {:#x} from caller: {:s} {:s}".format(
-                                dstreg,val,opcode,operand)
-                        elif showargs and dstreg in arg_types:
-                            argno = ARG_REG.index(dstreg)
-                            print "  {:s}: {:#x} arg{:d} {:s}".format(
-                                dstreg,val,argno,arg_types[dstreg])
-                        else:
-                            print "  {:s}: {:#x}".format(dstreg,val)
+                        show_reg_from_caller (conf,dstreg,val,opcode,operand)
 
                     regval[dstreg] = "invalid"
 
@@ -517,16 +623,7 @@ def look_for_reg (fname, sp, stack):
                     if dstreg not in regval:
 
                         val &= dstmask
-
-                        if verbose:
-                            print "  {:s}: {:#x} from caller: {:s} {:s}".format(
-                                dstreg,val,opcode,operand)
-                        elif showargs and dstreg in arg_types:
-                            argno = ARG_REG.index(dstreg)
-                            print "  {:s}: {:#x} arg{:d} {:s}".format(
-                                dstreg,val,argno,arg_types[dstreg])
-                        else:
-                            print "  {:s}: {:#x}".format(dstreg,val)
+                        show_reg_from_caller (conf,dstreg,val,opcode,operand)
                         regval[dstreg] = "invalid"
 
                     else:
@@ -572,17 +669,7 @@ def look_for_reg (fname, sp, stack):
                 continue
 
             if dstreg not in regval:
-
-                if verbose:
-                    print "  {:s}: {:#x} from caller: {:s} {:s}".format(
-                           dstreg,addr,opcode,operand)
-                elif showargs and dstreg in arg_types:
-                    argno = ARG_REG.index(dstreg)
-                    print "  {:s}: {:#x} arg{:d} {:s}".format(
-                        dstreg,addr,argno,arg_types[dstreg])
-                else:
-                    print "  {:s}: {:#x}".format(dstreg,addr)
-
+                show_reg_from_caller (conf,dstreg,addr,opcode,operand)
                 regval[dstreg] = "invalid"
 
             else:
@@ -709,7 +796,12 @@ def decode_pid_args(pid):
     if (sys_info.machine != "x86_64"):
         print "Supported on x86_64 dumps only, sorry."
         sys.exit(1)        
-    s = exec_bt("bt " + pid,MEMOIZE=False)[0]
+
+    try:
+        s = exec_bt("bt " + pid,MEMOIZE=False)[0]
+    except:
+        print "Unable to get stack trace"
+        sys.exit(1)
 
     for f in s.frames:
         print f
@@ -785,8 +877,8 @@ if ( __name__ == '__main__'):
 
     group = parser.add_mutually_exclusive_group()
     group.add_argument("-a", "--args", 
-                        help="identify arguments (with types) where possible",
-                        action="store_true")
+                        help="identify arguments (-aa for more detail)",
+                        action="count", default=0)
     group.add_argument("-v", "--verbose", 
                         help="show where register information was found",
                         action="store_true")
@@ -801,7 +893,7 @@ if ( __name__ == '__main__'):
 
     args = parser.parse_args()
 
-    showargs = args.args
+    arglevel = args.args
     verbose = args.verbose
     debug = args.debug
 
