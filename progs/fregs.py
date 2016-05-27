@@ -9,14 +9,14 @@
 # --------------------------------------------------------------------
 
 #
-# Usage: Load pykdump extension, then "freg <options>"
+# Usage: Load pykdump extension, then "fregs <options>"
 #
 # General philosophy: try to find register contents that can be determined
 # with a high degree of confidence and not too much work.  Don't try to
 # figure everything out (which is probably impossible); this is a debugging
 # aid, not a tool that attempts to do all crash analysis automatically.
 
-__version__ = "1.05"
+__version__ = "1.06"
 
 import argparse
 from pykdump.API import *
@@ -25,17 +25,18 @@ from LinuxDump.BTstack import exec_bt
 
 # ARG_REG is a list of the registers used to pass arguments
 
-ARG_REG = ['RDI','RSI','RDX','RCX','R8','R9']
+ARG_REG = ('RDI','RSI','RDX','RCX','R8','R9')
 
-REG64 = ['RAX','RBX','RCX','RDX','RSI','RDI','RBP','RSP','R8','R9','R10',
-         'R11','R12','R13','R14','R15']
-REG32 = ['EAX','EBX','ECX','EDX','ESI','EDI','EBP','ESP','R8D','R9D','R10D',
-         'R11D','R12D','R13D','R14D','R15D']
-REG16 = ['AX','BX','CX','DX','SI','DI','BP','SP','R8W','R9W','R10W',
-         'R11W','R12W','R13W','R14W','R15W']
-REG8 = ['AL','BL','CL','DL','SIL','DIL','BPL','SPL','R8B','R9B','R10B',
-         'R11B','R12B','R13B','R14B','R15B']
+REG64 = ('RAX','RBX','RCX','RDX','RSI','RDI','RBP','RSP','R8','R9','R10',
+         'R11','R12','R13','R14','R15')
+REG32 = ('EAX','EBX','ECX','EDX','ESI','EDI','EBP','ESP','R8D','R9D','R10D',
+         'R11D','R12D','R13D','R14D','R15D')
+REG16 = ('AX','BX','CX','DX','SI','DI','BP','SP','R8W','R9W','R10W',
+         'R11W','R12W','R13W','R14W','R15W')
+REG8 = ('AL','BL','CL','DL','SIL','DIL','BPL','SPL','R8B','R9B','R10B',
+         'R11B','R12B','R13B','R14B','R15B')
 
+@memoize_cond(CU_LIVE|CU_LOAD)
 def funcargs_dict(funcname):
     fields = funcargs(funcname)
     if (fields is None):
@@ -142,44 +143,17 @@ def get_argdata (addr, type) :
     else:
         return ""
 
-def show_reg_from_caller (conf, reg, val, opcode, operand) :
-    "Display register contents based on format options"
-
-    if verbose:
-        print "{} {:s}: {:#x} from caller: {:s} {:s}".format(
-            conf,reg,val,opcode,operand)
-
-    elif arglevel == 0 or reg not in arg_types:
-        print "{} {:s}: {:#x}".format(conf,reg,val)
-
-    else:
-        argno = ARG_REG.index(reg)
-        argtype = arg_types[reg]
-        if arglevel == 1:
-            argdata = ""
-        else:
-            try:
-                argdata = get_argdata (val, argtype)
-            except:
-                argdata = "<invalid>"
-        print "{} {:s}: {:#x} arg{:d} {:s} {:s}".format(
-                                          conf,reg,val,argno,argtype,argdata)
-    return {}
-
-# Function look_for_reg - Look for saved registers
+# Function extract_registers - Look for saved registers
 #
 # This function is the heart of this program.  Don't call this for routines
 # entered via exception; for those, we just save and display the exception
 # frame, which contains all register values at the time of exception.
 
-def look_for_reg (fname, sp, stack):
+def extract_registers (frame, stack):
     "Try to find register contents at time of function entry"
 
-    # If we're getting arguments, get information from crash
-
-    global arg_types
-    if arglevel > 0:
-        arg_types = funcargs_dict(fname)
+    fname = frame.func
+    sp = frame.sp
 
     # Start by finding registers saved on the stack at routine entry (this
     # is fairly straightforward).  Build a dictionary of the found values.
@@ -187,8 +161,6 @@ def look_for_reg (fname, sp, stack):
     regval = {}
 
     rsp = sp     # Initialize stack pointer
-    if debug:
-        print "Initial stack pointer is {:#x}".format(rsp)
 
     # Disassemble the first 12 instructions in the routine.  This should be
     # more than enough to handle the initial register saving.
@@ -199,10 +171,11 @@ def look_for_reg (fname, sp, stack):
     except AttributeError:
         symout = exec_crash_command("sym " + fname)
         addr = symout.split()[0]
-        #print("Trying disasm {} for {}".format(addr,fname))
         disout = disasm("0x"+addr,12)
-        disinst = disout.splitlines()
-
+        try:
+            disinst = disout.splitlines()
+        except:
+            return
 
     # Parse the entry sequence where registers are saved on the stack.
     # We're only interested in push, sub, and mov instructions.  When we
@@ -211,8 +184,6 @@ def look_for_reg (fname, sp, stack):
     for line in disinst:
         colon = line.index(":")
         inst = line[colon+1:]
-        if debug:
-            print line, inst
         fields = inst.split()
         opcode = fields[0]
         try:
@@ -222,34 +193,17 @@ def look_for_reg (fname, sp, stack):
 
         if opcode == "push":
             rsp -= 8
-            if debug:
-                print "After push, SP is {:#x}".format(rsp)
 
-            # If we're pushing a register, print the saved value from the stack
+            # If we're pushing a register, save its value from the stack
             if operand.startswith("%"):
                 register = operand.lstrip("%").upper()
                 try:
                     val = stack[rsp]
-                    if verbose:
-                        print " +{:s}: {:#x} from {:#x} (push)".format(
-                            register,val,rsp)
-                    elif arglevel == 0 or register not in arg_types:
-                        print " +{:s}: {:#x}".format(register,val)
-                    else:
-                        argno = ARG_REG.index(register)
-                        argtype = arg_types[register]
-                        if arglevel == 1:
-                            argdata = ""
-                        else:
-                            argdata = get_argdata (val, argtype)
-                        print " +{:s}: {:#x} arg{:d} {:s} {:s}".format(
-                            register,val,argno,argtype,argdata)
-
                     regval[register] = val
+                    frame.reg[register] = (val,0)
 
                 except KeyError:
-                    if debug:
-                        print "Don't have stack entry at {:#x}".format(rsp)
+                    continue
 
         elif opcode == "sub":
             # SUB instruction - make sure we're subtracting a constant
@@ -263,22 +217,14 @@ def look_for_reg (fname, sp, stack):
             if fields[1] == "%rsp":
                 val = int(fields[0].lstrip("$"),16)
                 rsp -= val
-                if debug:
-                    print "Subtracted {:#x} from SP, now = {:#x}".format(
-                           val,rsp)
             elif fields[1] == "%rbp":
                 val = int(fields[0].lstrip("$"),16)
                 rbp -= val
-                if debug:
-                    print "Subtracted {:#x} from RBP, now = {:#x}".format(
-                           val,rbp)
 
         elif opcode == "mov":
             fields = operand.split(",")
             if operand == "%rsp,%rbp":
                 rbp = rsp
-                if debug:
-                    print "Setting RBP (from SP) to {:#x}".format(rbp)
             elif operand.startswith("%"):
                 register = fields[0].lstrip("%").upper()
                 dest = fields[1]
@@ -300,26 +246,11 @@ def look_for_reg (fname, sp, stack):
 
                 try:
                     val = stack[addr]
-                    if verbose:
-                        print " +{:s}: {:#x} from {:#x} {:s}".format(
-                            register,val,addr,dest)
-                    elif arglevel == 0 or register not in arg_types:
-                       print " +{:s}: {:#x}".format(register,val)
-                    else:
-                        argno = ARG_REG.index(register)
-                        argtype = arg_types[register]
-                        if arglevel == 1:
-                            argdata = ""
-                        else:
-                            argdata = get_argdata (val,argtype)
-                        print " +{:s}: {:#x} arg{:d} {:s} {:s}".format(
-                            register,val,argno,argtype,argdata)
-
                     regval[register] = val
+                    frame.reg[register] = (val,0)
 
                 except KeyError:
-                    if debug:
-                        print "Don't have stack entry at {:#x}".format(rsp)
+                    continue
 
         elif opcode.startswith(("nop","data32")):
             continue   # Ignore NOP instructions
@@ -327,11 +258,6 @@ def look_for_reg (fname, sp, stack):
         else:
             break # from for loop (done with routine entry processing)
 
-    if debug:
-        print "Register dictionary:"
-        for key in sorted(regval):
-            print "{:s}: {:#x}".format(key, regval[key])
-        
     # Now that we've picked the low-hanging fruit, can we get anything more?
     # At this point, we can disassemble the last few instructions in the caller
     # and see if we can determine any other registers.  This is trickier.
@@ -367,7 +293,10 @@ def look_for_reg (fname, sp, stack):
     nlines = offset // 5 + 1
     dstr = "{:#x}".format(start)
     disout = disasm(dstr,nlines)
-    disinst = disout.splitlines()
+    try:
+        disinst = disout.splitlines()
+    except:
+        return
 
     # Did we find the RIP yet?  This check takes advantage of the fact that
     # fixed-length hex numbers with consistent case sort the same way 
@@ -402,16 +331,14 @@ def look_for_reg (fname, sp, stack):
 
     lines_parsed = 0
     for line in reversed(disinst):
-        if debug:
-            print line
 
         lines_parsed += 1
 
         if lines_parsed < 3:
-            continue           # skip this line
+            continue           # skip first (i.e. last) 2 instructions
 
-        if lines_parsed > 10:
-            break              # quit after 10 lines
+        if lines_parsed > 11:
+            break              # go no more than 9 instructions before call
 
         conf = lines_parsed - 2	# confidence value (distance from call)
 
@@ -530,14 +457,14 @@ def look_for_reg (fname, sp, stack):
                             val = regval[srcreg] & srcmask
 
                             regval[dstreg] = "invalid"
-                            show_reg_from_caller (conf,dstreg,val,opcode,operand)
+                            frame.reg[dstreg] = (val,conf)
 
                     elif regval[dstreg] != "invalid":  # dst is known
                         if srcreg == "RSP":  # Don't do this for RSP
                             continue         # (handled separately)
                         val = regval[dstreg] & dstmask
                         if srcreg not in regval: # src is unknown
-                            show_reg_from_caller (conf,srcreg,val,opcode,operand)
+                            frame.reg[srcreg] = (val,conf)
                         regval[srcreg] = val
 
                 # MOV const,reg
@@ -549,7 +476,7 @@ def look_for_reg (fname, sp, stack):
                     val = int(src.lstrip("$"),16) & dstmask
 
                     if dstreg not in regval:
-                        show_reg_from_caller (conf,dstreg,val,opcode,operand)
+                        frame.reg[dstreg] = (val,conf)
 
                     regval[dstreg] = "invalid"
 
@@ -597,33 +524,28 @@ def look_for_reg (fname, sp, stack):
                             try:
                                 rdout = memoize_cond(CU_LIVE)(exec_crash_command)(rdcmd)
                             except crash.error:
-                                print "rd failed",addr,line,basereg,dstreg
+                                #print "rd failed",addr,line,basereg,dstreg
                                 regval[dstreg] = "invalid"
                                 continue
                             if not rdout.startswith("ffff"):
                                 regval[dstreg] = "invalid"
                                 continue
-                            if debug:
-                                print rdout
+
                             fields = rdout.split()
                             val = int(fields[1],16)
-                            if debug:
-                                val2 = readULong(addr)
-                                print "val={:x} val2={:x}".format(val,val2)
+
                         else:
                             # Read using direct pydkump API
                             try:
                                 val = readULong(addr)
                             except:
-                                if debug:
-                                    print "rd failed",addr,line,basereg,dstreg
                                 regval[dstreg] = "invalid"
                                 continue
 
                     if dstreg not in regval:
 
                         val &= dstmask
-                        show_reg_from_caller (conf,dstreg,val,opcode,operand)
+                        frame.reg[dstreg] = (val,conf)
                         regval[dstreg] = "invalid"
 
                     else:
@@ -669,7 +591,7 @@ def look_for_reg (fname, sp, stack):
                 continue
 
             if dstreg not in regval:
-                show_reg_from_caller (conf,dstreg,addr,opcode,operand)
+                frame.reg[dstreg] = (addr,conf)
                 regval[dstreg] = "invalid"
 
             else:
@@ -739,7 +661,7 @@ def look_for_reg (fname, sp, stack):
         # invalidate the register.
 
         elif opcode.startswith(('add','sub','inc','dec','imul','idiv','and',
-            'or','xor','not','sbb','adc','neg','shl','shr','pop','bt')):
+            'or','xor','not','sbb','adc','neg','sh','pop','bt','sa','cmov')):
             fields = operand.split(",")
             dst = fields[-1]
             if dst.startswith("%"):
@@ -760,7 +682,7 @@ def look_for_reg (fname, sp, stack):
         # Instructions whose effect on registers is indeterminate. 
         # Stop parsing.
 
-        elif opcode.startswith(("call","cmov")):
+        elif opcode.startswith("call"):
             break
 
         # Instructions that don't change registers.  Ignore.
@@ -784,29 +706,22 @@ class DisasmFlavor():
         self.flavor = flavor
     def __enter__(self):
         if (self.oldflavor != self.flavor):
-            print("Setting flavor to {}".format(self.flavor))
+            #print("Setting flavor to {}".format(self.flavor))
             exec_gdb_command("set disassembly-flavor {}".format(self.flavor))
     def __exit__(self, exc_type, exc_value, traceback):
         if (self.flavor != self.oldflavor):
-            print("Restoring flavor to {}".format(self.oldflavor))
+            #print("Restoring flavor to {}".format(self.oldflavor))
             exec_gdb_command("set disassembly-flavor {}".format(self.oldflavor))
 
-def decode_pid_args(pid):
+
+# search_for_registers(s) - s is a BTstack object. 
+
+def search_for_registers(s):
+
     # Make sure we're on an x86_64 vmcore, or this will fail miserably.
     if (sys_info.machine != "x86_64"):
-        print "Supported on x86_64 dumps only, sorry."
-        sys.exit(1)        
+        return 1
 
-    try:
-        s = exec_bt("bt " + pid,MEMOIZE=False)[0]
-    except:
-        print "Unable to get stack trace"
-        sys.exit(1)
-
-    for f in s.frames:
-        print f
-
-    # For last frame, empty string for from_func
     lastf = s.frames[-1]
     stackdict = {}
     
@@ -821,10 +736,6 @@ def decode_pid_args(pid):
             end = nf.frame
             arrsize = (end-start)//LONG_SIZE + 1
 
-            for l in f.data:
-                if (l.startswith("---")):
-                    print l
-
             if (arrsize > 0 and arrsize < 8192):
                 #print("===reading {} longwords at level {}".format(arrsize,nf.level))
                 us = readmem(start, arrsize*LONG_SIZE)
@@ -837,6 +748,8 @@ def decode_pid_args(pid):
                         stackdict[addr] = val
                         addr += 8
 
+        f.sp = nf.frame
+        f.reg = {}
         if (nf.level == -1):
             f.from_func = "entered by exception at <{}+{}>".format(
                 nf.func, nf.offset)
@@ -845,67 +758,105 @@ def decode_pid_args(pid):
         else:
             f.from_func = "called from {:#x} <{}+{}>".format(nf.addr, nf.func, nf.offset)
             f.lookup_regs = True
-        #print(f, f.from_func)
-        f.sp = nf.frame
+            extract_registers(f, stackdict)
     
+    # For last frame, empty string for from_func
     lastf.from_func = ''
     lastf.lookup_regs = False
+    lastf.reg = {}
  
-    stack = stackdict
-    for f in s.frames:
-        #print f.fullstr()
-        #for k in stack:
-        #    print("  {:#x}".format(k))
-        #print "\n{:s} {:s}".format(f.func, f.from_func)
-        print "\n{:s} {:s}".format(f.func, f.from_func)
-        if (f.lookup_regs):
-            look_for_reg(f.func, f.sp, stack)
-        else:
-            for l in f.data:
-                print l
-            
+
 #--------------------------------------------------------------
 #   Main program begins here. 
 #--------------------------------------------------------------
     
 if ( __name__ == '__main__'):
 
-    parser = argparse.ArgumentParser(description='Show register contents at routine entry.')
+    parser = argparse.ArgumentParser(version=__version__, 
+             description='Show register contents at routine entry.')
 
-    parser.add_argument('pid',metavar='pid|taskp',type=str,nargs='?',
-        help='PID or taskp (if omitted, defaults to current context)')
+    parser.add_argument('pid',metavar='pid|taskp|cmd',type=str,nargs='?',
+        help='PID or task struct pointer or command (if omitted, use current context)')
 
-    group = parser.add_mutually_exclusive_group()
-    group.add_argument("-a", "--args", 
+    parser.add_argument("-a", "--args", 
                         help="identify arguments (-aa for more detail)",
                         action="count", default=0)
-    group.add_argument("-v", "--verbose", 
-                        help="show where register information was found",
-                        action="store_true")
 
-    parser.add_argument("-V", "--version", help="show version and exit",
-                        action="store_true")
-    parser.add_argument("-d", "--debug", help="enable debugging output",
-                        action="store_true")
+    #parser.add_argument("-V", "--version", help="show version and exit",
+    #                    action="store_true")
 
-    parser.add_argument("--old", help="use old subroutines, for testing purposes",
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-u", "--unint", help="do all uninterruptible tasks",
+                        action="store_true")
+    group.add_argument("-A", "--all", 
+                        help="do ALL tasks (this may take a while!)",
                         action="store_true")
 
     args = parser.parse_args()
 
     arglevel = args.args
-    verbose = args.verbose
-    debug = args.debug
 
-    if args.version:
-        print "Version", __version__
-        sys.exit()
-
-    if args.pid == None:
-        pid = ''
+    if args.all :
+        btcmd = "foreach bt"
+    elif args.unint :
+        btcmd = "foreach UN bt"
+    elif args.pid == None :
+        btcmd = "bt"
     else:
-        pid = args.pid
+        btcmd = "foreach " + args.pid + " bt"
+
+    # Make sure we're on an x86_64 vmcore, or this will fail miserably.
+    if (sys_info.machine != "x86_64"):
+        print "Register decoding is supported on x86_64 dumps only."
+        sys.exit()        
 
     with DisasmFlavor('att'):
-        decode_pid_args(pid)
+        try:
+            stacklist = exec_bt(btcmd, MEMOIZE=False)
+        except:
+            print "Unable to get stack trace"
+            sys.exit()
+
+        for s in stacklist:
+            search_for_registers(s)
+
+            print "\nPID: {}  TASK: {:x}  CPU: {}  COMMAND: {}".format(
+                   s.pid, s.addr, s.cpu, s.cmd)
+
+            for f in s.frames:
+                print "\n{:s} {:s}".format(f.func, f.from_func)
+
+                if (f.lookup_regs):
+
+                    # If we're getting arguments, get information from crash
+                    if arglevel > 0:
+                        arg_types = funcargs_dict(f.func)
+
+                    for reg in sorted(f.reg):
+                        val = f.reg[reg][0]
+                        conf = f.reg[reg][1]
+                        if arglevel == 0 or reg not in arg_types:
+                            if conf == 0:
+                                print " +{:s}: {:#x}".format(reg,val)
+                            else:
+                                print "{} {:s}: {:#x}".format(conf,reg,val)
+                        else:
+                            argno = ARG_REG.index(reg)
+                            argtype = arg_types[reg]
+                            if arglevel == 1:
+                                argdata = ""
+                            else:
+                                try:
+                                    argdata = get_argdata (val, argtype)
+                                except:
+                                    argdata = "<invalid>"
+                            if conf == 0:
+                                print " +{:s}: {:#x} arg{:d} {:s} {:s}".format(
+                                      reg,val,argno,argtype,argdata)
+                            else:
+                                print "{} {:s}: {:#x} arg{:d} {:s} {:s}".format(
+                                      conf,reg,val,argno,argtype,argdata)
+                else:
+                    for l in f.data:
+                        print l
 
