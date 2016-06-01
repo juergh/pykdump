@@ -1209,7 +1209,7 @@ def readSUListFromHead(headaddr, listfieldname, mystruct, maxel=_MAXEL,
 # an embedded listhead. 'shead' is either a structure or tPtr pointer
 # to structure
 
-def readStructNext(shead, nextname, inchead = True):
+def readStructNext(shead, nextname, maxel=_MAXEL, inchead = True):
     if (not isinstance(shead, StructResult)):
         # This should be tPtr
         if (shead == 0):
@@ -1218,7 +1218,7 @@ def readStructNext(shead, nextname, inchead = True):
     stype = shead.PYT_symbol
     offset = shead.PYT_sinfo[nextname].offset
     out = []
-    for p in readList(Addr(shead), offset, inchead=inchead):
+    for p in readList(Addr(shead), offset, maxel, inchead=inchead):
         out.append(readSU(stype, p))
     return out 
 
