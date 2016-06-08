@@ -88,6 +88,10 @@ def if_mutexOK(addr):
             owner = mutex.Owner
         except KeyError:
             owner = None
+        # Does counter look reasonable?
+        counter = mutex.count.counter
+        if (counter < -1000 or counter > 1000):
+            return 0
         if (owner):
             _next_tasks = owner.tasks.next
         for i in range(5):
@@ -341,6 +345,7 @@ def check_other_mutexes(tasksrem):
                     if (if_mutexOK(maddr)):
                         mutex = readSU("struct mutex", maddr)
                         mutexlist.add(mutex)
+                        #print("pid={}, mutex={}".format(pid, mutex))
                         continue
 
     if (not mutexlist):
@@ -352,7 +357,12 @@ def check_other_mutexes(tasksrem):
             owner = mutex.Owner
         except KeyError:
             owner = None
-        pids = get_mutex_waiters(mutex)
+        # Sometimes we cannot get this mutex
+        try:
+            pids = get_mutex_waiters(mutex)
+        except:
+            pylog.warning("Cannot get waiters for mutex {}".format(mutex))
+            continue
         if (owner and not pids):
             continue
         if (once):
