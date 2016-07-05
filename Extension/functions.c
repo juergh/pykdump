@@ -1,7 +1,7 @@
 /* Python extension to interact with CRASH
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett-Packard Enterprise Development LP
+# (C) Copyright 2006-2016 Hewlett-Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -1747,6 +1747,8 @@ initcrash23(void) {
   PyModule_AddObject(m, "AMBIGUOUS", PyInt_FromLong(AMBIGUOUS));
 
   PyModule_AddObject(m, "PAGESIZE", PyInt_FromLong(PAGESIZE()));
+  PyModule_AddObject(m, "PAGE_CACHE_SHIFT", 
+                     PyInt_FromLong(machdep->pageshift));
   PyModule_AddObject(m, "HZ", PyInt_FromLong(machdep->hz));
 
   PyModule_AddObject(m, "WARNING", PyString_FromString("++WARNING+++"));

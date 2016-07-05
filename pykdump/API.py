@@ -91,6 +91,7 @@ print2columns = gen.print2columns
 
 HZ = crash.HZ
 PAGESIZE = crash.PAGESIZE
+PAGE_CACHE_SHIFT = crash.PAGE_CACHE_SHIFT
 
 crash.WARNING = WARNING                 # To be used from C-code
 
