@@ -4,18 +4,18 @@ from __future__ import print_function
 """PyKdump Python API for CRASH Dumpanalysis Tool
 """
 # Version number
-__version__ = '1.0.0'
+__version__ = '1.0.1'
 
 import sys
 
 # Copyright notice string
 __copyright__ = """\
-(C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+(C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
 Author: Alex Sidorenko <asid@hpe.com>
 """
 
 # A minimal C-module version that is needed for API to work
-minimal_cmod_version = "0.8.7"
+minimal_cmod_version = "1.0.1"
 
 
 # The next subroutines are used for version compatibility control.
