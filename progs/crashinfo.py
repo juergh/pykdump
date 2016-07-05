@@ -16,7 +16,7 @@
 from __future__ import print_function
 
 # 1st-pass dumpanalysis
-__version__ = "0.7.0"
+__version__ = "0.7.1"
 
 from pykdump.API import *
 
@@ -1266,6 +1266,9 @@ op.add_option("--ls", dest="ls", default = "",
 op.add_option("--workqueues", dest="Workqueue", default = "",
                 action="store_true",
                 help="Print Workqueues - just for some kernels")
+op.add_option("--radix_tree_element", dest="RdElement", nargs=2,
+                metavar='root offset',
+                help="Find and print a radix tree element")
 
 op.add_option("--version", dest="Version", default = 0,
               action="store_true",
@@ -1305,6 +1308,17 @@ t1 = os.times()[0]
 
 if (o.Lws):
     get_important()
+    sys.exit(0)
+
+if (o.RdElement):
+    from LinuxDump.trees import radix_tree_lookup_element
+    root = int(o.RdElement[0], 16)
+    offset = int(o.RdElement[1], 16)
+    node, slot = radix_tree_lookup_element(root, offset)
+    if (node is None):
+        print("   Not found")
+    else:
+        print("  node={:#x}, slot={:#x}".format(node, slot))
     sys.exit(0)
     
 if (o.sysctl):
