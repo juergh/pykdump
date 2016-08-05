@@ -1,7 +1,7 @@
 # module LinuxDump.scsi.lpfc
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2015-2016 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -34,6 +34,10 @@ def print_extra(shost):
     if (len(model) == 0):
         pylog.warning("It seems that you are using an incorrect"
             " lpfc debuginfo")
+        return
+    try:
+        model[:3].decode('ascii')
+    except UnicodeDecodeError:
         return
     print("      Model: {}".format(model))
     print("      Link state: {!r}".format(hba.link_state))

@@ -27,6 +27,8 @@ This is a package providing generic access to block devices
 
 from pykdump.API import *
 from LinuxDump.percpu import percpu_ptr, get_cpu_var
+from LinuxDump.Time import j_delay
+from .scsi import req2scsi_info, scsi_debuginfo_OK
 
 import re
 from collections import namedtuple, defaultdict, Counter
@@ -57,15 +59,6 @@ def list_fill(text, width=70, **kwargs):
 def stripStructName(sname):
     return '<' + str(sname)[8:]
 
-def __j_delay(ts, jiffies):
-    v = (jiffies - ts) & INT_MASK
-    if (v > INT_MAX):
-        v = "     n/a"
-    elif (v > HZ*3600*20):
-        v = ">20hours"
-    else:
-        v = "%8.2f s" % (float(v)/HZ)
-    return v
 
 
 # ***************************************************************************
@@ -683,23 +676,24 @@ def is_request_BAD(rq):
 # Do not print them
 
 
-def decode_request(rq, v = 0):
+def decode_request(rq, v = 0, reqscsmap = {}):
     out = []
-    out.append("    " + str(rq))
     # Do not decode 'bad' structures
     ifbad = is_request_BAD(rq)
     if (ifbad):
         return "   {} BAD: {}".format(str(rq), ifbad)
+    else:
+        out.append("    " + str(rq))
     # Do we have rq_status? If yes, is it reasonable?
     try:
         rq_status = rq.rq_status
-        out.append("rq_status=0x%x" % rq_status)
+        out.append("\trq_status=0x%x" % rq_status)
     except KeyError:
         pass
     try:
         rq_dev = rq.rq_dev
         (major, minor) = decode_devt(rq_dev)
-        out.append("rq_dev=0x%x major=%d minor=%d" % \
+        out.append("\trq_dev=0x%x major=%d minor=%d" % \
            (rq.rq_dev, major, minor))
     except KeyError:
         pass
@@ -707,7 +701,7 @@ def decode_request(rq, v = 0):
 
     try:
         rq_disk = rq.rq_disk
-        out.append("\n\tdisk_name=%s major=%d" % \
+        out.append("\tdisk_name=%s major=%d" % \
            (rq_disk.disk_name,rq_disk.major))
     except KeyError:
         pass
@@ -722,22 +716,43 @@ def decode_request(rq, v = 0):
         atomic_flags  = rq.atomic_flags
         special = rq.special
         if (v > 1):
-            out.append("cmd_flags=0x%x, ref_count=%d" %\
+            out.append("        cmd_flags=0x%x, ref_count=%d" %\
             (cmd_flags, ref_count))
             if (atomic_flags == 1):
-                out.append("\n        atomic_flags=0x%x" % atomic_flags)
+                out.append("        atomic_flags=0x%x" % atomic_flags)
             if (special):
                 scsi = readSU("struct scsi_cmnd", special)
-                out.append("\n        special=0x%x %s" % (special, str(scsi)))
+                out.append("        special=0x%x %s" % (special, str(scsi)))
 
     except KeyError:
         pass
     
     if (v > 1):
-        out.append("\n " + decode_cmd_flags(rq.Flags))        
-    ran_ago = __j_delay(rq.start_time, readSymbol("jiffies"))
-    out.append("\n\tstarted %s ago" % ran_ago)
-    return ", ".join(out)    
+        out.append(decode_cmd_flags(rq.Flags))
+    jiffies = readSymbol("jiffies")
+    ran_ago = j_delay(rq.start_time, jiffies)
+
+    # On RHEL5, 'struct request' does not have 'deadline' field
+    try:
+        if (rq.deadline):
+            deadline = float(rq.deadline - jiffies)/HZ
+            if (deadline > 0):
+                fmt = "\t  started {} ago, times out in {:5.2f}s"
+            else:
+                fmt = "\t  started {} ago, timed out {:5.2f}s ago"
+            out.append(fmt.format(ran_ago, abs(deadline)))
+        else:
+            out.append("\t  started {} ago".format(ran_ago))
+    except KeyError:
+        out.append("\t  started {} ago".format(ran_ago))
+
+    if (reqscsmap.has_key(rq)):
+        sdev, cmd = reqscsmap[rq]
+        out.append("\t  {}  {}".format(sdev.shortStr(), cmd.shortStr()))
+        out.append("\t  (jiffies - cmnd->jiffies_at_alloc)={}".format(
+                        jiffies-cmd.jiffies_at_alloc))
+    
+    return "\n".join(out)    
 # ********************************************************************
 
 # Print stuff from block/blk-softirq.c
@@ -855,13 +870,17 @@ def print_request_slab(v):
     
     if (v < 1):
         return
+    if (scsi_debuginfo_OK()):
+        reqscsmap = req2scsi_info()
+    else:
+        reqscsmap = {}
+ 
     for ts, rq in rqlist:
         try:
-            rqs = decode_request(rq, v)
+            rqs = decode_request(rq, v, reqscsmap)
         except crash.error:
             rqs = str(rq) + " is BAD"
         print(rqs)
-     
     # Print stats for cmd flags
     if (totreq):
         print ("  -- Summary of flags combinations")

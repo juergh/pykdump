@@ -2,7 +2,7 @@
 # module LinuxDump.scsi
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2013-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2013-2016 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -28,6 +28,7 @@ from pykdump.API import *
 from collections import namedtuple, defaultdict
 from LinuxDump.sysfs import *
 from LinuxDump.kobjects import *
+from LinuxDump.Time import j_delay
 
 
 '''
@@ -40,7 +41,7 @@ Host: scsi2 Channel: 00 Id: 00 Lun: 00
   Type:   Direct-Access                    ANSI  SCSI revision: 05
 '''
 
-
+scsi_device_types = None
 try:
     scsi_device_types = readSymbol("scsi_device_types")
 except TypeError:
@@ -49,9 +50,30 @@ except TypeError:
     try:
         scsi_device_types = readSymbol("scsi_device_types")
     except TypeError:
+        pass
+
+def scsi_debuginfo_OK():
+    if (scsi_device_types is None):
         print("+++Cannot find symbolic info for <scsi_device_types>")
         print("   Put 'scsi_mod' debuginfo file into current directory")
-        sys.exit(0)
+        return False
+    return True
+
+try:
+    _rq_atomic_flags = EnumInfo("enum rq_atomic_flags")
+except TypeError:
+    # RHEL5
+    _rq_atomic_flags = {}
+
+if ("REQ_ATOM_COMPLETE" in _rq_atomic_flags):
+    _REQ_ATOM_COMPLETE = 1<< _rq_atomic_flags.REQ_ATOM_COMPLETE
+else:
+    _REQ_ATOM_COMPLETE = None
+    
+if ("REQ_ATOM_START" in _rq_atomic_flags):
+    _REQ_ATOM_START = 1<< _rq_atomic_flags.REQ_ATOM_START
+else:
+    _REQ_ATOM_START = None
 
 def scsi_device_type(t):
     if (t == 0x1e):
@@ -158,19 +180,23 @@ def print_SCSI_devices(v=0):
             print(sysfs_fullpath(sd))
             devname = blockdev_name(sd)
             if (busy == 0):
-                busy = ''
+                sbusy = ''
             else:
-                busy = " busy={}".format(busy)
+                sbusy = " busy={}".format(busy)
             if (devname or busy):
-                print("devname={}{}".format(devname, busy))
+                print("devname={}{}".format(devname, sbusy))
             starget = scsi_target(sdev)
             is_fc = scsi_is_fc_rport(starget.dev.parent)
             st_state = __enum_st_state.getnam(starget.state)
             #if (is_fc):
             print("  {} state = {}".format(starget, st_state))
+            print("  {}".format(sdev.request_queue))
             
             print("  iorequest_cnt={}, iodone_cnt={}, diff={}".\
                   format(iorequest_cnt, iodone_cnt, cntdiff))
+            classified = print_scsi_dev_cmnds(sdev, v)
+            if (False and classified != busy):
+                print("Mismatch", classified, busy)
             continue
             rport = starget_to_rport(starget)
             print("    ", shost.hostt)
@@ -207,6 +233,75 @@ def print_Scsi_Host(shost, v=0):
         print(" {:s}={}".format(_a, atomic_t(getattr(shost, _a))), end='')
     print()
     do_driver_specific(shost)
+
+# Print time info about request. This is duplicated in Dev, we should
+# use the same subroutine
+def request_timeinfo(req, jiffies = None):
+    if (jiffies is None):
+        jiffies = readSymbol("jiffies")
+    ran_ago = j_delay(req.start_time, jiffies)
+    # On RHEL5, 'struct request' does not have 'deadline' field
+    try:
+        if (req.deadline):
+            deadline = float(req.deadline - jiffies)/HZ
+            if (deadline > 0):
+                fmt = "started {} ago, times out in {:5.2f}s"
+            else:
+                fmt = "started {} ago, timed out {:5.2f}s ago"
+            return(fmt.format(ran_ago, abs(deadline)))
+        else:
+            return("started {} ago".format(ran_ago))
+    except KeyError:
+        return("{}started {} ago".format(ran_ago))
+
+
+# get scsi_cmnd list from scsi_dev
+def print_scsi_dev_cmnds(sdev, v=1):
+    # Tghis subroutine does not work for old kernels (RHEL5)
+    if (_REQ_ATOM_COMPLETE is None):
+        return 0
+    l = ListHead(sdev.request_queue.tag_busy_list)
+    tagged_set = set(l)
+    l_t = ListHead(sdev.request_queue.timeout_list)
+    active_set = set(l_t)
+    classified = 0
+    jiffies = readSymbol("jiffies")
+
+    for cmd in ListHead(sdev.cmd_list, "struct scsi_cmnd").list:
+        flags = []
+        request = cmd.request
+        atomic_flags = request.atomic_flags
+        if (_REQ_ATOM_COMPLETE is not None and (atomic_flags & _REQ_ATOM_COMPLETE)):
+            flags.append('C')
+        if (_REQ_ATOM_START is not None and (atomic_flags & _REQ_ATOM_START)):
+            flags.append('S')
+
+        if (long(cmd.request.timeout_list) in active_set):
+            flags.append('T')
+        if (long(cmd.request.queuelist) in tagged_set):
+            flags.append('G')
+        status = ''.join(flags)
+        if (flags):
+            classified += 1
+        if (v < 2 and not flags):
+            return classified
+
+        print("    {:4} {} {}".format(status, cmd, request))
+        print(" "*11,request_timeinfo(request, jiffies))
+        print("\t     (jiffies - cmnd->jiffies_at_alloc)={}".format(
+                        jiffies-cmd.jiffies_at_alloc))
+
+        #print("           {:#x}  {}".format(cmd.serial_number, cmd.request.atomic_flags))
+        
+    return classified
+
+# map "struct request" -> ("struct scsi_device", "struct scsi_cmnd")
+def req2scsi_info():
+    d = {}
+    for sdev in get_SCSI_devices():
+        for cmd in ListHead(sdev.cmd_list, "struct scsi_cmnd").list:
+            d[cmd.request] = (sdev, cmd)
+    return d
 
 import importlib
 # Check whether there is an mportable submodule for this driver 
