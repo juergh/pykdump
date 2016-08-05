@@ -3,7 +3,7 @@
 # module LinuxDump.Time
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -34,11 +34,11 @@ import crash
 from collections import namedtuple
 
 
-def j_delay(ts, jiffies):
+def j_delay(ts, jiffies,maxhours = 20):
     v = (jiffies - ts) & INT_MASK
     if (v > INT_MAX):
         v = "     n/a"
-    elif (v > HZ*3600*20):
+    elif (v > HZ*3600*maxhours):
         v = ">20hours"
     else:
         v = "%8.2f s" % (float(v)/HZ)
