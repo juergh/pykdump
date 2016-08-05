@@ -599,6 +599,11 @@ class StructResult(long):
     def __repr__(self):
         return "StructResult <%s 0x%x> \tsize=%d" % \
                (self.PYT_symbol, long(self), self.PYT_size)
+    # Short string (without struct/union word), useful when line space is tight
+    def shortStr(self):
+        sn = self.PYT_symbol.split()[-1]
+        return "<%s 0x%x>" % (sn, long(self))
+
     # Print all fields (without diving into structs/unions)
     def Dump(self, indent = 0):
         sindent = ' ' * indent
