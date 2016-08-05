@@ -16,7 +16,7 @@
 from __future__ import print_function
 
 # 1st-pass dumpanalysis
-__version__ = "0.7.1"
+__version__ = "0.7.2"
 
 from pykdump.API import *
 
@@ -1266,9 +1266,16 @@ op.add_option("--ls", dest="ls", default = "",
 op.add_option("--workqueues", dest="Workqueue", default = "",
                 action="store_true",
                 help="Print Workqueues - just for some kernels")
+
 op.add_option("--radix_tree_element", dest="RdElement", nargs=2,
                 metavar='root offset',
                 help="Find and print a radix tree element")
+
+
+op.add_option("--pci", dest="Pci", default = "",
+                action="store_true",
+                help="Print PCI Info")               
+
 
 op.add_option("--version", dest="Version", default = 0,
               action="store_true",
@@ -1320,7 +1327,13 @@ if (o.RdElement):
     else:
         print("  node={:#x}, slot={:#x}".format(node, slot))
     sys.exit(0)
-    
+  
+if (o.Pci):
+    from LinuxDump.pci import *
+    print_PCI_devices(verbose)
+    print_PCI_resources(verbose)
+    sys.exit(0)
+
 if (o.sysctl):
     check_sysctl()
     sys.exit(0)
@@ -1361,8 +1374,9 @@ if (o.Blkdevs):
     sys.exit(0)
     
 if (o.Scsi):
-    from LinuxDump.scsi import print_SCSI_devices
-    print_SCSI_devices(verbose)
+    from LinuxDump.scsi import print_SCSI_devices, scsi_debuginfo_OK
+    if (scsi_debuginfo_OK()):
+       print_SCSI_devices(verbose)
     sys.exit(0)    
     
 if (o.decodesyscalls):
