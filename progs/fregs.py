@@ -16,7 +16,7 @@
 # figure everything out (which is probably impossible); this is a debugging
 # aid, not a tool that attempts to do all crash analysis automatically.
 
-__version__ = "1.07"
+__version__ = "1.08"
 
 import argparse
 from pykdump.API import *
@@ -36,7 +36,7 @@ def funcargs_dict(funcname):
         return {}
     return dict(zip(ARG_REG,fields))
 
-@memoize_cond(CU_LIVE|CU_LOAD)
+@memoize_cond(CU_LIVE)
 def dentry_to_filename (dentry) :
     try:
         crashout = exec_crash_command ("files -d {:#x}".format(dentry))
@@ -47,7 +47,7 @@ def dentry_to_filename (dentry) :
     except:
         return "<invalid>"
 
-@memoize_cond(CU_LIVE|CU_LOAD)
+@memoize_cond(CU_LIVE)
 def get_argdata (addr, type) :
     #if type == "char *" :
     #    try:
@@ -175,6 +175,14 @@ if ( __name__ == '__main__'):
         print "Register decoding is supported on x86_64 dumps only."
         sys.exit()        
 
+    # Purge the memoize cache if a 'mod' command has been done since
+    # our last invocation, since new symbols may not be available
+
+    purge_memoize_cache(CU_LOAD)
+
+#    addr = sym2addr ("watchdog")
+#    print "sym2addr of watchdog is {:x}".format(addr)
+
     with DisasmFlavor('att'):
         try:
             stacklist = exec_bt(btcmd, MEMOIZE=False)
@@ -189,7 +197,10 @@ if ( __name__ == '__main__'):
                    s.pid, s.addr, s.cpu, s.cmd)
 
             for f in s.frames:
-                print "\n{:s} {:s}".format(f.func, f.from_func)
+                if f.level >= 0:
+                    print "\n#{} {:s} {:s}".format(f.level,f.func, f.from_func)
+                else:
+                    print "\n{:s} {:s}".format(f.func, f.from_func)
 
                 if (f.lookup_regs):
 
