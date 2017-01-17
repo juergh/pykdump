@@ -1,40 +1,70 @@
-#LyX 1.5.5 created this file. For more info see http://www.lyx.org/
-\lyxformat 276
+#LyX 2.1 created this file. For more info see http://www.lyx.org/
+\lyxformat 474
 \begin_document
 \begin_header
 \textclass docbook
+\use_default_options false
+\maintain_unincluded_children false
 \language english
+\language_package default
 \inputencoding auto
+\fontencoding global
 \font_roman default
 \font_sans default
 \font_typewriter default
+\font_math auto
 \font_default_family default
+\use_non_tex_fonts false
 \font_sc false
 \font_osf false
 \font_sf_scale 100
 \font_tt_scale 100
 \graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
 \paperfontsize default
 \spacing single
+\use_hyperref false
 \papersize letterpaper
 \use_geometry false
-\use_amsmath 0
-\use_esint 0
+\use_package amsmath 0
+\use_package amssymb 0
+\use_package cancel 1
+\use_package esint 0
+\use_package mathdots 0
+\use_package mathtools 1
+\use_package mhchem 0
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
 \cite_engine basic
+\cite_engine_type default
+\biblio_style plain
 \use_bibtopic false
+\use_indices false
 \paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
 \secnumdepth 3
 \tocdepth 3
 \paragraph_separation indent
-\defskip medskip
+\paragraph_indentation default
 \quotes_language english
 \papercolumns 1
 \papersides 2
 \paperpagestyle default
 \tracking_changes false
 \output_changes false
-\author "" 
-\author "" 
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
 \end_header
 
 \begin_body
@@ -48,22 +78,20 @@ Date
 \end_layout
 
 \begin_layout Author
-\begin_inset CharStyle Firstname
-show_label true
-status inlined
+\begin_inset Flex Firstname
+status open
 
-\begin_layout Standard
+\begin_layout Plain Layout
 Alex
 \end_layout
 
 \end_inset
 
 
-\begin_inset CharStyle Surname
-show_label true
-status inlined
+\begin_inset Flex Surname
+status open
 
-\begin_layout Standard
+\begin_layout Plain Layout
 Sidorenko
 \end_layout
 
@@ -73,7 +101,7 @@ Sidorenko
 \end_layout
 
 \begin_layout Author
-asid@hp.com
+asid@hpe.com
 \end_layout
 
 \begin_layout Abstract
@@ -88,7 +116,8 @@ Tutorial
 \begin_layout Standard
 If you have never used Python before, please read an excellent tutorial
  at 
-\begin_inset LatexCommand url
+\begin_inset CommandInset href
+LatexCommand href
 name "http://docs.python.org/tut/tut.html"
 target "http://docs.python.org/tut/tut.html"
 
@@ -553,7 +582,8 @@ To emulate the missing features we can define some attributes as special
  'Deref' name.
  Luckily, this is highly improbable for kernel structures.
  The "Linux Coding Style" document, 
-\begin_inset LatexCommand url
+\begin_inset CommandInset href
+LatexCommand href
 name "Coding_Style"
 target "http://www.llnl.gov/linux/slurm/coding_style.pdf"
 
@@ -1198,8 +1228,9 @@ run your programs
 
 \end_deeper
 \begin_layout Standard
+\begin_inset Newpage newpage
+\end_inset
 
-\newpage
 
 \end_layout
 
