@@ -8,7 +8,7 @@
 # depending on availability of low-level shared library dlopened from crash
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -46,6 +46,8 @@ import time, select
 import stat
 import atexit
 from collections import defaultdict
+import pprint
+pp = pprint.PrettyPrinter(indent=4)
 
 # Python2 vs Python3
 _Pym = sys.version_info[0]
@@ -57,9 +59,23 @@ if (_Pym > 2):
 try:
     import crash
 except ImportError as e:
+    # Traverse frames to find the program
+    # <frame object at 0x18ef288>
+    # ../progs/pykdump/API.py
+    # <frozen importlib._bootstrap>
+    # <frozen importlib._bootstrap_external>
+    # <frozen importlib._bootstrap>
+    # <frozen importlib._bootstrap>
+    # <frozen importlib._bootstrap>
+    # ../progs/xportshow.py
+
     import inspect
-    fabove = inspect.getouterframes(inspect.currentframe())[1][0]
-    g = fabove.f_globals
+    cframe = inspect.currentframe()
+    for f in inspect.getouterframes(cframe)[1:]:
+        if ("/progs/" in f.filename):
+            #print(f.filename)
+            g = f.frame.f_globals
+            break
     vers =" %s: %s" % (g["__name__"], g["__version__"])
     raise ImportError(vers)
 
@@ -194,7 +210,7 @@ class PyLog:
         self.__print_problems()
         self.__print_info()
     def __print_info(self):
-        if (not self._cache.has_key(INFO)):
+        if (not INFO in self._cache):
             return
         print("")
         print(" Additional Info ".center(78, '~'))
@@ -350,11 +366,11 @@ def __epythonOptions():
                 if (fdir in __stdlib):
                     continue
                 # Don't reload pykdump/
-                if (fdir.startswith(__pylib) or 
+                if (fdir.startswith(__pylib) or
                         mod1 in ('pykdump', '__main__')):
                     continue
                 #print(k, fdir, m.__file__)
-                
+
                 del sys.modules[k]
                 print ("--reloading", k)
 

@@ -56,10 +56,11 @@ else:
     from io import StringIO
     from .tparser import parseSUDef
     from . import Generic as Gen
-    from .Generic import Bunch, TypeInfo, VarInfo, PseudoVarInfo, \
-         SUInfo, ArtStructInfo, \
-         memoize_cond, CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT
     long = int
+    from .Generic import (Bunch, TypeInfo, VarInfo, PseudoVarInfo,
+         SUInfo, ArtStructInfo, EnumInfo,
+         memoize_cond, CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT,
+         memoize_typeinfo, purge_typeinfo)
     def b2str(s):
         return  str(s, 'latin1')
     _bjoin = b''
@@ -1681,8 +1682,8 @@ def exec_crash_command_bg(cmd, timeout = None):
         s = os.read(fileno, 82)    # Line-oriented
         if (not s):
             break
-        out.append(s)
-        
+        out.append(s.decode("utf-8"))
+
     os.close(fileno)
     os.kill(pid, 9)
     cpid, status = os.wait()

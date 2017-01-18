@@ -809,7 +809,7 @@ if ( __name__ == '__main__'):
 
     import sys
 
-    __experimental ='PYKDUMPDEV'in  os.environ
+    __experimental ='PYKDUMPDEV' in  os.environ
 
     #from argparse import OptionParser, OptionGroup, SUPPRESS_HELP
     import argparse

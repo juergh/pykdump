@@ -854,7 +854,7 @@ py_mem2long(PyObject *self, PyObject *args, PyObject *kwds) {
   //printf("strsize=%d, signed=%d, array=%d\n",size, signedvar, array);
 
   if (array <= 1) {
-    if (size < 0 || size > sizeof(functable_signed)/sizeof(conversion_func))
+    if (size < 0 || (unsigned) size > sizeof(functable_signed)/sizeof(conversion_func))
       return nu_badsize(str);
     if (signedvar)
       return functable_signed[size-1](str);
@@ -866,7 +866,7 @@ py_mem2long(PyObject *self, PyObject *args, PyObject *kwds) {
     int i;
     PyObject *list, *val;
     if (size < 0 || sz1*array != size ||
-	sz1 > sizeof(functable_signed)/sizeof(conversion_func))
+	(unsigned)sz1 > sizeof(functable_signed)/sizeof(conversion_func))
       return nu_badsize(str);
 
     list = PyList_New(0);
@@ -1030,7 +1030,7 @@ py_readInt(PyObject *self, PyObject *args) {
     return NULL;
 
   }
-  if (size < 0 || size > sizeof(functable_signed)/sizeof(conversion_func))
+  if (size < 0 || (unsigned) size > sizeof(functable_signed)/sizeof(conversion_func))
     return nu_badsize(buffer);
   if (signedvar)
     return functable_signed[size-1](buffer);
@@ -1722,7 +1722,7 @@ extern const char * crashmod_version;
 static PyObject *
 initcrash23(void) {
 
-  int i;
+  unsigned int i;
 #if PY_MAJOR_VERSION >= 3
     m = PyModule_Create(&crashmodule);
 #else

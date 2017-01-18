@@ -197,7 +197,6 @@ void _init(void)  {
   //PyObject *s;
 
   struct command_table_entry *ct_copy;
-    
   /*
     WARNING:
     dlopen() manpage says that _init() is not very reliable and can be called
@@ -207,7 +206,7 @@ void _init(void)  {
     debug = atoi(getenv("PYKDUMPDEBUG"));
   if (debug)
     printf("Running epython_init\n");
-  
+
   // If crash is in 'minimal' mode, we just bail out as we depend on full
   // crash functionality
   if (pc->flags & MINIMAL_MODE)
@@ -264,25 +263,25 @@ void _init(void)  {
     //strcpy(stdpath, ".:");
     strcpy(stdpath, "");
     if (extrapath) {
-      strncat(stdpath, extrapath, BUFLEN);
-      strncat(stdpath, ":", BUFLEN);
+      strncat(stdpath, extrapath, BUFLEN-1);
+      strncat(stdpath, ":", BUFLEN-1);
     }
-    strncat(stdpath, ext_filename, BUFLEN);
+    strncat(stdpath, ext_filename, BUFLEN-1);
     strncat(stdpath, ":", BUFLEN);
-    strncat(stdpath, ext_filename, BUFLEN);
-    strncat(stdpath, "/", BUFLEN);
-    strncat(stdpath, PYSTDLIBDIR, BUFLEN);
-    mbstowcs(wstdpath, stdpath, BUFLEN);
+    strncat(stdpath, ext_filename, BUFLEN-1);
+    strncat(stdpath, "/", BUFLEN-1);
+    strncat(stdpath, PYSTDLIBDIR, BUFLEN-1);
+    mbstowcs(wstdpath, stdpath, BUFLEN-1);
 #if PY_MAJOR_VERSION >= 3
     PyImport_AppendInittab("crash", PyInit_crash);
     Py_SetPath(wstdpath);
 #endif
     Py_Initialize();
     PyEval_InitThreads();
-#if PY_MAJOR_VERSION < 3    
+#if PY_MAJOR_VERSION < 3
     PySys_SetPath(stdpath);
     initcrash();
-#endif    
+#endif
     //sysm = PyImport_ImportModule("sys");
     // For static builds, reset sys.path from scratch
   } else {
@@ -466,7 +465,7 @@ const char *find_pyprog(const char *prog) {
 
     if (extrapath) {
         strcpy(buf2, ".:");
-        strncat(buf2, extrapath, BUFSIZE);
+        strncat(buf2, extrapath, BUFSIZE-1);
     } else
         strcpy(buf2, ".");
 
@@ -526,8 +525,8 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
   char buffer[BUFLEN];
   char **nargv;
 #if PY_MAJOR_VERSION >= 3
-  wchar_t **argv_copy;
-  wchar_t **argv_copy2;
+  wchar_t **argv_copy = NULL;
+  wchar_t **argv_copy2 = NULL;
   int i;
 #endif
 
@@ -645,7 +644,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
     /* We need a second copies, as Python might modify the first one. */
     argv_copy2 = (wchar_t **)PyMem_Malloc(sizeof(wchar_t*)*argc);
     for (i = 0; i < argc; i++) {
-      argv_copy[i] = _Py_char2wchar(nargv[i], NULL);
+      argv_copy[i] = Py_DecodeLocale(argv[i], NULL);
       if (!argv_copy[i])
 	PyErr_NoMemory();
       argv_copy2[i] = argv_copy[i];
