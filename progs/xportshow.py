@@ -26,7 +26,8 @@ from LinuxDump.inet.proto import (tcpState, sockTypes,
      IP_sock,  P_FAMILIES, decodeSock, print_accept_queue,
      print_skbuff_head,
      decode_skbuf, decode_IP_header, decode_TCP_header,
-     skb_shinfo, walk_skb)
+     skb_shinfo, walk_skb,
+     analyze_tcp_rcv_win)
 
 from LinuxDump.Tasks import TaskTable
 from LinuxDump.inet import summary
@@ -144,6 +145,13 @@ def print_TCP_sock(o):
             print ("\twindows: rcv=%d, snd=%d  advmss=%d rcv_ws=%d snd_ws=%d" %\
                 (rcv_wnd, snd_wnd, advmss,
                  pstr.rx_opt.rcv_wscale, pstr.rx_opt.snd_wscale))
+            # analyze window options (tested for RHEL6 only at this moment)
+            try:
+                analyze_tcp_rcv_win(o, details)
+            except:
+                # Does not work on this kernel (presumably only on old ones)
+                pass
+            #print("\trcv_mss", o.inet_conn.icsk_ack.rcv_mss)
             print ("\tnonagle=%d sack_ok=%d tstamp_ok=%d" %\
                 (nonagle, pstr.rx_opt.sack_ok, pstr.rx_opt.tstamp_ok))
             print ("\trmem_alloc=%d, wmem_alloc=%d" % (pstr.rmem_alloc,
@@ -809,7 +817,7 @@ if ( __name__ == '__main__'):
 
     import sys
 
-    __experimental ='PYKDUMPDEV' in  os.environ
+    __experimental ='PYKDUMPDEV'in  os.environ
 
     #from argparse import OptionParser, OptionGroup, SUPPRESS_HELP
     import argparse
