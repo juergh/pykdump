@@ -25,19 +25,19 @@ from __future__ import print_function
 from pykdump.API import *
 
 from LinuxDump.inet import *
-from LinuxDump.inet import routing as gen_rtn
+import routing as gen_rtn
 
 debug = API_options.debug
 
 # ------- FIB-TRIE stuff for new kernels ----------------------------------
-#define KEYLENGTH       (8*sizeof(t_key))
-#define KEY_MAX         ((t_key)~0)
+#define KEYLENGTH	(8*sizeof(t_key))
+#define KEY_MAX		((t_key)~0)
 
 #typedef unsigned int t_key;
 
-#define IS_TRIE(n)      ((n)->pos >= KEYLENGTH)
-#define IS_TNODE(n)     ((n)->bits)
-#define IS_LEAF(n)      (!(n)->bits)
+#define IS_TRIE(n)	((n)->pos >= KEYLENGTH)
+#define IS_TNODE(n)	((n)->bits)
+#define IS_LEAF(n)	(!(n)->bits)
 
 KEYLENGTH = 8 * struct_size("t_key")
 KEY_MAX = -1
@@ -53,12 +53,12 @@ def IS_LEAF(n):
 
 # static inline unsigned long get_index(t_key key, struct key_vector *kv)
 # {
-#       unsigned long index = key ^ kv->key;
+# 	unsigned long index = key ^ kv->key;
 
-#       if ((BITS_PER_LONG <= KEYLENGTH) && (KEYLENGTH == kv->pos))
-#               return 0;
+# 	if ((BITS_PER_LONG <= KEYLENGTH) && (KEYLENGTH == kv->pos))
+# 		return 0;
 
-#       return index >> kv->pos;
+# 	return index >> kv->pos;
 # }
 
 def get_index(key, kv):
@@ -79,7 +79,7 @@ def node_parent_rcu(tn):
 
 # static inline struct tnode *tn_info(struct key_vector *kv)
 # {
-#       return container_of(kv, struct tnode, kv[0]);
+# 	return container_of(kv, struct tnode, kv[0]);
 # }
 
 def tn_info(kv):
@@ -136,12 +136,12 @@ def leaf_walk_rcu(tn, key):
     while(True):
         if (IS_TRIE(pn)):
             break
-        #       if (cindex >= (1ul << pn->bits)) {
-        #       t_key pkey = pn->key;
+        # 	if (cindex >= (1ul << pn->bits)) {
+        # 	t_key pkey = pn->key;
 
-        #       pn = node_parent_rcu(pn);
-        #       cindex = get_index(pkey, pn) + 1;
-        #       continue;
+        # 	pn = node_parent_rcu(pn);
+        # 	cindex = get_index(pkey, pn) + 1;
+        # 	continue;
         # }
         #print("2nd pass", pn, key)
         if (cindex >= 1 << pn.bits):
@@ -158,8 +158,8 @@ def leaf_walk_rcu(tn, key):
             # found
             return (n, pn)
         #/* Rescan start scanning in new node */
-        pn = n
-        cindex = 0
+	pn = n
+	cindex = 0
     return (None, pn)                # Root 
 
         
@@ -214,7 +214,7 @@ def get_fib_entries_v40(table):
             if (fa.tb_id != tb_id):
                 continue
             yield e
-
+    
 
 def fib_table_dump(tb):
     t = readSU("struct trie", tb.tb_data)

@@ -3,7 +3,7 @@
 # module LinuxDump.inet.proto
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -1459,3 +1459,74 @@ enum tcp_ca_state
 '''
 
 TCP_CA_STATE = CEnum(__TCP_CA_STATE_c)
+
+# analyze TCP windows options (tested for RHEL6 only at this moment)
+#1031 static inline int tcp_win_from_space(int space)
+#1032 {
+#1033         return sysctl_tcp_adv_win_scale<=0 ?
+#1034                 (space>>(-sysctl_tcp_adv_win_scale)) :
+#1035                 space - (space>>sysctl_tcp_adv_win_scale);
+#1036 }
+
+def tcp_win_from_space(space):
+    sysctl_tcp_adv_win_scale = readSymbol("sysctl_tcp_adv_win_scale")
+    if (sysctl_tcp_adv_win_scale <= 0):
+        return space>>(-sysctl_tcp_adv_win_scale)
+    else:
+        return (space - (space>>sysctl_tcp_adv_win_scale))
+
+#1038 /* Note: caller must be prepared to deal with negative returns */ 
+#1039 static inline int tcp_space(const struct sock *sk)
+#1040 {
+#1041         return tcp_win_from_space(sk->sk_rcvbuf -
+#1042                                   atomic_read(&sk->sk_rmem_alloc));
+#1043 } 
+
+def tcp_space(o):
+    sk = IP_sock(o, True)
+    return tcp_win_from_space(sk.rcvbuf - sk.rmem_alloc)
+
+#1045 static inline int tcp_full_space(const struct sock *sk)
+#1046 {
+#1047         return tcp_win_from_space(sk->sk_rcvbuf); 
+#1048 }
+
+def tcp_full_space(o):
+    sk = IP_sock(o, True)
+    return tcp_win_from_space(sk.rcvbuf)
+
+def analyze_tcp_rcv_win(o, v=1):
+    ips = IP_sock(o, True)
+    icsk = o.inet_conn
+    mss = icsk.icsk_ack.rcv_mss
+    advmss = ips.topt.advmss
+    if (v < 2):
+        # Just check whether mss is greater than advmss
+        if (mss > advmss):
+            print("     !!! mss={} > advmss={}".format(mss, advmss))
+        return
+    print("        --- Emulating __tcp_select_window ---")
+
+    free_space = tcp_space(o)
+    allowed_space = tcp_full_space(o)
+    full_space = min(o.window_clamp, allowed_space)
+    print("          rcv_mss={} free_space={} allowed_space={} full_space={}".format(
+        mss, free_space, allowed_space, full_space))
+    rcv_ssthresh = o.rcv_ssthresh
+    if (free_space < (full_space >>1)):
+        print("          free_space < (full_space >>1 is True")
+    if(free_space > rcv_ssthresh):
+        free_space = rcv_ssthresh
+        print("          rcv_ssthresh={}, so free_space->{} ".format(rcv_ssthresh, free_space))
+    window = ips.topt.rcv_wnd
+    rcv_wscale = ips.rx_opt.rcv_wscale
+    if (rcv_wscale):
+        print("          rcv_wscale={}".format(rcv_wscale))
+    if (window <= free_space - mss):
+        print("          window <= free_space-mss")
+    if (free_space - mss < 0):
+        print("          !!!free_space - mss = {}".format(free_space-mss))
+    elif (mss == full_space and free_space > window + (full_space >> 1)):
+        print("          mss == full_space and free_space > window + (full_space >> 1)")
+    else:
+        print("          window is not changed")
