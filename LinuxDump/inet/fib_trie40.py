@@ -3,7 +3,7 @@
 #
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2015-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -25,7 +25,7 @@ from __future__ import print_function
 from pykdump.API import *
 
 from LinuxDump.inet import *
-import routing as gen_rtn
+from . import routing as gen_rtn
 
 debug = API_options.debug
 

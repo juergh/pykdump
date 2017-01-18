@@ -1,5 +1,5 @@
 /* Python extension to interact with CRASH
-   
+
 
 # --------------------------------------------------------------------
 # (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
@@ -12,7 +12,7 @@
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation; either version 2 of the License, or
   (at your option) any later version.
- 
+
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -76,7 +76,7 @@ void connect2fp(void) {
 #if PY_MAJOR_VERSION >= 3
   crashfp = PyFile_FromFd(fileno(fp), "<crash fp>", "w",
 			  -1, NULL, NULL, NULL, 0);
-#else  
+#else
   crashfp = PyFile_FromFile(fp, "<crash fp>", "w", py_fclose);
 #endif
   PyObject_SetAttrString(sys, "stdout", crashfp);
@@ -211,12 +211,12 @@ void _init(void)  {
   // crash functionality
   if (pc->flags & MINIMAL_MODE)
       return;
-  
-  /* Before doing anything else, check whether the versions of crash 
+
+  /* Before doing anything else, check whether the versions of crash
     used for build and the currently running version are compatible:
     build_crash_version vs build_version
    */
-  
+
   if (build_crash_version[0] != build_version[0]) {
     fprintf(stderr, "\nYou need to use mpykdump.so matching the major"
 	" crash version\n");
@@ -225,7 +225,7 @@ void _init(void)  {
     fprintf(stderr, "Cannot continue, exiting\n\n");
     exit(1);
   }
-  
+
   /* crash-5 is a moving target and we usually need to rebuild the
      module with each new release. Output a warning
   */
@@ -236,8 +236,8 @@ void _init(void)  {
 	   build_crash_version, build_version);
     fprintf(fp, "If something does not work, use the matching versions\n");
   }
-      
-  
+
+
 
   ext_filename = malloc(strlen(pc->curext->filename)+1);
   strcpy(ext_filename,  pc->curext->filename);
@@ -255,7 +255,7 @@ void _init(void)  {
     if (debug)
       fprintf(fp, "     *** Initializing Embedded Python %s ***\n",
 	      crashmod_version);
- 
+
     extrapath = getenv("PYKDUMPPATH");
     // To be able debug sources, we need real FS to be searched
     // before ZIP. So if PYKDUMPPATH is set, we insert it _before_ our
@@ -308,7 +308,7 @@ void _init(void)  {
     pc->flags &= ~SCROLL;
   }
 
-  
+
   if (debug) {
     printf("Epython extension registered\n");
     PyRun_SimpleString("import sys; print (sys.path)");
@@ -572,7 +572,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
       fprintf(fp,"  C-module version=%s\n", crashmod_version);
       fprintf(fp,"  crash used for build: %s\n", build_crash_version);
       // Check for other programs embedded in zipfile
-      fprintf(fp, "\n --- Using %s ---", ext_filename);
+      fprintf(fp, "\n --- Using %s ---\n", ext_filename);
       run_fromzip("README", ext_filename);
       return;
     case 'p':
@@ -584,7 +584,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
       break;
     case 'm':
       emulate_m = 1;
-      break;      
+      break;
     default: /* '?' */
       ep_usage();
       return;
@@ -610,7 +610,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
     for(i=0; i < argc; i++)
       printf("  nargv[%d] = %s\n", i, nargv[i]);
   }
-  
+
   prog = find_pyprog(nargv[0]);
   if (prog) {
     if (debug)
@@ -635,7 +635,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
 
   // We should add handling exceptions here to prevent 'crash' from exiting
   if (argc > 0) {
-#if PY_MAJOR_VERSION < 3    
+#if PY_MAJOR_VERSION < 3
     PySys_SetArgvEx(argc, nargv, 0);
 #else
     // We need to convert char **nargv -> wchar_t **argv. We'll allocate memory
@@ -652,8 +652,6 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
     PySys_SetArgvEx(argc, argv_copy, 0);
 #endif
 
-  
-    
     /* The function will be available only on the 2nd and further invocations
      of epython as it is normally defined in API.py which is not loaded yet */
     if (!quiet)
@@ -663,7 +661,6 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
     if (scriptfp) {
       PyRun_SimpleFile(scriptfp, nargv[0]);
       fclose(scriptfp);
-    
     } else {
       /* Try to load code from ZIP */
       int rc = 0;
@@ -675,7 +672,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
           else
             strcpy(buffer, "progs/");
       }
-      
+
       rc = run_fromzip(strncat(buffer, nargv[0], BUFLEN - 60), ext_filename);
       if (!rc && !quiet)
 	fprintf(fp, " Cannot find the program <%s>\n", nargv[0]);
@@ -689,10 +686,10 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
   // Reset sys.path every time after running a program as we do not destory the intepreter
 #if PY_MAJOR_VERSION >= 3
   Py_SetPath(wstdpath);
-#else    
+#else
   PySys_SetPath(stdpath);
-#endif  
-    
+#endif
+
 #if PY_MAJOR_VERSION > 2
   // Free memory allocated for wchar copies
   for (i = 0; i < argc; i++) {
@@ -708,12 +705,12 @@ cmd_epython() {
   epython_execute_prog(argcnt, args, 0);
 }
 
- 
+
 char *help_epython[] = {
         "epython",                        /* command name */
         "invokes embedded Python interpreter",   /* short description */
         "program.py arg ...",	/* argument synopsis, or " " if none */
- 
+
         "  This command invokes embedded Python.",
         "\nEXAMPLE",
         "  Output help information for 'xportshow' tool:\n",
