@@ -99,7 +99,7 @@ OBJS :=  epython.o functions.o gdbspec.o $(PYTHON_EXITSUB).o
 $(PYTHON_EXITSUB).o: $(PYTHON_PATCH) $(MK)
 	sed 's/Py_Exit(int sts)/xPy_Exit(int sts)/' $(PYTHON_PATCH) > $(PYTHON_EXITSUB_C)
 	$(CC) -c $(CFLAGS) $(GDBINCL) $(PYINCLUDE) -DPy_BUILD_CORE $(PYTHON_EXITSUB_C)  -o $@
-	#@rm -f $(PYTHON_EXITSUB_C)
+	@rm -f $(PYTHON_EXITSUB_C)
 
 
 $(EXT_C): $(OBJS) $(PYTHON)

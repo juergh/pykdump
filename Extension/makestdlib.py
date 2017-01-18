@@ -55,3 +55,4 @@ for l in open(flist, "r"):
 site_py = "site.py"
 open(site_py, 'a').close()
 py_compile.compile(site_py, os.path.join(dstdir, site_py+'c'))
+os.unlink(site_py)

@@ -3,7 +3,7 @@
 # module LinuxDump.Analysis
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -245,7 +245,7 @@ def check_memory_pressure(_funcpids):
         t = T_table.getByTid(pid)
         d[t.state] += 1
         total += 1
-    if (d.has_key("TASK_UNINTERRUPTIBLE") or total > 20):
+    if ("TASK_UNINTERRUPTIBLE" in d or total > 20):
         pylog.warning("Memory pressure detected")
         print("  *** {} ***".format(__mp_names))
         for k, v in d.items():
