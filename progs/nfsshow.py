@@ -60,54 +60,54 @@ __needed_structs = ("struct rpc_task", "struct nlm_wait",
 __NO_NFSD = False
 
 NFS4_C = '''
-#define NFSPROC4_NUL            0
-#define NFSPROC4_COMPOUND       1
+#define NFSPROC4_NUL		0
+#define NFSPROC4_COMPOUND	1
 '''
 
 NFS3_C = '''
-#define NFS3PROC_NULL           0
-#define NFS3PROC_GETATTR        1
-#define NFS3PROC_SETATTR        2
-#define NFS3PROC_LOOKUP         3
-#define NFS3PROC_ACCESS         4
-#define NFS3PROC_READLINK       5
-#define NFS3PROC_READ           6
-#define NFS3PROC_WRITE          7
-#define NFS3PROC_CREATE         8
-#define NFS3PROC_MKDIR          9
-#define NFS3PROC_SYMLINK        10
-#define NFS3PROC_MKNOD          11
-#define NFS3PROC_REMOVE         12
-#define NFS3PROC_RMDIR          13
-#define NFS3PROC_RENAME         14
-#define NFS3PROC_LINK           15
-#define NFS3PROC_READDIR        16
-#define NFS3PROC_READDIRPLUS    17
-#define NFS3PROC_FSSTAT         18
-#define NFS3PROC_FSINFO         19
-#define NFS3PROC_PATHCONF       20
-#define NFS3PROC_COMMIT         21
+#define NFS3PROC_NULL		0
+#define NFS3PROC_GETATTR	1
+#define NFS3PROC_SETATTR	2
+#define NFS3PROC_LOOKUP		3
+#define NFS3PROC_ACCESS		4
+#define NFS3PROC_READLINK	5
+#define NFS3PROC_READ		6
+#define NFS3PROC_WRITE		7
+#define NFS3PROC_CREATE		8
+#define NFS3PROC_MKDIR		9
+#define NFS3PROC_SYMLINK	10
+#define NFS3PROC_MKNOD		11
+#define NFS3PROC_REMOVE		12
+#define NFS3PROC_RMDIR		13
+#define NFS3PROC_RENAME		14
+#define NFS3PROC_LINK		15
+#define NFS3PROC_READDIR	16
+#define NFS3PROC_READDIRPLUS	17
+#define NFS3PROC_FSSTAT		18
+#define NFS3PROC_FSINFO		19
+#define NFS3PROC_PATHCONF	20
+#define NFS3PROC_COMMIT		21
 '''
 
 NFS2_C = '''
-#define NFSPROC_NULL            0
-#define NFSPROC_GETATTR         1
-#define NFSPROC_SETATTR         2
-#define NFSPROC_ROOT            3
-#define NFSPROC_LOOKUP          4
-#define NFSPROC_READLINK        5
-#define NFSPROC_READ            6
-#define NFSPROC_WRITECACHE      7
-#define NFSPROC_WRITE           8
-#define NFSPROC_CREATE          9
-#define NFSPROC_REMOVE          10
-#define NFSPROC_RENAME          11
-#define NFSPROC_LINK            12
-#define NFSPROC_SYMLINK         13
-#define NFSPROC_MKDIR           14
-#define NFSPROC_RMDIR           15
-#define NFSPROC_READDIR         16
-#define NFSPROC_STATFS          17
+#define NFSPROC_NULL		0
+#define NFSPROC_GETATTR		1
+#define NFSPROC_SETATTR		2
+#define NFSPROC_ROOT		3
+#define NFSPROC_LOOKUP		4
+#define NFSPROC_READLINK	5
+#define NFSPROC_READ		6
+#define NFSPROC_WRITECACHE	7
+#define NFSPROC_WRITE		8
+#define NFSPROC_CREATE		9
+#define NFSPROC_REMOVE		10
+#define NFSPROC_RENAME		11
+#define NFSPROC_LINK		12
+#define NFSPROC_SYMLINK		13
+#define NFSPROC_MKDIR		14
+#define NFSPROC_RMDIR		15
+#define NFSPROC_READDIR		16
+#define NFSPROC_STATFS		17
 '''
 
 NFS2_PROCS = CDefine(NFS2_C)
@@ -334,9 +334,9 @@ def getCache(cname):
 #    } in6_u;
 #}
 
-#define CACHE_VALID     0       /* Entry contains valid data */
-#define CACHE_NEGATIVE  1       /* Negative entry - there is no match for the key */
-#define CACHE_PENDING   2       /* An upcall has been sent but no reply received yet*/
+#define	CACHE_VALID	0	/* Entry contains valid data */
+#define	CACHE_NEGATIVE	1	/* Negative entry - there is no match for the key */
+#define	CACHE_PENDING	2	/* An upcall has been sent but no reply received yet*/
 
 __CACHE_VALID = 0
 __CACHE_NEGATIVE = 1
@@ -346,7 +346,7 @@ def test_bit(nbit, val):
     return ((val >> nbit) == 1)
 
 def _test_cache(ch):
-    #   if (test_bit(CACHE_VALID, &h->flags) &&
+    #	if (test_bit(CACHE_VALID, &h->flags) &&
     #    !test_bit(CACHE_NEGATIVE, &h->flags))
     return (test_bit(__CACHE_VALID, ch.flags) and not
             test_bit(__CACHE_NEGATIVE, ch.flags))
@@ -357,36 +357,36 @@ def _test_cache_pending(ch):
 
 # static inline int key_len(int type)
 # {
-#       switch(type) {
-#       case FSID_DEV:          return 8;
-#       case FSID_NUM:          return 4;
-#       case FSID_MAJOR_MINOR:  return 12;
-#       case FSID_ENCODE_DEV:   return 8;
-#       case FSID_UUID4_INUM:   return 8;
-#       case FSID_UUID8:        return 8;
-#       case FSID_UUID16:       return 16;
-#       case FSID_UUID16_INUM:  return 24;
-#       default: return 0;
-#       }
+# 	switch(type) {
+# 	case FSID_DEV:		return 8;
+# 	case FSID_NUM: 		return 4;
+# 	case FSID_MAJOR_MINOR:	return 12;
+# 	case FSID_ENCODE_DEV:	return 8;
+# 	case FSID_UUID4_INUM:	return 8;
+# 	case FSID_UUID8:	return 8;
+# 	case FSID_UUID16:	return 16;
+# 	case FSID_UUID16_INUM:	return 24;
+# 	default: return 0;
+# 	}
 # }
 
 def key_len(t):
     if (t == __F.FSID_DEV):   return 8
     elif(t == __F.FSID_NUM):  return 4
-    elif(t == __F.FSID_MAJOR_MINOR):    return 12
-    elif(t == __F.FSID_ENCODE_DEV):     return 8
-    elif(t == __F.FSID_UUID4_INUM):     return 8
-    elif(t == __F.FSID_UUID8):  return 8
-    elif(t == __F.FSID_UUID16): return 16
-    elif(t == __F.FSID_UUID16_INUM):    return 24
+    elif(t == __F.FSID_MAJOR_MINOR):	return 12
+    elif(t == __F.FSID_ENCODE_DEV):	return 8
+    elif(t == __F.FSID_UUID4_INUM):	return 8
+    elif(t == __F.FSID_UUID8):	return 8
+    elif(t == __F.FSID_UUID16):	return 16
+    elif(t == __F.FSID_UUID16_INUM):	return 24
     else: return 0
 
 # Older kernels
 def key_len_old(t):
     if (t == 0):   return 8
     elif(t == 1):  return 4
-    elif(t == 2):       return 12
-    elif(t == 3):       return 8
+    elif(t == 2):	return 12
+    elif(t == 3):	return 8
     else: return 0
 
 # NFS Export Cache (as reported by /proc/net/rpc/nfsd.export/contents)
@@ -405,7 +405,7 @@ def print_nfsd_fh(v=0):
         out = []
         out.append("%s %d 0x" %( ek.ek_client.name, ek.ek_fsidtype))
         #for (i=0; i < key_len(ek->ek_fsidtype)/4; i++)
-        #       seq_printf(m, "%08x", ek->ek_fsid[i]);
+	#	seq_printf(m, "%08x", ek->ek_fsid[i]);
         for i in range(key_len(ek.ek_fsidtype)/4):
             out.append("%08x" % ek.ek_fsid[i])
 
@@ -513,25 +513,25 @@ def print_ip_map_cache():
         dom = ""
         if (_test_cache(ch)):
             dom = im.m_client.h.name;
-        # On new kernels, m_addr is 'strict in6_addr'
-        # On old (2.6.18) it is just 'struct in_addr'
-        addr = im.m_addr
-        if (addr.hasField("s_addr")):
-            # IPv4-only
-            addr_s = ntodots(addr.s_addr)
-        else:
-            # IPv6
-            if (ipv6_addr_v4mapped(im.m_addr)):
-                addr_s =  ntodots(im.m_addr.in6_u.u6_addr32[3])
-            else:
-                addr_s = ntodots6(im.m_addr)
+	# On new kernels, m_addr is 'strict in6_addr'
+	# On old (2.6.18) it is just 'struct in_addr'
+	addr = im.m_addr
+	if (addr.hasField("s_addr")):
+	    # IPv4-only
+	    addr_s = ntodots(addr.s_addr)
+	else:
+	    # IPv6
+	    if (ipv6_addr_v4mapped(im.m_addr)):
+		addr_s =  ntodots(im.m_addr.in6_u.u6_addr32[3])
+	    else:
+		addr_s = ntodots6(im.m_addr)
         print ("    %-8s %20s  %s" % (im.m_class, addr_s, dom))
 
 # /* access the groups "array" with this macro */
 # #define GROUP_AT(gi, i) \
-#       ((gi)->blocks[(i) / NGROUPS_PER_BLOCK][(i) % NGROUPS_PER_BLOCK])
+# 	((gi)->blocks[(i) / NGROUPS_PER_BLOCK][(i) % NGROUPS_PER_BLOCK])
 
-#define NGROUPS_PER_BLOCK       ((unsigned int)(PAGE_SIZE / sizeof(gid_t)))
+#define NGROUPS_PER_BLOCK	((unsigned int)(PAGE_SIZE / sizeof(gid_t)))
 
 NGROUPS_PER_BLOCK = PAGESIZE/struct_size("gid_t")
 def GROUP_AT(gi, i):
@@ -568,10 +568,10 @@ def print_unix_gid(v=0):
 
 # struct rpc_task {
 # #ifdef RPC_DEBUG
-#       unsigned long           tk_magic;       /* 0xf00baa */
+# 	unsigned long		tk_magic;	/* 0xf00baa */
 # #endif
-#       atomic_t                tk_count;       /* Reference count */
-#       struct list_head        tk_task;        /* global list of tasks */
+# 	atomic_t		tk_count;	/* Reference count */
+# 	struct list_head	tk_task;	/* global list of tasks */
 
 
 def __init_attrs():
@@ -621,11 +621,11 @@ def print_rpc_task(s, v = 0):
         rpc_proc = s.P_proc
         tk_client = s.tk_client
         tk_status = s.tk_status
-        #pn = cl_pi[rpc_proc].p_name
+	#pn = cl_pi[rpc_proc].p_name
         #pn = tk_client.cl_protname
         cl_xprt= tk_client.cl_xprt
         addr_in = cl_xprt.addr.castTo("struct sockaddr_in")
-        ip = ntodots(addr_in.sin_addr.s_addr)
+	ip = ntodots(addr_in.sin_addr.s_addr)
         print ("\tProtocol=",cl_xprt.prot, ", Server=", tk_client.cl_server, ip)
         if (v > 1):
             print("\t ", tk_client)
@@ -647,28 +647,40 @@ def print_rpc_task(s, v = 0):
 
         print ("\t  pmap_prog=", prog, ", pmap_vers=", vers)
 
-        rqst = s.tk_rqstp
+	rqst = s.tk_rqstp
 
-        if (rqst):
+	if (rqst):
             if(rqst.rq_retries):
                 print ("\t  rq_retries=", rqst.rq_retries, "rq_timeout=", rqst.rq_timeout,\
                 "rq_majortimeo", rqst.rq_majortimeo)
             #print("\t  rq_slen={}".format(rqst.rq_snd_buf.len))
-        tk_callback = s.tk_callback
-        if (tk_callback):
-            print ("\t  callback=%s" % addr2sym(tk_callback))
+	tk_callback = s.tk_callback
+	if (tk_callback):
+	    print ("\t  callback=%s" % addr2sym(tk_callback))
     except crash.error:
         pass
 
+__sstate = EnumInfo("socket_state")
 # decode/print rpc_xprt
 def print_xprt(xprt, v = 0):
     try:
-        print ("      ...", xprt, "...")
+        # Get sock from xprt
+        sock_xprt = container_of(xprt, "struct sock_xprt", "xprt") 
+        print ("      ...", xprt.shortStr(), "...", sock_xprt.shortStr())
         print("        state={}".format(dbits2str(xprt.state, XPRT_BITS)))
         jiffies = readSymbol("jiffies")
         print ("        last_used %s s ago" % __j_delay(xprt.last_used, jiffies))
         if (v < 1):
             return
+        
+        socket = sock_xprt.sock     # struct socket
+        sk = socket.sk              # struct sock
+        # IP
+        ip_sock = IP_sock(sk)
+        # Compact str(ip_sock) 
+        s = ' '.join(str(ip_sock).split())
+        print("       ", s)
+        
         for qn in ("binding", "sending","resend", "pending", "backlog"):
             try:
                 print ("        len(%s) queue is %d" % (qn,
@@ -761,18 +773,18 @@ def print_rpc_status():
     return
     for qname in ("schedq", "childq", "delay_queue"):
         tasks = readSU("struct rpc_wait_queue", sym2addr(qname)).tasks
-        print ("Number of elements in %15s:" % qname, end='')
+	print ("Number of elements in %15s:" % qname, end='')
         for lh in tasks:
-            #print hexl(Addr(lh))
-            print (" [%d] " % getListSize(Addr(lh), 0, 10000000), end='')
-        print ("")
+	    #print hexl(Addr(lh))
+	    print (" [%d] " % getListSize(Addr(lh), 0, 10000000), end='')
+	print ("")
 
     return
     # Print schedq elements
     shedq0 = readSU("struct rpc_wait_queue", sym2addr("schedq")).tasks[0]
     for ta in readList(Addr(shedq0), 0, maxel=20, inchead=False):
         rpct = readSU("struct rpc_task", ta)
-        print_rpc_task(rpct)
+	print_rpc_task(rpct)
 
 
 # Getting all tasks.
@@ -794,14 +806,14 @@ def get_all_rpc_clients():
 def get_all_rpc_tasks(nmax = 100):
     all_taddr = sym2addr("all_tasks")
     if (all_taddr):
-        return readSUListFromHead(all_taddr, "tk_task", "struct rpc_task",
+	return readSUListFromHead(all_taddr, "tk_task", "struct rpc_task",
                            maxel= nmax, warn = False)
 
     out = []
     allc = get_all_rpc_clients()
     nleft = nmax
     for cl in allc:
-        tasks = readSUListFromHead(long(cl.cl_tasks), "tk_task",
+	tasks = readSUListFromHead(long(cl.cl_tasks), "tk_task",
                                    "struct rpc_task",
                                    maxel = nleft, warn = False)
         out += tasks
@@ -811,8 +823,8 @@ def get_all_rpc_tasks(nmax = 100):
 
 
 # Get dirty inodes
-#       struct list_head        s_dirty;        /* dirty inodes */
-#       struct list_head        s_io;           /* parked for writeback */
+#	struct list_head	s_dirty;	/* dirty inodes */
+#	struct list_head	s_io;		/* parked for writeback */
 
 def print_test():
     for sa in readList(sym2addr("super_blocks"), 0, inchead=False):
@@ -869,11 +881,11 @@ def print_svc_serv(srv):
     print ("  -- Sockets Used by NLM")
     print ("     -- Permanent Sockets")
     for s in ListHead(Addr(srv.sv_permsocks), "struct svc_sock").SockList:
-        print ("\t", s, "\n  ", IP_sock(s.sk_sk))
+	print ("\t", s, "\n  ", IP_sock(s.sk_sk))
     if (srv.sv_tmpcnt):
-        print (" -- Temp Sockets")
+	print (" -- Temp Sockets")
         for s in ListHead(Addr(srv.sv_tempsocks), "struct svc_sock").SockList:
-            print ("\t", s, "\n  ", IP_sock(s.sk_sk))
+	    print ("\t", s, "\n  ", IP_sock(s.sk_sk))
 
 
 # Print NLM stuff
@@ -884,7 +896,7 @@ def print_nlm_serv():
         svc_serv = readSymbol("nlmsvc_serv")
     except TypeError:
         # On 2.6.35 we have
-        # static struct svc_rqst                *nlmsvc_rqst;
+        # static struct svc_rqst		*nlmsvc_rqst;
         nlmsvc_rqst = readSymbol("nlmsvc_rqst")
         # This is NULL if we are NFSv3-only
         if (not nlmsvc_rqst):
@@ -901,32 +913,32 @@ def print_nlm_blocked_clnt(nlm_blocked):
         print ("  ................ Waiting For Locks .........................")
 
     for block in lh.b_list:
-        fl_blocked = block.b_lock
-        owner = fl_blocked.fl_u.nfs_fl.owner.pid
+	fl_blocked = block.b_lock
+	owner = fl_blocked.fl_u.nfs_fl.owner.pid
         haddr = block.b_host.h_addr.castTo("struct sockaddr_in")
-        ip = ntodots(haddr.sin_addr.s_addr)
-        print ("    ----  ", block)
-        #inode = fl_blocked.fl_file.f_dentry.d_inode
+	ip = ntodots(haddr.sin_addr.s_addr)
+	print ("    ----  ", block)
+	#inode = fl_blocked.fl_file.f_dentry.d_inode
         inode = fl_blocked.Inode
-        nfs_inode = container_of(inode, "struct nfs_inode", "vfs_inode")
+	nfs_inode = container_of(inode, "struct nfs_inode", "vfs_inode")
         print ("     ", inode, nfs_inode)
-        fh = nfs_inode.fh
+	fh = nfs_inode.fh
         fl_start = fl_blocked.fl_start
         fl_end = fl_blocked.fl_end
         if (fl_end == OFFSET_MAX):
             length = 0
         else:
             length = (fl_end - fl_start + 1) & OFFSET_MASK
-        print ("         fl_start=%d fl_len=%d owner=%d ip=%s" % (fl_start,
+	print ("         fl_start=%d fl_len=%d owner=%d ip=%s" % (fl_start,
                                                           length, owner, ip))
-        # Print FH-data
-        printFH(fh, 8)
+	# Print FH-data
+	printFH(fh, 8)
 
 # built-in crash command 'files -l' is broken on recent kernels
 #   On newer kernels (e.g. 2.6.20) we have
-# static struct hlist_head      nlm_files[FILE_NRHASH];
+# static struct hlist_head	nlm_files[FILE_NRHASH];
 #   On older kernels (e.g. 2.6.9-2.6.18) we have
-# static struct nlm_file *      nlm_files[FILE_NRHASH];
+# static struct nlm_file *	nlm_files[FILE_NRHASH];
 
 def print_nlm_files():
     nlm_files = readSymbol("nlm_files")
@@ -942,27 +954,27 @@ def print_nlm_files():
                 for e in hlist_for_each_entry("struct nlm_file", h, "f_list"):
                     yield e
         except (KeyError, AttributeError):
-            # struct nlm_file *nlm_files[32];
-            # struct nlm_file {
-            #     struct nlm_file *f_next;
+	    # struct nlm_file *nlm_files[32];
+	    # struct nlm_file {
+	    #     struct nlm_file *f_next;
 
             for e in nlm_files:
                 if (not e):
                     continue
                 # Deref the pointer
                 for e in readStructNext(e, "f_next"):
-                    yield e
+		    yield e
 
 
     for e in get_all_nlm_files():
-        f_file = e.f_file
-        if (once):
+	f_file = e.f_file
+	if (once):
             print ("  -- Files NLM locks for clients ----")
-        print ("    File:", get_pathname(f_file.Dentry, f_file.Mnt))
-        print ("         ", e)
-        for fl in readStructNext(e.Inode.i_flock, "fl_next"):
-            lockhost = fl.fl_owner.castTo("struct nlm_host")
-            print ("       Host:", lockhost.h_name)
+	print ("    File:", get_pathname(f_file.Dentry, f_file.Mnt))
+	print ("         ", e)
+	for fl in readStructNext(e.Inode.i_flock, "fl_next"):
+	    lockhost = fl.fl_owner.castTo("struct nlm_host")
+	    print ("       Host:", lockhost.h_name)
 
 # Print info for remote nfs-server (we are a client!)
 def print_remote_nfs_server(nfs, mntpath):
@@ -972,7 +984,7 @@ def print_remote_nfs_server(nfs, mntpath):
     print (" rsize=%d, wsize=%d" % (nfs.rsize, nfs.wsize))
     # Here the verbose sections starts
     if (True):
-        return
+	return
     print ("       acregmin=%d, acregmax=%d, acdirmin=%d, acdirmax=%d" % \
           (nfs.acregmin, nfs.acregmax, nfs.acdirmin, nfs.acdirmax))
     # Stats for nfs_server (struct nfs_iostats *io_stats;) are not very
@@ -990,7 +1002,7 @@ def get_nfs_mounts():
             vfsmount = readSU("struct vfsmount" , vfsmount)
             sb = readSU("struct super_block", superblk)
             srv = readSU("struct nfs_server", sb.s_fs_info)
-            srv_host = srv.Hostname
+	    srv_host = srv.Hostname
             nfs_mounts.append((srv_host, srv, mnt))
     return nfs_mounts
 
@@ -1011,15 +1023,15 @@ def print_nfsmount(v = 0):
             count_all += 1
             count_flag[dbits2str(srv.flags, NFS_flags, 10)] += 1
             count_caps[dbits2str(srv.caps, NFS_caps, 8)] += 1
-        try:
-           nfs_cl = srv.nfs_client
-           nfs_cl_dict[long(nfs_cl)] = nfs_cl
-        except KeyError:
-            # This is old 2.6, no struct nfs_client
-            rpc_clnt = srv.client
-            addr_in = srv.addr
-            ip = ntodots(addr_in.sin_addr.s_addr)
-            if (v):
+	try:
+	   nfs_cl = srv.nfs_client
+	   nfs_cl_dict[long(nfs_cl)] = nfs_cl
+	except KeyError:
+	    # This is old 2.6, no struct nfs_client
+	    rpc_clnt = srv.client
+	    addr_in = srv.addr
+	    ip = ntodots(addr_in.sin_addr.s_addr)
+	    if (v):
                 print ("        IP=%s" % ip)
     if (v == 0 and count_all):
         # Print a summary
@@ -1029,17 +1041,17 @@ def print_nfsmount(v = 0):
         for k, v in count_caps.items():
             print ("  {:3d} shares with caps=<{}>".format(v, k))
     if (nfs_cl_dict):
-        print ("  ............. struct nfs_client .....................")
-        for nfs_cl in nfs_cl_dict.values():
-            # At this moment, only IPv4
-            addr_in = nfs_cl.cl_addr.castTo("struct sockaddr_in")
-            ip = ntodots(addr_in.sin_addr.s_addr)
-            print ("     ---", nfs_cl, nfs_cl.cl_hostname, ip)
-            rpc_clnt = nfs_cl.cl_rpcclient
-            # Print/decode the transport
-            xprt = rpc_clnt.cl_xprt
+	print ("  ............. struct nfs_client .....................")
+	for nfs_cl in nfs_cl_dict.values():
+	    # At this moment, only IPv4
+	    addr_in = nfs_cl.cl_addr.castTo("struct sockaddr_in")
+	    ip = ntodots(addr_in.sin_addr.s_addr)
+	    print ("     ---", nfs_cl, nfs_cl.cl_hostname, ip)
+	    rpc_clnt = nfs_cl.cl_rpcclient
+	    # Print/decode the transport
+	    xprt = rpc_clnt.cl_xprt
             print_xprt(xprt, detail)
-            #print rpc_clnt, rpc_clnt.cl_metrics
+	    #print rpc_clnt, rpc_clnt.cl_metrics
 
     # Stats are per RPC program, and all clients are using "NFS"
     cl_stats = rpc_clnt.cl_stats
@@ -1232,7 +1244,7 @@ def host_as_server(v = 0):
 
     # Print RPC-reply cache only when verbosity>=2
     if (v >=0 and v < 2):
-        return
+	return
     # Time in seconds - show only the recent ones
     new_enough = 10 * HZ
     lru_head = sym2addr("lru_head")
@@ -1243,8 +1255,8 @@ def host_as_server(v = 0):
         offset = member_offset(sn, "c_hash")
         for e in ListHead(lru_head, sn).c_lru:
             #print e, ntodots(e.c_addr.sin_addr.s_addr), e.c_timestamp, e.c_state
-            if (e.c_state == 0):       # RC_UNUSED
-                continue
+	    if (e.c_state == 0):       # RC_UNUSED
+		continue
             hnode = e.c_hash
 
             for he in readList(hnode, 0):
@@ -1264,10 +1276,10 @@ def host_as_server(v = 0):
             for secago, hc in rpc_list:
                 prot = protoName(hc.c_prot)
                 proc = hc.c_proc
-                try:
-                    saddr = format_sockaddr_in(hc.c_addr)
-                except TypeError:
-                    saddr = "n/a"
+		try:
+		    saddr = format_sockaddr_in(hc.c_addr)
+		except TypeError:
+		    saddr = "n/a"
                 print ("   ", hc, prot, saddr, secago, hc.c_state)
 
 
@@ -1299,8 +1311,8 @@ if ( __name__ == '__main__'):
                   help="Maximum number of RPC tasks tp print")
     
     parser.add_argument("--locks", dest="Locks", default = 0,
-                    action="store_true",
-                    help="print NLM locks")
+		    action="store_true",
+		    help="print NLM locks")
     parser.add_argument("--deferred",  default = 0,
                   action="store_true",
                   help="Print Deferred Requests")
@@ -1311,8 +1323,8 @@ if ( __name__ == '__main__'):
 
 
     parser.add_argument("-v", dest="Verbose", default = 0,
-        action="count",
-        help="verbose output")
+	action="count",
+	help="verbose output")
 
 
     o = args = parser.parse_args()
@@ -1325,18 +1337,18 @@ if ( __name__ == '__main__'):
 
     if (o.Client or o.All):
         if (get_nfs_mounts()):
-            host_as_client(detail)
+	    host_as_client(detail)
 
     if (o.Server or o.All):
         host_as_server(detail)
 
     if (o.Rpctasks or o.All):
-        print_all_rpc_tasks(detail, o.Maxrpctasks)
+	print_all_rpc_tasks(detail, o.Maxrpctasks)
 
     if (o.Locks or o.All):
         print ('*'*20, " NLM(lockd) Info", '*'*20)
-        print_nlm_files()
-        print_nlm_serv()
+	print_nlm_files()
+	print_nlm_serv()
     
     if (o.deferred):
         print_deferred(detail)
