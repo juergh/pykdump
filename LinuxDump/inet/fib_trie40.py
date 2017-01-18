@@ -25,7 +25,7 @@ from __future__ import print_function
 from pykdump.API import *
 
 from LinuxDump.inet import *
-import routing as gen_rtn
+from LinuxDump.inet import routing as gen_rtn
 
 debug = API_options.debug
 

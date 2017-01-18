@@ -2,7 +2,7 @@
    
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -328,7 +328,7 @@ void _init(void)  {
     char *argv[]= {"_init", "PyKdumpInit", NULL};
     epython_execute_prog(2, argv, 1);
   }
-  
+
   return;
 }
 
@@ -339,14 +339,14 @@ int _unload_epython = 1;
 void _fini(void) {
   //void __attribute__((destructor)) n_fini(void) {
   struct command_table_entry *ce;
-  
+
   // We do nothing in minimal mode
   if (pc->flags & MINIMAL_MODE)
       return;
 
   if (! _unload_epython)
     return;
-  
+
   if (debug)
     fprintf(fp, "Unloading epython\n");
   free(ext_filename);
@@ -416,7 +416,7 @@ run_fromzip(const char *progname, const char *zipfilename) {
   v = PyEval_EvalCode(code, d, d);
 
   Py_DECREF(code);
- 
+
   if (v == NULL) {
     // Even though we have been able to run the program, it has ended
     // raising an exception
@@ -428,16 +428,16 @@ run_fromzip(const char *progname, const char *zipfilename) {
 	PyErr_Print();
       else
 	PyErr_Clear();
-    } else 
+    } else
       PyErr_Print();
     return 1;
   }
   Py_DECREF(v);
   return 1;
-  
+
 }
 
-/* 
+/*
  *  Arguments are passed to the command functions in the global args[argcnt]
  *  array.  See getopt(3) for info on dash arguments.  Check out defs.h and
  *  other crash commands for usage of the myriad of utility routines available
@@ -641,10 +641,10 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
     // We need to convert char **nargv -> wchar_t **argv. We'll allocate memory
     // for that and free it after running our script
     argv_copy = (wchar_t **)PyMem_Malloc(sizeof(wchar_t*)*argc);
-    /* We need a second copies, as Python might modify the first one. */
+    /* We need a second copy, as Python might modify the first one. */
     argv_copy2 = (wchar_t **)PyMem_Malloc(sizeof(wchar_t*)*argc);
     for (i = 0; i < argc; i++) {
-      argv_copy[i] = Py_DecodeLocale(argv[i], NULL);
+      argv_copy[i] = Py_DecodeLocale(nargv[i], NULL);
       if (!argv_copy[i])
 	PyErr_NoMemory();
       argv_copy2[i] = argv_copy[i];
