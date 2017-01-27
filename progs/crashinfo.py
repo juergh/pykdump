@@ -32,8 +32,9 @@ from LinuxDump.inet import summary
 import LinuxDump.inet.netdevice as netdevice
 from LinuxDump import percpu, sysctl, Dev
 from LinuxDump.KernLocks import decode_mutex, spin_is_locked
-from LinuxDump.Dev import print_dm_devices, print_gendisk, decode_cmd_flags, \
-        print_request_slab, print_request_queues, print_blk_cpu_done
+from LinuxDump.Dev import (print_dm_devices, print_gendisk,
+            decode_cmd_flags, 
+            print_request_slab, print_request_queues, print_blk_cpu_done)
     
 from LinuxDump import percpu
 from LinuxDump.Time import j_delay

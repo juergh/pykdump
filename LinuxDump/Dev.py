@@ -467,6 +467,7 @@ def print_gendisk(v = 1):
             print ("print_gendisk is not implemented for this kernel yet")
         return
     # To get block_device based on dev_t
+    once = TrueOnce()
     dummy, bd_devs = get_blkdevs()
     #
     for dev, gd in gdlist:
@@ -476,8 +477,12 @@ def print_gendisk(v = 1):
         # Check whether name is alphanum
         if (not __re_good_diskname.match(disk_name)):
             disk_name = '???'
+            if (once):
+                pylog.error("Corrupted all_bdevs list")
+            continue
         #kname = gd.kobj.name
         openname = None
+        
         try:
             owner = gd.fops.owner
             badfops = False
@@ -488,14 +493,17 @@ def print_gendisk(v = 1):
             openptr = gd.fops.open
             if (openptr):
                 openname = addr2sym(openptr)
-        except crash.error:
-            pass
-        
-        if (v):
-           print  ("  %12s dev=0x%x" % (disk_name, dev), gd, openname)
+        except (IndexError, crash.error):
+            openname = "n/a"
+            badfops = True
+
         if (badfops):
             pylog.error(gd, "corrupted fops, disk_name=%s dev=0x%x"% \
                    (disk_name, dev))
+            continue
+
+        if (v):
+           print  ("  %12s dev=0x%x" % (disk_name, dev), gd, openname)
         outparts = []
         # < 2.6.28
         # struct hd_struct **part;
