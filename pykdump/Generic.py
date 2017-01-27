@@ -4,7 +4,7 @@
 #
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -220,7 +220,8 @@ def memoize_cond(condition):
     return deco
   
 def print_memoize_cache():
-    keys = sorted(__memoize_cache.keys())
+    #keys = sorted(__memoize_cache.keys())
+    keys = list(__memoize_cache.keys())
     for k in keys:
         v = __memoize_cache[k]
         try:
@@ -231,8 +232,8 @@ def print_memoize_cache():
 # Purge those cache entries that have at least one of the specified 
 # flags set
 def purge_memoize_cache(flags):
-    keys = sorted(__memoize_cache.keys())
-
+    #keys = sorted(__memoize_cache.keys())
+    keys = list(__memoize_cache.keys())
     for k in keys:
         ce_flags = k[0]
         if (ce_flags & flags):
