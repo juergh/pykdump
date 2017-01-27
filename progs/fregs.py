@@ -2,7 +2,7 @@
 # determine register contents at entry to each routine in stack frame
 
 # --------------------------------------------------------------------
-# (C) Copyright 2015-2016 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2015-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Martin Moore (martin.moore@hpe.com)
 #
@@ -16,7 +16,7 @@
 # figure everything out (which is probably impossible); this is a debugging
 # aid, not a tool that attempts to do all crash analysis automatically.
 
-__version__ = "1.07"
+__version__ = "1.09"
 
 import argparse
 from pykdump.API import *
@@ -32,11 +32,11 @@ ARG_REG = ('RDI','RSI','RDX','RCX','R8','R9')
 def funcargs_dict(funcname):
     fields = funcargs(funcname)
     if (fields is None):
-        print "Can't identify arguments for", funcname
+        print ("Can't identify arguments for {}".format(funcname))
         return {}
     return dict(zip(ARG_REG,fields))
 
-@memoize_cond(CU_LIVE|CU_LOAD)
+@memoize_cond(CU_LIVE)
 def dentry_to_filename (dentry) :
     try:
         crashout = exec_crash_command ("files -d {:#x}".format(dentry))
@@ -47,7 +47,7 @@ def dentry_to_filename (dentry) :
     except:
         return "<invalid>"
 
-@memoize_cond(CU_LIVE|CU_LOAD)
+@memoize_cond(CU_LIVE)
 def get_argdata (addr, type) :
     #if type == "char *" :
     #    try:
@@ -112,7 +112,6 @@ def get_argdata (addr, type) :
     elif type == "struct bio *" :
         offset = member_offset ("struct bio", "bi_bdev")
         bdev = readULong (addr + offset)
-        #print "bdev={:#x}".format(bdev)
         dev = readU32 (bdev)	# dev has offset 0
         major = dev // 1048576
         minor = dev % 1048576
@@ -137,11 +136,14 @@ def get_argdata (addr, type) :
     
 if ( __name__ == '__main__'):
 
-    parser = argparse.ArgumentParser(version=__version__, 
+    parser = argparse.ArgumentParser(
              description='Show register contents at routine entry.')
 
     parser.add_argument('pid',metavar='pid|taskp|cmd',type=str,nargs='?',
         help='PID or task struct pointer or command (if omitted, use current context)')
+
+    parser.add_argument("-V", "--version", action="version", 
+                        version=__version__)
 
     parser.add_argument("-a", "--args", 
                         help="identify arguments (-aa for more detail)",
@@ -172,24 +174,32 @@ if ( __name__ == '__main__'):
 
     # Make sure we're on an x86_64 vmcore, or this will fail miserably.
     if (sys_info.machine != "x86_64"):
-        print "Register decoding is supported on x86_64 dumps only."
+        print ("Register decoding is supported on x86_64 dumps only.")
         sys.exit()        
+
+    # Purge the memoize cache if a 'mod' command has been done since
+    # our last invocation, since new symbols may not be available
+
+    purge_memoize_cache(CU_LOAD)
 
     with DisasmFlavor('att'):
         try:
             stacklist = exec_bt(btcmd, MEMOIZE=False)
         except:
-            print "Unable to get stack trace"
+            print ("Unable to get stack trace")
             sys.exit()
 
         for s in stacklist:
             search_for_registers(s)
 
-            print "\nPID: {}  TASK: {:x}  CPU: {}  COMMAND: {}".format(
-                   s.pid, s.addr, s.cpu, s.cmd)
+            print ("\nPID: {}  TASK: {:x}  CPU: {}  COMMAND: {}".format(
+                   s.pid, s.addr, s.cpu, s.cmd))
 
             for f in s.frames:
-                print "\n{:s} {:s}".format(f.func, f.from_func)
+                if f.level >= 0:
+                    print ("\n#{} {:s} {:s}".format(f.level,f.func, f.from_func))
+                else:
+                    print ("\n{:s} {:s}".format(f.func, f.from_func))
 
                 if (f.lookup_regs):
 
@@ -202,9 +212,9 @@ if ( __name__ == '__main__'):
                         conf = f.reg[reg][1]
                         if arglevel == 0 or reg not in arg_types:
                             if conf == 0:
-                                print " +{:s}: {:#x}".format(reg,val)
+                                print (" +{:s}: {:#x}".format(reg,val))
                             else:
-                                print "{} {:s}: {:#x}".format(conf,reg,val)
+                                print ("{} {:s}: {:#x}".format(conf,reg,val))
                         else:
                             argno = ARG_REG.index(reg)
                             argtype = arg_types[reg]
@@ -216,12 +226,12 @@ if ( __name__ == '__main__'):
                                 except:
                                     argdata = "<invalid>"
                             if conf == 0:
-                                print " +{:s}: {:#x} arg{:d} {:s} {:s}".format(
-                                      reg,val,argno,argtype,argdata)
+                                print (" +{:s}: {:#x} arg{:d} {:s} {:s}".format(
+                                      reg,val,argno,argtype,argdata))
                             else:
-                                print "{} {:s}: {:#x} arg{:d} {:s} {:s}".format(
-                                      conf,reg,val,argno,argtype,argdata)
+                                print("{} {:s}: {:#x} arg{:d} {:s} {:s}".format(
+                                      conf,reg,val,argno,argtype,argdata))
                 else:
                     for l in f.data:
-                        print l
+                        print (l)
 
