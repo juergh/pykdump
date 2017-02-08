@@ -414,7 +414,7 @@ def __preprocess(iargv,op):
 
     while(iargv):
         el = iargv.pop(0)
-        if (el[:2] == '--' or el[0] == '-'):
+        if (el and (el[:2] == '--' or el[0] == '-')):
             # Check whether this option is present in optparser's op
             optstr = el.split('=')[0]
             opt =  op.get_option(optstr)
