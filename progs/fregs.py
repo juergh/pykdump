@@ -16,7 +16,7 @@
 # figure everything out (which is probably impossible); this is a debugging
 # aid, not a tool that attempts to do all crash analysis automatically.
 
-__version__ = "1.09"
+__version__ = "1.10"
 
 import argparse
 from pykdump.API import *
@@ -149,6 +149,9 @@ if ( __name__ == '__main__'):
                         help="identify arguments (-aa for more detail)",
                         action="count", default=0)
 
+    parser.add_argument("-r", "--routine", default="",
+                        help="only show routines whose names include ROUTINE")
+
     #parser.add_argument("-V", "--version", help="show version and exit",
     #                    action="store_true")
 
@@ -162,6 +165,8 @@ if ( __name__ == '__main__'):
     args = parser.parse_args()
 
     arglevel = args.args
+
+    routine = args.routine
 
     if args.all :
         btcmd = "foreach bt"
@@ -190,12 +195,22 @@ if ( __name__ == '__main__'):
             sys.exit()
 
         for s in stacklist:
+
             search_for_registers(s)
 
             print ("\nPID: {}  TASK: {:x}  CPU: {}  COMMAND: {}".format(
                    s.pid, s.addr, s.cpu, s.cmd))
 
             for f in s.frames:
+
+                # Skip frame if it doesn't match routine name pattern.
+                # If no routine was specified, the frame will print because
+                # the argument is initialized to an empty string, which by
+                # definition is a substring of all strings.
+
+                if routine not in f.func:
+                    continue
+
                 if f.level >= 0:
                     print ("\n#{} {:s} {:s}".format(f.level,f.func, f.from_func))
                 else:
