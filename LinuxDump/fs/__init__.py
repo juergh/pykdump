@@ -1,9 +1,8 @@
 # module LinuxDump.fs
 #
-# Time-stamp: <13/07/29 15:57:01 alexs>
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -41,10 +40,15 @@ def getMount():
     mounts = rc.splitlines()[1:]
     mlist = []
     for l in mounts:
-        vfsmount, superblk, fstype, devname, mnt = l.split()
+        vfsmount, superblk, fstype, devname, *mnt = l.split()
         vfsmount = long(vfsmount, 16)
         superblk = long(superblk, 16)
-        mnt = os.path.normpath(mnt)
+        # What does it mean if directory is missing?
+        if (mnt):
+            mnt = mnt[0]
+            mnt = os.path.normpath(mnt)
+        else:
+            mnt = ''
         mlist.append((vfsmount, superblk, fstype, devname, mnt))
     return mlist
 
