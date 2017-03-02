@@ -144,6 +144,23 @@ target "https://docs.python.org/3/howto/pyporting.html"
 \end_layout
 
 \begin_layout Section
+Sources Formatting
+\end_layout
+
+\begin_layout Standard
+Python 3 disallows mixing the use of tabs and spaces for indentation.
+ Python 2 code indented with a mixture of tabs and spaces should be converted
+ to using spaces exclusively.
+\end_layout
+
+\begin_layout Standard
+Most editors let you configure automatic replacement of TABs with spaces,
+ so writing new code should be easy.
+ If your current sourcefiles have both TABs and spaces, use your editor
+ command to replace them (advanced editors let you do it with a single command).
+\end_layout
+
+\begin_layout Section
 Printing
 \end_layout
 
@@ -164,19 +181,16 @@ from __future__ import print_function
 \end_layout
 
 \begin_layout Standard
-
 After that, print becomes a function when running your program using Python2
  (and this will work fine in Python3 environment too, no need to comment
  this import)
 \end_layout
 
 \begin_layout Section
-
 Integer Arithmetic
 \end_layout
 
 \begin_layout Standard
-
 In Python2 there are two integer types 
 \emph on
 int
@@ -200,7 +214,6 @@ from pykdump.API import *
 \end_layout
 
 \begin_layout Standard
-
 in Python3 environment, this executes
 \end_layout
 
@@ -210,7 +223,6 @@ long = int
 \end_layout
 
 \begin_layout Standard
-
 So your old programs using both 
 \emph on
 int
@@ -268,7 +280,6 @@ The most important difference between Python2 and Python3 integers is that
 \end_layout
 
 \begin_layout Standard
-
 but 
 \end_layout
 
@@ -293,7 +304,6 @@ but
 \end_layout
 
 \begin_layout Standard
-
 We use integer division regularly while emulating C-code.
  To guarantee proper results, you should use '//' operator - it always returns
  an integer, both with Python2 and Python3.
@@ -311,12 +321,10 @@ word = bits[i // BITS_PER_LONG]
 \end_layout
 
 \begin_layout Section
-
 Strings
 \end_layout
 
 \begin_layout Standard
-
 In Python2, we had simple strings (
 \emph on
 str
@@ -331,7 +339,6 @@ unicode
 \end_layout
 
 \begin_layout Standard
-
 In Python3 all text strings are unicode by default.
  To read non-text data (such as memory contents), we use a new 'byte-string
  type'.
@@ -414,7 +421,6 @@ In Python3 all text strings are unicode by default.
 \end_layout
 
 \begin_layout Standard
-
 As you see, in Python2 byte-strings are the same as simple strings.
  In Python3 byte-strings are a separate type and strings are always Unicode
  strings.
@@ -480,19 +486,16 @@ TypeError: cannot use a string pattern on a bytes-like object
 \end_layout
 
 \begin_layout Section
-
 Dictionaries
 \end_layout
 
 \begin_layout Standard
-
 Python dictionaries are very useful for gathering and processing data.
  While basic functionality is the same in Python2 and Python3, there are
  some important differences.
 \end_layout
 
 \begin_layout Subsubsection*
-
 No 
 \emph on
 has_key
@@ -580,12 +583,10 @@ True
 \end_layout
 
 \begin_layout Subsubsection*
-
 keys(), values() and items() are not lists anymore
 \end_layout
 
 \begin_layout Standard
-
 Let us see what do these methods return:
 \end_layout
 
@@ -655,7 +656,6 @@ dict_keys(['two', 'one'])
 \end_layout
 
 \begin_layout Standard
-
 This is not relevant in most cases, e.g.
  both for Python2 and Python3 you can iterate like that:
 \end_layout
@@ -688,7 +688,6 @@ one 1
 \end_layout
 
 \begin_layout Standard
-
 But let us look at the following example.
  We want to purge some keys from a dictionary using code:
 \end_layout
@@ -719,7 +718,6 @@ for k in keys:
 \end_layout
 
 \begin_layout Standard
-
 Running it on Python2 works fine, but on Python3 we'll see:
 \end_layout
 
@@ -772,7 +770,6 @@ RuntimeError: dictionary changed size during iteration
 \end_layout
 
 \begin_layout Standard
-
 What is wrong? With Python2, we are iterating using a list 
 \emph on
 keys.
@@ -784,7 +781,6 @@ y.
 \end_layout
 
 \begin_layout Standard
-
 With Python3, 
 \emph on
 keys
@@ -806,7 +802,6 @@ The objects returned by dict.keys(), dict.values() and dict.items() are view
 \end_layout
 
 \begin_layout Standard
-
 This means that when we modify our dict in that loop, it modifies 
 \emph on
 keys
@@ -854,60 +849,50 @@ keys
 \end_layout
 
 \begin_layout Section
-
 Standard Library Changes
 \end_layout
 
 \begin_layout Standard
-
 There are many new modules/subroutines in Python3 standard library.
  As a result, several old modules have been deprecated or renamed.
  Some examples:
 \end_layout
 
 \begin_layout Itemize
-
 StringIO
 \end_layout
 
 \begin_deeper
 \begin_layout Itemize
-
 Python2: from StringIO import StringIO
 \end_layout
 
 \begin_layout Itemize
-
 Python3: from io import StringIO
 \end_layout
 
 \end_deeper
 \begin_layout Itemize
-
 itertools:
 \end_layout
 
 \begin_deeper
 \begin_layout Itemize
-
 Python2: from itertools import zip_longest
 \end_layout
 
 \begin_layout Itemize
-
 Python3: from itertools import izip_longest as zip_longest
 \end_layout
 
 \end_deeper
 \begin_layout Standard
-
 We should not meet this problem often - there are only 4 places in PyKdump
  programs when changes of this type were needed (plus several places in
  framework itself)
 \end_layout
 
 \begin_layout Section
-
 Other things
 \end_layout
 
