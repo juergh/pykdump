@@ -3,7 +3,7 @@
 #
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -754,7 +754,7 @@ def decode_request(rq, v = 0, reqscsmap = {}):
     except KeyError:
         out.append("\t  started {} ago".format(ran_ago))
 
-    if (reqscsmap.has_key(rq)):
+    if (rq in reqscsmap):
         sdev, cmd = reqscsmap[rq]
         out.append("\t  {}  {}".format(sdev.shortStr(), cmd.shortStr()))
         out.append("\t  (jiffies - cmnd->jiffies_at_alloc)={}".format(
