@@ -86,7 +86,7 @@ def XXXget_pathname(dentry, vfsmnt, root, rootmnt):
         name =  readmem(dentry.Deref.d_name.name, namelen)
         out.insert(0, name)
         dentry = parent
-    return '/' + string.join(out, '/')
+    return '/' + '/'.join(out)
 
 def get_dentry_name(dentry):
     namelen = dentry.d_name.len

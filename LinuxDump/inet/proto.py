@@ -1435,7 +1435,7 @@ def decode_TCP_flags(flags):
         else:
             bits[ind+1] = "Not set"
         flags >>= 1
-    fstr = string.join(fstr, ',')
+    fstr = ','.join(fstr)
     args = tuple([flags_copy, fstr] + bits)
     return __TCP_flags_template % args
         

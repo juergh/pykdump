@@ -61,7 +61,7 @@ class customMF(ModuleFinder):
                 dst = dst[1:]
             elif (dst[0] == 'build'):
                 dst = ['lib-dynload'] + dst[2:]
-            dst = string.join(dst, '/')
+            dst = '/'.join(dst)
             #print "%s -> %s" % (m.__file__, dst)
             destpath = os.path.join(destdir, dst)
 

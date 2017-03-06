@@ -864,7 +864,7 @@ def printFH(fh, indent = 0):
         s.append("%02x" % c)
     FH = "FH(%d)" % sz
     lFH = len(FH)
-    s =  string.join(s,'')
+    s =  ''.join(s)
     sb = s[:76-indent-lFH]
     se = s[76-indent-lFH:]
     print (' ' * indent, FH, sb)
