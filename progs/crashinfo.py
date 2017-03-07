@@ -12,11 +12,8 @@
 # --------------------------------------------------------------------
 
 
-# To facilitate migration to Python-3, we start from using future statements/builtins
-from __future__ import print_function
-
 # 1st-pass dumpanalysis
-__version__ = "0.7.2"
+__version__ = "0.8.0"
 
 from pykdump.API import *
 
@@ -1532,6 +1529,10 @@ if (not quiet):
 from LinuxDump.Analysis import print_wait_for_AF_UNIX
         
 print_wait_for_AF_UNIX(-1)
+
+# Ad-hoc tests
+from LinuxDump.specialcases import check_specialcases
+check_specialcases()
 
 if (verbose):
     printHeader("A Summary Of Threads Stacks")
