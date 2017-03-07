@@ -550,7 +550,8 @@ def print_CFS_runqueue(rq):
     for node in traverse_binary_tree(rb_node):
         se = container_of(node, "struct sched_entity", "run_node")
         task = container_of(se, "struct task_struct", "se")
-        print ("   ", task.pid, task.comm, se.sum_exec_runtime*1.e-9)
+        print ("    {} {} {:6.5f} ".format(task.pid, task.comm,
+                                         se.sum_exec_runtime*1.e-9))
 
 # Print RT-queue (new style)
 def print_RT_runqueue(rq):
