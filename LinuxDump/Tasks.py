@@ -3,7 +3,7 @@
 # module LinuxDump.Tasks
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -32,9 +32,12 @@ from pykdump.Misc import EmbeddedFrames
 
 from LinuxDump import percpu
 
+from .inet import proto
+
 from collections import defaultdict
 import textwrap
 from textwrap import TextWrapper
+
 
 
 debug = API_options.debug
@@ -221,6 +224,18 @@ class Task:
         clist = readSUListFromHead(self.ts.children, "sibling",
                                   "struct task_struct", maxel=200000)
         return [Task(c, self.ttable) for c in clist]
+    # Get 'struct sock' for our task
+    def get_task_socks(self):
+        socks = []
+        for fd, filep, dentry, inode in self.taskFds():
+            socketaddr = proto.inode2socketaddr(inode)
+            if (not socketaddr): continue
+
+            socket = readSU("struct socket", socketaddr)
+            #sock = socket.Deref.sk
+            sock = Deref(socket.sk)
+            socks.append(sock)
+        return socks
 
 class _TaskTable:
     def __init__(self):
@@ -326,6 +341,14 @@ class _TaskTable:
     def getByComm(self, comm):
         try:
             return self.comms[comm]
+        except KeyError:
+            return []
+    # get all threads matching comm name
+    def getThreadsByComm(self, comm):
+        try:
+            for t in self.comms[comm]:
+                yield t
+                yield from t.threads
         except KeyError:
             return []
 
