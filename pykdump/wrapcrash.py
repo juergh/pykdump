@@ -6,7 +6,7 @@
 # high-level functions that do not depend on internal
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -62,7 +62,7 @@ else:
          memoize_cond, CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT,
          memoize_typeinfo, purge_typeinfo)
     def b2str(s):
-        return  str(s, 'latin1')
+        return  str(s, 'ascii', errors='backslashreplace')
     _bjoin = b''
 hexl = Gen.hexl
 
