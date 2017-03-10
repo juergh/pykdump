@@ -209,8 +209,13 @@ def get_fib_entries_v40(table):
             if (fa.fa_type in (gen_rtn.RTN.RTN_BROADCAST,
                                gen_rtn.RTN.RTN_MULTICAST)):
                 continue
-            if (fa.tb_id != tb_id):
-                continue
+            # The following test makes sense for 4.x kernels only
+            # on 3.x kernels there is no tb_id field in 'struct fib_alias'
+            try:
+                if (fa.tb_id != tb_id):
+                    continue
+            except KeyError:
+                pass
             yield e
 
 
