@@ -626,12 +626,21 @@ def print_rpc_task(s, v = 0):
         cl_xprt= tk_client.cl_xprt
         addr_in = cl_xprt.addr.castTo("struct sockaddr_in")
         ip = ntodots(addr_in.sin_addr.s_addr)
-        print ("\tProtocol=",cl_xprt.prot, ", Server=", tk_client.cl_server, ip)
+
+        try:
+            server = tk_client.cl_server
+        except KeyError:
+            server = cl_xprt.servername
+        print ("\tProtocol=",cl_xprt.prot, " Server=", server, ip)
+
         if (v > 1):
             print("\t ", tk_client)
             print("\t ", cl_xprt)
 
-        print ("\t  procname=", tk_client.cl_protname)
+        try:
+            print ("\t  protname=", tk_client.cl_protname)
+        except KeyError:
+            pass
 
         vers = s.CL_vers
         prog = s.CL_prog
@@ -664,8 +673,11 @@ __sstate = EnumInfo("socket_state")
 # decode/print rpc_xprt
 def print_xprt(xprt, v = 0):
     try:
-        # Get sock from xprt
-        sock_xprt = container_of(xprt, "struct sock_xprt", "xprt") 
+        # Get sock from xprt. For old (RHEL5) kernels, use directly xprt
+        if (struct_exists("struct sock_xprt")):
+            sock_xprt = container_of(xprt, "struct sock_xprt", "xprt")
+        else:
+            sock_xprt = xprt
         print ("      ...", xprt.shortStr(), "...", sock_xprt.shortStr())
         print("        state={}".format(dbits2str(xprt.state, XPRT_BITS)))
         jiffies = readSymbol("jiffies")
@@ -736,7 +748,7 @@ def print_all_rpc_tasks(v=1, maxtoprint = 20):
     
     tasks = get_all_rpc_tasks(maxtoprint)
     allc = get_all_rpc_clients()
-    xprtlist = []
+    xprtset = set()
     if (allc):
         print ("      --- %d RPC Clients ----" % len(allc))
     for t in tasks:
@@ -745,16 +757,16 @@ def print_all_rpc_tasks(v=1, maxtoprint = 20):
             print_rpc_task(t, v)
         # On a live kernel pointers may get invalid while we are processing
         try:
-            xprt = t.tk_rqstp.rq_xprt
-            if (not xprt in xprtlist):
-                xprtlist.append(xprt)
+            xprt= t.tk_client.cl_xprt
+            #xprt = t.tk_rqstp.rq_xprt
+            xprtset.add(xprt)
             #print_rpc_task(t)
         except (IndexError, crash.error):
             # Null pointer and invalid addr
             continue
     # Print XPRT vitals
     print (" --- XPRT Info ---")
-    for xprt in xprtlist:
+    for xprt in xprtset:
         print_xprt(xprt, 2)
 
 def print_all_tasks():
@@ -786,6 +798,18 @@ def print_rpc_status():
         rpct = readSU("struct rpc_task", ta)
         print_rpc_task(rpct)
 
+# Get sunrpc_net
+def get_sunrpc_net():
+    if (not symbol_exists("sunrpc_net_id")):
+        return 0
+    net_id = readSymbol("sunrpc_net_id")
+    net = readSymbol("init_net")
+    ng = net.gen
+    ptr = ng.ptr
+    #print(net_id, ng.len)
+    assert (not (net_id == 0 or net_id > ng.len))
+    addr = ptr[net_id - 1]
+    return addr
 
 # Getting all tasks.
 #
@@ -800,7 +824,11 @@ def print_rpc_status():
 def get_all_rpc_clients():
     all_clients = sym2addr("all_clients")
     if (all_clients == 0):
-        return []
+        addr = get_sunrpc_net()
+        if (not addr):
+            return []
+        sn = readSU("struct sunrpc_net", addr)
+        all_clients = long(sn.all_clients)
     return readSUListFromHead(all_clients, "cl_clients", "struct rpc_clnt")
 
 def get_all_rpc_tasks(nmax = 100):
@@ -1288,6 +1316,16 @@ detail = 0
 if ( __name__ == '__main__'):
     import argparse
 
+    class hexact(argparse.Action):
+        def __call__(self,parser, namespace, values, option_string=None):
+            # A special value 'all'
+            if (values == 'all'):
+                val = 'all'
+            else:
+                val =  int(values,16)
+            setattr(namespace, self.dest, val)
+            return
+
     parser =  argparse.ArgumentParser()
 
 
@@ -1306,6 +1344,11 @@ if ( __name__ == '__main__'):
     parser.add_argument("--rpctasks", dest="Rpctasks", default = 0,
                   action="store_true",
                   help="print RPC tasks")
+
+    parser.add_argument("--decoderpctask", dest="Decoderpctask", default = -1,
+                  action=hexact,
+                  help="Decode RPC task at address")
+
     parser.add_argument("--maxrpctasks", dest="Maxrpctasks", default = 20,
                   type=int, action="store",
                   help="Maximum number of RPC tasks tp print")
@@ -1344,6 +1387,12 @@ if ( __name__ == '__main__'):
 
     if (o.Rpctasks or o.All):
         print_all_rpc_tasks(detail, o.Maxrpctasks)
+
+    if (o.Decoderpctask != -1):
+        s = readSU("struct rpc_task", o.Decoderpctask)
+        print_rpc_task(s, detail)
+        sys.exit(0)
+        
 
     if (o.Locks or o.All):
         print ('*'*20, " NLM(lockd) Info", '*'*20)
