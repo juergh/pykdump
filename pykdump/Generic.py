@@ -174,7 +174,7 @@ def purge_typeinfo(sn = None):
     if (sn is None):
         _typeinfo_cache.clear()
         return
-    for k in _typeinfo_cache.keys():
+    for k in list(_typeinfo_cache.keys()):
         if (k[0] == sn):
             del _typeinfo_cache[k]  
 
