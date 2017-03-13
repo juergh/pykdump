@@ -4,7 +4,7 @@
 # Subroutines to query/traverse sysfs
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -78,16 +78,7 @@ def decode_sysfs_dirent_2632(sd):
         attr = '?{}'.format(s_type)
     return (name, attr)
 
-# Iterate over all entries in sysfs_dirent
-
-def for_all_dirents_311(sd):
-    root = sd.s_dir.children
-    return for_all_rbtree(root, "struct sysfs_dirent", "s_rb")
-
-# Parent directory
-def sysfs_parent_311(sd):
-    return sd.s_parent
-
+# sysfs parent
 def sysfs_parent_2618(sd):
     if (not sd.s_dentry):
         return None
@@ -95,23 +86,38 @@ def sysfs_parent_2618(sd):
     sdaddr = parent_dentry.d_fsdata
     return readSU("struct sysfs_dirent",  sdaddr)
 
+def sysfs_parent_311(sd):
+    return sd.s_parent
 
-
-def for_all_dirents_2632(sd):
-    root = sd.s_dir.inode_tree
-    return for_all_rbtree(root, "struct sysfs_dirent", "inode_node")
-
-def for_all_dirents_3080(sd):
-    s_children = sd.s_dir.children
-    return readStructNext(s_children, "s_sibling")
-
-
+# ---------------------------------------------------------------------
+# Iterate over all entries in sysfs_dirent
+#----------------------------------------------------------------------
 def for_all_dirents_2618(sd):
     s_children = ListHead(sd.s_children, "struct sysfs_dirent")
     for sd in s_children.s_sibling:
         yield sd
 
+def for_all_dirents_2632(sd):
+    root = sd.s_dir.inode_tree
+    return for_all_rbtree(root, "struct sysfs_dirent", "inode_node")
 
+#SLES11 kernels 3.0.80
+def for_all_dirents_3080(sd):
+    s_children = sd.s_dir.children
+    return readStructNext(s_children, "s_sibling")
+
+# SLES11 kernels 3.0.101
+def for_all_dirents_30101(sd):
+    root = sd.s_dir_name_tree
+    return for_all_rbtree(root, "struct sysfs_dirent", "name_node")
+
+
+def for_all_dirents_311(sd):
+    root = sd.s_dir.children
+    return for_all_rbtree(root, "struct sysfs_dirent", "s_rb")
+
+
+    
 
 
 # ----------------------Generic subroutines, the same for all kernels---
@@ -206,12 +212,16 @@ if (not struct_exists(__sn)):
     from LinuxDump import kernfs
     sysfs_fullpath = kernfs.kernfs_fullpath
     blockdev_name = blockdev_name_kernfs
-
 elif (member_size(__sn, "s_rb") != -1):
     # 3.11
     _SYSFS_TYPES = _SYSFS_TYPES_311
     decode_sysfs_dirent = decode_sysfs_dirent_311
     for_all_dirents = for_all_dirents_311
+    sysfs_parent = sysfs_parent_311
+elif (member_size(__sn, "s_dir_name_tree") != -1):
+    for_all_dirents = for_all_dirents_30101
+    _SYSFS_TYPES = _SYSFS_TYPES_311
+    decode_sysfs_dirent = decode_sysfs_dirent_311
     sysfs_parent = sysfs_parent_311
 elif (member_size(__sn, "inode_node") != -1):
     # 2.6.32
