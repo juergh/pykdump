@@ -577,7 +577,8 @@ def print_unix_gid(v=0):
 def __init_attrs():
     sn = "struct rpc_task"
     #
-    structSetAttr(sn, "P_name", "tk_client.cl_procinfo.p_name")
+    structSetAttr(sn, "P_name", ["tk_msg.rpc_proc.p_name", 
+                                 "tk_client.cl_procinfo.p_name"])
     structSetAttr(sn, "P_proc", ["tk_msg.rpc_proc.p_proc", "tk_msg.rpc_proc"])
     structSetAttr(sn, "CL_procinfo", "tk_client.cl_procinfo")
     structSetAttr(sn, "CL_vers", ["tk_client.cl_pmap_default.pm_vers",
@@ -621,8 +622,11 @@ def print_rpc_task(s, v = 0):
         rpc_proc = s.P_proc
         tk_client = s.tk_client
         tk_status = s.tk_status
-        #pn = cl_pi[rpc_proc].p_name
-        #pn = tk_client.cl_protname
+        try:
+            pn = s.P_name
+        except KeyError:
+            pn =''
+
         cl_xprt= tk_client.cl_xprt
         addr_in = cl_xprt.addr.castTo("struct sockaddr_in")
         ip = ntodots(addr_in.sin_addr.s_addr)
@@ -652,7 +656,7 @@ def print_rpc_task(s, v = 0):
             procname = "%d(%s)" % (rpc_proc, NFS4_PROCS.value2key(rpc_proc))
         else:
             procname = "%d" % rpc_proc
-        print ("\t  rpc_proc={}  tk_status={}".format(procname, tk_status))
+        print ("\t  rpc_proc={} {}  tk_status={}".format(procname, pn, tk_status))
 
         print ("\t  pmap_prog=", prog, ", pmap_vers=", vers)
 
@@ -666,6 +670,7 @@ def print_rpc_task(s, v = 0):
         tk_callback = s.tk_callback
         if (tk_callback):
             print ("\t  callback=%s" % addr2sym(tk_callback))
+        
     except crash.error:
         pass
 
