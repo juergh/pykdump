@@ -23,8 +23,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-# To facilitate migration to Python-3, we start from using future statements/builtins
-from __future__ import print_function
 
 
 __doc__ = '''
@@ -774,6 +772,19 @@ if (symbol_exists("__per_cpu_start") and symbol_exists("__per_cpu_end")):
 else:
     def is_percpu_symbol(addr):
         return False
+    
+# A special object to be used instead of readSymbol, e.g.
+# readSymbol("xtime") -> PYKD.xtime
+# we do not try to workaround Python mangling of attrs starting with
+# __, as  presumably using names that begin with double underscores 
+# in C is "undefined behavior", which is the technical term for 
+# "don't do it."
+
+class __PYKD_reader(object):
+    def __getattr__(self, attrname):
+        return readSymbol(attrname)
+    
+PYKD = __PYKD_reader()
 
 enter_epython()
 
