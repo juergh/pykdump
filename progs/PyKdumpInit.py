@@ -107,3 +107,13 @@ This is very useful when you are trying to find arguments of subroutines.
 rprog("fregs", "Decode and print stack frame registers",
       "-h   - list available options",
       help)
+
+help = '''
+If there are timestamps in dmesg buffer ('log' command output), 
+convert these timestams to date/time according to current TZ
+and display result prepending this data to each line. 
+'''
+
+rprog("tslog", "The same thing as 'log', but with real date/time",
+      "-h   - list available options",
+      help)

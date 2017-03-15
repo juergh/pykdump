@@ -7,7 +7,7 @@
 
 # Programs from prog/ ro include
 PROGS := crashinfo.py xportshow.py taskinfo.py nfsshow.py hanginfo.py \
-  fregs.py server.py 
+  fregs.py server.py tslog.py 
 ZIPPROGS := $(addprefix progs/, $(PROGS))
 FULLPROGS =  $(addprefix ../progs/, $(PROGS))
 INITPROG := PyKdumpInit.py
