@@ -54,7 +54,7 @@ print(m.group(1))
 base = sec - int(m.group(1))
 
 for l in loglines:
-    m = re_ts.search(last_line)
+    m = re_ts.search(l)
     if (m):
         ts = int(m.group(1))
         print("{} {}".format(datetime.datetime.fromtimestamp(base+ts),l))
