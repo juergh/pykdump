@@ -9,6 +9,7 @@ encodings/cp437.py
 linecache.py
 types.py
 _strptime.py
+datetime.py
 sre_constants.py
 codeop.py
 os.py
