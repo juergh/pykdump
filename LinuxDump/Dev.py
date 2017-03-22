@@ -643,6 +643,14 @@ def is_request_BAD(rq):
     except crash.error:
         return "cannot dereference rq.bio"
     
+    # Is cpu within bounds:
+    try:
+        cpu = rq.cpu
+        if (cpu < 0 or cpu >10000):
+            return "bad CPU number"
+    except:
+        pass
+    
     # Do we have rq_status? If yes, is it reasonable?
     try:
         rq_status = rq.rq_status
