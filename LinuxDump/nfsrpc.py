@@ -2,14 +2,13 @@
 # -*- coding: latin-1 -*-
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2012-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2012-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
 # --------------------------------------------------------------------
 
 # NFS & RPC  functions
-from __future__ import print_function
 
 from pykdump.API import *
 
@@ -58,6 +57,25 @@ _c_NFS_inode_flags_old ='''
 #define NFS_INO_INVALID_ATIME	0x0020		/* cached atime is invalid */
 '''
 
+#/*
+# * RPC task flags
+# */
+_c_RPC_flags = '''
+#define RPC_TASK_ASYNC		0x0001		/* is an async task */
+#define RPC_TASK_SWAPPER	0x0002		/* is swapping in/out */
+#define RPC_CALL_MAJORSEEN	0x0020		/* major timeout seen */
+#define RPC_TASK_ROOTCREDS	0x0040		/* force root creds */
+#define RPC_TASK_DYNAMIC	0x0080		/* task was kmalloc'ed */
+#define RPC_TASK_KILLED		0x0100		/* task was killed */
+#define RPC_TASK_SOFT		0x0200		/* Use soft timeouts */
+#define RPC_TASK_SOFTCONN	0x0400		/* Fail if can't connect */
+#define RPC_TASK_SENT		0x0800		/* message was sent */
+#define RPC_TASK_TIMEOUT	0x1000		/* fail with ETIMEDOUT on timeout */
+#define RPC_TASK_NOCONNECT	0x2000		/* return ENOTCONN if not connected */
+#define RPC_TASK_NO_RETRANS_TIMEOUT	0x4000		/* wait forever for a reply */
+'''
+
+RPC_flags = CDefine(_c_RPC_flags)
 
 if (sys_info.kernel <= "2.6.12"):
     NFS_INO = CDefine(_c_NFS_inode_flags_old)
