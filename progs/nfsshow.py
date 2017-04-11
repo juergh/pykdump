@@ -670,7 +670,16 @@ def print_rpc_task(s, v = 0):
         tk_callback = s.tk_callback
         if (tk_callback):
             print ("\t  callback=%s" % addr2sym(tk_callback))
-        
+        if (v > 2):
+            print("\t  tk_flags={}".format(dbits2str(s.tk_flags, RPC_flags)))
+            u = s.u
+            links = u.tk_wait.links
+            tk_work = u.tk_work
+            func = addr2sym(tk_work.func)
+            if (func is not None):
+                print("\t  func={}".format(func))
+                if (not (s.tk_flags & RPC_flags["RPC_TASK_SENT"])):
+                    print("\t    !!! inconsistent state")
     except crash.error:
         pass
 
