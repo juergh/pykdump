@@ -148,6 +148,7 @@ def sysfs_fullpath(sd):
     return "/".join(out)
 
 # Does this dirent describe a block device? Returns name or None
+@memoize_cond(CU_LIVE)
 def blockdev_name(sd):
     bname = ""
     try:
@@ -244,6 +245,8 @@ elif (member_size(__sn, "s_sibling") != -1):
     sysfs_parent = sysfs_parent_311
     #gendev2sd = gendevsd_old
 
+
+decode_sysfs_dirent = memoize_cond(CU_LIVE)(decode_sysfs_dirent)
 
 if (struct_exists(__sn)):
     __SYSFS2attr = {
