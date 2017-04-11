@@ -1,7 +1,7 @@
 # module LinuxDump.scsi.lpfc
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2015-2016 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2015-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -36,7 +36,7 @@ def print_extra(shost):
             " lpfc debuginfo")
         return
     try:
-        model[:3].decode('ascii')
+        model[:3]
     except UnicodeDecodeError:
         return
     print("      Model: {}".format(model))
