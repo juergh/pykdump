@@ -561,21 +561,21 @@ class StructResult(long):
             return self.PYT_attrcache[name](long(self))
         except KeyError:
             pass
-        try:
+        if (name in self.PYT_sinfo):
             fi = self.PYT_sinfo[name]
-        except KeyError:
+        else:
             # Due to Python 'private' class variables mangling,
             # if we use a.__var inside 'class AAA', it will be
-            # converted to a._AAA__var. This creates prob;ems for
+            # converted to a._AAA__var. This creates problems for
             # emulating C to access attributes.
-            # The approach I use below is ugly - but I have not found
+            # The approach we use below is ugly - but I have not found
             # a better way yet
             ind = name.find('__')
             if (ind > 0):
                 name = name[ind:]
-            try:
+            if (name in self.PYT_sinfo):
                 fi = self.PYT_sinfo[name]
-            except KeyError:
+            else:
                 msg = "<%s> does not have a field <%s>" % \
                       (self.PYT_symbol, name)
                 raise KeyError(msg)
