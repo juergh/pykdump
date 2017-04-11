@@ -1371,11 +1371,19 @@ if (o.Blkreq):
 if (o.Blkdevs):
     Dev.print_blkdevs(verbose)
     sys.exit(0)
-    
+
+__scsi_obsolete = '''
+ !!!!!!!!!!!!!!!!
+ !!!! WARNING !!! - this command is obsolete, use 'scsi' command instead!
+ !!!!!!!!!!!!!!!!
+'''
+ 
 if (o.Scsi):
     from LinuxDump.scsi import print_SCSI_devices, scsi_debuginfo_OK
+    print(__scsi_obsolete)
     if (scsi_debuginfo_OK()):
-       print_SCSI_devices(verbose)
+        print_SCSI_devices(verbose)
+        print(__scsi_obsolete)
     sys.exit(0)    
     
 if (o.decodesyscalls):
