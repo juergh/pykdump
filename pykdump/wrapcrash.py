@@ -1656,13 +1656,16 @@ def exec_command(cmdline):
 
 
 # Exec in the background - use this for reliable timeouts
+import signal
 def exec_crash_command_bg(cmd, timeout = None):
     if (not timeout):
         timeout = crash.default_timeout
     #print("Timeout=", timeout)
     # Flush stdout before exec in background
     sys.stdout.flush()
+    #print("-> {}".format(cmd))
     fileno, pid = exec_crash_command_bg2(cmd)
+    signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGINT})
     out = []
     endtime = time.time() + timeout
     timeleft = timeout
@@ -1687,6 +1690,9 @@ def exec_crash_command_bg(cmd, timeout = None):
     os.close(fileno)
     os.kill(pid, 9)
     cpid, status = os.wait()
+    # Unblock SIGINT handler
+    signal.pthread_sigmask(signal.SIG_UNBLOCK, {signal.SIGINT})
+    #print("  {} <-- ".format(cmd))
     if (timeouted):
         badmsg = "<{}> failed to complete within the timeout period of {}s".\
             format(cmd, timeout)
@@ -1705,8 +1711,10 @@ def exec_crash_command_bg(cmd, timeout = None):
         badmsg = "<{}> exited abnormally, {}".format(cmd, smsg)
     else:
         badmsg = ""
-    if (badmsg):
+    if (timeouted):
         pylog.timeout(badmsg)
+    elif (badmsg):
+        pylog.warning(badmsg)
     return("".join(out))
 
 # Aliases
