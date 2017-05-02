@@ -20,8 +20,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-from __future__ import print_function
-
 import string
 import pprint
 
@@ -79,7 +77,7 @@ class LazyEval(object):
         self.name = name
         self.meth = meth
     def __get__(self, obj, objtype):
-        # Switch 
+        # Switch
         #print " ~~lazy~~ ", self.name
         val = self.meth(obj)
         setattr(obj, self.name, val)
@@ -93,7 +91,7 @@ class Bunch(dict):
         self.__dict__.update(d)
     def __setattr__(self, name, value):
         dict.__setitem__(self, name, value)
-        object.__setattr__(self, name, value) 
+        object.__setattr__(self, name, value)
     def __setitem__(self, name, value):
         dict.__setitem__(self, name, value)
         object.__setattr__(self, name, value)
@@ -108,7 +106,7 @@ class Bunch(dict):
         prn.close()
         return rc
 
-# Produce an object that will return True a predefined number of times. 
+# Produce an object that will return True a predefined number of times.
 # For example:
 # twice = TrueOnce(2)
 # for in in range(5):
@@ -124,7 +122,7 @@ class TrueOnce():
         else:
             return False
 
-# Memoize methods with one simple arg  
+# Memoize methods with one simple arg
 class MemoizeTI(type):
     __cache = {}
     def __call__(cls, *args):
@@ -176,7 +174,7 @@ def purge_typeinfo(sn = None):
         return
     for k in list(_typeinfo_cache.keys()):
         if (k[0] == sn):
-            del _typeinfo_cache[k]  
+            del _typeinfo_cache[k]
 
 
 # Memoize cache. Is mainly used for expensive exec_crash_command
@@ -218,7 +216,7 @@ def memoize_cond(condition):
                 return val
         return newfunc
     return deco
-  
+
 def print_memoize_cache():
     #keys = sorted(__memoize_cache.keys())
     keys = list(__memoize_cache.keys())
@@ -228,8 +226,8 @@ def print_memoize_cache():
             print (k, v)
         except Exception as val:
             print ("\n\t", val, 'key=', k)
-        
-# Purge those cache entries that have at least one of the specified 
+
+# Purge those cache entries that have at least one of the specified
 # flags set
 def purge_memoize_cache(flags):
     #keys = sorted(__memoize_cache.keys())
@@ -241,6 +239,50 @@ def purge_memoize_cache(flags):
                 print ("Purging cache entry", k)
             del __memoize_cache[k]
 
+#  select and retirn the value of one expression only
+
+__PY_select_cache = {}
+def PY_select(*expr):
+    f =  sys._getframe(1)
+    outlocals = f.f_locals
+    outglobals = f.f_globals
+    cid = __fid(2)
+    key = (cid, expr)
+    if (key in __PY_select_cache):
+        #print("from cache")
+        return eval(__PY_select_cache[key][0], outglobals, outlocals)
+    for  e in expr:
+        try:
+            #print("Evaluating", e)
+            ee = eval(e, outglobals, outlocals)
+            break
+        except (KeyError, NameError, TypeError, AttributeError):
+            #print(e, "is bad")
+            pass
+    else:
+        return None
+    code = compile(e, '<string>', 'eval')
+    __PY_select_cache[key] = (code, e)
+    return ee
+
+def PY_select_stats():
+    kv = [(k[0], v) for k, v in __PY_select_cache.items()]
+    for k, v in sorted(kv) :
+        print("{} -> {}".format(k, v[1]))
+
+def __fid(depth=1):
+    f = sys._getframe(depth)
+    cid = (f.f_code.co_filename, f.f_lineno)
+    #print(cid)
+    return cid
+
+# Purge PY_select cache
+def PY_select_purge():
+    __PY_select_cache.clear()
+
+#
+# ------------------------------------------------------------------
+#
 # Limit a potentially infinite sequence so that while iterating
 # it we'll stop not later than after N elements
 
@@ -563,7 +605,7 @@ class SUInfo(dict):
                     self[fn] = vi
                 else:
                     self.__appendAnonymousSU(vi)
-                    
+
         elif (ti.codetype == TYPE_CODE_STRUCT):
             for fn, usi_v in usi.PYT_body:
                 #print "Adding", fn, usi[fn].ti
@@ -575,9 +617,7 @@ class SUInfo(dict):
                     self[fn] = vi
                 else:
                     self.__appendAnonymousSU(vi)
-        
-        
-        
+
     def fullstr(self, indent = 0):
         inds = ' ' * indent
         out = []
@@ -589,7 +629,7 @@ class SUInfo(dict):
 
     def __repr__(self):
         return self.fullstr()
-    
+
     def __str__(self):
         out = ["<SUInfo>"]
         out.append(self.PYT_sname + " {")
@@ -600,7 +640,7 @@ class SUInfo(dict):
     # Get field names in the same order as present in struct
     def getFnames(self):
         return [e[0] for e in self.PYT_body]
-    
+
     # Is the derefence chain OK?
 #     def chainOK(self, dstr):
 #         try:
@@ -608,7 +648,7 @@ class SUInfo(dict):
 #         except KeyError:
 #             pass
 #         res = parseDerefString(self.PYT_sname, dstr)
-        
+
 #         self.PYT_dchains[dstr] = res
 #         return res
 
@@ -638,16 +678,13 @@ class ArtStructInfo(SUInfo):
             vi.offset += osize
             vi.bitoffset += 8 *osize
             SUInfo.append(self, vi.name, vi)
-            
+
         # Adjust the size
         self.PYT_size += si.PYT_size
         self.size += si.PYT_size
-            
-        
 
- 
 
-            
+
 # If 'flags' integer variable has some bits set and we assume their
 # names/values are in a dict-like object, return a string. For example,
 # decoding interface flags we will print "UP|BROADCAST|RUNNING|MULTICAST"
@@ -665,7 +702,7 @@ def dbits2str(flags, d, offset = 0):
                 return False
             f >>= 1
         return nb == 1
-    
+
     out = ""
     for name, val in d.items():
         if (bit1(val) and (flags & val)):
@@ -700,7 +737,7 @@ class KernelRev(str):
     def __ge__(self, s):
         nv = KernelRev.conv(s)
         return self.ov >= nv
-    
+
     def conv(s):
         a = [0, 0, 0]
         for i, v in enumerate(s.split('.')):

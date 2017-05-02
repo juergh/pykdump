@@ -89,9 +89,9 @@ require_cmod_version(pykdump.minimal_cmod_version)
 
 from . import Generic as gen
 from .Generic import (Bunch, TrueOnce, ArtStructInfo, EnumInfo, iterN,
-     memoize_cond, purge_memoize_cache,
-     CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT,
-     memoize_typeinfo, purge_typeinfo)
+        memoize_cond, purge_memoize_cache, PY_select_purge,
+        CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT,
+        memoize_typeinfo, purge_typeinfo, PY_select)
 
 hexl = gen.hexl
 unsigned16 = gen.unsigned16
@@ -356,6 +356,7 @@ def __epythonOptions():
     # We do not reload __main__
     if (o.reload):
         purge_memoize_cache(CU_PYMOD)
+        PY_select_purge()
         for k, m in list(sys.modules.items())[:]:
             if (hasattr(m, '__file__')):
                 mod1 = k.split('.')[0]
