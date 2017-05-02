@@ -8,35 +8,14 @@ from pykdump.API import *
 
 import datetime
 
-
-# Try a chain of dereferences one by one, return proper subroutine
-# e.g. ["timekeeper.xtime.tv_sec", "timekeeper.xtime_sec",
-#        "shadow_timekeeper.xtime_sec", "xtime.tv_sec"]
-#
-# After some redesign/cleanup this should be probably going to API.py
-
-
-def conditionalReadSymbol(chain):
-    expr = None
-    rc = None
-    for e1 in chain:
-        expr = "PYKD.{}".format(e1)
-        try:
-            rc = eval(expr)
-        except (NameError, KeyError, TypeError):
-            pass
-        else:
-            #print(expr)
-            break
-    return rc
-
-# Emulating parts of get_xtime algorithm from crash sources
-# Tested on RHEL6, RHEL7, SLES12 and Ubuntu Xenial 
-_readSyms = ["timekeeper.xtime.tv_sec", "timekeeper.xtime_sec",
-            "shadow_timekeeper.xtime_sec", "xtime.tv_sec"]
-
 def get_xtime():
-    return conditionalReadSymbol(_readSyms)
+    return PY_select(
+        "PYKD.timekeeper.xtime.tv_sec",
+        "PYKD.timekeeper.xtime_sec",
+        "PYKD.shadow_timekeeper.xtime_sec",
+        "PYKD.xtime.tv_sec"
+        )
+
 
 re_ts = re.compile(r'\s*\[\s*(\d+)\.\d+\]')
 sec = get_xtime()
