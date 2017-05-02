@@ -26,6 +26,7 @@ codecs.py
 bisect.py
 warnings.py
 random.py
+signal.py
 sre_compile.py
 sre_parse.py
 traceback.py
