@@ -28,8 +28,8 @@ from LinuxDump.KernLocks import decode_mutex
 from LinuxDump.inet import *
 
 from LinuxDump.inet import proto, netdevice
-from LinuxDump.inet.proto import tcpState, sockTypes, \
-    IP_sock,  P_FAMILIES, format_sockaddr_in, protoName
+from LinuxDump.inet.proto import (tcpState, sockTypes,
+        IP_sock,  P_FAMILIES, format_sockaddr_in, protoName)
 
 # For NFS/RPC stuff
 from LinuxDump.nfsrpc import *
@@ -40,24 +40,7 @@ from socket import ntohl, ntohs, htonl, htons
 
 debug = API_options.debug
 
-# The debuggable versions of modules we need
-# There is no easy way to understand whether the loaded module is debuginfo
-# or not - e.g. on a live testing systems the default modules can contain
-# symbolic info. So we just check for some struct definitions
 
-__needed_kmods = ('nfs', 'nfsd', 'sunrpc', 'lockd')
-__needed_kmods_info = '''
-To use this program, you need 'crash' to be able to find
-some extra debuginfo DLKMs, not just vmlinux. These modules should either
-be somewhere where 'crash' can find them, or you can extract them and put
-into the same directory where vmcore resides. Here is the list of modules
-you need:
-  ''' + "\n  ".join(__needed_kmods)
-
-__needed_structs = ("struct rpc_task", "struct nlm_wait",
-                    "struct svc_export", "struct ip_map")
-
-__NO_NFSD = False
 
 NFS4_C = '''
 #define NFSPROC4_NUL            0
@@ -195,69 +178,7 @@ __EXPFLAGS = OrderedDict((
     ("NFSEXP_V4ROOT", ("v4root", ""))
 ))
 
-def init_Structures():
-    load_Structures()
-    finalize_Structures()
 
-# Check whether all needed structures are present
-def load_Structures():
-    def missingStructs():
-        missing_structs = []
-        for sn in __needed_structs:
-            if(not struct_exists(sn)):
-                missing_structs.append(sn)
-        return missing_structs
-    # No need to try load again after the 1st invocation of DLKMs are loaded as needed
-    if (not missingStructs()):
-        # We have already found and loaded all needed DLKMs
-        return
-    # Do not try to load modules if they are not in use - maybe
-    # this host does not use NFS at all!
-
-    if(not "nfs" in lsModules()):
-        print("This host is not using NFS!")
-        sys.exit(0)
-
-    # Part I - try to load all modules from the required list.
-    nodlkms = []
-    for m in __needed_kmods:
-        if (m in lsModules() and not loadModule(m)):
-            nodlkms.append(m)
-
-    if (nodlkms):
-        s = ",".join(nodlkms)
-        print("+++Cannot find debuginfo for DLKMs: {}".format(s))
-    # Now check whether all structs are available. If not, print
-    # and explanation and exit
-
-    missing_structs = missingStructs()
-    # on RHEL5 NFS-client (no server), 'nfsd' is not loaded and
-    # not really needed. So 'struct svc_export' is not needed either
-    if (not 'nfsd' in lsModules()):
-        global __NO_NFSD
-        __NO_NFSD = True
-        try:
-            missing_structs.remove("struct svc_export")
-        except ValueError:
-            pass
-    if (missing_structs):
-        s = ", ".join(missing_structs)
-        print("+++Cannot find symbolic info for:\n  {}".format(s))
-        print(__needed_kmods_info)
-        sys.exit(0)
-
-# Computer offsets and create pseudoattrs
-def finalize_Structures():
-    # A strange problem: sometimes after module is loaded, crash.gdb_typeinfo
-    # returns a stub only. Using crash 'struct' command replaces the stub
-    # with real info
-    exec_crash_command("struct nfs_server")
-    sizeloff = getSizeOf("loff_t")
-    bits = sizeloff*8
-    global OFFSET_MAX, OFFSET_MASK
-    OFFSET_MASK = (~(~0<<bits))
-    OFFSET_MAX =  (~(1 << (bits - 1))) & OFFSET_MASK
-    __init_attrs()
 
 # Compute delay between a given timestamp and jiffies
 def __j_delay(ts, jiffies):
@@ -406,7 +327,7 @@ def print_nfsd_fh(v=0):
         out.append("%s %d 0x" %( ek.ek_client.name, ek.ek_fsidtype))
         #for (i=0; i < key_len(ek->ek_fsidtype)/4; i++)
         #       seq_printf(m, "%08x", ek->ek_fsid[i]);
-        for i in range(key_len(ek.ek_fsidtype)/4):
+        for i in range(key_len(ek.ek_fsidtype)//4):
             out.append("%08x" % ek.ek_fsid[i])
 
         if (_test_cache(ch)):
@@ -574,42 +495,6 @@ def print_unix_gid(v=0):
 #       struct list_head        tk_task;        /* global list of tasks */
 
 
-def __init_attrs():
-    sn = "struct rpc_task"
-    #
-    structSetAttr(sn, "P_name", ["tk_msg.rpc_proc.p_name", 
-                                 "tk_client.cl_procinfo.p_name"])
-    structSetAttr(sn, "P_proc", ["tk_msg.rpc_proc.p_proc", "tk_msg.rpc_proc"])
-    structSetAttr(sn, "CL_procinfo", "tk_client.cl_procinfo")
-    structSetAttr(sn, "CL_vers", ["tk_client.cl_pmap_default.pm_vers",
-                                  "tk_client.cl_pmap.pm_vers",
-                                  "tk_client.cl_vers"])
-    structSetAttr(sn, "CL_prog", ["tk_client.cl_pmap_default.pm_prog",
-                                  "tk_client.cl_pmap.pm_prog",
-                                  "tk_client.cl_prog"])
-
-    sn = "struct file_lock"
-    structSetAttr(sn, "Inode", ["fl_file.f_path.dentry.d_inode",
-                                "fl_file.f_dentry.d_inode"])
-
-    sn = "struct nlm_file"
-    structSetAttr(sn, "Inode", ["f_file.f_path.dentry.d_inode",
-                                "f_file.f_dentry.d_inode"])
-
-    sn = "struct file"
-    structSetAttr(sn, "Dentry", ["f_dentry", "f_path.dentry"])
-    structSetAttr(sn, "Mnt", ["f_vfsmnt", "f_path.mnt"])
-
-    sn = "struct nfs_server"
-
-    structSetAttr(sn, "Hostname", ["hostname", "nfs_client.cl_hostname"])
-    structSetAttr(sn, "Rpccl", ["client", "nfs_client.cl_rpcclient"])
-
-    sn = "struct nfs_client"
-    structSetAttr(sn, "Saddr4", ["cl_addr.sin_addr.s_addr", "cl_addr.__data"])
-
-    sn = "struct svc_sock"
-    structSetAttr(sn, "SockList", ["sk_list", "sk_xprt.xpt_list"])
 
 
 
@@ -916,9 +801,9 @@ def printFH(fh, indent = 0):
 
 # Print 'struct svc_serv'
 # 2.6.18 kernel
-#   On this kernel, sv_permsock is a list of svc_sock linked via sk_list
+#   On this kernel, sv_permsocks is a list of svc_sock linked via sk_list
 # 2.6.35 kernel
-#   On this kernel, sv_permosck is a list of svc_sock linked via sk_xprt.xpt_list
+#   On this kernel, sv_permsocks is a list of svc_sock linked via sk_xprt.xpt_list
 def print_svc_serv(srv):
     print ("  -- Sockets Used by NLM")
     print ("     -- Permanent Sockets")
@@ -950,6 +835,10 @@ def print_nlm_serv():
 # Print nlm_blocked list
 
 def print_nlm_blocked_clnt(nlm_blocked):
+    sizeloff = getSizeOf("loff_t")
+    bits = sizeloff*8
+    OFFSET_MASK = (~(~0<<bits))
+    OFFSET_MAX =  (~(1 << (bits - 1))) & OFFSET_MASK
     lh = ListHead(nlm_blocked, "struct nlm_wait")
     if (len(lh)):
         print ("  ................ Waiting For Locks .........................")
@@ -1034,21 +923,9 @@ def print_remote_nfs_server(nfs, mntpath):
     # stats for nfs_client
 
 
-nfs_mounts = []
-
-# Fill-in and return a list of info about mounted NFS-shares.
-def get_nfs_mounts():
-    del nfs_mounts[:]
-    for vfsmount, superblk, fstype, devname, mnt in getMount():
-        if (fstype in ("nfs", "nfs4")):
-            vfsmount = readSU("struct vfsmount" , vfsmount)
-            sb = readSU("struct super_block", superblk)
-            srv = readSU("struct nfs_server", sb.s_fs_info)
-            srv_host = srv.Hostname
-            nfs_mounts.append((srv_host, srv, mnt))
-    return nfs_mounts
 
 def print_nfsmount(v = 0):
+    my_ipv4, my_ipv6 = netdevice.get_host_IPs()
     if (v):
         print (" Mounted NFS-shares ".center(70, '-'))
     else:
@@ -1057,7 +934,7 @@ def print_nfsmount(v = 0):
         count_flag = Counter()
         count_caps = Counter()
     nfs_cl_dict = {}
-    for hostname, srv, mnt in nfs_mounts:
+    for hostname, srv, mnt in get_nfs_mounts():
         if(v):
             print_remote_nfs_server(srv, mnt)
         else:
@@ -1089,6 +966,9 @@ def print_nfsmount(v = 0):
             addr_in = nfs_cl.cl_addr.castTo("struct sockaddr_in")
             ip = ntodots(addr_in.sin_addr.s_addr)
             print ("     ---", nfs_cl, nfs_cl.cl_hostname, ip)
+            if (ip in my_ipv4):
+                pylog.warning("NFS loopback mount")
+
             rpc_clnt = nfs_cl.cl_rpcclient
             # Print/decode the transport
             xprt = rpc_clnt.cl_xprt
@@ -1205,7 +1085,7 @@ def print_deferred(v = 0):
         if (v == -1 and total):
             pylog.warning("{} deferred requests".format(total))
 
-init_Structures()
+
 
 # The following exists on new kernels but not on old (e.g. 2.6.18)
 try:
@@ -1256,8 +1136,7 @@ def host_as_client(v = 0):
 
 # Printing info for NFS-server
 def host_as_server(v = 0):
-
-    if (__NO_NFSD):
+    if (not is_NFSD()):
         return
     print ('*'*20, " Host As A NFS-server ", '*'*20)
 
