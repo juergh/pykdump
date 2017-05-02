@@ -13,7 +13,7 @@
 
 
 # 1st-pass dumpanalysis
-__version__ = "0.8.0"
+__version__ = "1.0.0"
 
 from pykdump.API import *
 
@@ -24,11 +24,13 @@ from LinuxDump.kmem import parse_kmemf, print_Zone
 from LinuxDump.Tasks import (TaskTable, Task, tasksSummary, getRunQueues,
             TASK_STATE, sched_clock2ms, decode_waitq)
 from LinuxDump.Analysis import (check_possible_hang, check_saphana,
-                                check_memory_pressure)
+                                check_memory_pressure, check_hanging_nfsd,
+                                print_wait_for_AF_UNIX)
 from LinuxDump.inet import summary
 import LinuxDump.inet.netdevice as netdevice
 from LinuxDump import percpu, sysctl, Dev
-from LinuxDump.KernLocks import decode_mutex, spin_is_locked
+from LinuxDump.KernLocks import (decode_mutex, spin_is_locked, decode_semaphore,
+                                 decode_rwsemaphore)
 from LinuxDump.Dev import (print_dm_devices, print_gendisk,
             decode_cmd_flags, 
             print_request_slab, print_request_queues, print_blk_cpu_done)
@@ -41,6 +43,7 @@ from LinuxDump.fs import *
 
 
 import sys
+import re
 from stat import *
 from optparse import OptionParser
 from collections import Counter
@@ -219,6 +222,15 @@ def check_mem():
                 (wr_ratio, vm_dirty_ratio))
     except (crash.error, TypeError):
         pass
+    
+    # Check for kmem -s errors
+    s  = memoize_cond(CU_LIVE | CU_TIMEOUT)(exec_crash_command_bg)("kmem -s")
+    # Search for 'kmem: <slabname> ..."
+    out = re.findall(r'^kmem: .+$', s, re.M)
+    if (out):
+        pylog.error("SLAB corruption")
+        for s in out:
+            print("  ", s)
     
     # Now check user-space memory. Print anything > 25% for thread group leaders
     tt = TaskTable()
@@ -949,56 +961,9 @@ def check_frozen_fs():
                 print("Frozen:", sb, fstype, devname, mnt)
 
 
-# Decode struct rw_semaphore - waiting-list etc.
-
-def decode_rwsemaphore(semaddr):
-    s = readSU("struct rw_semaphore", semaddr)
-    print (s)
-    #wait_list elements are embedded in struct rwsem_waiter
-    wait_list = readSUListFromHead(Addr(s.wait_list), "list",
-             "struct rwsem_waiter")
-    out = []
-    for w in wait_list:
-        task = w.task
-        out.append([task.pid, task.comm])
-    # Sort on PID
-    out.sort()
-    for pid, comm in out:
-        print ("\t%8d  %s" % (pid, comm))
-
-def decode_semaphore(semaddr):
-    s = readSU("struct semaphore", semaddr)
-    if (s.hasField("wait")):
-        decode_semaphore_old(semaddr)
-        return
-    print (s)
-    #wait_list elements are embedded in struct rwsem_waiter
-    wait_list = readSUListFromHead(Addr(s.wait_list), "list",
-             "struct semaphore_waiter")
-    out = []
-    for w in wait_list:
-        task = w.task
-        out.append([task.pid, task.comm])
-    # Sort on PID
-    out.sort()
-    for pid, comm in out:
-        print ("\t%8d  %s" % (pid, comm))
-
-# Old 'struct semaphore'e        
-def decode_semaphore_old(semaddr):
-    s = readSU("struct semaphore", semaddr)
-    print (s)
-    #wait_list elements are embedded in struct wait.task_list
-    out = []
-    for task in decode_waitq(s.wait.task_list):
-        out.append([task.pid, task.comm])
-    # Sort on PID
-    out.sort()
-    for pid, comm in out:
-        print ("\t%8d  %s" % (pid, comm))        
 
 
-        
+
         
 # Print status of block requests ('struct request') found in different ways.
 # If v=0, print a summary only
@@ -1446,7 +1411,6 @@ if (o.umem):
     sys.exit(0)
  
 
-
 dmesg = exec_crash_command("log")
 
 if (not sys_info.livedump):
@@ -1521,6 +1485,14 @@ if (_p_hang):
     pylog.warning("   Run 'hanginfo' to get more details")
 _p_memory_pressure = check_memory_pressure(_funcpids)
 
+_p_hanging_nfsd = check_hanging_nfsd(_funcpids)
+
+
+if (_p_memory_pressure and _p_hanging_nfsd):
+    pylog.warning("A host with hanging NFSD and memory pressure"
+        "\n\tRun 'nfsshow' to see whether we have loopback NFS mount"
+        "\n\tand if yes, see LWN article https://lwn.net/Articles/595652")
+
 if (_SAPHANA == 2 and _p_hang and _p_memory_pressure):
     pylog.warning("This host is running SAP HANA and is under memory pressure"
         "\n\tMost probably, it is not properly tuned and this is the root cause"
@@ -1534,9 +1506,6 @@ if (not quiet):
     print_mount()
     print_dmesg()
 
-
-from LinuxDump.Analysis import print_wait_for_AF_UNIX
-        
 print_wait_for_AF_UNIX(-1)
 
 # Ad-hoc tests
