@@ -18,10 +18,9 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-from __future__ import print_function
 
-# Vversion number
-__version__ = '0.2'
+# Version number
+__version__ = '0.3'
 
 
 from pykdump.API import *
@@ -108,4 +107,3 @@ __sb.Frozen = ["s_writers.frozen", "s_frozen"]
 
 def sb_frozen(sb):
     return sb.Frozen  
-        

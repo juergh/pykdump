@@ -579,7 +579,7 @@ def is_request_STARTED(rq):
 structSetAttr("struct request", "Flags", ["flags", "cmd_flags"])
 
 
-def get_requestqueue(bd, gd):
+def XXX_get_requestqueue(bd, gd):
     bd_queue = None
     if (not bd):
         try:
@@ -594,6 +594,13 @@ def get_requestqueue(bd, gd):
                 bd_queue = bd.bd_disk.queue 
         except:
             pass
+    return bd_queue
+
+def get_requestqueue(bd, gd):
+    bd_queue = PY_select(
+        "gd.queue",
+        "bd.bd_queue",
+        "bd.bd_disk.queue")
     return bd_queue
 
 def get_request_queues():
