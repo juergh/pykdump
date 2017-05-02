@@ -33,8 +33,10 @@ from LinuxDump.BTstack import (exec_bt, bt_mergestacks, fastSubroutineStacks,
 from LinuxDump.inet import proto
 from LinuxDump.Analysis import (print_wait_for_AF_UNIX, print_pidlist,
                                 check_possible_hang,
-                                check_saphana, check_memory_pressure)
+                                check_saphana, check_memory_pressure)                                
+
 from LinuxDump.Files import pidFiles
+from LinuxDump.KernLocks import decode_semaphore
 
 from collections import namedtuple, defaultdict
 
@@ -447,6 +449,25 @@ def check_throttle_direct_reclaim(tasksrem):
         remove_pidlist(tasksrem, pids)
         
 
+# Threads waiting on console_sem
+def check_console_sem(tasksrem):
+    console_sem_addr = sym2addr("console_sem")
+    if (not console_sem_addr):
+        return
+    pidcomms = decode_semaphore(console_sem_addr, 0)
+    if (pidcomms):
+        print_header("Waiting on console_sem")
+        for pid, comm in pidcomms:
+            print ("\t{:8d}  {}".format(pid, comm))
+    remove_pidlist(tasksrem, [pid for pid, comm in pidcomms])
+    # Try to find a possible owner
+    __testfunc = "__console_unlock"
+    pids = _funcpids(__testfunc)
+    verifyFastSet(pids, __testfunc)
+    if (pids):
+        print("    Possible owners: {}".format(pids))
+
+        
 # ==============end of check subroutines=======================   
        
 
@@ -473,6 +494,7 @@ def classify_UN(v):
     check_congestion_queues(tasksrem)
     check_kthread_create_list(tasksrem)
     check_throttle_direct_reclaim(tasksrem)
+    check_console_sem(tasksrem)
 
     if (tasksrem):
         print ("\n\n ********  Non-classified UN Threads ********** {}"
