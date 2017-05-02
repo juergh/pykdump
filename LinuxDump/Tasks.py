@@ -18,8 +18,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-from __future__ import print_function
-
 __doc__ = '''
 This is a package providing generic access to 'struct task_struct'
 and scheduler.
@@ -33,6 +31,7 @@ from pykdump.Misc import EmbeddedFrames
 from LinuxDump import percpu
 
 from .inet import proto
+from .BTstack import exec_bt
 
 from collections import defaultdict
 import textwrap
@@ -236,6 +235,9 @@ class Task:
             sock = Deref(socket.sk)
             socks.append(sock)
         return socks
+    # Get task stack as BTStack object
+    def get_task_stack(self):
+        return exec_bt("bt {:#x}".format(self.ts))[0]
 
 class _TaskTable:
     def __init__(self):
