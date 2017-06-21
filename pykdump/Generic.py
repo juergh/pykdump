@@ -115,7 +115,7 @@ class Bunch(dict):
 class TrueOnce():
     def __init__(self, v = 1):
         self.v = v
-    def __nonzero__(self):
+    def __bool__(self):
         if (self.v > 0):
             self.v -= 1
             return True
