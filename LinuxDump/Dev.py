@@ -171,10 +171,17 @@ def print_blkdevs(v=0):
                     print('    first_minor={:<4d}   {} {}'.format(gd.first_minor, 
                                                             gd.disk_name, gd))
                 else:
-                    print('   {:3d} {:5} {} {}'.format(minor, gd.disk_name, 
+                    try:
+                        partno = str(bd.bd_part.partno)
+                        if (partno == '0'):
+                            partno = ''
+                    except:
+                        partno = ''
+                    gd_name = gd.disk_name + partno
+                    print('   {:3d} {:5} {} {}'.format(minor, gd_name,
                                                     stripStructName(bd),
                                                     stripStructName(gd)))
-                                 
+                                  
                 if (v > 0 and bd_queue):
                     # Print request queue length (if they are available)
                     #
@@ -915,5 +922,22 @@ def print_request_slab(v):
             print(s)
 
     return totreq
-        
-        
+
+ 
+# Device inode to block_device
+# static inline struct bdev_inode *BDEV_I(struct inode *inode)
+# {
+#         return container_of(inode, struct bdev_inode, vfs_inode);
+# }
+# 
+# inline struct block_device *I_BDEV(struct inode *inode)
+# {
+#         return &BDEV_I(inode)->bdev;
+# }
+
+
+def BDEV_I(inode):
+    return container_of(inode, 'struct bdev_inode', 'vfs_inode')
+
+def I_BDEV(inode):
+    return BDEV_I(inode).bdev
