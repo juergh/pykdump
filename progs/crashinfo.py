@@ -958,11 +958,38 @@ def check_frozen_fs():
                 if (once):
                     pylog.warning("There are frozen FS")
                     print("\n --- A list of FS in frozen state ---")
-                print("Frozen:", sb, fstype, devname, mnt)
-
-
-
-
+                print("    ---", sb)
+                print("       ", fstype, devname, mnt)
+                # Check for tasks waiting on our queues
+                queues = []
+                try:
+                    q = sb.s_wait_unfrozen
+                    n = "s_wait_unfrozen"
+                    queues.append((q,n))
+                except:
+                    pass
+                try:
+                    q = sb.s_writers.wait
+                    n = "s_writers.wait"
+                    queues.append((q,n))
+                except:
+                    pass
+                try:
+                    q = sb.s_writers.wait_unfrozen
+                    n = "s_writers.wait_unfrozen"
+                    queues.append((q,n))
+                except:
+                    pass
+                for q, qn in  queues:
+                    tasks = decode_waitq(q)
+                    if (not tasks):
+                        continue
+                    pids = {t.pid for t in tasks}
+                    print("      PIDs waiting on {}".format(qn))
+                    s = textwrap.fill(str(pids),  width=60,
+                          initial_indent='         ',
+                          subsequent_indent = 16 * ' ')
+                    print(s)
 
         
 # Print status of block requests ('struct request') found in different ways.
