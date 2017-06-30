@@ -1665,7 +1665,7 @@ def exec_crash_command_bg(cmd, timeout = None):
     sys.stdout.flush()
     #print("-> {}".format(cmd))
     fileno, pid = exec_crash_command_bg2(cmd)
-    signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGINT})
+    #signal.pthread_sigmask(signal.SIG_BLOCK, {signal.SIGINT})
     out = []
     endtime = time.time() + timeout
     timeleft = timeout
@@ -1691,7 +1691,7 @@ def exec_crash_command_bg(cmd, timeout = None):
     os.kill(pid, 9)
     cpid, status = os.wait()
     # Unblock SIGINT handler
-    signal.pthread_sigmask(signal.SIG_UNBLOCK, {signal.SIGINT})
+    #signal.pthread_sigmask(signal.SIG_UNBLOCK, {signal.SIGINT})
     #print("  {} <-- ".format(cmd))
     if (timeouted):
         badmsg = "<{}> failed to complete within the timeout period of {}s".\

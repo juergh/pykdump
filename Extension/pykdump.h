@@ -13,3 +13,6 @@
   #define evalPyObject PyCodeObject
   #define argvType (char **)
 #endif
+
+void use_python_sigint(void);
+void use_crash_sigint(void);

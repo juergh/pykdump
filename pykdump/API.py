@@ -499,9 +499,13 @@ def cleanup():
         print ("\n ** Execution took %6.2fs (real) %6.2fs (CPU)%s" % \
                                         (time.time() - t_starta,
                                          parent_t, child_s))
-    except IOError:
+    except IOError as v:
+        print(v, file=sys.stderr)
+    try:
+        sys.stdout.flush()
+    except BrokenPipeError as v:
+        print(v, file=sys.stderr)
         pass
-    sys.stdout.flush()
 
 
 
