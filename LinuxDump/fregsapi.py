@@ -39,7 +39,7 @@
 # figure everything out (which is probably impossible); this is a debugging
 # aid, not a tool that attempts to do all crash analysis automatically.
 
-__version__ = "1.00"
+__version__ = "1.01"
 
 from pykdump.API import *
 
@@ -78,17 +78,32 @@ def extract_registers (frame, stack):
     # Disassemble the first 12 instructions in the routine.  This should be
     # more than enough to handle the initial register saving.
 
-    disout = disasm(fname,12)
+    # We have to be a little careful here because there can be duplicate
+    # routine names.  We call sym2alladdr() to get a list of all addresses
+    # for the funtion name's symbol.  If there's only one, we're done.
+    # But if there's more than one, we have to search through the list to 
+    # find the symbol that's closest to, but not larger than, the return
+    # address in the stack frame.
+
+    addrlist = sym2alladdr(fname)
+    if len(addrlist) == 1:
+        addr = addrlist[0]
+    else:
+        for nextaddr in sorted(addrlist):
+            if nextaddr <= frame.addr:
+                addr = nextaddr
+            else:
+                break
+    
+    # Get the disassembled instructions.  This can fail for various
+    # corner cases where libunwind does odd things around exceptions.
+    # If so, just return.
+
     try:
+        disout = disasm(hexl(addr),12)
         disinst = disout.splitlines()
-    except AttributeError:
-        symout = exec_crash_command("sym " + fname)
-        addr = symout.split()[0]
-        disout = disasm("0x"+addr,12)
-        try:
-            disinst = disout.splitlines()
-        except:
-            return
+    except:
+        return
 
     # Parse the entry sequence where registers are saved on the stack.
     # We're only interested in push, sub, and mov instructions.  When we
@@ -569,12 +584,17 @@ def extract_registers (frame, stack):
 
                 regval[dstreg] = "invalid"
 
+        # STOSx (Store String) instructions invalidate RDI
+
+        elif opcode.startswith('stos'):
+             regval['RDI'] = "invalid"
 
         # For any other instruction that modified the contents of a register,
         # invalidate the register.
 
         elif opcode.startswith(('add','sub','inc','dec','imul','idiv','and',
-            'or','xor','not','sbb','adc','neg','sh','pop','bt','sa','cmov')):
+            'or','xor','not','sbb','adc','neg','sh','pop','bt','sa','set',
+            'cmov','ro','rc')):
             fields = operand.split(",")
             dst = fields[-1]
             if dst.startswith("%"):
@@ -595,13 +615,13 @@ def extract_registers (frame, stack):
         # Instructions whose effect on registers is indeterminate. 
         # Stop parsing.
 
-        elif opcode.startswith("call"):
+        elif opcode.startswith(("call","rep")):
             break
 
         # Instructions that don't change registers.  Ignore.
 
         elif opcode.startswith(("nop","j","test","cmp","push","data32",
-             "lock","prefetch")):
+             "lock","prefetch","out")):
             continue		# Skip NOP instructions
 
         else:

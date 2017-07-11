@@ -660,15 +660,27 @@ def print_rpc_task(s, v = 0):
     except crash.error:
         pass
 
+__sstate = EnumInfo("socket_state")
 # decode/print rpc_xprt
 def print_xprt(xprt, v = 0):
     try:
-        print ("      ...", xprt, "...")
+        # Get sock from xprt
+        sock_xprt = container_of(xprt, "struct sock_xprt", "xprt") 
+        print ("      ...", xprt.shortStr(), "...", sock_xprt.shortStr())
         print("        state={}".format(dbits2str(xprt.state, XPRT_BITS)))
         jiffies = readSymbol("jiffies")
         print ("        last_used %s s ago" % __j_delay(xprt.last_used, jiffies))
         if (v < 1):
             return
+        
+        socket = sock_xprt.sock     # struct socket
+        sk = socket.sk              # struct sock
+        # IP
+        ip_sock = IP_sock(sk)
+        # Compact str(ip_sock) 
+        s = ' '.join(str(ip_sock).split())
+        print("       ", s)
+        
         for qn in ("binding", "sending","resend", "pending", "backlog"):
             try:
                 print ("        len(%s) queue is %d" % (qn,
