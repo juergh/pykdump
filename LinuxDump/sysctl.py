@@ -205,8 +205,7 @@ def first_entry(ctdir):
     ind =  (ctl_node-head.node)//sz
     #print("ctl_node=%d, head_node=%d, ctl_node - head->node=%d" % \
     #      (long(ctl_node), long(head.node), ind))
-    
-    
+
     entry = head.ctl_table[ind]
     return (entry, head)
 
@@ -221,7 +220,7 @@ def find_entry(pdir, name):
 def find_subdir(pdir, name):
     entry, h = find_entry(pdir, name)
     if (not stat.S_ISDIR(entry.mode)):
-        raise TypeError, "Incorrect mode " + name
+        raise TypeError("Incorrect mode " + name)
     return container_of(h, "struct ctl_dir", "header")
 
 def for_all_sysdir_entries(ctdir):
@@ -232,7 +231,7 @@ def for_all_sysdir_entries(ctdir):
         ind =  (ctl_node-head.node)//sz
         ct = head.ctl_table[ind]
         yield ct, head
-        
+
         ctl_node = first_usable_entry(rb_next(ctl_node.node))
 
 
@@ -268,7 +267,7 @@ def follow_symlink(head, ct, namespaces):
     root = readSU("struct ctl_table_root", ct.data)
     lookup = addr2sym(root.lookup)
     if (lookup != "net_ctl_header_lookup"):
-        raise TypeError, "Unknown lookup type"
+        raise TypeError("Unknown lookup type")
     ctset = namespaces.net_ns.sysctls
     #print(root, ctset)
     return xlate_dir(ctset, head.parent)

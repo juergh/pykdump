@@ -12,6 +12,7 @@
 .emacs.desktop
 __pycache__
 *.out
+tests/*
 Extension/X86
 Extension/X86_64
 Extension/testmod/.tmp_versions

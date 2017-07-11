@@ -1,7 +1,7 @@
 /* Python extension to interact with CRASH
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2016 Hewlett-Packard Enterprise Development LP
+# (C) Copyright 2006-2017 Hewlett-Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -201,15 +201,9 @@ py_get_GDB_output(PyObject *self, PyObject *args) {
   rewind(pc->tmpfile);
   while (fgets(buf, BUFSIZE, pc->tmpfile)) {
     newpart = PyString_FromString(buf);
-#if PY_MAJOR_VERSION >= 3
     // On Python3: PyObject* PyUnicode_Concat(PyObject *left, PyObject *right)
     // and returns a new reference
     out = PyUnicode_Concat(out, newpart);
-#else
-    // On Python2: void PyString_Concat(PyObject **string, PyObject *newpart)
-    // The reference to the old value of string will be stolen
-    PyString_Concat(&out, newpart);
-#endif
     Py_DECREF(newpart);
     //fputs(buf, stderr);
   }
@@ -252,6 +246,10 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
     printf("exec_crash_command <%s>\n", cmd);
   // Send command to crash and get its text output
 
+  // ***** Enable CRASH SIGINT handler. If we press ^C in this state, 
+  // we will get crash.error exception
+  use_crash_sigint();
+  
   strcpy(pc->command_line, cmd);
   clean_line(pc->command_line);
   strcpy(pc->orig_line, pc->command_line);
@@ -300,7 +298,9 @@ py_exec_crash_command(PyObject *self, PyObject *pyargs) {
   fclose(fp);
   fp = oldfp;
 
-  // If there was an error, we raise an exception and pass obj to it
+  use_python_sigint();
+  // If there was an error, we raise an exception
+  // and pass text gathered so far
   if (internal_error || rlength == 0) {
     PyErr_SetObject(crashError, obj);
     return NULL;
@@ -533,71 +533,7 @@ py_sym2addr(PyObject *self, PyObject *args) {
 }
 
 
-extern  struct syment * symbol_search_next(char *, struct syment *) __attribute__ ((weak));
-
-
-/* =========================WARNING=====================================
-   We have to copy the following code from crash sources as symbol_search_next()
-   is at this moment declared as static. Dave Anderson will make it visible
-   in 5.0.9. As soon as it becomes visible, it'll be used automatically
-*/
-
-#define MODULE_PSEUDO_SYMBOL(sp) \
-    (STRNEQ((sp)->name, "_MODULE_START_") || STRNEQ((sp)->name, "_MODULE_END_"))
-
-#define MODULE_START(sp) (STRNEQ((sp)->name, "_MODULE_START_"))
-#define MODULE_END(sp)   (STRNEQ((sp)->name, "_MODULE_END_"))
-
-/*
- *  Return the syment of the next symbol with the same name of the input symbol.
- */
-static struct syment *
-my_symbol_search_next(char *s, struct syment *spstart)
-{
-	int i;
-        struct syment *sp, *sp_end;
-	struct load_module *lm;
-	int found_start;
-	int pseudos;
-
-	found_start = FALSE;
-
-        for (sp = st->symtable; sp < st->symend; sp++) {
-		if (sp == spstart) {
-			found_start = TRUE;
-			continue;
-		} else if (!found_start)
-			continue;
-
-                if (strcmp(s, sp->name) == 0) {
-                        return(sp);
-		}
-        }
-
-	pseudos = (strstr(s, "_MODULE_START_") || strstr(s, "_MODULE_END_"));
-
-        for (i = 0; i < st->mods_installed; i++) {
-                lm = &st->load_modules[i];
-		sp = lm->mod_symtable;
-                sp_end = lm->mod_symend;
-
-                for ( ; sp < sp_end; sp++) {
-                	if (!pseudos && MODULE_PSEUDO_SYMBOL(sp))
-                        	continue;
-
-			if (sp == spstart) {
-				found_start = TRUE;
-				continue;
-			} else if (!found_start)
-				continue;
-
-                	if (STREQ(s, sp->name))
-                        	return(sp);
-                }
-        }
-
-        return((struct syment *)NULL);
-}
+extern  struct syment * symbol_search_next(char *, struct syment *);
 
 
 static PyObject *
@@ -606,18 +542,6 @@ py_sym2_alladdr(PyObject *self, PyObject *args) {
   unsigned long long addr;
   struct syment *se;
   PyObject *list;
-  struct syment *(*ssn)(char *, struct syment *);
-
-  if (symbol_search_next) {
-    ssn = symbol_search_next;
-    if (debug > 0)
-      fprintf(fp, "Using CRASH's version of symbol_search_next\n");
-  } else {
-    ssn = my_symbol_search_next;
-    if (debug > 0)
-      fprintf(fp, "Using my own version of symbol_search_next\n");
-  }
-
 
   if (!PyArg_ParseTuple(args, "s", &symbol)) {
     PyErr_SetString(crashError, "invalid parameter type"); \
@@ -637,7 +561,7 @@ py_sym2_alladdr(PyObject *self, PyObject *args) {
       return NULL;
 
   // Are there additional symbols?
-  while ((se = ssn(symbol, se)))
+  while ((se = symbol_search_next(symbol, se)))
     if (PyList_Append(list,PyLong_FromUnsignedLong(se->value)) == -1)
       return NULL;
   // ASID
@@ -854,7 +778,7 @@ py_mem2long(PyObject *self, PyObject *args, PyObject *kwds) {
   //printf("strsize=%d, signed=%d, array=%d\n",size, signedvar, array);
 
   if (array <= 1) {
-    if (size < 0 || size > sizeof(functable_signed)/sizeof(conversion_func))
+    if (size < 0 || (unsigned) size > sizeof(functable_signed)/sizeof(conversion_func))
       return nu_badsize(str);
     if (signedvar)
       return functable_signed[size-1](str);
@@ -866,7 +790,7 @@ py_mem2long(PyObject *self, PyObject *args, PyObject *kwds) {
     int i;
     PyObject *list, *val;
     if (size < 0 || sz1*array != size ||
-	sz1 > sizeof(functable_signed)/sizeof(conversion_func))
+	(unsigned)sz1 > sizeof(functable_signed)/sizeof(conversion_func))
       return nu_badsize(str);
 
     list = PyList_New(0);
@@ -948,15 +872,8 @@ py_readmem(PyObject *self, PyObject *args) {
     return NULL;
   }
   */
-#if PY_MAJOR_VERSION < 3
-  if (PyInt_Check(arg1))
-      addr = PyInt_AsLong(arg1);
-  else
-       addr = PyLong_AsUnsignedLongLong(arg1);
-#else
-  // Wtih Python3, integers are always long
+  // With Python3, integers are always long
   addr = PyLong_AsUnsignedLongLong(arg1);
-#endif
   size = PyLong_AsLong(arg2);
 
   /* When we see a NULL pointer we raise not a crash-specific
@@ -979,11 +896,7 @@ py_readmem(PyObject *self, PyObject *args) {
     return NULL;
 
   }
-#if PY_MAJOR_VERSION < 3
-  out = PyString_FromStringAndSize(buffer, size);
-#else
   out = PyBytes_FromStringAndSize(buffer, size);
-#endif
   free(buffer);
   return out;
 }
@@ -1030,7 +943,7 @@ py_readInt(PyObject *self, PyObject *args) {
     return NULL;
 
   }
-  if (size < 0 || size > sizeof(functable_signed)/sizeof(conversion_func))
+  if (size < 0 || (unsigned) size > sizeof(functable_signed)/sizeof(conversion_func))
     return nu_badsize(buffer);
   if (signedvar)
     return functable_signed[size-1](buffer);
@@ -1052,15 +965,9 @@ py_readmem_task(PyObject *self, PyObject *args) {
 
   PyObject *arg0 = PyTuple_GetItem(args, 0);
 
-#if PY_MAJOR_VERSION < 3
-  if (PyInt_Check(arg0))
-      tskaddr = PyInt_AsLong(arg0);
-  else
-      tskaddr = PyLong_AsUnsignedLongLong(arg0);
-#else
   // Wtih Python3, integers are always long
   tskaddr = PyLong_AsUnsignedLongLong(arg0);
-#endif
+
   if (tskaddr) {
     task = task_to_context(tskaddr);
     if (!task) {
@@ -1703,7 +1610,6 @@ static PyMethodDef crashMethods[] = {
   {NULL,      NULL}        /* Sentinel */
 };
 
-#if PY_MAJOR_VERSION >= 3
     static struct PyModuleDef crashmodule = {
         PyModuleDef_HEAD_INIT,
         "crash",		/* m_name */
@@ -1715,20 +1621,13 @@ static PyMethodDef crashMethods[] = {
         NULL,			/* m_clear */
         NULL,			/* m_free */
     };
-#endif
 
 extern const char * crashmod_version;
 
-static PyObject *
-initcrash23(void) {
+PyMODINIT_FUNC PyInit_crash(void) {
 
-  int i;
-#if PY_MAJOR_VERSION >= 3
-    m = PyModule_Create(&crashmodule);
-#else
-  m = Py_InitModule("crash", crashMethods);
-#endif
-
+  unsigned int i;
+  m = PyModule_Create(&crashmodule);
   if (m == NULL)
         return NULL;
 
@@ -1783,14 +1682,3 @@ initcrash23(void) {
   return m;
 }
 
-#if PY_MAJOR_VERSION < 3
-    PyMODINIT_FUNC initcrash(void)
-    {
-        initcrash23();
-    }
-#else
-    PyMODINIT_FUNC PyInit_crash(void)
-    {
-        return initcrash23();
-    }
-#endif

@@ -8,7 +8,7 @@
 # depending on availability of low-level shared library dlopened from crash
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -23,8 +23,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-# To facilitate migration to Python-3, we start from using future statements/builtins
-from __future__ import print_function
 
 
 __doc__ = '''
@@ -46,6 +44,8 @@ import time, select
 import stat
 import atexit
 from collections import defaultdict
+import pprint
+pp = pprint.PrettyPrinter(indent=4)
 
 # Python2 vs Python3
 _Pym = sys.version_info[0]
@@ -57,9 +57,23 @@ if (_Pym > 2):
 try:
     import crash
 except ImportError as e:
+    # Traverse frames to find the program
+    # <frame object at 0x18ef288>
+    # ../progs/pykdump/API.py
+    # <frozen importlib._bootstrap>
+    # <frozen importlib._bootstrap_external>
+    # <frozen importlib._bootstrap>
+    # <frozen importlib._bootstrap>
+    # <frozen importlib._bootstrap>
+    # ../progs/xportshow.py
+
     import inspect
-    fabove = inspect.getouterframes(inspect.currentframe())[1][0]
-    g = fabove.f_globals
+    cframe = inspect.currentframe()
+    for f in inspect.getouterframes(cframe)[1:]:
+        if ("/progs/" in f.filename):
+            #print(f.filename)
+            g = f.frame.f_globals
+            break
     vers =" %s: %s" % (g["__name__"], g["__version__"])
     raise ImportError(vers)
 
@@ -75,9 +89,9 @@ require_cmod_version(pykdump.minimal_cmod_version)
 
 from . import Generic as gen
 from .Generic import (Bunch, TrueOnce, ArtStructInfo, EnumInfo, iterN,
-     memoize_cond, purge_memoize_cache,
-     CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT,
-     memoize_typeinfo, purge_typeinfo)
+        memoize_cond, purge_memoize_cache, PY_select_purge,
+        CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT,
+        memoize_typeinfo, purge_typeinfo, PY_select)
 
 hexl = gen.hexl
 unsigned16 = gen.unsigned16
@@ -194,7 +208,7 @@ class PyLog:
         self.__print_problems()
         self.__print_info()
     def __print_info(self):
-        if (not self._cache.has_key(INFO)):
+        if (not INFO in self._cache):
             return
         print("")
         print(" Additional Info ".center(78, '~'))
@@ -342,6 +356,7 @@ def __epythonOptions():
     # We do not reload __main__
     if (o.reload):
         purge_memoize_cache(CU_PYMOD)
+        PY_select_purge()
         for k, m in list(sys.modules.items())[:]:
             if (hasattr(m, '__file__')):
                 mod1 = k.split('.')[0]
@@ -350,11 +365,11 @@ def __epythonOptions():
                 if (fdir in __stdlib):
                     continue
                 # Don't reload pykdump/
-                if (fdir.startswith(__pylib) or 
+                if (fdir.startswith(__pylib) or
                         mod1 in ('pykdump', '__main__')):
                     continue
                 #print(k, fdir, m.__file__)
-                
+
                 del sys.modules[k]
                 print ("--reloading", k)
 
@@ -398,7 +413,7 @@ def __preprocess(iargv,op):
 
     while(iargv):
         el = iargv.pop(0)
-        if (el[:2] == '--' or el[0] == '-'):
+        if (el and (el[:2] == '--' or el[0] == '-')):
             # Check whether this option is present in optparser's op
             optstr = el.split('=')[0]
             opt =  op.get_option(optstr)
@@ -484,9 +499,13 @@ def cleanup():
         print ("\n ** Execution took %6.2fs (real) %6.2fs (CPU)%s" % \
                                         (time.time() - t_starta,
                                          parent_t, child_s))
-    except IOError:
+    except IOError as v:
+        print(v, file=sys.stderr)
+    try:
+        sys.stdout.flush()
+    except BrokenPipeError as v:
+        print(v, file=sys.stderr)
         pass
-    sys.stdout.flush()
 
 
 
@@ -758,6 +777,19 @@ if (symbol_exists("__per_cpu_start") and symbol_exists("__per_cpu_end")):
 else:
     def is_percpu_symbol(addr):
         return False
+    
+# A special object to be used instead of readSymbol, e.g.
+# readSymbol("xtime") -> PYKD.xtime
+# we do not try to workaround Python mangling of attrs starting with
+# __, as  presumably using names that begin with double underscores 
+# in C is "undefined behavior", which is the technical term for 
+# "don't do it."
+
+class __PYKD_reader(object):
+    def __getattr__(self, attrname):
+        return readSymbol(attrname)
+    
+PYKD = __PYKD_reader()
 
 enter_epython()
 

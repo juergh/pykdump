@@ -779,8 +779,27 @@ def get_ifa_list(dev):
         return readStructNext(ifa_list, "ifa_next")
     else:
         return []
-  
 
+# Get all host IPs to check quickly for things like loopback NFS etc.
+# We return two sets: IPv4 and IPv6 addresses formatted as strings
+@memoize_cond(CU_LIVE|CU_LOAD|CU_PYMOD)
+def get_host_IPs():
+    ipv4 = set()
+    ipv6 = set()
+    if6devs = get_inet6_devs()
+    for dev in dev_base_list():
+        devname = dev.name
+        for ifa in get_ifa_list(dev):
+            ipaddr = ntodots(ifa.ifa_address)
+            ipv4.add(ipaddr)
+        for ifa in if6devs[dev]:
+            ipaddr = ntodots6(ifa.addr)
+            ipv6.add(ipaddr)
+    return (ipv4, ipv6)
+
+
+
+# -------------------------------------------------------------------------
 # Details
 def print_If(dev, details = 0):
     if6devs = get_inet6_devs()

@@ -2,7 +2,7 @@
 # module LinuxDump.scsi
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2013-2016 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2013-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -25,7 +25,7 @@ This is a package providing generic access to SCSI stuff
 '''
 
 from pykdump.API import *
-from collections import namedtuple, defaultdict
+from collections import (namedtuple, defaultdict, OrderedDict)
 from LinuxDump.sysfs import *
 from LinuxDump.kobjects import *
 from LinuxDump.Time import j_delay
@@ -54,10 +54,16 @@ except TypeError:
 
 def scsi_debuginfo_OK():
     if (scsi_device_types is None):
-        print("+++Cannot find symbolic info for <scsi_device_types>")
-        print("   Put 'scsi_mod' debuginfo file into current directory")
+        print("+++Cannot find symbolic info for <scsi_device_types>\n"
+            "   Put 'scsi_mod' debuginfo file into current directory\n"
+            "   and then re-run the command adding --reload option")
         return False
     return True
+
+# The following enums exists on all kernels we support
+if (scsi_device_types is not None):
+    enum_shost_state = EnumInfo("enum scsi_host_state")
+    enum_st_state = EnumInfo("enum scsi_target_state")
 
 try:
     _rq_atomic_flags = EnumInfo("enum rq_atomic_flags")
@@ -115,111 +121,111 @@ def starget_to_rport(s):
     parent = s.dev.parent
     return dev_to_rport(parent) if scsi_is_fc_rport(parent) else None
 
-# Get all SCSI devices
 
-def get_SCSI_devices():
-    scsi_bus_type = readSymbol("scsi_bus_type")
+# Generic walk for all devices registered in 'struct class'
+def class_for_each_device(_class):
+    if (_class.hasField("p")):
+        p = _class.p
+        if (p.hasField("klist_devices")):
+            klist_devices = p.klist_devices
+        else:
+            klist_devices = p.class_devices
+
+    elif(_class.hasField("klist_devices")):
+        klist_devices = _class.klist_devices
+    else:
+        # RHEL5
+        for dev in ListHead(_class.children, "struct class_device").node:
+            yield dev
+        return
+
+    for knode in klistAll(klist_devices):
+        dev = container_of(knode, "struct device", "knode_class")
+        yield dev
+
+# ...........................................................................
+#
+# There are several ways to get lists of shosts/devices. We can get just
+# Scsi_Host from 'shost_class', or we can get everything (hosts, devices,
+# etc.) from 'scsi_bus_type'
+#
+# ...........................................................................
+
+#
+# get all Scsi_Host from 'shost_class'
+#
+
+def get_Scsi_Hosts_from_class():
+    shost_class = readSymbol("shost_class")
+    _rhel5 = shost_class.hasField("children")
+    for dev in class_for_each_device(shost_class):
+        if (_rhel5):
+            yield container_of(dev, "struct Scsi_Host", "shost_classdev")
+        else:
+            #yield dev
+            yield container_of(dev, "struct Scsi_Host", "shost_dev")
+
+def scsi_device_lookup(shost):
+    for a in ListHead(shost.__devices, "struct scsi_device").siblings:
+        yield a
+
+#
+# Get all SCSI structures from 'scsi_bus_type"
+#
+
+scsi_types = ("scsi_host_type", "scsi_target_type", "scsi_dev_type")
+
+def get_all_SCSI():
+    _scsi_types_addrs = {sym2addr(n) : n for n in scsi_types}
+
     # Structures are different on different kernels
+    scsi_bus_type = readSymbol("scsi_bus_type")
     try:
         klist_devices = scsi_bus_type.p.klist_devices
     except KeyError:
         klist_devices = scsi_bus_type.klist_devices
-    scsi_dev_type = sym2addr("scsi_dev_type")
 
-    out = []
+    out = defaultdict(list)
     for knode in klistAll(klist_devices):
         if (struct_exists("struct device_private")):
             dev = container_of(knode, "struct device_private", "knode_bus").device
-            if (dev.type != scsi_dev_type):
-                continue
+            dev_type = _scsi_types_addrs.get(dev.type, None)
+            if (dev.type is not None):
+                #print(dev, dev_type)
+                if (dev_type == "scsi_host_type"):
+                    scsi_host = container_of(dev, "struct Scsi_Host", "shost_gendev")
+                    out[dev_type].append(scsi_host)
+                elif (dev_type == "scsi_dev_type"):
+                    sdev = container_of(dev, "struct scsi_device", "sdev_gendev")
+                    out[dev_type].append(sdev)
+                    #print("      ---", sdev)
+            else:
+                out[dev_type].append(dev)
         else:
+            # This is old code, is this correct for new kernels?
             dev = container_of(knode, "struct device", "knode_bus")
-        #print(dev)
-        out.append(container_of(dev, "struct scsi_device", "sdev_gendev"))
+            sdev = container_of(dev, "struct scsi_device", "sdev_gendev")
+            out["scsi_dev_type"].append(sdev)
+            
     return out
 
-# For v=0 list only different model/vendor combinations, how many a busy
-# and different Scsi_Host
-# For v=1 we additionally print all scsi devices that are busy/active
-# For v=2 we print all scsi devices
-def print_SCSI_devices(v=0):
-    __enum_st_state = EnumInfo("enum scsi_target_state")
-    shosts = set()
-    n_busy = 0
-    tot_devices = 0
-    different_types = set()
-    for sdev in get_SCSI_devices():
-        tot_devices += 1
-        shost = sdev.host
-        shosts.add(shost)
-        busy = atomic_t(sdev.device_busy)
-        if (busy):
-            n_busy += 1
-        _a = []
-        _a.append("  Vendor: {:8} Model: {:16} Rev: {:4}".\
-            format(sdev.vendor[:8], sdev.model[:16], sdev.rev[:4]))
-        _a.append("  Type:   {}                ANSI  SCSI revision: {:02x}".\
-            format(scsi_device_type(sdev.type),
-                   sdev.scsi_level - (sdev.scsi_level > 1)))
-        s_descr = "\n".join(_a)
-        different_types.add(s_descr)
-        
-        # iorequest_cnt-iodone_cnt
-        iorequest_cnt = atomic_t(sdev.iorequest_cnt)
-        iodone_cnt = atomic_t(sdev.iodone_cnt)
-        cntdiff = sdev.iorequest_cnt.counter - sdev.iodone_cnt.counter
-        if (v > 1 or (v > 0 and (busy))):
-            print('{:-^39}{:-^39}'.format(str(sdev)[8:-1], str(shost)[8:-1]))
-            print("Host: scsi{} Channel: {:02} Id: {:02} Lun: {:02}".format(
-                shost.host_no, sdev.channel, sdev.id, sdev.lun))
-            print(s_descr)
+# Get all SCSI devices. There are several ways of doing it, here we 
+# loop on shosts and for each shost get its sdevices
 
-            gendev = sdev.sdev_gendev
-            # SD is either 'sysfs_dirent' or 'kernfs_node'
-            sd = gendev2sd(gendev)
-            print(sysfs_fullpath(sd))
-            devname = blockdev_name(sd)
-            if (busy == 0):
-                sbusy = ''
-            else:
-                sbusy = " busy={}".format(busy)
-            if (devname or busy):
-                print("devname={}{}".format(devname, sbusy))
-            starget = scsi_target(sdev)
-            is_fc = scsi_is_fc_rport(starget.dev.parent)
-            st_state = __enum_st_state.getnam(starget.state)
-            #if (is_fc):
-            print("  {} state = {}".format(starget, st_state))
-            print("  {}".format(sdev.request_queue))
-            
-            print("  iorequest_cnt={}, iodone_cnt={}, diff={}".\
-                  format(iorequest_cnt, iodone_cnt, cntdiff))
-            classified = print_scsi_dev_cmnds(sdev, v)
-            if (False and classified != busy):
-                print("Mismatch", classified, busy)
-            continue
-            rport = starget_to_rport(starget)
-            print("    ", shost.hostt)
-            if (rport):
-                print("   ", rport)
-            #print(scsi_target(sdev).dev.parent)
-    if (different_types):
-        print("\n{:=^70}".format(" Summary "))
-        print("   -- {} SCSI Devices, {} Are Busy --".\
-            format(tot_devices, n_busy))
-        print("{:.^70}".format(" Vendors/Types "))
-        for _a in different_types:
-            print(_a)
-            print()
+@memoize_cond(CU_LIVE|CU_LOAD)
+def get_SCSI_devices():
+    out = []
+    for shost in get_Scsi_Hosts_from_class():
+        for sdev in scsi_device_lookup(shost):
+            out.append(sdev)
+    return out
 
-    # Now print info about Shosts
-    if (not shosts):
-        return
-    print("\n{:=^70}".format(" Scsi_Hosts"))
-    for shost in sorted(shosts):
-        print_Scsi_Host(shost)
-
-    #print ("  ", scsi_dev.host.hostt.name)
+# Return an ordered dict with some state info for Scsi_Host
+def get_shost_states(shost):
+    d = OrderedDict()
+    for _a in ("last_reset", "host_busy", "host_failed", "host_eh_scheduled"):
+        d[_a] = atomic_t(getattr(shost, _a))
+    return d
 
 def print_Scsi_Host(shost, v=0):
     hostt = shost.hostt
@@ -232,6 +238,29 @@ def print_Scsi_Host(shost, v=0):
     for _a in ("last_reset", "host_busy", "host_failed", "host_eh_scheduled"):
         print(" {:s}={}".format(_a, atomic_t(getattr(shost, _a))), end='')
     print()
+    
+    # Print shost_state
+    shost_state = enum_shost_state.getnam(shost.shost_state)
+    print("      shost_state={}".format(shost_state))
+    priv = shost.hostdata
+    hname = shost.hostt.name
+
+    # Do we know the struct name for this host?
+    if (hname.startswith("qla")):
+        sname = 'struct scsi_qla_host'
+    elif (hname == 'hpsa'):
+        sname = 'struct ctlr_info'
+    elif (hname == 'lpfc'):
+        sname = 'struct lpfc_vport'
+    elif (hname == 'bfa'):
+        sname = 'struct bfad_im_port_s'
+    elif ('pvscsi' in hname.lower()):
+        sname = 'struct pvscsi_adapter'
+    else:
+        # We do not know the struct name
+        sname = 'shost_priv(shost)'
+    print("       hostt: {}   <{} {:#x}>".format(hname, sname, priv))
+    
     do_driver_specific(shost)
 
 # Print time info about request. This is duplicated in Dev, we should
@@ -315,3 +344,91 @@ def do_driver_specific(shost):
         return
     print("   -- Driver-specific Info {} --".format(hostt))
     mod.print_extra(shost)
+
+
+# *************************************************************************
+#
+#          Obsolete subroutines - used by old 'crashinfo --scsi' only
+#
+# *************************************************************************
+# For v=0 list only different model/vendor combinations, how many a busy
+# and different Scsi_Host
+# For v=1 we additionally print all scsi devices that are busy/active
+# For v=2 we print all scsi devices
+def print_SCSI_devices(v=0):
+    shosts = set()
+    n_busy = 0
+    tot_devices = 0
+    different_types = set()
+    for sdev in get_SCSI_devices():
+        tot_devices += 1
+        shost = sdev.host
+        shosts.add(shost)
+        busy = atomic_t(sdev.device_busy)
+        if (busy):
+            n_busy += 1
+        _a = []
+        _a.append("  Vendor: {:8} Model: {:16} Rev: {:4}".\
+            format(sdev.vendor[:8], sdev.model[:16], sdev.rev[:4]))
+        _a.append("  Type:   {}                ANSI  SCSI revision: {:02x}".\
+            format(scsi_device_type(sdev.type),
+                   sdev.scsi_level - (sdev.scsi_level > 1)))
+        s_descr = "\n".join(_a)
+        different_types.add(s_descr)
+        
+        # iorequest_cnt-iodone_cnt
+        iorequest_cnt = atomic_t(sdev.iorequest_cnt)
+        iodone_cnt = atomic_t(sdev.iodone_cnt)
+        cntdiff = sdev.iorequest_cnt.counter - sdev.iodone_cnt.counter
+        if (v > 1 or (v > 0 and (busy))):
+            print('{:-^39}{:-^39}'.format(str(sdev)[8:-1], str(shost)[8:-1]))
+            print("Host: scsi{} Channel: {:02} Id: {:02} Lun: {:02}".format(
+                shost.host_no, sdev.channel, sdev.id, sdev.lun))
+            print(s_descr)
+
+            gendev = sdev.sdev_gendev
+            # SD is either 'sysfs_dirent' or 'kernfs_node'
+            sd = gendev2sd(gendev)
+            print(sysfs_fullpath(sd))
+            devname = blockdev_name(sd)
+            if (busy == 0):
+                sbusy = ''
+            else:
+                sbusy = " busy={}".format(busy)
+            if (devname or busy):
+                print("devname={}{}".format(devname, sbusy))
+            starget = scsi_target(sdev)
+            is_fc = scsi_is_fc_rport(starget.dev.parent)
+            st_state = enum_st_state.getnam(starget.state)
+            #if (is_fc):
+            print("  {} state = {}".format(starget, st_state))
+            print("  {}".format(sdev.request_queue))
+            
+            print("  iorequest_cnt={}, iodone_cnt={}, diff={}".\
+                  format(iorequest_cnt, iodone_cnt, cntdiff))
+            classified = print_scsi_dev_cmnds(sdev, v)
+            if (False and classified != busy):
+                print("Mismatch", classified, busy)
+            continue
+            rport = starget_to_rport(starget)
+            print("    ", shost.hostt)
+            if (rport):
+                print("   ", rport)
+            #print(scsi_target(sdev).dev.parent)
+    if (different_types):
+        print("\n{:=^70}".format(" Summary "))
+        print("   -- {} SCSI Devices, {} Are Busy --".\
+            format(tot_devices, n_busy))
+        print("{:.^70}".format(" Vendors/Types "))
+        for _a in different_types:
+            print(_a)
+            print()
+
+    # Now print info about Shosts
+    if (not shosts):
+        return
+    print("\n{:=^70}".format(" Scsi_Hosts"))
+    for shost in sorted(shosts):
+        print_Scsi_Host(shost)
+
+    #print ("  ", scsi_dev.host.hostt.name)

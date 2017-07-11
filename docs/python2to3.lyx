@@ -1,0 +1,917 @@
+#LyX 2.1 created this file. For more info see http://www.lyx.org/
+\lyxformat 474
+\begin_document
+\begin_header
+\textclass docbook
+\use_default_options false
+\maintain_unincluded_children false
+\language english
+\language_package default
+\inputencoding auto
+\fontencoding global
+\font_roman default
+\font_sans default
+\font_typewriter default
+\font_math auto
+\font_default_family default
+\use_non_tex_fonts false
+\font_sc false
+\font_osf false
+\font_sf_scale 100
+\font_tt_scale 100
+\graphics default
+\default_output_format default
+\output_sync 0
+\bibtex_command default
+\index_command default
+\paperfontsize default
+\spacing single
+\use_hyperref false
+\papersize letterpaper
+\use_geometry false
+\use_package amsmath 0
+\use_package amssymb 0
+\use_package cancel 1
+\use_package esint 0
+\use_package mathdots 0
+\use_package mathtools 1
+\use_package mhchem 0
+\use_package stackrel 1
+\use_package stmaryrd 1
+\use_package undertilde 1
+\cite_engine basic
+\cite_engine_type default
+\biblio_style plain
+\use_bibtopic false
+\use_indices false
+\paperorientation portrait
+\suppress_date false
+\justification true
+\use_refstyle 0
+\index Index
+\shortcut idx
+\color #008000
+\end_index
+\secnumdepth 3
+\tocdepth 3
+\paragraph_separation indent
+\paragraph_indentation default
+\quotes_language english
+\papercolumns 1
+\papersides 2
+\paperpagestyle default
+\tracking_changes false
+\output_changes false
+\html_math_output 0
+\html_css_as_file 0
+\html_be_strict false
+\end_header
+
+\begin_body
+
+\begin_layout Title
+Migrating from python2 to python3 for PyKdump
+\end_layout
+
+\begin_layout Date
+Date 
+\end_layout
+
+\begin_layout Author
+\begin_inset Flex Firstname
+status open
+
+\begin_layout Plain Layout
+Alex
+\end_layout
+
+\end_inset
+
+
+\begin_inset Flex Surname
+status open
+
+\begin_layout Plain Layout
+Sidorenko
+\end_layout
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Author
+asid@hpe.com
+\end_layout
+
+\begin_layout Abstract
+This is a brief tutorial explaining how migrate your PyKdump programs from
+ python2 to python3
+\end_layout
+
+\begin_layout Chapter*
+Introduction
+\end_layout
+
+\begin_layout Standard
+PyKdump framework includes a Python intepreter linked-in statically in the
+ module.
+ All previous versions have been based on Python2 (the most recent version
+ being python-2.7.13).
+ While Python2 is still maintained, it is now considered to be a legacy
+ version, all new features being introduced in Python3 only.
+\end_layout
+
+\begin_layout Standard
+At the moment of writing this document, the most recent version of Python3
+ is python-3.6.0 and the new PyKdump is based on it.
+ Python3 is not 100% backwards-compatible with Python2.
+ There are many books describing the differences, see e.g.
+ 
+\begin_inset CommandInset href
+LatexCommand href
+name "https://docs.python.org/3/howto/pyporting.html"
+target "https://docs.python.org/3/howto/pyporting.html"
+
+\end_inset
+
+ but as PyKdump programs usually do not use very advanced Python language
+ features, porting PyKdump programs from version 2 to version 3 is not very
+ complicated.
+ More than that, it is possible to write code compatible with both Python2
+ and Python3 and this makes sense during transition period.
+ In this document we describe the changes you need to do in your programs.
+\end_layout
+
+\begin_layout Section
+Sources Formatting
+\end_layout
+
+\begin_layout Standard
+Python 3 disallows mixing the use of tabs and spaces for indentation.
+ Python 2 code indented with a mixture of tabs and spaces should be converted
+ to using spaces exclusively.
+\end_layout
+
+\begin_layout Standard
+Most editors let you configure automatic replacement of TABs with spaces,
+ so writing new code should be easy.
+ If your current sourcefiles have both TABs and spaces, use your editor
+ command to replace them (advanced editors let you do it with a single command).
+\end_layout
+
+\begin_layout Section
+Printing
+\end_layout
+
+\begin_layout Standard
+In Python2, 
+\emph on
+print
+\emph default
+ is an operator but in Python3 it is a function.
+ See Python documentation for details.
+ To make your programs run both on Python2 and Python3, add in the beginning
+ of your program
+\end_layout
+
+\begin_layout Code
+
+from __future__ import print_function 
+\end_layout
+
+\begin_layout Standard
+After that, print becomes a function when running your program using Python2
+ (and this will work fine in Python3 environment too, no need to comment
+ this import)
+\end_layout
+
+\begin_layout Section
+Integer Arithmetic
+\end_layout
+
+\begin_layout Standard
+In Python2 there are two integer types 
+\emph on
+int
+\emph default
+ and 
+\emph on
+long
+\emph default
+.
+ In Python3 there is only 
+\emph on
+int
+\emph default
+.
+ When you do
+\end_layout
+
+\begin_layout Code
+
+from pykdump.API import * 
+\end_layout
+
+\begin_layout Standard
+in Python3 environment, this executes
+\end_layout
+
+\begin_layout Code
+
+long = int
+\end_layout
+
+\begin_layout Standard
+So your old programs using both 
+\emph on
+int
+\emph default
+ and 
+\emph on
+long
+\emph default
+ will continue running with Python3 based 
+\noun on
+PyKdump
+\noun default
+.
+\end_layout
+
+\begin_layout Standard
+
+\noun on
+PyKdump
+\noun default
+ uppercase global variables (e.g.
+ LONG_SIZE) continue reflecting C-size of the target platform as found from
+ vmcore.
+\end_layout
+
+\begin_layout Standard
+The most important difference between Python2 and Python3 integers is that
+ while Python2 integer arithmetic provides integer result when you divide
+ one integer by another, in Python3 this returns a float!
+\end_layout
+
+\begin_layout Code
+
+# python2
+\end_layout
+
+\begin_layout Code
+
+>>> 2/2
+\end_layout
+
+\begin_layout Code
+
+1
+\end_layout
+
+\begin_layout Code
+
+>>> 3/2
+\end_layout
+
+\begin_layout Code
+
+1
+\end_layout
+
+\begin_layout Standard
+but 
+\end_layout
+
+\begin_layout Code
+
+>>> 2/2
+\end_layout
+
+\begin_layout Code
+
+1.0
+\end_layout
+
+\begin_layout Code
+
+>>> 3/2
+\end_layout
+
+\begin_layout Code
+
+1.5
+\end_layout
+
+\begin_layout Standard
+We use integer division regularly while emulating C-code.
+ To guarantee proper results, you should use '//' operator - it always returns
+ an integer, both with Python2 and Python3.
+ For example:
+\end_layout
+
+\begin_layout Code
+
+ind =  (ctl_node-head.node)//sz
+\end_layout
+
+\begin_layout Code
+
+word = bits[i // BITS_PER_LONG]
+\end_layout
+
+\begin_layout Section
+Strings
+\end_layout
+
+\begin_layout Standard
+In Python2, we had simple strings (
+\emph on
+str
+\emph default
+ type) and unicode strings (type 
+\emph on
+unicode
+\emph default
+).
+ Simple strings could contain sequence of any bytes (not necessarily text),
+ so when we read memory contents, it was returned as 'str' object.
+\end_layout
+
+\begin_layout Standard
+In Python3 all text strings are unicode by default.
+ To read non-text data (such as memory contents), we use a new 'byte-string
+ type'.
+ Let us compare:
+\end_layout
+
+\begin_layout Code
+
+# python2
+\end_layout
+
+\begin_layout Code
+
+>>> type('123')
+\end_layout
+
+\begin_layout Code
+
+<type 'str'>
+\end_layout
+
+\begin_layout Code
+
+>>> type(u'123')
+\end_layout
+
+\begin_layout Code
+
+<type 'unicode'>
+\end_layout
+
+\begin_layout Code
+
+>>> type(b'123')
+\end_layout
+
+\begin_layout Code
+
+<type 'str'>
+\end_layout
+
+\begin_layout Code
+
+#
+\end_layout
+
+\begin_layout Code
+
+# python3
+\end_layout
+
+\begin_layout Code
+
+>>> type('123')
+\end_layout
+
+\begin_layout Code
+
+<class 'str'>
+\end_layout
+
+\begin_layout Code
+
+>>> type(u'123')
+\end_layout
+
+\begin_layout Code
+
+<class 'str'>
+\end_layout
+
+\begin_layout Code
+
+>>> type(b'123')
+\end_layout
+
+\begin_layout Code
+
+<class 'bytes'>
+\end_layout
+
+\begin_layout Standard
+As you see, in Python2 byte-strings are the same as simple strings.
+ In Python3 byte-strings are a separate type and strings are always Unicode
+ strings.
+ You can use regular expressions in Python3 to search both unicode and byte
+ strings - but to search byte-strings you need to specify a byte-string
+ in regular expression.
+ For example:
+\end_layout
+
+\begin_layout Code
+
+>>> import re
+\end_layout
+
+\begin_layout Code
+
+>>> re.search("two", "one_two_three")
+\end_layout
+
+\begin_layout Code
+
+<_sre.SRE_Match object; span=(4, 7), match='two'>
+\end_layout
+
+\begin_layout Code
+
+>>> re.search("two", b"one_two_three")
+\end_layout
+
+\begin_layout Code
+
+Traceback (most recent call last):
+\end_layout
+
+\begin_layout Code
+
+  File "<stdin>", line 1, in <module>
+\end_layout
+
+\begin_layout Code
+
+  File "/usr/lib/python3.5/re.py", line 173, in search
+\end_layout
+
+\begin_layout Code
+
+    return _compile(pattern, flags).search(string)
+\end_layout
+
+\begin_layout Code
+
+TypeError: cannot use a string pattern on a bytes-like object
+\end_layout
+
+\begin_layout Code
+
+>>> re.search(b"two", b"one_two_three")
+\end_layout
+
+\begin_layout Code
+
+<_sre.SRE_Match object; span=(4, 7), match=b'two'>
+\end_layout
+
+\begin_layout Section
+Dictionaries
+\end_layout
+
+\begin_layout Standard
+Python dictionaries are very useful for gathering and processing data.
+ While basic functionality is the same in Python2 and Python3, there are
+ some important differences.
+\end_layout
+
+\begin_layout Subsubsection*
+No 
+\emph on
+has_key
+\emph default
+ method anymore - use 
+\emph on
+in
+\emph default
+ instead
+\end_layout
+
+\begin_layout Code
+
+# Python2
+\end_layout
+
+\begin_layout Code
+
+>>> d = {"one":1, "two":2}
+\end_layout
+
+\begin_layout Code
+
+>>> d.has_key("one")
+\end_layout
+
+\begin_layout Code
+
+True
+\end_layout
+
+\begin_layout Code
+
+>>> "one" in d
+\end_layout
+
+\begin_layout Code
+
+True
+\end_layout
+
+\begin_layout Code
+
+#
+\end_layout
+
+\begin_layout Code
+
+# Python3
+\end_layout
+
+\begin_layout Code
+
+>>> d = {"one":1, "two":2}
+\end_layout
+
+\begin_layout Code
+
+>>> d.has_key("one")
+\end_layout
+
+\begin_layout Code
+
+Traceback (most recent call last):
+\end_layout
+
+\begin_layout Code
+
+  File "<stdin>", line 1, in <module>
+\end_layout
+
+\begin_layout Code
+
+AttributeError: 'dict' object has no attribute 'has_key'
+\end_layout
+
+\begin_layout Code
+
+>>> "one" in d
+\end_layout
+
+\begin_layout Code
+
+True
+\end_layout
+
+\begin_layout Subsubsection*
+keys(), values() and items() are not lists anymore
+\end_layout
+
+\begin_layout Standard
+Let us see what do these methods return:
+\end_layout
+
+\begin_layout Code
+
+# python2
+\end_layout
+
+\begin_layout Code
+
+>>> d = {"one":1, "two":2}
+\end_layout
+
+\begin_layout Code
+
+>>> d.keys()
+\end_layout
+
+\begin_layout Code
+
+['two', 'one']
+\end_layout
+
+\begin_layout Code
+
+>>> type(d.keys())
+\end_layout
+
+\begin_layout Code
+
+<type 'list'>
+\end_layout
+
+\begin_layout Code
+
+#
+\end_layout
+
+\begin_layout Code
+
+# Python3
+\end_layout
+
+\begin_layout Code
+
+>>> d = {"one":1, "two":2}
+\end_layout
+
+\begin_layout Code
+
+>>> d.keys()
+\end_layout
+
+\begin_layout Code
+
+dict_keys(['two', 'one'])
+\end_layout
+
+\begin_layout Code
+
+>>> type(d.keys())
+\end_layout
+
+\begin_layout Code
+
+<class 'dict_keys'>
+\end_layout
+
+\begin_layout Standard
+This is not relevant in most cases, e.g.
+ both for Python2 and Python3 you can iterate like that:
+\end_layout
+
+\begin_layout Code
+
+>>> for k in d.keys():
+\end_layout
+
+\begin_layout Code
+
+...
+   print(k, d[k])
+\end_layout
+
+\begin_layout Code
+
+...
+ 
+\end_layout
+
+\begin_layout Code
+
+two 2
+\end_layout
+
+\begin_layout Code
+
+one 1
+\end_layout
+
+\begin_layout Standard
+But let us look at the following example.
+ We want to purge some keys from a dictionary using code:
+\end_layout
+
+\begin_layout Code
+
+d = {"one":1, "two":2}
+\end_layout
+
+\begin_layout Code
+
+keys = d.keys()
+\end_layout
+
+\begin_layout Code
+
+for k in keys:
+\end_layout
+
+\begin_layout Code
+
+    if (k == "one"):
+\end_layout
+
+\begin_layout Code
+
+        del d[k]
+\end_layout
+
+\begin_layout Standard
+Running it on Python2 works fine, but on Python3 we'll see:
+\end_layout
+
+\begin_layout Code
+
+>>> d = {"one":1, "two":2}
+\end_layout
+
+\begin_layout Code
+
+>>> keys = d.keys()
+\end_layout
+
+\begin_layout Code
+
+>>> for k in keys:
+\end_layout
+
+\begin_layout Code
+
+...
+     if (k == "one"):
+\end_layout
+
+\begin_layout Code
+
+...
+         del d[k]
+\end_layout
+
+\begin_layout Code
+
+...
+ 
+\end_layout
+
+\begin_layout Code
+
+Traceback (most recent call last):
+\end_layout
+
+\begin_layout Code
+
+  File "<stdin>", line 1, in <module>
+\end_layout
+
+\begin_layout Code
+
+RuntimeError: dictionary changed size during iteration
+\end_layout
+
+\begin_layout Standard
+What is wrong? With Python2, we are iterating using a list 
+\emph on
+keys.
+ 
+\emph default
+This list is just a list of objects - it is not directly linked to our dictionar
+y.
+ So we just delete some keys from our dictionaries.
+\end_layout
+
+\begin_layout Standard
+With Python3, 
+\emph on
+keys
+\emph default
+ is a 
+\emph on
+view
+\emph default
+ object referring directly to some dict internal structures.
+ Documentation says:
+\end_layout
+
+\begin_layout Code
+
+The objects returned by dict.keys(), dict.values() and dict.items() are view
+ objects.
+ They provide a dynamic view on the dictionary’s entries, which means that
+ when the dictionary changes, the view reflects these changes.
+\end_layout
+
+\begin_layout Standard
+This means that when we modify our dict in that loop, it modifies 
+\emph on
+keys
+\emph default
+ object at the same time - and this is bad.
+ To avoid this issue, convert keys view to a list:
+\end_layout
+
+\begin_layout Code
+
+>>> d = {"one":1, "two":2}
+\end_layout
+
+\begin_layout Code
+
+>>> keys = list(d.keys())
+\end_layout
+
+\begin_layout Code
+
+>>> for k in keys:
+\end_layout
+
+\begin_layout Code
+
+...
+     if (k == "one"):
+\end_layout
+
+\begin_layout Code
+
+...
+         del d[k]
+\end_layout
+
+\begin_layout Code
+
+...
+ 
+\end_layout
+
+\begin_layout Code
+
+>>> 
+\end_layout
+
+\begin_layout Section
+Standard Library Changes
+\end_layout
+
+\begin_layout Standard
+There are many new modules/subroutines in Python3 standard library.
+ As a result, several old modules have been deprecated or renamed.
+ Some examples:
+\end_layout
+
+\begin_layout Itemize
+StringIO
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Python2: from StringIO import StringIO
+\end_layout
+
+\begin_layout Itemize
+Python3: from io import StringIO
+\end_layout
+
+\end_deeper
+\begin_layout Itemize
+itertools:
+\end_layout
+
+\begin_deeper
+\begin_layout Itemize
+Python2: from itertools import zip_longest
+\end_layout
+
+\begin_layout Itemize
+Python3: from itertools import izip_longest as zip_longest
+\end_layout
+
+\end_deeper
+\begin_layout Standard
+We should not meet this problem often - there are only 4 places in PyKdump
+ programs when changes of this type were needed (plus several places in
+ framework itself)
+\end_layout
+
+\begin_layout Section
+Other things
+\end_layout
+
+\begin_layout Standard
+If you use advanced Python features (exceptions, iterators/generators and
+ so on), see an excellent document 
+\begin_inset CommandInset href
+LatexCommand href
+name "http://python-future.org/compatible_idioms.html"
+target "http://python-future.org/compatible_idioms.html"
+
+\end_inset
+
+
+\end_layout
+
+\begin_layout Code
+
+\end_layout
+
+\end_body
+\end_document

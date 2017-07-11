@@ -1,9 +1,8 @@
 # module LinuxDump.fs
 #
-# Time-stamp: <13/07/29 15:57:01 alexs>
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -19,10 +18,9 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-from __future__ import print_function
 
-# Vversion number
-__version__ = '0.2'
+# Version number
+__version__ = '0.3'
 
 
 from pykdump.API import *
@@ -41,10 +39,15 @@ def getMount():
     mounts = rc.splitlines()[1:]
     mlist = []
     for l in mounts:
-        vfsmount, superblk, fstype, devname, mnt = l.split()
+        vfsmount, superblk, fstype, devname, *mnt = l.split()
         vfsmount = long(vfsmount, 16)
         superblk = long(superblk, 16)
-        mnt = os.path.normpath(mnt)
+        # What does it mean if directory is missing?
+        if (mnt):
+            mnt = mnt[0]
+            mnt = os.path.normpath(mnt)
+        else:
+            mnt = ''
         mlist.append((vfsmount, superblk, fstype, devname, mnt))
     return mlist
 
@@ -82,7 +85,7 @@ def XXXget_pathname(dentry, vfsmnt, root, rootmnt):
         name =  readmem(dentry.Deref.d_name.name, namelen)
         out.insert(0, name)
         dentry = parent
-    return '/' + string.join(out, '/')
+    return '/' + '/'.join(out)
 
 def get_dentry_name(dentry):
     namelen = dentry.d_name.len
@@ -99,9 +102,14 @@ def get_dentry_name(dentry):
 def IS_ROOT(x):
         return (x == x.Deref.d_parent)
 
-__sb = AttrSetter("struct super_block")
-__sb.Frozen = ["s_writers.frozen", "s_frozen"]
+#__sb = AttrSetter("struct super_block")
+#__sb.Frozen = ["s_writers.frozen", "s_frozen"]
 
 def sb_frozen(sb):
-    return sb.Frozen  
-        
+    if (sb.hasField("s_frozen") and sb.s_frozen):
+        return True
+    try:
+        return sb.s_writers.frozen
+    except:
+        pass
+    return False  

@@ -2,7 +2,7 @@
 # determine register contents at entry to each routine in stack frame
 
 # --------------------------------------------------------------------
-# (C) Copyright 2015-2016 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2015-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Martin Moore (martin.moore@hpe.com)
 #
@@ -16,7 +16,7 @@
 # figure everything out (which is probably impossible); this is a debugging
 # aid, not a tool that attempts to do all crash analysis automatically.
 
-__version__ = "1.08"
+__version__ = "1.10"
 
 import argparse
 from pykdump.API import *
@@ -32,7 +32,7 @@ ARG_REG = ('RDI','RSI','RDX','RCX','R8','R9')
 def funcargs_dict(funcname):
     fields = funcargs(funcname)
     if (fields is None):
-        print "Can't identify arguments for", funcname
+        print ("Can't identify arguments for {}".format(funcname))
         return {}
     return dict(zip(ARG_REG,fields))
 
@@ -112,7 +112,6 @@ def get_argdata (addr, type) :
     elif type == "struct bio *" :
         offset = member_offset ("struct bio", "bi_bdev")
         bdev = readULong (addr + offset)
-        #print "bdev={:#x}".format(bdev)
         dev = readU32 (bdev)	# dev has offset 0
         major = dev // 1048576
         minor = dev % 1048576
@@ -137,15 +136,21 @@ def get_argdata (addr, type) :
     
 if ( __name__ == '__main__'):
 
-    parser = argparse.ArgumentParser(version=__version__, 
+    parser = argparse.ArgumentParser(
              description='Show register contents at routine entry.')
 
     parser.add_argument('pid',metavar='pid|taskp|cmd',type=str,nargs='?',
         help='PID or task struct pointer or command (if omitted, use current context)')
 
+    parser.add_argument("-V", "--version", action="version", 
+                        version=__version__)
+
     parser.add_argument("-a", "--args", 
                         help="identify arguments (-aa for more detail)",
                         action="count", default=0)
+
+    parser.add_argument("-r", "--routine", default="",
+                        help="only show routines whose names include ROUTINE")
 
     #parser.add_argument("-V", "--version", help="show version and exit",
     #                    action="store_true")
@@ -161,6 +166,8 @@ if ( __name__ == '__main__'):
 
     arglevel = args.args
 
+    routine = args.routine
+
     if args.all :
         btcmd = "foreach bt"
     elif args.unint :
@@ -172,7 +179,7 @@ if ( __name__ == '__main__'):
 
     # Make sure we're on an x86_64 vmcore, or this will fail miserably.
     if (sys_info.machine != "x86_64"):
-        print "Register decoding is supported on x86_64 dumps only."
+        print ("Register decoding is supported on x86_64 dumps only.")
         sys.exit()        
 
     # Purge the memoize cache if a 'mod' command has been done since
@@ -180,27 +187,34 @@ if ( __name__ == '__main__'):
 
     purge_memoize_cache(CU_LOAD)
 
-#    addr = sym2addr ("watchdog")
-#    print "sym2addr of watchdog is {:x}".format(addr)
-
     with DisasmFlavor('att'):
         try:
             stacklist = exec_bt(btcmd, MEMOIZE=False)
         except:
-            print "Unable to get stack trace"
+            print ("Unable to get stack trace")
             sys.exit()
 
         for s in stacklist:
+
             search_for_registers(s)
 
-            print "\nPID: {}  TASK: {:x}  CPU: {}  COMMAND: {}".format(
-                   s.pid, s.addr, s.cpu, s.cmd)
+            print ("\nPID: {}  TASK: {:x}  CPU: {}  COMMAND: {}".format(
+                   s.pid, s.addr, s.cpu, s.cmd))
 
             for f in s.frames:
+
+                # Skip frame if it doesn't match routine name pattern.
+                # If no routine was specified, the frame will print because
+                # the argument is initialized to an empty string, which by
+                # definition is a substring of all strings.
+
+                if routine not in f.func:
+                    continue
+
                 if f.level >= 0:
-                    print "\n#{} {:s} {:s}".format(f.level,f.func, f.from_func)
+                    print ("\n#{} {:s} {:s}".format(f.level,f.func, f.from_func))
                 else:
-                    print "\n{:s} {:s}".format(f.func, f.from_func)
+                    print ("\n{:s} {:s}".format(f.func, f.from_func))
 
                 if (f.lookup_regs):
 
@@ -213,9 +227,9 @@ if ( __name__ == '__main__'):
                         conf = f.reg[reg][1]
                         if arglevel == 0 or reg not in arg_types:
                             if conf == 0:
-                                print " +{:s}: {:#x}".format(reg,val)
+                                print (" +{:s}: {:#x}".format(reg,val))
                             else:
-                                print "{} {:s}: {:#x}".format(conf,reg,val)
+                                print ("{} {:s}: {:#x}".format(conf,reg,val))
                         else:
                             argno = ARG_REG.index(reg)
                             argtype = arg_types[reg]
@@ -227,12 +241,12 @@ if ( __name__ == '__main__'):
                                 except:
                                     argdata = "<invalid>"
                             if conf == 0:
-                                print " +{:s}: {:#x} arg{:d} {:s} {:s}".format(
-                                      reg,val,argno,argtype,argdata)
+                                print (" +{:s}: {:#x} arg{:d} {:s} {:s}".format(
+                                      reg,val,argno,argtype,argdata))
                             else:
-                                print "{} {:s}: {:#x} arg{:d} {:s} {:s}".format(
-                                      conf,reg,val,argno,argtype,argdata)
+                                print("{} {:s}: {:#x} arg{:d} {:s} {:s}".format(
+                                      conf,reg,val,argno,argtype,argdata))
                 else:
                     for l in f.data:
-                        print l
+                        print (l)
 

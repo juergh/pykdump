@@ -162,7 +162,15 @@ def extract_registers (frame, stack):
                 elif paren == 0:
                     offset = 0
                 else:
-                    offset = int(dest[:paren],16)
+                    try:
+                        offset = int(dest[:paren],16)
+
+                    # This exception occurs if the instruction is of
+                    # a form like "mov %reg,%gs:0xsomething(%reg):
+
+                    except ValueError:
+                        continue
+
                 basereg = dest[(paren+2):-1]
 
                 if basereg == "rbp":

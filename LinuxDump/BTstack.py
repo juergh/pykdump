@@ -78,7 +78,7 @@ class BTStack:
                 frames = self.rframes
             except AttributeError:
                 frames = self.frames[:]
-                frames.reverse
+                frames.reverse()
                 self.rframes = frames
         else:
             frames = self.frames
@@ -304,7 +304,7 @@ def exec_bt(crashcmd = None, text = None):
         # the next time is much faster, even with different pid.
         # This is mainly true when there are many DLKM subroutines on the stack
         # As a result, we execute in the background only 'foreach bt'
-        if (crashcmd.split()[0] == 'foreach'):
+        if ('foreach' in crashcmd or ' -a' in crashcmd):
             _exec_cmd = exec_crash_command_bg
         else:
             _exec_cmd = exec_crash_command
@@ -540,6 +540,7 @@ class fastSubroutineStacks(object):
         self.funcpids, self.functasks, self.alltaskaddrs = out
     # Find pids matching funcnames. This subroutine does not support
     # wildcards/regexps, just one or more exact names joined by '|'
+    # Returns a set, not a list
     def find_pids_byfuncname(self, funcnames):
         # funcnames are specified using | operator
         subpids = set()
@@ -595,8 +596,11 @@ def verifyFastSet(dset, func):
     def __testfunc(pid):
         bts = exec_bt("bt {}".format(pid))[0]
         return bts.hasfunc(func)
+
     bad = {p for p in dset if not __testfunc(p)}
-    return dset - bad
+    # Update the original set
+    dset.difference_update(bad)
+    #return dset - bad
 
 # This module can be useful as a standalone program for parsing
 # text files created from crash

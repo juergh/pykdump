@@ -2,7 +2,7 @@
 # This script is run once when pykdump extension is loaded
 #
 # This can be used to register extra commands or anything else
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
 
 
 from crash import register_epython_prog as rprog
@@ -106,4 +106,24 @@ This is very useful when you are trying to find arguments of subroutines.
 
 rprog("fregs", "Decode and print stack frame registers",
       "-h   - list available options",
+      help)
+
+help = '''
+If there are timestamps in dmesg buffer ('log' command output), 
+convert these timestams to date/time according to current TZ
+and display result prepending this data to each line. 
+'''
+
+rprog("tslog", "The same thing as 'log', but with real date/time",
+      "-h   - list available options",
+      help)
+
+help = '''
+Print information about SCSI subsystem. It used to be a subcommand
+of crashinfo, but it makes sense to put it into a separate command
+with its own options
+'''
+
+rprog("scsi", "Print information about SCSI subsystem",
+      "-h   - list available options", 
       help)

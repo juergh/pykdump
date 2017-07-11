@@ -43,7 +43,7 @@ def daemonize (stdin='/dev/null', stdout='/dev/null', stderr='/dev/null', leavef
             #print("1st pid", pid)
             os.wait()     # Avoid zombie
             os._exit(0)   # Exit first parent.
-    except OSError, e: 
+    except OSError as e: 
         sys.stderr.write ("fork #1 failed: (%d) %s\n" % (e.errno, e.strerror) )
         os._exit(1)
 
@@ -58,7 +58,7 @@ def daemonize (stdin='/dev/null', stdout='/dev/null', stderr='/dev/null', leavef
         if pid > 0:
             #print("2nd pid", pid)
             os._exit(0)   # Exit second parent.
-    except OSError, e: 
+    except OSError as e: 
         sys.stderr.write ("fork #2 failed: (%d) %s\n" % (e.errno, e.strerror) )
         os._exit(1)
 
@@ -89,7 +89,7 @@ def start_if_needed(id):
     #print("start_if_needed")
     try:
         s.bind(id)
-    except socket.error, val:
+    except socket.error as val:
         # Already running
         return
     # Become a daemon
@@ -195,7 +195,7 @@ def _get_info(msg):
         try:
             s.bind(rndname)
             break
-        except socket.error, val:
+        except socket.error as val:
             pass
     s.connect(_pathname)
     pmsg = pickle.dumps(msg)

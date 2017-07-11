@@ -85,6 +85,8 @@ for c in __commands:
         exec ("import " + c)
     except ImportError as e:
         print ("  ", e)
+    except SyntaxError as e:
+        print("    !!!Syntax errors in {}".format(c))
 
 print("'''")
 print("print(__info)")
