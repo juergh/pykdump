@@ -583,7 +583,7 @@ def print_xprt(xprt, v = 0):
         print ("        last_used %s s ago" % __j_delay(xprt.last_used, jiffies))
         if (v < 1):
             return
-
+        
         socket = sock_xprt.sock     # struct socket
         sk = socket.sk              # struct sock
         # IP
@@ -591,7 +591,7 @@ def print_xprt(xprt, v = 0):
         # Compact str(ip_sock) 
         s = ' '.join(str(ip_sock).split())
         print("       ", s)
- 
+        
         for qn in ("binding", "sending","resend", "pending", "backlog"):
             try:
                 print ("        len(%s) queue is %d" % (qn,
