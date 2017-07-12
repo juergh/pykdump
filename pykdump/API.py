@@ -432,6 +432,20 @@ def __preprocess(iargv,op):
     #print ("uargv", uargv)
     return (aargv, uargv)
 
+# Format sys.argv in a nice way
+def argv2s(argv):
+    out = ['']
+    for i, o in enumerate(argv):
+        if (i == 0):
+            o = os.path.basename(o)
+        if (' ' in o):
+            out.append('"{}"'.format(o))
+        else:
+            out.append(o)
+    out.append('')
+    return ' '.join(out)
+
+
 # This function is called on every 'epython' invocation
 # It is called _before_ we  start the real script
 # This is done by 'epython' command.
@@ -452,7 +466,8 @@ def enter_epython():
     #print ("Entering Epython")
 
     # Process hidden '--apidebug=level' and '--reload' options
-    # filtering them out from sys.argv
+    # filtering them out from sys.argv. Save the old copy in sys.__oldargv
+    sys.__oldargv = sys.argv.copy()
     __epythonOptions()
 
     # The dumpfile name can optionally have extra info appended, e.g.
@@ -460,11 +475,13 @@ def enter_epython():
     dumpfile = sys_info.DUMPFILE.split()[0]
     #cwd = os.getcwd()
     dumpfile = os.path.abspath(dumpfile)
-    text = "%s  (%s)" % (dumpfile, sys_info.RELEASE)
+    text = " %s (%s) " % (dumpfile, sys_info.RELEASE)
     lpad = (77-len(text))//2
     # Print vmcore name/path when not on tty
     if (isfileoutput()):
-        print ("\n", 'o' * lpad, text, 'o' * lpad)
+        # Print executed command
+        print("\n   {:*^60s}".format(argv2s(sys.__oldargv)))
+        print (" {:o^77s}".format(text))
 
     # Use KVADDR
     set_readmem_task(0)

@@ -1,5 +1,18 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
+#
+# Reformat 'log' command output to print date/time
+#
+
+# --------------------------------------------------------------------
+# (C) Copyright 2017 Hewlett Packard Enterprise Development LP
+#
+# Author: Alex Sidorenko <asid@hpe.com>
+#
+# --------------------------------------------------------------------
+
+__version__ = "1.0.0"
+
 
 import sys
 import re

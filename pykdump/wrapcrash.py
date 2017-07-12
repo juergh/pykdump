@@ -22,8 +22,6 @@
 # GNU General Public License for more details.
 
 
-from __future__ import print_function
-
 import sys
 import string, re
 import struct

@@ -13,7 +13,7 @@
 
 
 # 1st-pass dumpanalysis
-__version__ = "1.0.0"
+__version__ = "1.3.0"
 
 from pykdump.API import *
 
@@ -48,14 +48,7 @@ from stat import *
 from optparse import OptionParser
 from collections import Counter
 import textwrap
-
-# Python2 vs Python3
-_Pym = sys.version_info[0]
-
-if (_Pym < 3):
-    from StringIO import StringIO
-else:
-    from io import StringIO
+from io import StringIO
 
 
 
@@ -861,8 +854,7 @@ def print_args5():
             arg_end = mm.arg_end
             s = readProcessMem(long(t.ts), arg_start, (arg_end - arg_start))
             # Replace nulls with spaces
-            if (_Pym > 2):
-                s = str(s, 'latin1')
+            s = str(s, 'latin1')
             s = s.replace('\0', ' ')
         except crash.error:
             s = "(no user stack)"

@@ -30,17 +30,10 @@ from types import *
 
 
 
-# Python2 vs Python3
-_Pym = sys.version_info[0]
-
-if (_Pym < 3):
-    from StringIO import StringIO
-    from itertools import izip_longest as zip_longest
-else:
-    from io import StringIO
-    from functools import reduce
-    from itertools import zip_longest
-    long = int
+from io import StringIO
+from functools import reduce
+from itertools import zip_longest
+long = int
 
 pp = pprint.PrettyPrinter(indent=4)
 
@@ -652,8 +645,7 @@ class SUInfo(dict):
 #         self.PYT_dchains[dstr] = res
 #         return res
 
-if (_Pym == 3):
-    SUInfo = MemoizeSU('SUInfo', (SUInfo,), {})
+SUInfo = MemoizeSU('SUInfo', (SUInfo,), {})
 
 class ArtStructInfo(SUInfo):
     def __init__(self, sname):

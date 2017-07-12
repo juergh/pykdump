@@ -10,9 +10,7 @@
 
 # Print info about NFS/RPC
 
-from __future__ import print_function
-
-__version__ = "1.0.3"
+__version__ = "1.0.4"
 
 from collections import Counter, OrderedDict
 

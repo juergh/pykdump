@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -11,9 +11,6 @@
 
 # Write README file to be added to ZIP-archive
 
-# To facilitate migration to Python-3, we start from using
-# future statements/builtins
-from __future__ import print_function
 
 import sys
 import os
@@ -78,7 +75,7 @@ print("\n   --- PyKdump API Version: {} ----".format(__version__))
 print("\n   --- Programs Included ------")
 
 __commands = ["xportshow", "crashinfo", "taskinfo", "nfsshow", "hanginfo",
-	"fregs"]
+	"scsi", "fregs", "tslog"]
 
 for c in __commands:
     try:
