@@ -124,7 +124,7 @@ PyKdump framework includes a Python intepreter linked-in statically in the
 
 \begin_layout Standard
 At the moment of writing this document, the most recent version of Python3
- is python-3.6.0 and the new PyKdump is based on it.
+ is python-3.6.2 and the new PyKdump is based on it.
  Python3 is not 100% backwards-compatible with Python2.
  There are many books describing the differences, see e.g.
  
@@ -138,9 +138,24 @@ target "https://docs.python.org/3/howto/pyporting.html"
  but as PyKdump programs usually do not use very advanced Python language
  features, porting PyKdump programs from version 2 to version 3 is not very
  complicated.
- More than that, it is possible to write code compatible with both Python2
- and Python3 and this makes sense during transition period.
+ More than that, it is possible to write code compatible both with Python2
+ and Python3, and this makes sense during transition period.
  In this document we describe the changes you need to do in your programs.
+\end_layout
+
+\begin_layout Standard
+Instead of making your programs runnable only in PyKdump-3 environment,
+ we recommend to do migration is stages:
+\end_layout
+
+\begin_layout Itemize
+make your current programs compatible both with Python2 and Python3, to
+ be able to compare results
+\end_layout
+
+\begin_layout Itemize
+write your new programs using Python3 features from the beginnining, not
+ caring about their compatibility with Python2
 \end_layout
 
 \begin_layout Section
@@ -176,7 +191,6 @@ print
 \end_layout
 
 \begin_layout Code
-
 from __future__ import print_function 
 \end_layout
 
@@ -209,7 +223,6 @@ int
 \end_layout
 
 \begin_layout Code
-
 from pykdump.API import * 
 \end_layout
 
@@ -218,7 +231,6 @@ in Python3 environment, this executes
 \end_layout
 
 \begin_layout Code
-
 long = int
 \end_layout
 
@@ -249,33 +261,28 @@ PyKdump
 \end_layout
 
 \begin_layout Standard
-The most important difference between Python2 and Python3 integers is that
- while Python2 integer arithmetic provides integer result when you divide
- one integer by another, in Python3 this returns a float!
+When emulating C-code, the most important difference between Python2 and
+ Python3 is that while Python2 integer arithmetic provides integer result
+ when you divide one integer by another, in Python3 this returns a float!
 \end_layout
 
 \begin_layout Code
-
 # python2
 \end_layout
 
 \begin_layout Code
-
 >>> 2/2
 \end_layout
 
 \begin_layout Code
-
 1
 \end_layout
 
 \begin_layout Code
-
 >>> 3/2
 \end_layout
 
 \begin_layout Code
-
 1
 \end_layout
 
@@ -284,22 +291,18 @@ but
 \end_layout
 
 \begin_layout Code
-
 >>> 2/2
 \end_layout
 
 \begin_layout Code
-
 1.0
 \end_layout
 
 \begin_layout Code
-
 >>> 3/2
 \end_layout
 
 \begin_layout Code
-
 1.5
 \end_layout
 
@@ -311,12 +314,10 @@ We use integer division regularly while emulating C-code.
 \end_layout
 
 \begin_layout Code
-
 ind =  (ctl_node-head.node)//sz
 \end_layout
 
 \begin_layout Code
-
 word = bits[i // BITS_PER_LONG]
 \end_layout
 
@@ -346,77 +347,62 @@ In Python3 all text strings are unicode by default.
 \end_layout
 
 \begin_layout Code
-
 # python2
 \end_layout
 
 \begin_layout Code
-
 >>> type('123')
 \end_layout
 
 \begin_layout Code
-
 <type 'str'>
 \end_layout
 
 \begin_layout Code
-
 >>> type(u'123')
 \end_layout
 
 \begin_layout Code
-
 <type 'unicode'>
 \end_layout
 
 \begin_layout Code
-
 >>> type(b'123')
 \end_layout
 
 \begin_layout Code
-
 <type 'str'>
 \end_layout
 
 \begin_layout Code
-
 #
 \end_layout
 
 \begin_layout Code
-
 # python3
 \end_layout
 
 \begin_layout Code
-
 >>> type('123')
 \end_layout
 
 \begin_layout Code
-
 <class 'str'>
 \end_layout
 
 \begin_layout Code
-
 >>> type(u'123')
 \end_layout
 
 \begin_layout Code
-
 <class 'str'>
 \end_layout
 
 \begin_layout Code
-
 >>> type(b'123')
 \end_layout
 
 \begin_layout Code
-
 <class 'bytes'>
 \end_layout
 
@@ -431,57 +417,46 @@ As you see, in Python2 byte-strings are the same as simple strings.
 \end_layout
 
 \begin_layout Code
-
 >>> import re
 \end_layout
 
 \begin_layout Code
-
 >>> re.search("two", "one_two_three")
 \end_layout
 
 \begin_layout Code
-
 <_sre.SRE_Match object; span=(4, 7), match='two'>
 \end_layout
 
 \begin_layout Code
-
 >>> re.search("two", b"one_two_three")
 \end_layout
 
 \begin_layout Code
-
 Traceback (most recent call last):
 \end_layout
 
 \begin_layout Code
-
   File "<stdin>", line 1, in <module>
 \end_layout
 
 \begin_layout Code
-
   File "/usr/lib/python3.5/re.py", line 173, in search
 \end_layout
 
 \begin_layout Code
-
     return _compile(pattern, flags).search(string)
 \end_layout
 
 \begin_layout Code
-
 TypeError: cannot use a string pattern on a bytes-like object
 \end_layout
 
 \begin_layout Code
-
 >>> re.search(b"two", b"one_two_three")
 \end_layout
 
 \begin_layout Code
-
 <_sre.SRE_Match object; span=(4, 7), match=b'two'>
 \end_layout
 
@@ -508,77 +483,62 @@ in
 \end_layout
 
 \begin_layout Code
-
 # Python2
 \end_layout
 
 \begin_layout Code
-
 >>> d = {"one":1, "two":2}
 \end_layout
 
 \begin_layout Code
-
 >>> d.has_key("one")
 \end_layout
 
 \begin_layout Code
-
 True
 \end_layout
 
 \begin_layout Code
-
 >>> "one" in d
 \end_layout
 
 \begin_layout Code
-
 True
 \end_layout
 
 \begin_layout Code
-
 #
 \end_layout
 
 \begin_layout Code
-
 # Python3
 \end_layout
 
 \begin_layout Code
-
 >>> d = {"one":1, "two":2}
 \end_layout
 
 \begin_layout Code
-
 >>> d.has_key("one")
 \end_layout
 
 \begin_layout Code
-
 Traceback (most recent call last):
 \end_layout
 
 \begin_layout Code
-
   File "<stdin>", line 1, in <module>
 \end_layout
 
 \begin_layout Code
-
 AttributeError: 'dict' object has no attribute 'has_key'
 \end_layout
 
 \begin_layout Code
-
 >>> "one" in d
 \end_layout
 
 \begin_layout Code
-
 True
 \end_layout
 
@@ -591,67 +551,54 @@ Let us see what do these methods return:
 \end_layout
 
 \begin_layout Code
-
 # python2
 \end_layout
 
 \begin_layout Code
-
 >>> d = {"one":1, "two":2}
 \end_layout
 
 \begin_layout Code
-
 >>> d.keys()
 \end_layout
 
 \begin_layout Code
-
 ['two', 'one']
 \end_layout
 
 \begin_layout Code
-
 >>> type(d.keys())
 \end_layout
 
 \begin_layout Code
-
 <type 'list'>
 \end_layout
 
 \begin_layout Code
-
 #
 \end_layout
 
 \begin_layout Code
-
 # Python3
 \end_layout
 
 \begin_layout Code
-
 >>> d = {"one":1, "two":2}
 \end_layout
 
 \begin_layout Code
-
 >>> d.keys()
 \end_layout
 
 \begin_layout Code
-
 dict_keys(['two', 'one'])
 \end_layout
 
 \begin_layout Code
-
 >>> type(d.keys())
 \end_layout
 
 \begin_layout Code
-
 <class 'dict_keys'>
 \end_layout
 
@@ -661,29 +608,24 @@ This is not relevant in most cases, e.g.
 \end_layout
 
 \begin_layout Code
-
 >>> for k in d.keys():
 \end_layout
 
 \begin_layout Code
-
 ...
    print(k, d[k])
 \end_layout
 
 \begin_layout Code
-
 ...
  
 \end_layout
 
 \begin_layout Code
-
 two 2
 \end_layout
 
 \begin_layout Code
-
 one 1
 \end_layout
 
@@ -693,27 +635,22 @@ But let us look at the following example.
 \end_layout
 
 \begin_layout Code
-
 d = {"one":1, "two":2}
 \end_layout
 
 \begin_layout Code
-
 keys = d.keys()
 \end_layout
 
 \begin_layout Code
-
 for k in keys:
 \end_layout
 
 \begin_layout Code
-
     if (k == "one"):
 \end_layout
 
 \begin_layout Code
-
         del d[k]
 \end_layout
 
@@ -722,50 +659,41 @@ Running it on Python2 works fine, but on Python3 we'll see:
 \end_layout
 
 \begin_layout Code
-
 >>> d = {"one":1, "two":2}
 \end_layout
 
 \begin_layout Code
-
 >>> keys = d.keys()
 \end_layout
 
 \begin_layout Code
-
 >>> for k in keys:
 \end_layout
 
 \begin_layout Code
-
 ...
      if (k == "one"):
 \end_layout
 
 \begin_layout Code
-
 ...
          del d[k]
 \end_layout
 
 \begin_layout Code
-
 ...
  
 \end_layout
 
 \begin_layout Code
-
 Traceback (most recent call last):
 \end_layout
 
 \begin_layout Code
-
   File "<stdin>", line 1, in <module>
 \end_layout
 
 \begin_layout Code
-
 RuntimeError: dictionary changed size during iteration
 \end_layout
 
@@ -794,7 +722,6 @@ view
 \end_layout
 
 \begin_layout Code
-
 The objects returned by dict.keys(), dict.values() and dict.items() are view
  objects.
  They provide a dynamic view on the dictionary’s entries, which means that
@@ -811,40 +738,33 @@ keys
 \end_layout
 
 \begin_layout Code
-
 >>> d = {"one":1, "two":2}
 \end_layout
 
 \begin_layout Code
-
 >>> keys = list(d.keys())
 \end_layout
 
 \begin_layout Code
-
 >>> for k in keys:
 \end_layout
 
 \begin_layout Code
-
 ...
      if (k == "one"):
 \end_layout
 
 \begin_layout Code
-
 ...
          del d[k]
 \end_layout
 
 \begin_layout Code
-
 ...
  
 \end_layout
 
 \begin_layout Code
-
 >>> 
 \end_layout
 
