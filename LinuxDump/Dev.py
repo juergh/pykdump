@@ -3,7 +3,7 @@
 #
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -171,10 +171,17 @@ def print_blkdevs(v=0):
                     print('    first_minor={:<4d}   {} {}'.format(gd.first_minor, 
                                                             gd.disk_name, gd))
                 else:
-                    print('   {:3d} {:5} {} {}'.format(minor, gd.disk_name, 
+                    try:
+                        partno = str(bd.bd_part.partno)
+                        if (partno == '0'):
+                            partno = ''
+                    except:
+                        partno = ''
+                    gd_name = gd.disk_name + partno
+                    print('   {:3d} {:5} {} {}'.format(minor, gd_name,
                                                     stripStructName(bd),
                                                     stripStructName(gd)))
-                                 
+                                  
                 if (v > 0 and bd_queue):
                     # Print request queue length (if they are available)
                     #
@@ -467,6 +474,7 @@ def print_gendisk(v = 1):
             print ("print_gendisk is not implemented for this kernel yet")
         return
     # To get block_device based on dev_t
+    once = TrueOnce()
     dummy, bd_devs = get_blkdevs()
     #
     for dev, gd in gdlist:
@@ -476,8 +484,12 @@ def print_gendisk(v = 1):
         # Check whether name is alphanum
         if (not __re_good_diskname.match(disk_name)):
             disk_name = '???'
+            if (once):
+                pylog.error("Corrupted all_bdevs list")
+            continue
         #kname = gd.kobj.name
         openname = None
+        
         try:
             owner = gd.fops.owner
             badfops = False
@@ -488,14 +500,17 @@ def print_gendisk(v = 1):
             openptr = gd.fops.open
             if (openptr):
                 openname = addr2sym(openptr)
-        except crash.error:
-            pass
-        
-        if (v):
-           print  ("  %12s dev=0x%x" % (disk_name, dev), gd, openname)
+        except (IndexError, crash.error):
+            openname = "n/a"
+            badfops = True
+
         if (badfops):
             pylog.error(gd, "corrupted fops, disk_name=%s dev=0x%x"% \
                    (disk_name, dev))
+            continue
+
+        if (v):
+           print  ("  %12s dev=0x%x" % (disk_name, dev), gd, openname)
         outparts = []
         # < 2.6.28
         # struct hd_struct **part;
@@ -571,7 +586,7 @@ def is_request_STARTED(rq):
 structSetAttr("struct request", "Flags", ["flags", "cmd_flags"])
 
 
-def get_requestqueue(bd, gd):
+def XXX_get_requestqueue(bd, gd):
     bd_queue = None
     if (not bd):
         try:
@@ -586,6 +601,13 @@ def get_requestqueue(bd, gd):
                 bd_queue = bd.bd_disk.queue 
         except:
             pass
+    return bd_queue
+
+def get_requestqueue(bd, gd):
+    bd_queue = PY_select(
+        "gd.queue",
+        "bd.bd_queue",
+        "bd.bd_disk.queue")
     return bd_queue
 
 def get_request_queues():
@@ -634,6 +656,14 @@ def is_request_BAD(rq):
         readS64(rq.bio)
     except crash.error:
         return "cannot dereference rq.bio"
+    
+    # Is cpu within bounds:
+    try:
+        cpu = rq.cpu
+        if (cpu < 0 or cpu >10000):
+            return "bad CPU number"
+    except:
+        pass
     
     # Do we have rq_status? If yes, is it reasonable?
     try:
@@ -746,7 +776,7 @@ def decode_request(rq, v = 0, reqscsmap = {}):
     except KeyError:
         out.append("\t  started {} ago".format(ran_ago))
 
-    if (reqscsmap.has_key(rq)):
+    if (rq in reqscsmap):
         sdev, cmd = reqscsmap[rq]
         out.append("\t  {}  {}".format(sdev.shortStr(), cmd.shortStr()))
         out.append("\t  (jiffies - cmnd->jiffies_at_alloc)={}".format(
@@ -892,5 +922,22 @@ def print_request_slab(v):
             print(s)
 
     return totreq
-        
-        
+
+ 
+# Device inode to block_device
+# static inline struct bdev_inode *BDEV_I(struct inode *inode)
+# {
+#         return container_of(inode, struct bdev_inode, vfs_inode);
+# }
+# 
+# inline struct block_device *I_BDEV(struct inode *inode)
+# {
+#         return &BDEV_I(inode)->bdev;
+# }
+
+
+def BDEV_I(inode):
+    return container_of(inode, 'struct bdev_inode', 'vfs_inode')
+
+def I_BDEV(inode):
+    return BDEV_I(inode).bdev

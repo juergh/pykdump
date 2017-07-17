@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -12,7 +12,6 @@
 # all this into our ZIP. This script copies/renames files to follow
 # the old directory structure
 
-from __future__ import print_function
 
 import sys
 import string
@@ -43,7 +42,7 @@ for l in open(flist, "r"):
     if (not l or l[0] == '#'):
         continue
     fsrc = os.path.join(stdlibdir, l)
-    fdst = os.path.join(dstdir, l+'o')
+    fdst = os.path.join(dstdir, l+'c')
     #print("<%s> -> <%s>" % (fsrc, fdst))
     # Create output directory if needed
     dstsubdir = os.path.dirname(fdst)
@@ -51,3 +50,9 @@ for l in open(flist, "r"):
         print("makedirs %s" % dstsubdir)
         os.makedirs(dstsubdir)
     py_compile.compile(fsrc, fdst)
+
+# Add an empty site.py
+site_py = "site.py"
+open(site_py, 'a').close()
+py_compile.compile(site_py, os.path.join(dstdir, site_py+'c'))
+os.unlink(site_py)

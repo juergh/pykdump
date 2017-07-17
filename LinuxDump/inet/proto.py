@@ -3,7 +3,7 @@
 # module LinuxDump.inet.proto
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -1435,7 +1435,7 @@ def decode_TCP_flags(flags):
         else:
             bits[ind+1] = "Not set"
         flags >>= 1
-    fstr = string.join(fstr, ',')
+    fstr = ','.join(fstr)
     args = tuple([flags_copy, fstr] + bits)
     return __TCP_flags_template % args
         

@@ -7,7 +7,7 @@
 
 # Programs from prog/ ro include
 PROGS := crashinfo.py xportshow.py taskinfo.py nfsshow.py hanginfo.py \
-  fregs.py server.py 
+  fregs.py server.py tslog.py scsi.py
 ZIPPROGS := $(addprefix progs/, $(PROGS))
 FULLPROGS =  $(addprefix ../progs/, $(PROGS))
 INITPROG := PyKdumpInit.py
@@ -87,14 +87,19 @@ vpath %.c ..
 gdbspec.o: gdbspec.c $(PYTHON) $(MK)
 	$(CC) -c $(BASE_CFLAGS) $(GDBINCL) $(EXTRA) $(PYINCLUDE)  $< -o $@
 
-OBJS :=  epython.o functions.o gdbspec.o pythonrun.o
+# File from Python sources that contains Py_Exit
+PYTHON_EXITSUB := pylifecycle
+PYTHON_EXITSUB_C := $(PYTHON_EXITSUB).c
+# Source file to patch
+PYTHON_PATCH := $(PYTHONSRCDIR)/Python/$(PYTHON_EXITSUB_C)
 
-PYTHONRUN_C := $(PYTHONSRCDIR)/Python/pythonrun.c
+OBJS :=  epython.o functions.o gdbspec.o $(PYTHON_EXITSUB).o
 
-pythonrun.o: $(PYTHONRUN_C) $(MK)
-	sed 's/Py_Exit(int sts)/xPy_Exit(int sts)/' $(PYTHONRUN_C) >pythonrun.c
-	$(CC) -c $(BASE_CFLAGS) $(GDBINCL) $(PYINCLUDE) pythonrun.c -o $@
-	@rm -f pythonrun.c
+
+$(PYTHON_EXITSUB).o: $(PYTHON_PATCH) $(MK)
+	sed 's/Py_Exit(int sts)/xPy_Exit(int sts)/' $(PYTHON_PATCH) > $(PYTHON_EXITSUB_C)
+	$(CC) -c $(CFLAGS) $(GDBINCL) $(PYINCLUDE) -DPy_BUILD_CORE $(PYTHON_EXITSUB_C)  -o $@
+	@rm -f $(PYTHON_EXITSUB_C)
 
 
 $(EXT_C): $(OBJS) $(PYTHON)
@@ -104,14 +109,15 @@ $(EXT_C): $(OBJS) $(PYTHON)
 PYLIB = pylib.zip
 
 PYPA = $(SRCDIR)/pyparsing_py$(PYMAJOR)
-pyparsing.pyo: $(PYPA).py $(MK)
+PYPA_C = pyparsing.pyc
+$(PYPA_C): $(PYPA).py $(MK)
 	$(PYTHON) -O -c 'import py_compile;py_compile.compile("$(PYPA).py", "./$@")'
 
 
-$(PYLIB): $(MIN_PYLIST) pyparsing.pyo $(PYTHON) $(MK)
+$(PYLIB): $(MIN_PYLIST) $(PYPA_C) $(PYTHON) $(MK)
 	$(PYTHON) -O $(SRCDIR)/makestdlib.py $(STDLIBP) $(PYSTDLIBDIR) $(MIN_PYLIST)
 	zip -r $(PYLIB) $(PYSTDLIBDIR)
-	zip $@ pyparsing.pyo
+	zip $@ $(PYPA_C)
 	rm -rf $(PYSTDLIBDIR)
 
 FIND = find $(1) -name \*.pyc -o -type d -not \( -name .svn\* -prune \)
@@ -151,10 +157,10 @@ $(README):
 
 clean:
 	rm -f $(OBJS) $(EXT_C) $(EXT_C_PY) $(EXT_FULLAPI) $(EXT_FULL) \
-		$(PYLIB) pyparsing.pyo $(PYLIB) $(README)
+		$(PYLIB) $(PYPA_C) $(PYLIB) $(README)
 
 distclean: clean
-	rm -rf  pyparsing.pyo *~ *.mk X86 X86_64 $(README)
+	rm -rf  $(PYPA_C) *~ *.mk X86 X86_64 $(README)
 
 install:
 	if test -z "$(prefix)" ; then \
@@ -169,3 +175,6 @@ install:
 
 uninstall:
 	rm -f ~/.crash.d/mpykdump.so
+
+test3: test3.o
+	 $(CC) test3.o -o $@  $(LIBS) -lz

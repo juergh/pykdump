@@ -3,7 +3,7 @@
 # module LinuxDump.Analysis
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -18,8 +18,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-from __future__ import print_function
-
 __doc__ = '''
 This is a package providing subroutines to analyse processes interdependicies,
 locks etc. These subroutines can be used in different top-level programs
@@ -33,7 +31,7 @@ from LinuxDump.inet import proto
 from LinuxDump.Tasks import (TaskTable, Task, tasksSummary, ms2uptime, decode_tflags,
                              decode_waitq, TASK_STATE)
 
-# Print processes waiting for UNIX sockets (usuallu syslog /dev/log)
+# Print processes waiting for UNIX sockets (usually syslog /dev/log)
 def print_wait_for_AF_UNIX(v=0):
     tt = TaskTable()
     basems = tt.basems
@@ -91,6 +89,10 @@ def print_wait_for_AF_UNIX(v=0):
             state, ino, path = proto.unix_sock(peer)
              # if last_ran is greater than this, issue a warning
             __max_time = 5
+            stack = t.get_task_stack()
+            if (stack.hasfunc("console_lock")):
+                pylog.warning("Syslog daemon is waiting for serial console")
+                print(stack)
             if (v < 1 and last_ran < __max_time):
                 continue
             if (v < 1 and path == "/dev/log"):
@@ -245,12 +247,30 @@ def check_memory_pressure(_funcpids):
         t = T_table.getByTid(pid)
         d[t.state] += 1
         total += 1
-    if (d.has_key("TASK_UNINTERRUPTIBLE") or total > 20):
+    if ("TASK_UNINTERRUPTIBLE" in d or total > 20):
         pylog.warning("Memory pressure detected")
         print("  *** {} ***".format(__mp_names))
         for k, v in d.items():
             print ("   {:4d} in {} state".format(v, k))
         return True
+
+# Check for hanging nfsd threads
+def check_hanging_nfsd(_funcpids):
+    subpids = _funcpids("nfsd")
+    d = defaultdict(int)
+    total = 0
+    T_table = TaskTable()
+    for pid in subpids:
+        t = T_table.getByTid(pid)
+        d[t.state] += 1
+        total += 1
+    if ("TASK_UNINTERRUPTIBLE" in d):
+        pylog.warning("Hanging nfsd threads")
+        return True
+    else:
+        return False
+    
+
 
 # SAP HANA specific things.
   
