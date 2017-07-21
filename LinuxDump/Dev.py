@@ -19,8 +19,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-from __future__ import print_function
-
 __doc__ = '''
 This is a package providing generic access to block devices
 '''
@@ -400,12 +398,16 @@ def decode_dm_table(dm, verbose = 0):
     #   atomic_t count;
     #   struct dm_dev dm_dev;
     # }
+    
+    # And on later RHEL6 we have a pointer instead:
+    # struct dm_dev *dm_dev;
+    
+    def get_dm_dev(devices):
+        return PY_select(
+            'ListHead(devices, "struct dm_dev_internal").list',
+            'ListHead(devices, "struct dm_dev").list'
+            )
 
-    sn = "struct dm_dev"
-    sn_i = "struct dm_dev_internal"
-    off = member_offset(sn, "list")
-    if (off == -1):
-        off = member_offset(sn_i, "list") - member_offset(sn_i, "dm_dev")
     mtable, out_bddev = get_blkdevs()
     num_targets = dm.num_targets
     print (" -- %d targets" % num_targets)
@@ -427,11 +429,15 @@ def decode_dm_table(dm, verbose = 0):
             print ("       |    device used", lc.dev)
     
     print (" -- Block Devices Used By This Mapping")
-    for a in readListByHead(devices):
-        dmdev = readSU(sn, a - off)
+    for o in get_dm_dev(devices):
+        dmdev = PY_select(
+            "o.dm_dev",
+            "o"
+            )
         major, minor = decode_devt(dmdev.bdev.bd_dev)
         print ("     ", dmdev, "major=%-3d minor=%-3d" % (major, minor))
         print ("\t   ", mtable[major].shortstr())
+
 
 
 # ================ gendisk stuff =============================
