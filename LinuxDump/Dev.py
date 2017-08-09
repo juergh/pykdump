@@ -471,7 +471,7 @@ def print_disk_stats(gd):
         
 # Print gendisk structures with some checking.
 # If v=0, print errors only
-__re_good_diskname = re.compile(r'^[-\w:/]+$')
+__re_good_diskname = re.compile(r'^[-\w:/.]+$')
 def print_gendisk(v = 1):
     try:
         gdlist = get_gendisks()
