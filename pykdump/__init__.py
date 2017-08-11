@@ -6,7 +6,7 @@
 It is now Python-3 based
 """
 # Version number
-__version__ = '3.0.0'
+__version__ = '3.0.1'
 
 import sys
 
@@ -17,7 +17,7 @@ Author: Alex Sidorenko <asid@hpe.com>
 """
 
 # A minimal C-module version that is needed for API to work
-minimal_cmod_version = "3.0.0"
+minimal_cmod_version = "3.0.1"
 
 
 # The next subroutines are used for version compatibility control.

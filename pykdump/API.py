@@ -118,6 +118,7 @@ except AttributeError:
     def set_default_timeout(timeout):
         return None
 
+get_task_mem_usage = crash.get_task_mem_usage
 
 from . import wrapcrash
 
