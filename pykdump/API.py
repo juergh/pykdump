@@ -42,6 +42,7 @@ import sys, os, os.path
 import re, string
 import time, select
 import stat
+import traceback
 import atexit
 from collections import defaultdict
 import pprint
@@ -101,6 +102,9 @@ unsigned64 = gen.unsigned64
 dbits2str = gen.dbits2str
 print2columns = gen.print2columns
 
+@memoize_cond(CU_LIVE)
+def get_task_mem_usage(addr):
+    return crash.get_task_mem_usage(addr)
 
 
 HZ = crash.HZ
@@ -117,8 +121,6 @@ try:
 except AttributeError:
     def set_default_timeout(timeout):
         return None
-
-get_task_mem_usage = crash.get_task_mem_usage
 
 from . import wrapcrash
 
@@ -177,6 +179,9 @@ class PyLog:
         print(WARNING, msg)
         self._addtocache("timeout", msg)
     def warning(self, *args, **kwargs):
+        # Print traceback if debug is enabled
+        if (debug):
+            traceback.print_stack()
         name = WARNING
         self._printandcache(name, (args, kwargs))
     def info(self, *args, **kwargs):
@@ -184,6 +189,10 @@ class PyLog:
         self._addtocache(name, (args, kwargs))
     def error(self, *args, **kwargs):
         name = ERROR
+        # Print traceback if debug is enabled
+        if (debug):
+            traceback.print_stack()
+
         self._printandcache(name, (args, kwargs))
     def silent(self, msg):
         self._silent = msg
