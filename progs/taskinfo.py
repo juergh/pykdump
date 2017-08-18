@@ -11,14 +11,17 @@
 
 # Print info about tasks
 
-__version__ = "0.5"
+__version__ = "0.6"
 
 from pykdump.API import *
 
 from LinuxDump import percpu
-from LinuxDump.Tasks import TaskTable, Task, tasksSummary, ms2uptime, \
-     decode_tflags, print_namespaces_info
+from LinuxDump.Tasks import (TaskTable, Task, tasksSummary, ms2uptime,
+     decode_tflags, print_namespaces_info, print_memory_stats)
+
 from LinuxDump.BTstack import exec_bt, bt_summarize
+from LinuxDump.fs import get_dentry_name
+
 
 debug = API_options.debug
 
@@ -247,7 +250,8 @@ def printTasks(reverse = False, maxtoprint = -1):
             if (sstate in taskstates_filter):
                 out1.append((*group, t))
         out = out1
-        
+
+
     nthreads = len(out)
     if (maxtoprint != -1 and maxtoprint < nthreads):
         # Split them 1:1
@@ -281,14 +285,7 @@ def printTasks(reverse = False, maxtoprint = -1):
         if (is_task_active(long(t.ts))):
             pid_s = ">" + pid_s[1:]
                 
-        #RLIMIT_NPROC = 6
-        #rlimit = t.signal.rlim[RLIMIT_NPROC].rlim_cur
-        #pcount = t.user.processes.counter
         uid = t.Uid
-        #if (pcount > rlimit - 20):
-        #    print (' OOO', rlimit, pcount, "uid=%d" % uid)
-        #else:
-        #    print ('    ', rlimit, pcount, "uid=%d" % uid)
         # Thread pointers might be corrupted
         try:
             print ("%s %14s %3d %14d  %s %s" \
@@ -303,7 +300,7 @@ def printTasks(reverse = False, maxtoprint = -1):
         except crash.error:
             pylog.error("corrupted", t)
 
-            
+
 
 # Emulate pstree
 
@@ -400,6 +397,8 @@ def pstree(pid = 1):
         print (s)
         
 taskstates_filter=None
+sort_by = None
+
 verbose = 0
 
 if ( __name__ == '__main__'):
@@ -431,9 +430,14 @@ if ( __name__ == '__main__'):
                 action="store_true",
                 help="Emulate user-space 'pstree' output")
 
-    op.add_option("-r", "--reverse", dest="Reverse", default = 0,
+    op.add_option("-r", "--recent", dest="Reverse", default = 0,
                     action="store_true",
-                    help="Reverse order while sorting")
+                    help="Reverse order while sorting by ran_ago")
+
+    op.add_option("--memory", dest="Memory", default = 0,
+                    action="store_true",
+                    help="Print a summary of memory usage by tasks")
+
     op.add_option("--ns", dest="Ns", default = 0,
                     action="store_true",
                     help="Print info about namespaces")
@@ -456,7 +460,10 @@ if ( __name__ == '__main__'):
     if (o.Taskfilter):
         taskstates_filter = re.split("\s*,\s*", o.Taskfilter)
 
-    if (o.Reverse):
+    if (o.Memory):
+        print_memory_stats()
+
+    elif (o.Reverse):
         printTasks(reverse=True)
     elif (o.Hang):
         taskstates_filter = 'UN'
