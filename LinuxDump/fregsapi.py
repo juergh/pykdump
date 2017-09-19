@@ -2,7 +2,7 @@
 # determine register contents at entry to each routine in stack frame
 
 # --------------------------------------------------------------------
-# (C) Copyright 2015-2016 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2015-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Martin Moore (martin.moore@hpe.com)
 #
@@ -32,6 +32,9 @@
 #             print "Unable to get stack trace"
 #             sys.exit(1)
 #         search_for_registers(s)
+#
+# The context handler DisasmFlavor will also set the output radix to 10 and restore it if needed,
+# as the code assumes decimal outputs in some cases.
 
 #
 # General philosophy: try to find register contents that can be determined
@@ -39,7 +42,7 @@
 # figure everything out (which is probably impossible); this is a debugging
 # aid, not a tool that attempts to do all crash analysis automatically.
 
-__version__ = "1.01"
+__version__ = "1.02"
 
 from pykdump.API import *
 
@@ -637,7 +640,7 @@ def extract_registers (frame, stack):
 
     return
 
-# A context manager to change disassembly flavor if needed and then to restore it
+# A context manager to change disassembly flavor and output radix if needed, and then to restore them
 class DisasmFlavor():
     def __init__(self, flavor):
         s = exec_gdb_command("show disassembly-flavor")
@@ -645,15 +648,24 @@ class DisasmFlavor():
         if (m):
             self.oldflavor = m.group(1)
         self.flavor = flavor
+        s = exec_gdb_command("show output-radix")
+        m = s.splitlines()[0].rstrip('.')
+        self.radix = m.split()[-1]
+        #print("Current radix is {}".format(self.radix))
     def __enter__(self):
         if (self.oldflavor != self.flavor):
             #print("Setting flavor to {}".format(self.flavor))
             exec_gdb_command("set disassembly-flavor {}".format(self.flavor))
+        if (self.radix != "10"):
+            #print("Setting output radix to 10")
+            exec_gdb_command("set output-radix 10")
     def __exit__(self, exc_type, exc_value, traceback):
         if (self.flavor != self.oldflavor):
             #print("Restoring flavor to {}".format(self.oldflavor))
             exec_gdb_command("set disassembly-flavor {}".format(self.oldflavor))
-
+        if (self.radix != "10"):
+            #print("Restoring output radix to {}".format(self.radix))
+            exec_gdb_command("set output-radix {}".format(self.radix))
 
 # search_for_registers(s) - s is a BTstack object. 
 
