@@ -461,6 +461,15 @@ if ( __name__ == '__main__'):
 
     args = parser.parse_args()
 
+    for m in exec_crash_command_bg('mod').splitlines()[1:]:
+        if (('not loaded' in m) and (('dm_mod' in m) or ('dm_multipath' in m))):
+            print ("\n ** Unable to process dm device information since dm_mod/dm_multipath "
+                   "modules are not loaded")
+            print ("    Please try to verify, load the above modules manually and try again.")
+            print ("\n    You can use 'help mod' command for more information on how to load "
+                   "the modules manually")
+            sys.exit()
+
     #Check the version of kernel, to accomodate some changes in struct definitions accordingly:
     for l in exec_crash_command_bg('sys').splitlines()[1:]:
         try:
