@@ -670,13 +670,38 @@ def lsModules():
 # Execute 'sys' command and put its split output into a dictionary
 # Some names contain space and should be accessed using a dict method, e.g.
 # sys_info["LOAD AVERAGE"]
-def _doSys():
+# 
+# A special case:
+   #DUMPFILES: vmcore1 [PARTIAL DUMP]
+              #vmcore2 [PARTIAL DUMP]
+              #vmcore3 [PARTIAL DUMP]
+              #vmcore4 [PARTIAL DUMP]
+
+def old_doSys():
     """Execute 'sys' commands inside crash and return the parsed results"""
     for il in exec_crash_command("sys").splitlines():
         spl = il.split(':', 1)
         if (len(spl) == 2):
             sys_info.__setattr__(spl[0].strip(), spl[1].strip())
 
+def _doSys():
+    """Execute 'sys' commands inside crash and return the parsed results"""
+    key = 'UNKNOWN'
+    for il in exec_crash_command("sys").splitlines():
+        spl = il.split(':', 1)
+        if (len(spl) == 2):
+            key = spl[0].strip()
+            sys_info[key] = spl[1].strip()
+        else:
+            sys_info[key] += '|' + il.strip()
+    # If there are DUMPFILES, fill-in DUMPFILE for printing
+    dfiles = sys_info.get('DUMPFILES', None)
+    if (dfiles is None):
+        return
+    out = []
+    for v in dfiles.split('|'):
+        out.append(v.split()[0].strip())
+    sys_info['DUMPFILE'] = ','.join(out)
 
 # -----------  initializations ----------------
 

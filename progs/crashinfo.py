@@ -93,19 +93,20 @@ def print_basics():
         ram = float(im)
         if (sm == "GB"):
             ram *= 1024
-        # Get vmcore size
-        sz = os.stat(dfile.split()[0])[ST_SIZE]/1024/1024
+        # Get vmcore size - skip this test for split kdump
+        if (not 'DUMPFILES' in sys_info):
+            sz = os.stat(dfile.split()[0])[ST_SIZE]/1024/1024
 
-        # When RH creates partial dumps, it says so
-        # SLES can do this silently, so we can easily have just
-        # a 14Mb vmcore on a system with 4GB of RAM...
+            # When RH creates partial dumps, it says so
+            # SLES can do this silently, so we can easily have just
+            # a 14Mb vmcore on a system with 4GB of RAM...
 
-        if (dfile.find("PARTIAL DUMP") != -1):
-            dfile = dfile.split()[0]
-            if (ram > sz *4):
-                pylog.warning("PARTIAL DUMP with size(vmcore) < 25% size(RAM)")
-        elif (ram > sz *10):
-            pylog.warning("DUMP with size(vmcore) < 10% size(RAM)")
+            if (dfile.find("PARTIAL DUMP") != -1):
+                dfile = dfile.split()[0]
+                if (ram > sz *4):
+                    pylog.warning("PARTIAL DUMP with size(vmcore) < 25% size(RAM)")
+            elif (ram > sz *10):
+                pylog.warning("DUMP with size(vmcore) < 10% size(RAM)")
 
         
     if (quiet):
