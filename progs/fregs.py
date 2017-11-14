@@ -16,7 +16,7 @@
 # figure everything out (which is probably impossible); this is a debugging
 # aid, not a tool that attempts to do all crash analysis automatically.
 
-__version__ = "1.10"
+__version__ = "1.11"
 
 import argparse
 from pykdump.API import *
@@ -149,6 +149,10 @@ if ( __name__ == '__main__'):
                         help="identify arguments (-aa for more detail)",
                         action="count", default=0)
 
+    parser.add_argument("-l", "--lines",
+                        help="show source code line numbers",
+                        action="store_true")
+
     parser.add_argument("-r", "--routine", default="",
                         help="only show routines whose names include ROUTINE")
 
@@ -165,17 +169,22 @@ if ( __name__ == '__main__'):
     args = parser.parse_args()
 
     arglevel = args.args
-
+    showlines = args.lines
     routine = args.routine
 
-    if args.all :
-        btcmd = "foreach bt"
-    elif args.unint :
-        btcmd = "foreach UN bt"
-    elif args.pid == None :
-        btcmd = "bt"
+    if showlines :
+        bts = "bt -l"
     else:
-        btcmd = "foreach " + args.pid + " bt"
+        bts = "bt"
+
+    if args.all :
+        btcmd = "foreach " + bts
+    elif args.unint :
+        btcmd = "foreach UN " + bts
+    elif args.pid == None :
+        btcmd = bts
+    else:
+        btcmd = "foreach " + args.pid + " " + bts
 
     # Make sure we're on an x86_64 vmcore, or this will fail miserably.
     if (sys_info.machine != "x86_64"):
@@ -211,14 +220,23 @@ if ( __name__ == '__main__'):
                 if routine not in f.func:
                     continue
 
+                print()    # Skip a line for readability
+
                 if f.level >= 0:
-                    print ("\n#{} {:s} {:s}".format(f.level,f.func, f.from_func))
+                    print ("#{} {:s} {:s}".format(f.level,f.func, f.from_func))
                 else:
-                    print ("\n{:s} {:s}".format(f.func, f.from_func))
+                    print ("{:s} {:s}".format(f.func, f.from_func))
 
                 if (f.lookup_regs):
 
+                    if showlines:
+                        try:
+                            print ("{:s}".format(f.data[-1]))
+                        except:
+                            print ("    <No line numbers; possibly you need to load a module>")
+
                     # If we're getting arguments, get information from crash
+
                     if arglevel > 0:
                         arg_types = funcargs_dict(f.func)
 

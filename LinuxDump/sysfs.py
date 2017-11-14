@@ -207,6 +207,7 @@ def gendev2sd_old(gendev):
 # where sysfs is a wrapper on top of kernfs
 
 __sn = "struct sysfs_dirent"
+decode_sysfs_dirent = None
 
 if (not struct_exists(__sn)):
     # Try to import kernfs
@@ -245,8 +246,8 @@ elif (member_size(__sn, "s_sibling") != -1):
     sysfs_parent = sysfs_parent_311
     #gendev2sd = gendevsd_old
 
-
-decode_sysfs_dirent = memoize_cond(CU_LIVE)(decode_sysfs_dirent)
+if (decode_sysfs_dirent is not None):
+    decode_sysfs_dirent = memoize_cond(CU_LIVE)(decode_sysfs_dirent)
 
 if (struct_exists(__sn)):
     __SYSFS2attr = {

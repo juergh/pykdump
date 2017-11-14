@@ -2,38 +2,30 @@
 # -*- coding: utf-8 -*-
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
 # --------------------------------------------------------------------
 #  Analyze reasons why some tasks are hanging (TASK_UNINTERRUPTIBLE)
 
-# To facilitate migration to Python-3, we start from using future statements/builtins
-from __future__ import print_function
 
-__version__ = "0.3.1"
+__version__ = "0.3.2"
 
 import sys
 import re
-import textwrap
-import operator
 
 from pykdump.API import *
 from LinuxDump.fs import *
-
-from pykdump.API import *
-from pykdump.Generic import Bunch
-
-from LinuxDump import percpu
-from LinuxDump.Tasks import (TaskTable, Task, tasksSummary, ms2uptime, decode_tflags,
-                             decode_waitq, TASK_STATE)
+from LinuxDump.Tasks import (TaskTable, Task, tasksSummary, ms2uptime, 
+                             decode_tflags, decode_waitq, TASK_STATE)
 from LinuxDump.BTstack import (exec_bt, bt_mergestacks, fastSubroutineStacks,
                                verifyFastSet)
-from LinuxDump.inet import proto
+
 from LinuxDump.Analysis import (print_wait_for_AF_UNIX, print_pidlist,
                                 check_possible_hang,
-                                check_saphana, check_memory_pressure)                                
+                                check_saphana, check_memory_pressure,
+                                get_tentative_arg)                                
 
 from LinuxDump.Files import pidFiles
 from LinuxDump.KernLocks import decode_semaphore
@@ -322,7 +314,6 @@ def check_cred_guard_mutex(task):
     gm = task.Cred_guard_mutex
     return gm
     
-__x86 = (sys_info.machine in ("i386", "i686", "athlon"))
 __mutexfunc = "__mutex_lock_slowpath"
 def check_other_mutexes(tasksrem):
     #print(mutexlist)
@@ -333,22 +324,12 @@ def check_other_mutexes(tasksrem):
         #if (not bt.hasfunc(__mutexfunc)):
             continue
         #print(bt)
-        b1 = exec_bt("bt -f {}".format(pid))[0]
-        for f in b1.frames:
-            if (f.func.find(__mutexfunc) != -1):
-                addrs = __stackdata2array(f.data)
-                l_addrs = len(addrs)
-                __srange = range(3,4) if __x86 else range(6,9)
-                for pos in __srange:
-                    if (pos >= l_addrs):
-                        continue
-                    maddr = addrs[pos]
-                    #print(":::", hexl(maddr))
-                    if (if_mutexOK(maddr)):
-                        mutex = readSU("struct mutex", maddr)
-                        mutexlist.add(mutex)
-                        #print("pid={}, mutex={}".format(pid, mutex))
-                        continue
+        maddr = get_tentative_arg(pid, __mutexfunc, 0)
+        if (maddr and if_mutexOK(maddr)):
+            mutex = readSU("struct mutex", maddr)
+            mutexlist.add(mutex)
+            #print("pid={}, mutex={}".format(pid, mutex))
+            continue
 
     if (not mutexlist):
         return
@@ -373,6 +354,7 @@ def check_other_mutexes(tasksrem):
         print_pidlist(pids, maxpids = _MAXPIDS, verbose = _VERBOSE,
                       sortbytime = _SORTBYTIME)
         remove_pidlist(tasksrem, pids)
+
 
 def check_congestion_queues(tasksrem):
     # Congestion queues    

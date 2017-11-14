@@ -1354,7 +1354,8 @@ def readList(start, offset=0, maxel = _MAXEL, inchead = True, warn = True):
     if (count > maxel):
         del out[-1]
         if (warn):
-            pylog.warning("We have reached the limit while reading a list")
+            pylog.warning("We have reached the limit while reading a list"
+                " maxel={}".format(maxel))
 
     return out
 

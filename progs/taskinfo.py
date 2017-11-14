@@ -3,7 +3,7 @@
 
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -11,17 +11,17 @@
 
 # Print info about tasks
 
-# To facilitate migration to Python-3, we start from using future statements/builtins
-from __future__ import print_function
-
-__version__ = "0.4"
+__version__ = "0.6"
 
 from pykdump.API import *
 
 from LinuxDump import percpu
-from LinuxDump.Tasks import TaskTable, Task, tasksSummary, ms2uptime, \
-     decode_tflags, print_namespaces_info
+from LinuxDump.Tasks import (TaskTable, Task, tasksSummary, ms2uptime,
+     decode_tflags, print_namespaces_info, print_memory_stats)
+
 from LinuxDump.BTstack import exec_bt, bt_summarize
+from LinuxDump.fs import get_dentry_name
+
 
 debug = API_options.debug
 
@@ -215,7 +215,8 @@ def find_and_print(pid):
         print ("There is no task with pid=", pid)
 
 
-def printTasks(reverse = False):
+# Print up to 'maxtoprint' tasks, everything ig maxtoprint=-1
+def printTasks(reverse = False, maxtoprint = -1):
     basems = None
     #quit()
     tt = TaskTable()
@@ -233,22 +234,45 @@ def printTasks(reverse = False):
             for t in mt.threads:
                 #print ("    struct thread_info 0x%x" % long(t))
                 out.append((basems - t.Last_ran, t.pid, t))
-        print ('==== Tasks in PID order, grouped by Thread Group leader ==')
+        hdr = 'Tasks in PID order, grouped by Thread Group leader'
     else:
     # Most recent first
         for t in tt.allThreads():
             out.append((basems - t.Last_ran, t.pid, t))
         out.sort()
-        print ('==== Tasks in reverse order, scheduled recently first   ==')
+        hdr ='Tasks in reverse order, scheduled recently first'
+
+    # Apply the filter
+    if (taskstates_filter):
+        out1 = []
+        for *group, t in out:
+            sstate = t.state[5:7]
+            if (sstate in taskstates_filter):
+                out1.append((*group, t))
+        out = out1
+
+
+    nthreads = len(out)
+    if (maxtoprint != -1 and maxtoprint < nthreads):
+        # Split them 1:1
+        nbeg = maxtoprint//2
+        nend = maxtoprint - nbeg
+        out = out[:nbeg] + [(None, None, None)] + out[-nend:]
+        extra = " ({} tasks skipped)".format(nthreads - maxtoprint)
+    else:
+        extra = ''
+
+    # Print the header
+    print("=== {}{} ===".format(hdr, extra))
 
     print (" PID          CMD       CPU   Ran ms ago   STATE")
     print ("--------   ------------  --  ------------- -----")
 
     for ran_ms_ago, pid, t in out:
-        sstate = t.state[5:7]
-        if (taskstates_filter and not (sstate in taskstates_filter)):
+        if (pid is None):
+            print("           <snip>")
             continue
-        
+        sstate = t.state[5:7]
         tgid = t.tgid
         if (pid != tgid):
             pid_s =  "  %6d" % pid
@@ -261,14 +285,7 @@ def printTasks(reverse = False):
         if (is_task_active(long(t.ts))):
             pid_s = ">" + pid_s[1:]
                 
-        #RLIMIT_NPROC = 6
-        #rlimit = t.signal.rlim[RLIMIT_NPROC].rlim_cur
-        #pcount = t.user.processes.counter
         uid = t.Uid
-        #if (pcount > rlimit - 20):
-        #    print (' OOO', rlimit, pcount, "uid=%d" % uid)
-        #else:
-        #    print ('    ', rlimit, pcount, "uid=%d" % uid)
         # Thread pointers might be corrupted
         try:
             print ("%s %14s %3d %14d  %s %s" \
@@ -283,7 +300,7 @@ def printTasks(reverse = False):
         except crash.error:
             pylog.error("corrupted", t)
 
-            
+
 
 # Emulate pstree
 
@@ -380,6 +397,8 @@ def pstree(pid = 1):
         print (s)
         
 taskstates_filter=None
+sort_by = None
+
 verbose = 0
 
 if ( __name__ == '__main__'):
@@ -393,7 +412,12 @@ if ( __name__ == '__main__'):
     op.add_option("--summary", dest="Summary", default = 0,
                 action="store_true",
                 help="Summary")
-    
+
+    op.add_option("--hang", dest="Hang", default = 0,
+                action="store_true",
+                help="Equivalent to '-r --task=UN' and prints"
+                " just several newest and several oldest threads")
+
     op.add_option("--pidinfo", dest="Pidinfo", default = 0,
                 action="store", type="int",
                 help="Display details for a given PID. You can specify PID or addr of task_struct")
@@ -406,9 +430,14 @@ if ( __name__ == '__main__'):
                 action="store_true",
                 help="Emulate user-space 'pstree' output")
 
-    op.add_option("-r", "--reverse", dest="Reverse", default = 0,
+    op.add_option("-r", "--recent", dest="Reverse", default = 0,
                     action="store_true",
-                    help="Reverse order while sorting")
+                    help="Reverse order while sorting by ran_ago")
+
+    op.add_option("--memory", dest="Memory", default = 0,
+                    action="store_true",
+                    help="Print a summary of memory usage by tasks")
+
     op.add_option("--ns", dest="Ns", default = 0,
                     action="store_true",
                     help="Print info about namespaces")
@@ -431,8 +460,14 @@ if ( __name__ == '__main__'):
     if (o.Taskfilter):
         taskstates_filter = re.split("\s*,\s*", o.Taskfilter)
 
-    if (o.Reverse):
+    if (o.Memory):
+        print_memory_stats()
+
+    elif (o.Reverse):
         printTasks(reverse=True)
+    elif (o.Hang):
+        taskstates_filter = 'UN'
+        printTasks(reverse=True, maxtoprint=16)
     elif (o.Summary):
         tasksSummary()
     elif (o.Pstree):

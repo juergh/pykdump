@@ -36,8 +36,13 @@ from pykdump.API import *
 
 class pidFiles(object):
     def __init__(self, pid):
-        lines = exec_crash_command("files %d" % pid).splitlines()
         self.files = {}
+        try:
+            lines = exec_crash_command("files %d" % pid).splitlines()
+        except crash.error as v:
+            pylog.warning(str(v))
+            return
+
         for l in lines[3:]:
             fields = l.split()
             if (len(fields) < 5):

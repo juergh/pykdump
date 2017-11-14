@@ -1519,9 +1519,30 @@ py_get_uptime(PyObject *self, PyObject *args) {
   return PyLong_FromUnsignedLongLong(jiffies);
 }
 
+// Interfaces to crash built-in get_task_mem_usage()
+// Return a tuple (VSZ, RSS) for a given task
+static PyObject *
+py_get_task_mem_usage(PyObject *self, PyObject *args) {
+  ulong task;
+  struct task_mem_usage tm;
+  unsigned long rss, total_vm;
+  
+  if (!PyArg_ParseTuple(args, "k", &task)) {
+    PyErr_SetString(crashError, "invalid parameter type"); \
+    return NULL;
+  }
+
+  get_task_mem_usage(task, &tm);
+  total_vm = (tm.total_vm * PAGESIZE())/1024;
+  rss = (tm.rss * PAGESIZE())/1024;
+
+  // printf("rss=%lu total_vm=%lu\n", rss, total_vm);
+
+  return Py_BuildValue("(kk)", total_vm, rss);
+}
 
 
-/* Used fot changing Discovery daemon name */
+/* Used for changing Discovery daemon name */
 
 #include <sys/prctl.h>
 
@@ -1607,6 +1628,7 @@ static PyMethodDef crashMethods[] = {
   {"pid_to_task", py_pid_to_task,  METH_VARARGS},
   {"task_to_pid", py_task_to_pid,  METH_VARARGS},
   {"get_uptime", py_get_uptime,  METH_VARARGS},
+  {"get_task_mem_usage", py_get_task_mem_usage,  METH_VARARGS},
   {NULL,      NULL}        /* Sentinel */
 };
 

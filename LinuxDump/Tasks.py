@@ -32,10 +32,12 @@ from LinuxDump import percpu
 
 from .inet import proto
 from .BTstack import exec_bt
+from .fs import get_dentry_name
 
-from collections import defaultdict
 import textwrap
 from textwrap import TextWrapper
+from collections import (defaultdict, namedtuple)
+import operator
 
 
 
@@ -905,4 +907,153 @@ if ( __name__ == '__main__'):
         #threads = tt.getThreads(t)
 
 
+# ======================================================================
+#
+#           Subroutines related to memory allocation, VMAs etc.
+#
+# ======================================================================
 
+# Parse IPCS shared memory
+# SHMID_KERNEL     KEY      SHMID      UID   PERMS BYTES      NATTCH STATUS
+# Return a dict indexed by (key,shmid) (integers) and a namedtuple of all
+# key        shmid      owner      perms      bytes      nattch
+#
+
+def get_ipcs_m():
+    # On one vmcoer I have in my collection, 'ipcs -m' never completes...
+    lines = exec_crash_command_bg("ipcs -m", timeout=5).splitlines()
+    if (not lines):
+        return None
+    shminfo = namedtuple('shminfo', ['key', 'shmid', 'uid', 'perms', 'bytes',
+                                     'nattch'])
+    d = {}
+    for l in lines[1:]:
+        try:
+            values = l.split()[1:7]
+        except ValueError:
+            # Empty line
+            continue
+        if (len(values) < 6):
+            continue
+        # The first field is hex, all other are integers
+        for i, v in enumerate(values):
+            base = 16 if i==0 else 10
+            values[i] = int(v, base)
+        #print(l, values)
+        rval = shminfo(*values)
+        key = (rval.key, rval.shmid)
+        d[key] = rval
+        #s_shk = readSU("struct shmid_kernel", shmid_kernel)
+        #node = s_shk.shm_file.f_path.dentry.d_inode.i_ino
+        #print(key, shmid, node, s_shk.shm_file)
+        #tot_shm += int(bytes)*int(nattch)/1024 # in Kb
+        
+    return d
+
+__shm_vm_ops = sym2addr("shm_vm_ops")
+
+# For VMA related to SYSV, find key/shmid
+def vma2sysv(vma):
+    if (int(vma.vm_ops) != __shm_vm_ops):
+        return None
+    vm_file = vma.vm_file
+    if (not vm_file):
+        return None
+    dentry = vm_file.f_path.dentry
+    shmid = i_ino = dentry.d_inode.i_ino
+    name = get_dentry_name(dentry) # "SYSV09197ad4
+    key = int(name[4:], 16)
+    return (key, shmid)        
+
+#shm_d = get_ipcs_m()    
+
+# Get SZ of SHM for given VMA
+@memoize_cond(CU_LIVE)
+def __get_vma_shm(vma):
+    if (int(vma.vm_ops) == __shm_vm_ops):
+        return vma.vm_end - vma.vm_start
+    else:
+        return 0
+
+    
+# Get task total SHM (SySV) usage
+#@memoize_cond(CU_LIVE)
+def get_task_shm_usage(task):
+    mm = task.mm
+    if (not mm):
+        return 0
+    mmap = mm.mmap
+    totshm = 0
+    ncount = 0
+    for vma in readStructNext(mmap, 'vm_next', maxel=512000):
+        totshm += __get_vma_shm(vma)
+        #if (int(vma.vm_ops) == __shm_vm_ops):
+            #sz = vma.vm_end - vma.vm_start
+            #totshm += sz
+    return totshm
+
+# Print mm stats
+def print_mm_stats(mm):
+    if (not mm):
+        return
+    print("  brk={}  data".format((mm.brk - mm.start_brk)//1024),
+          (mm.end_data - mm.start_data)//1024)
+    for fn in ("total_vm", "locked_vm", "pinned_vm", "shared_vm", "exec_vm",
+               "stack_vm", "reserved_vm"):
+        print("  {}={}".format(fn, getattr(mm, fn)*PAGESIZE//1024))
+
+
+# Scan all processes (just thread group leaders - not extra threads)
+# Return a list of tuples (task, vsz, rss, shm)
+# All memory sizes are in Kb
+
+def __scan_all_pids():
+    tt = TaskTable()
+    out = []
+    for mt in tt.allTasks():
+        task_s = mt.ts
+        pid = mt.pid
+        #if (pid != 38054):
+            #continue
+        vsz, rss = get_task_mem_usage(int(task_s))
+        # Now get this task SYSV shm used
+        totshm = get_task_shm_usage(task_s)//1024
+        out.append((mt, vsz, rss, totshm))
+    return out
+
+
+def print_memory_stats():
+    # Print top-ten
+    ntop = 8
+    def print_top_ten(hdr, lst):
+        print(" ==== First {} {} ====".format(ntop, hdr))
+        for task, vsz, rss, shm in lst[:ntop]:
+            if (shm):
+                print("   PID={:5d} CMD={:15s} RSS={:5.3f} Gb shm={:5.3f} Gb".\
+                    format(task.pid, task.comm, rss/2**20, shm/2**20))
+            else:
+                print("   PID={:5d} CMD={:15s} RSS={:5.3f} Gb".\
+                    format(task.pid, task.comm, rss/2**20))
+    
+            
+        
+    plist = __scan_all_pids()
+    #   0     1   2     3
+    # (task, vsz, rss, shm)
+    # First, sort on rss
+    rsslist = sorted(plist, key = operator.itemgetter(2), reverse=True)
+    print_top_ten("Tasks Reverse-sorted by RSS", rsslist)
+    
+    # Now only processes with shm=0
+    rss1list = sorted([v for v in plist if v[3] == 0],
+             key = operator.itemgetter(2), reverse=True)
+    print_top_ten("Tasks Reverse-sorted by RSS, without SHM", rss1list)
+
+    # Find and print total amount of memory in SHMs
+    
+    totshm = 0
+    for shmi in get_ipcs_m().values():
+        totshm += shmi.bytes
+    print("\n === Total Memory in SHM {:6.3f} Gb"\
+          .format(totshm/2**30))
+    return
