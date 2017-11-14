@@ -28,8 +28,12 @@ import operator
 from pykdump.API import *
 
 from LinuxDump.inet import proto
-from LinuxDump.Tasks import (TaskTable, Task, tasksSummary, ms2uptime, decode_tflags,
-                             decode_waitq, TASK_STATE)
+from LinuxDump.Tasks import (TaskTable, Task, tasksSummary, ms2uptime,
+                             decode_tflags, decode_waitq, TASK_STATE)
+
+from LinuxDump.fregsapi import (search_for_registers, DisasmFlavor)
+from LinuxDump.BTstack import exec_bt
+
 
 # Print processes waiting for UNIX sockets (usually syslog /dev/log)
 def print_wait_for_AF_UNIX(v=0):
@@ -288,3 +292,26 @@ def check_saphana():
         return 1
     else:
         return 0
+
+
+__ARG_REG = ('RDI','RSI','RDX','RCX','R8','R9')
+@memoize_cond(CU_LIVE|CU_LOAD)
+def get_tentative_arg(pid, funcname, argN):
+    foundarg = None
+    s = exec_bt("foreach {} bt".format(pid), MEMOIZE=False)[0]
+    
+    with DisasmFlavor('att'):
+        search_for_registers(s)
+        for f in s.frames:
+            if (funcname not in f.func):
+                continue
+
+            if(f.lookup_regs):
+                for reg in f.reg:
+                    if (not reg in __ARG_REG):
+                        continue
+                    if (__ARG_REG.index(reg) == argN):
+                        addr, conf = f.reg[reg]
+                        foundarg = addr
+                        break
+    return foundarg
