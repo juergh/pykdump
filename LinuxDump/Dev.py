@@ -362,10 +362,13 @@ def print_dm_devices(verbose = 0):
     nameb = readSymbol("_name_buckets")
     out = []
     off = member_offset("struct hash_cell", "name_list")
+    # On older kernels, struct mapped_device has 'struct dm_table *map' field
+    # On newer ones, it is just 'void *map'
     for b in nameb:
         for a in readListByHead(b):
             hc = readSU("struct hash_cell", a - off)
-            out.append((hc.md.disk.first_minor, hc.name, hc.md.map))
+            dm_table = readSU('struct dm_table', hc.md.map)
+            out.append((hc.md.disk.first_minor, hc.name, dm_table))
     
     out.sort()      # sort on minor
     print (" ========== Devicemapper devices ============")
