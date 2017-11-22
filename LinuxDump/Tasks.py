@@ -225,6 +225,9 @@ class Task:
         clist = readSUListFromHead(self.ts.children, "sibling",
                                   "struct task_struct", maxel=200000)
         return [Task(c, self.ttable) for c in clist]
+    # Check whether we have children (not threads!)
+    def hasChildren(self):
+        return not LH_isempty(self.ts.children)
     # Get 'struct sock' for our task
     def get_task_socks(self):
         socks = []

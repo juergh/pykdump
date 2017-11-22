@@ -1054,50 +1054,50 @@ def user_space_memory_report():
 # analysis. Process can be reparented temporarily by ptrace
 
 def longChainOfPids(tt, nmin):
-    # Convert to tree structure, ignore pid=0
-    # Each element is (ppid, [children]) tuple
-    ptree = {}
-    for t in tt.allThreads():
+    ntot = 0
+    leafs = []
+    pidparent = {}
+    for t in tt.allTasks():
+        ntot += 1
         pid = t.pid
         if (pid == 0):
             continue
-        # Thread pointers may get corrupted because of kernel bugs
+        if (not t.hasChildren()):
+            leafs.append(pid)
         try:
             ppid = t.Realparent.pid
         except crash.error:
             pylog.error("corrupted", t)
             continue
+        pidparent[pid] = ppid
+    #print("{} total, {} leafs".format(ntot, len(leafs)))
+
+    # For each leaf, follow its parents
+    for l in leafs:
+        chain = [l]
+        pid = l
+        # If tables is corrupted, we might loop forever - do extra check
+        knownpids = {l}
         
-        if (not pid in ptree):
-            ptree[pid] = (ppid, [])
-    
-        ptree.setdefault(ppid, (t.Realparent.Realparent.pid, []))[1].append(pid)
-    
-    for pid, l in ptree.items():
-        ppid, children = l
-        if (not children):
-            # It is possible that one of 
-            loop_info = {pid}
-            # Check distance from the top
-            dist = 0
-            #print ("---pid={}".format(pid))
-            chain = [pid]
-            while (ppid > 1):
-                dist += 1
-                ppid = ptree[ppid][0]
-                if (ppid in loop_info):
-                    pylog.error("Corrupted task table - pid/ppid loop at"
-                        " pids={}".format(ppid))
-                    break
-                loop_info.add(ppid)
-                if (dist < 10):
-                    chain.insert(0, ppid)
-            if (dist > nmin):
-                pylog.warning("a long chain of processes, N=%d, last pid=%d" % (dist, pid))
-                print ("  Last 10 Processes in this chain")
-                for i, pid in enumerate(chain):
-                    comm = tt.getByPid(pid).comm
-                    print ('  ', '  ' * i, pid, comm)
+        while(pid is not None):
+            pid = pidparent.get(pid, None)
+            if (pid in knownpids):
+                pylog.error("Corrupted task table - pid/ppid loop at"
+                    " pid={}".format(pid))
+                break
+            chain.insert(0, pid)
+            knownpids.add(pid)
+
+        chainlength = len(chain)
+        if (chainlength >= nmin):
+            pylog.warning("a long chain of processes, N={}, last pid={}".\
+                format(chainlength, l))
+
+            print ("  Last 10 Processes in this chain")
+            for i, pid in enumerate(chain[-10:]):
+                comm = tt.getByPid(pid).comm
+                print ('  ', '  ' * i, pid, comm)
+
                     
 #  ==== Detect stack corruption ======
 _longsize = getSizeOf("long int")
@@ -1429,7 +1429,6 @@ if (o.Runq):
 if (o.umem):
     user_space_memory_report()
     sys.exit(0)
- 
 
 dmesg = exec_crash_command("log")
 
