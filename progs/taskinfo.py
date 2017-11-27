@@ -319,7 +319,10 @@ def __getcomm(t):
 def __t_str(t):
     return "%s(%d)" % (t.comm, t.pid)
 
-def walk_children(t, top = False):
+def walk_children(t, top = False, depth = 0):
+    if (depth > 10):
+        yield " ==> more threads"
+        return
     parent_s = __t_str(t)
     if (not top):
         parent_s = '-' + parent_s
@@ -380,7 +383,7 @@ def walk_children(t, top = False):
         if (i == last and threads):
             yield s + c
         else:
-            for s1 in walk_children(c):
+            for s1 in walk_children(c, depth = depth + 1):
                 yield  s + s1
                 if (sc == p_end):
                     s = p_blank

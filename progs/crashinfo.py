@@ -13,7 +13,7 @@
 
 
 # 1st-pass dumpanalysis
-__version__ = "1.3.0"
+__version__ = "1.3.1"
 
 from pykdump.API import *
 
@@ -49,7 +49,7 @@ from optparse import OptionParser
 from collections import Counter
 import textwrap
 from io import StringIO
-
+import itertools
 
 
 # The type of the dump. We should check different things for real panic and
@@ -1054,6 +1054,9 @@ def user_space_memory_report():
 # analysis. Process can be reparented temporarily by ptrace
 
 def longChainOfPids(tt, nmin):
+    ntoprint = 12
+    nbeg = ntoprint//2
+    nend = ntoprint - nbeg
     ntot = 0
     leafs = []
     pidparent = {}
@@ -1085,6 +1088,9 @@ def longChainOfPids(tt, nmin):
                 pylog.error("Corrupted task table - pid/ppid loop at"
                     " pid={}".format(pid))
                 break
+            # Do not follow until 0, just until pid=1 is good enough
+            if (pid is 0):
+                break
             chain.insert(0, pid)
             knownpids.add(pid)
 
@@ -1092,12 +1098,23 @@ def longChainOfPids(tt, nmin):
         if (chainlength >= nmin):
             pylog.warning("a long chain of processes, N={}, last pid={}".\
                 format(chainlength, l))
-
-            print ("  Last 10 Processes in this chain")
-            for i, pid in enumerate(chain[-10:]):
+            
+            if (chainlength <= ntoprint):
+                it_toprint = chain
+            else:
+                it_toprint = itertools.chain(chain[:nbeg], chain[-nend:])
+            nmiddle = chainlength - ntoprint
+            i = 0
+            for pid in it_toprint:
                 comm = tt.getByPid(pid).comm
-                print ('  ', '  ' * i, pid, comm)
-
+                if (i == nbeg and chainlength > ntoprint):
+                    print ('   {}--- <{} threads not printed> ---'.\
+                        format(' '*i, nmiddle))
+                    i += 1
+                print ('  ', ' ' * i, pid, comm)
+                i += 1
+ 
+                    
                     
 #  ==== Detect stack corruption ======
 _longsize = getSizeOf("long int")
@@ -1180,11 +1197,6 @@ op.add_option("--blkreq", dest="Blkreq", default = 0,
 op.add_option("--blkdevs", dest="Blkdevs", default = 0,
                 action="store_true",
                 help="Print Block Devices Info")
-
-op.add_option("--scsi", dest="Scsi", default = 0,
-                action="store_true",
-                help="Print SCSI Dvices Info")
-
 
 op.add_option("--filelock", dest="filelock", default = 0,
                 action="store_true",
@@ -1357,19 +1369,7 @@ if (o.Blkdevs):
     Dev.print_blkdevs(verbose)
     sys.exit(0)
 
-__scsi_obsolete = '''
- !!!!!!!!!!!!!!!!
- !!!! WARNING !!! - this command is obsolete, use 'scsi' command instead!
- !!!!!!!!!!!!!!!!
-'''
- 
-if (o.Scsi):
-    from LinuxDump.scsi import print_SCSI_devices, scsi_debuginfo_OK
-    print(__scsi_obsolete)
-    if (scsi_debuginfo_OK()):
-        print_SCSI_devices(verbose)
-        print(__scsi_obsolete)
-    sys.exit(0)    
+
     
 if (o.decodesyscalls):
     decode_syscalls(o.decodesyscalls)
@@ -1444,7 +1444,6 @@ else:
 # 1. no options (delault). Print a compact summary suitable for quick triage
 # 2. -q option. Print warnings only
 # 3. -v option. Print a more detailed summary suitable for sending by email
-
 
 print_basics()
 dump_reason(dmesg)
