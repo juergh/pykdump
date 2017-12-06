@@ -42,7 +42,7 @@
 # figure everything out (which is probably impossible); this is a debugging
 # aid, not a tool that attempts to do all crash analysis automatically.
 
-__version__ = "1.02"
+__version__ = "1.03"
 
 from pykdump.API import *
 
@@ -252,7 +252,11 @@ def extract_registers (frame, stack):
         disinst.pop()  # discard last line, since it will come back
         nlines = (rip - int(addr,16)) // 5 + 2
         disout = disasm(addr,nlines)
-        disinst.extend(disout.splitlines())
+        try:
+            disinst.extend(disout.splitlines())
+        except:
+            return   # probably a bogus RIP
+
         addr = disinst[-1].split()[0].rstrip(":")
 
     # Discard everything after the ripstr
@@ -667,9 +671,10 @@ class DisasmFlavor():
             #print("Restoring output radix to {}".format(self.radix))
             exec_gdb_command("set output-radix {}".format(self.radix))
 
-# search_for_registers(s) - s is a BTstack object. 
+# search_for_registers(s,filter) - s is a BTstack object.  If filter is 
+# specified, only routines containing that string will be checked. 
 
-def search_for_registers(s):
+def search_for_registers(s, filter=''):
 
     # Make sure we're on an x86_64 vmcore, or this will fail miserably.
     if (sys_info.machine != "x86_64"):
@@ -679,6 +684,10 @@ def search_for_registers(s):
     stackdict = {}
     
     for f, nf in zip(s.frames[:-1], s.frames[1:]):
+
+        if filter not in f.func:
+            continue
+
         calledfrom = nf.func
         
         if (f is not lastf):
