@@ -674,18 +674,29 @@ class DisasmFlavor():
 # search_for_registers(s,filter) - s is a BTstack object.  If filter is 
 # specified, only routines containing that string will be checked. 
 
+# ALEXS: filter can be either a simple string (as described above) or
+# compiled regex
+
+# ALEXS: for convenience, return a list of filtered frames
+
 def search_for_registers(s, filter=''):
 
     # Make sure we're on an x86_64 vmcore, or this will fail miserably.
     if (sys_info.machine != "x86_64"):
         return 1
 
+    outframes = []
     lastf = s.frames[-1]
     stackdict = {}
-    
+
     for f, nf in zip(s.frames[:-1], s.frames[1:]):
 
-        if filter not in f.func:
+        # A test for simple string filter
+        if (isinstance(filter, str)):
+            if filter not in f.func:
+                continue
+        # And now for regexp
+        elif (not filter.search(f.func)):
             continue
 
         calledfrom = nf.func
@@ -721,9 +732,12 @@ def search_for_registers(s, filter=''):
             f.from_func = "called from {:#x} <{}+{}>".format(nf.addr, nf.func, nf.offset)
             f.lookup_regs = True
             extract_registers(f, stackdict)
+
+        outframes.append(f)
     
     # For last frame, empty string for from_func
     lastf.from_func = ''
     lastf.lookup_regs = False
     lastf.reg = {}
  
+    return outframes
