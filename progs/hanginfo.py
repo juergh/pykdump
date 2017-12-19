@@ -105,7 +105,7 @@ def get_mutex_waiters(mutex):
     if (owner and mutex.count.counter >= 0):
         return []
     wait_list = readSUListFromHead(Addr(mutex.wait_list), "list",
-            "struct mutex_waiter")
+            "struct mutex_waiter", inchead = True)
     return [w.task.pid for w in wait_list]
 
 structSetAttr("struct mutex", "Owner", ["owner.task", "owner"])
@@ -448,6 +448,16 @@ def check_console_sem(tasksrem):
     verifyFastSet(pids, __testfunc)
     if (pids):
         print("    Possible owners: {}".format(pids))
+
+__waitonbitfunc = "out_of_line_wait_on_bit"
+def check_wait_on_bit(tasksrem):
+    #print(mutexlist)
+    mutexlist = set()
+    goodpids = _funcpids(__mutexfunc)
+    for pid in tasksrem:
+        if (not pid in goodpids):
+        #if (not bt.hasfunc(__mutexfunc)):
+            continue
 
         
 # ==============end of check subroutines=======================   
