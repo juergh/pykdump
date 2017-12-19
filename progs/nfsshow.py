@@ -12,7 +12,9 @@
 
 __version__ = "1.0.4"
 
-from collections import Counter, OrderedDict
+from collections import (Counter, OrderedDict, defaultdict)
+import itertools
+import operator
 
 from pykdump.API import *
 
@@ -31,6 +33,17 @@ from LinuxDump.inet.proto import (tcpState, sockTypes,
 
 # For NFS/RPC stuff
 from LinuxDump.nfsrpc import *
+
+# Time info
+from LinuxDump.Time import *
+
+# Stacks info
+from LinuxDump.BTstack import (exec_bt, bt_mergestacks, fastSubroutineStacks,
+                               verifyFastSet)
+
+# Arguments analysis
+from LinuxDump.Analysis import (get_tentative_arg, 
+                                get_interesting_arguments)
 
 import string, struct
 from socket import ntohl, ntohs, htonl, htons
@@ -528,6 +541,13 @@ def print_rpc_task(s, v = 0):
             print ("\t  protname=", tk_client.cl_protname)
         except KeyError:
             pass
+        
+        try:
+            pid_owner = s.tk_owner
+            print("\tOwner pid={}".format(pid_owner))
+        except KeyError:
+            # Does not work on RHEL5
+            pass
 
         vers = s.CL_vers
         prog = s.CL_prog
@@ -553,6 +573,13 @@ def print_rpc_task(s, v = 0):
         tk_callback = s.tk_callback
         if (tk_callback):
             print ("\t  callback=%s" % addr2sym(tk_callback))
+        # Try to find how long ago it has started
+        try:
+            tk_start = s.tk_start.tv64
+            ms_ago = round((get_ktime_j() - tk_start)/1000000)
+            print("\t  started {} ms ago".format(ms_ago))
+        except:
+            pass
         if (v > 2):
             print("\t  tk_flags={}".format(dbits2str(s.tk_flags, RPC_flags)))
             u = s.u
@@ -747,6 +774,49 @@ def get_all_rpc_tasks(nmax = 100):
     return out
 
 
+# This class will be used to hold all information we can extract about
+# NFS/RPC servers and clients. It should probably be a Singleton but
+# at this moment we do not care
+
+class _NFS_Tables():
+    def __init__(self):
+        # list of struct nfs_server
+        self.srv_list = []
+        # Mount path for nfs_server, a dict of strings indexed by srv
+        self.srv_mount = {}
+        # list of struct nfs_client
+        self.nfs_cli_list = []
+        # list of all structs refering to this struct rpc_clnt
+        self.rpc_cl = defaultdict(list)
+        
+        for hostname, srv, mnt in get_nfs_mounts():
+            self.srv_list.append(srv)
+            self.srv_mount[srv] = mnt
+            self.rpc_cl[long(srv.client)].append(srv)
+            self.rpc_cl[long(srv.client_acl)].append(srv)
+            try:
+                nfs_cl = srv.nfs_client
+                self.nfs_cli_list.append(nfs_cl)
+                self.rpc_cl[long(nfs_cl.cl_rpcclient)].append(nfs_cl)
+            except KeyError:
+                # Old 2.6.9 kernels, we do not care about them anymore
+                pass
+    # Get list of nfs_server structs, return (srv, mnt)
+    def get_nfs_servers(self):
+        return [(srv, self.srv_mount[srv]) for srv in self.srv_list]
+    # Get list of all nfs_client struct
+    def get_nfs_clients(self):
+        return self.nfs_cli_list
+    # get all know structures referring to a given rpc_clnt
+    def get_rpc_cl_friends(self, addr):
+        return self.rpc_cl.get(addr, [])
+    
+#@memoize_cond(CU_LIVE |CU_PYMOD)
+def NFS_Tables():
+    return _NFS_Tables()
+
+
+
 # Get dirty inodes
 #       struct list_head        s_dirty;        /* dirty inodes */
 #       struct list_head        s_io;           /* parked for writeback */
@@ -931,8 +1001,9 @@ def print_nfsmount(v = 0):
         count_all = 0
         count_flag = Counter()
         count_caps = Counter()
-    nfs_cl_dict = {}
-    for hostname, srv, mnt in get_nfs_mounts():
+    nfstable = NFS_Tables()
+
+    for srv, mnt in nfstable.get_nfs_servers():
         if(v):
             print_remote_nfs_server(srv, mnt)
         else:
@@ -940,38 +1011,31 @@ def print_nfsmount(v = 0):
             count_all += 1
             count_flag[dbits2str(srv.flags, NFS_flags, 10)] += 1
             count_caps[dbits2str(srv.caps, NFS_caps, 8)] += 1
-        try:
-           nfs_cl = srv.nfs_client
-           nfs_cl_dict[long(nfs_cl)] = nfs_cl
-        except KeyError:
-            # This is old 2.6, no struct nfs_client
-            rpc_clnt = srv.client
-            addr_in = srv.addr
-            ip = ntodots(addr_in.sin_addr.s_addr)
-            if (v):
-                print ("        IP=%s" % ip)
     if (v == 0 and count_all):
         # Print a summary
         print(" {} mounted shares, by flags/caps:".format(count_all))
-        for k, v in count_flag.items():
-            print ("  {:3d} shares with flags=<{}>".format(v, k))
-        for k, v in count_caps.items():
-            print ("  {:3d} shares with caps=<{}>".format(v, k))
-    if (nfs_cl_dict):
+        for k, val in count_flag.items():
+            print ("  {:3d} shares with flags=<{}>".format(val, k))
+        for k, val in count_caps.items():
+            print ("  {:3d} shares with caps=<{}>".format(val, k))
+    nfs_clients = nfstable.get_nfs_clients()
+    if (nfs_clients):
         print ("  ............. struct nfs_client .....................")
-        for nfs_cl in nfs_cl_dict.values():
-            # At this moment, only IPv4
-            addr_in = nfs_cl.cl_addr.castTo("struct sockaddr_in")
-            ip = ntodots(addr_in.sin_addr.s_addr)
-            print ("     ---", nfs_cl, nfs_cl.cl_hostname, ip)
-            if (ip in my_ipv4):
-                pylog.warning("NFS loopback mount")
+    for nfs_cl in nfs_clients:
+        # At this moment, only IPv4
+        addr_in = nfs_cl.cl_addr.castTo("struct sockaddr_in")
+        ip = ntodots(addr_in.sin_addr.s_addr)
+        print ("     ---", nfs_cl, nfs_cl.cl_hostname, ip)
+        if (ip in my_ipv4):
+            pylog.warning("NFS loopback mount")
 
-            rpc_clnt = nfs_cl.cl_rpcclient
-            # Print/decode the transport
-            xprt = rpc_clnt.cl_xprt
-            print_xprt(xprt, detail)
-            #print rpc_clnt, rpc_clnt.cl_metrics
+        rpc_clnt = nfs_cl.cl_rpcclient
+        if (v > 1):
+            print('        ...', rpc_clnt)
+        # Print/decode the transport
+        xprt = rpc_clnt.cl_xprt
+        print_xprt(xprt, detail)
+        #print rpc_clnt, rpc_clnt.cl_metrics
 
     # Stats are per RPC program, and all clients are using "NFS"
     cl_stats = rpc_clnt.cl_stats
@@ -1083,6 +1147,75 @@ def print_deferred(v = 0):
         if (v == -1 and total):
             pylog.warning("{} deferred requests".format(total))
 
+
+# --- find all threads that have nfs or rpc subroutines on their stack
+def find_all_NFS(v = 0):
+    stacks_helper = fastSubroutineStacks()
+    _funcpids = stacks_helper.find_pids_byfuncname
+    pids = _funcpids(re.compile("nfs|rpc"))
+    for pid in pids:
+        print_pid_NFS_stuff(pid, v)
+ 
+# --- look at this PID to see whether we can find anything interesting
+# related to NFS/RPC
+
+def print_pid_NFS_stuff(pid, v = 0):
+    re_nfsrpc=re.compile(r'nfs|rpc')
+    re_ctypes = re.compile(r'nfs|rpc|inode|path')
+    # Verify whether we really havd these subroutines on the stack
+    bts = exec_bt("bt {}".format(pid))[0]
+    if (not bts.hasfunc(re_nfsrpc)):
+        return
+    print("--- PID={} ---".format(pid))
+
+    # Group by funcname
+    iterable = list(get_interesting_arguments(pid, re_nfsrpc, re_ctypes))
+    #if (iterable):
+        #print("   --- PID={} ---".format(pid))
+    keyfunc = operator.itemgetter(0)
+    for funcname, g in itertools.groupby(iterable, keyfunc):
+        print(" ---", funcname)
+        for funcname, sname, addr in g:
+            obj = readSU(sname, addr)
+            print("   {!s:45s}".format(obj))
+            decoder = "__nfs_decode_{}".format(sname.split()[1])
+            #print("  ", decoder)
+            try:
+                exec ("{}(obj, funcname)".format(decoder),globals(),locals())
+            except NameError as val:
+                if ('__nfs_decode' in str(val)):
+                    pass
+                    #__nfs_default_decoder(obj, funcname)
+                else:
+                    print("   Error:", val)
+
+def __nfs_default_decoder(obj, funcname):
+    print("    {!s:45s}".format(obj))
+
+def __nfs_decode_path(path, func):
+    pathname = get_pathname(path.dentry, path.mnt)
+    print("     ⮡{}".format(pathname))
+    
+def __nfs_decode_inode(inode, func):
+    nfs_server = NFS_SERVER(inode)
+    print("    ⮡", nfs_server)
+    nfs_cl = nfs_server.nfs_client
+    if (nfs_cl):
+        print("      ⮡", nfs_cl)
+
+def __nfs_decode_nfs4_state(o, func):
+    owner = o.owner
+    nfs_server = owner.so_server
+    print("    ⮡", nfs_server)
+    nfs_cl = nfs_server.nfs_client
+    if (nfs_cl):
+        print("      ⮡", nfs_cl)
+
+def __nfs_decode_rpc_clnt(o, func):
+    print("      ⮡server: {}".format(o.cl_server))
+    nfstable = NFS_Tables()
+    for owner in nfstable.get_rpc_cl_friends(o):
+        print("      ⮡used by: {}".format(owner))
 
 
 # The following exists on new kernels but not on old (e.g. 2.6.18)
@@ -1251,6 +1384,11 @@ if ( __name__ == '__main__'):
                   action="store_true",
                   help="Print Deferred Requests")
 
+    parser.add_argument("--pid", dest="Pid", default=None, const=-1,
+                nargs = '?',
+                type=int, action="store",
+                help="Try to find everything NFS-related for this pid")
+
     parser.add_argument("--version", dest="Version", default = 0,
                   action="store_true",
                   help="Print program version and exit")
@@ -1283,7 +1421,15 @@ if ( __name__ == '__main__'):
         s = readSU("struct rpc_task", o.Decoderpctask)
         print_rpc_task(s, detail)
         sys.exit(0)
-        
+
+    if (o.Pid):
+        if (o.Pid == -1):
+            # All processes with nfs/rpc on stack
+            print("  --- All Processes doing NFS or RPC ---")
+            find_all_NFS(detail)
+        else:
+            print_pid_NFS_stuff(o.Pid, detail)
+        sys.exit(0)
 
     if (o.Locks or o.All):
         print ('*'*20, " NLM(lockd) Info", '*'*20)
