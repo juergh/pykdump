@@ -243,5 +243,21 @@ def print_nfs_inode(inode):
     flags = nfs_inode.flags
     print ("%s %s" % (str(nfs_inode), dbits2str(flags, NFS_INO, 4)))
 
+#static inline struct nfs_server *NFS_SERVER(const struct inode *inode)
+#{
+         #return NFS_SB(inode->i_sb);
+#}
+
+def NFS_SERVER(inode):
+    return NFS_SB(inode.i_sb)
+
+# static inline struct nfs_server *NFS_SB(const struct super_block *s)
+# {
+#         return (struct nfs_server *)(s->s_fs_info);
+# }
+
+def NFS_SB(s):
+    return readSU("struct nfs_server", s.s_fs_info)
+
 init_Structures()    
 
