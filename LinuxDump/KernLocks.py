@@ -11,9 +11,6 @@
 #
 # --------------------------------------------------------------------
 
-# To facilitate migration to Python-3, we start from using future statements/builtins
-from __future__ import print_function
-
 
 from pykdump.API import *
 from .Tasks import decode_waitq
@@ -33,7 +30,7 @@ def decode_mutex(addr):
     print (" {!s:-^40}".format(s))
     #wait_list elements are embedded in struct mutex_waiter
     wait_list = readSUListFromHead(Addr(s.wait_list), "list",
-             "struct mutex_waiter")
+             "struct mutex_waiter", inchead=True)
     out = []
     for w in wait_list:
         task = w.task
