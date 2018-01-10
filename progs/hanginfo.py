@@ -90,7 +90,7 @@ def if_mutexOK(addr):
             _next_tasks = owner.tasks.next
         for i in range(5):
             _next_wait_list = _next_wait_list.next 
-            if (owner):
+            if (owner and _next_tasks):
                 _next_tasks = _next_tasks.next
         return 2 if owner else 1
     except:
@@ -323,8 +323,8 @@ def check_other_mutexes(tasksrem):
         if (not pid in goodpids):
         #if (not bt.hasfunc(__mutexfunc)):
             continue
-        #print(bt)
         maddr = get_tentative_arg(pid, __mutexfunc, 0)
+        #print(pid, if_mutexOK(maddr))
         if (maddr and if_mutexOK(maddr)):
             mutex = readSU("struct mutex", maddr)
             mutexlist.add(mutex)
