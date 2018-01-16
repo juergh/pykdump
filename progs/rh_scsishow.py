@@ -169,8 +169,8 @@ def print_sdev_shost():
 
         for shost in get_scsi_hosts():
             if (shost.__devices.next != shost.__devices.next.next):
-                print("\n====================================================================================="
-                      "======================================================================================")
+                print("\n=============================================================================="
+                      "===============================================================================")
                 print("HOST      DRIVER")
                 print("NAME      NAME                               {:24s} {:24s} {:24s}".format("Scsi_Host",
                       "shost_data", "&.hostdata[0]", end=""))
@@ -179,13 +179,13 @@ def print_sdev_shost():
 
                 print_shost_header(shost)
 
-                print("{:17s} {:23s} {:16s} {:25s} {:24s} {:12s}   {}  {}    {}"
+                print("{:17s} {:23s} {:16s} {:25s} {:24s}   {}  {}    {}"
                       "\n".format("DEV NAME", "scsi_device", "H:C:T:L", "VENDOR/MODEL",
-                      "DEVICE STATE", "WRITABLE", "IOREQ-CNT", "IODONE-CNT",
+                      "DEVICE STATE", "IOREQ-CNT", "IODONE-CNT",
                       "           IOERR-CNT"), end="")
-                print("-------------------------------------------------------------"
-                      "------------------------------------------------------------"
-                      "--------------------------------------------------")
+                print("-----------------------------------------------------"
+                      "-----------------------------------------------------"
+                      "---------------------------------------------------")
 
                 for sdev in readSUListFromHead(shost.__devices, "siblings", "struct scsi_device"):
                     name = scsi_device_type(sdev.type)
@@ -211,10 +211,10 @@ def print_sdev_shost():
                         name = "null"
 
                     print("{:17s} {:x} {:6s} {:16} {} {} {:22s}"
-                          "{:11d} {:15} {:11}  ({:3d})\t{:10d}\n".format(name,
+                          "{:11d} {:11}  ({:3d})\t{:10d}\n".format(name,
                           int(sdev), "", get_scsi_device_id(sdev),
                           sdev.vendor[:8], sdev.model[:16],
-                          sdev_state_dict[sdev.sdev_state], sdev.writeable,
+                          sdev_state_dict[sdev.sdev_state],
                           sdev.iorequest_cnt.counter, sdev.iodone_cnt.counter,
                           sdev.iorequest_cnt.counter-sdev.iodone_cnt.counter,
                           sdev.ioerr_cnt.counter), end='')
