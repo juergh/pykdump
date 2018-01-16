@@ -202,7 +202,7 @@ def show_dmsetup_table_multipath(dev):
     # general parameters
     params = []
 
-    if ((version == 'rhel7') and (minor_version >= 514)):
+    if (member_size("struct multipath", "flags") != -1):
         if ((mpath.flags & (1 << 0)) or (mpath.flags & (1 << 1)) or
             (mpath.flags & (1 << 2))):
             params.append("queue_if_no_path")
