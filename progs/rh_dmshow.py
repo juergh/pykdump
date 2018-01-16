@@ -463,25 +463,12 @@ if ( __name__ == '__main__'):
                    "the modules manually")
             sys.exit()
 
-    #Check the version of kernel, to accomodate some changes in struct definitions accordingly:
-    for l in exec_crash_command_bg('sys').splitlines()[1:]:
-        try:
-            if ('RELEASE: ' in l): 
-                if ('2.6.18-' in l):
-                    version = 'rhel5'
-                    exec_crash_command("set scope dm_table_get_devices")
-                elif ('2.6.32-' in l):
-                    version = 'rhel6'
-                    exec_crash_command("set scope dm_table_get_devices")
-                elif ('3.10.0-' in l):
-                    version = 'rhel7'
-                    exec_crash_command("sym dm_table_get_devices")
-                    exec_crash_command("set scope dm_table_get_devices")
-                minor_version = int(l.split("-")[1].split(".")[0])
-                setscope = 1 
-        except:
-            pylog.warning("cannot parse:", l)
-            setscope = 0
+    try:
+        exec_crash_command("sym dm_table_get_devices")
+        exec_crash_command("set scope dm_table_create")
+        setscope = 1
+    except:
+        setscope = 0
 
     devlist = get_dm_devices()
     devlist = sorted(devlist, key=lambda dev: dev[0].disk.first_minor)
