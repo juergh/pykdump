@@ -107,47 +107,48 @@ def print_shost_header(shost):
             shost.hostt.name, shost, shost.shost_data,
             shost.hostdata, end=""))
 
-def get_gendev_rhel67():
+def get_gendev():
     gendev_dict = {}
-    block_class = readSymbol("block_class")
     klist_devices = 0
 
-    try:
-        klist_devices = block_class.p.class_devices
-    except KeyError:
-        pass
+    if (member_size("struct device", "knode_class") != -1):
+        block_class = readSymbol("block_class")
 
-    if (not klist_devices):
         try:
-            klist_devices = block_class.p.klist_devices
+            klist_devices = block_class.p.class_devices
         except KeyError:
             pass
 
-    if (klist_devices):
-        for knode in klistAll(klist_devices):
-            dev = container_of(knode, "struct device", "knode_class")
-            hd_temp = container_of(dev, "struct hd_struct", "__dev")
-            gendev = container_of(hd_temp, "struct gendisk", "part0")
-            gendev_q = format(gendev.queue, 'x')
-            gendev_dict[gendev_q] = format(gendev, 'x')
+        if (not klist_devices):
+            try:
+                klist_devices = block_class.p.klist_devices
+            except KeyError:
+                pass
 
-    return gendev_dict
+        if (klist_devices):
+            for knode in klistAll(klist_devices):
+                dev = container_of(knode, "struct device", "knode_class")
+                hd_temp = container_of(dev, "struct hd_struct", "__dev")
+                gendev = container_of(hd_temp, "struct gendisk", "part0")
+                gendev_q = format(gendev.queue, 'x')
+                gendev_dict[gendev_q] = format(gendev, 'x')
 
-def get_gendev_rhel5():
-    gendev_dict = {}
-    block_subsys = readSymbol("block_subsys")
-    klist_devices = 0
+    elif (member_size("struct gendisk", "kobj") != -1):
+        block_subsys = readSymbol("block_subsys")
+        try:
+            kset_list = block_subsys.kset.list
+        except KeyError:
+            pass
 
-    try:
-        kset_list = block_subsys.kset.list
-    except KeyError:
-        pass
+        if (kset_list):
+            for kobject in readSUListFromHead(kset_list, "entry", "struct kobject"):
+                gendev = container_of(kobject, "struct gendisk", "kobj")
+                gendev_q = format(gendev.queue, 'x')
+                gendev_dict[gendev_q] = format(gendev, 'x')
 
-    if (kset_list):
-        for kobject in readSUListFromHead(kset_list, "entry", "struct kobject"):
-            gendev = container_of(kobject, "struct gendisk", "kobj")
-            gendev_q = format(gendev.queue, 'x')
-            gendev_dict[gendev_q] = format(gendev, 'x')
+    else:
+        print("Unable to process the vmcore, cant find 'struct class' or 'struct subsystem'.")
+        return
 
     return gendev_dict
 
