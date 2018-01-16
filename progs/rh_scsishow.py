@@ -220,19 +220,7 @@ def print_sdev_shost():
                           sdev.ioerr_cnt.counter), end='')
 
 def print_starget_shost():
-        if (member_size("enum scsi_target_state", "STARGET_CREATED") != -1):
-            starget_state_dict = {
-                1: 'STARGET_CREATED',
-                2: 'STARGET_RUNNING',
-                3: 'STARGET_DEL',
-                4: 'STARGET_REMOVE',
-                5: 'STARGET_CREATED_REMOVE',
-            }
-        else:
-            starget_state_dict = {
-                1: 'STARGET_RUNNING',
-                2: 'STARGET_DEL',
-            }
+        enum_starget_state = EnumInfo("enum scsi_target_state")
 
         for shost in get_scsi_hosts():
             if (shost.__targets.next != shost.__targets.next.next):
@@ -254,9 +242,9 @@ def print_starget_shost():
                 for starget in readSUListFromHead(shost.__targets, "siblings", "struct scsi_target"):
                     try:
                         print("{:15s} {:x} {:6s} {:7d} {:5d} {:16s}"
-                            "{:20s} \n".format(starget.dev.kobj.name,
+                            "{:20s}\n".format(starget.dev.kobj.name,
                             int(starget), "", starget.channel,
-                            starget.id, "", starget_state_dict[starget.state]), end='')
+                            starget.id, "", enum_starget_state.getnam(starget.state)), end='')
                     except KeyError:
                         pylog.warning("Error in processing scsi_target {:x}, please check manually".format(int(starget)))
 
