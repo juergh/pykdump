@@ -607,22 +607,6 @@ if ( __name__ == '__main__'):
 
     args = parser.parse_args()
 
-        #Check the version of kernel, to accomodate some changes in struct definitions accordingly:
-    for l in exec_crash_command_bg('sys').splitlines()[1:]:
-        try:
-            if ('RELEASE: ' in l): 
-                if ('2.6.18-' in l): 
-                    version = 'rhel5'
-                elif ('2.6.32-' in l): 
-                    version = 'rhel6'
-                elif ('3.10.0-' in l):
-                    if (('3.10.0-1' in l) or ('3.10.0-2' in l)):
-                        version = 'rhel7.0-1'    #RHEL 7.0, 7.1
-                    else:
-                        version = 'rhel7.2plus'  #RHEL 7.2 and above
-        except:
-            pylog.warning("cannot parse:", l)
-
     if (args.runcheck):
         run_scsi_checks()
 
