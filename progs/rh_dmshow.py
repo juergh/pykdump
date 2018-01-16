@@ -268,7 +268,7 @@ def get_md_mpath_from_gendisk(pv_gendisk):
         if (tmp_mapped_device == temp_dev[0]):
             return temp_dev
 
-def show_linear_lvm(dev, version):
+def show_linear_lvm(dev):
     md, name = dev
     dm_table_map = StructResult("struct dm_table", long(md.map))
     for target_id in range(dm_table_map.num_targets):
@@ -284,11 +284,7 @@ def show_linear_lvm(dev, version):
 
         if ((vg_lv_names[0]) and (vg_lv_names[1])):
 
-            if (version == 'rhel5'):
-                lv_capacity = gendisk.capacity * 512 // 1048576
-            elif ((version == 'rhel6') or (version == 'rhel7')):
-                hd_struct = readSU("struct hd_struct", long(gendisk.part0))
-                lv_capacity = hd_struct.nr_sects * 512 // 1048576
+            lv_capacity = get_size(gendisk)
 
             if ('dm-' in pv_gendisk.disk_name[:3]):
                 pv_md, pv_md_name = get_md_mpath_from_gendisk(pv_gendisk)
@@ -537,7 +533,7 @@ if ( __name__ == '__main__'):
 
         elif (args.lvs):
             if (dm_table_map.targets.type.name == "linear"):
-                show_linear_lvm(dev, version)
+                show_linear_lvm(dev)
             elif ((dm_table_map.targets.type.name != "linear") and 
                   (dm_table_map.targets.type.name != "multipath")):
                   print("{}: {} not yet supported by this command".format(name,
