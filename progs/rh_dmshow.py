@@ -165,7 +165,7 @@ def show_multipath_list(dev):
         print("{}  ({})  dm-{:<4d}  {}  {}".format(name, scsi_id[2], md.disk.first_minor,
             temp_scsi_device.vendor[:8], temp_scsi_device.model[:16]), end="")
 
-    print("\nsize={:.2f}M  ".format(get_size(temp_pgpath.path.dev.bdev.bd_disk)))
+    print("\nsize={:.2f}M  ".format(get_size(temp_pgpath.path.dev.bdev.bd_disk)), end="")
 
     if (member_size("struct multipath", "flags") != -1):
         if ((mpath.flags & (1 << 0)) or (mpath.flags & (1 << 1)) or
