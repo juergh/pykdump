@@ -245,6 +245,38 @@ def show_dmsetup_table_multipath(dev):
 
     print("")
 
+def show_basic_mpath_info(dev):
+    md, name = dev
+    dm_table_map = StructResult("struct dm_table", long(md.map))
+    mpath = StructResult("struct multipath", long(dm_table_map.targets.private))
+
+    print("dm-{:<4d} {:<22} {:#x} ".format(md.disk.first_minor, name, mpath), end="")
+
+    use_nr_paths_counter = -1
+
+    try:
+        use_nr_paths_counter = readSU("struct multipath", long(mpath.nr_valid_paths.counter))
+    except:
+        use_nr_paths_counter = -1
+
+    if (use_nr_paths_counter != -1):
+        print("{:26d}".format(mpath.nr_valid_paths.counter), end="")
+    else:
+        print("{:26d}".format(mpath.nr_valid_paths), end="")
+
+    if (member_size("struct multipath", "flags") != -1):
+        if ((mpath.flags & (1 << 0)) or (mpath.flags & (1 << 1)) or
+            (mpath.flags & (1 << 2))):
+            print("\t\t{}".format("Enabled"))
+        else:
+            print("\t\t{}".format("Disabled"))
+
+    else:
+        if (mpath.queue_if_no_path):
+            print("\t\t{}".format("Enabled"))
+        else:
+            print("\t\t{}".format("Disabled"))
+
 def get_vg_lv_names(string):
     temp = ["", ""]
     i = flag = 0
@@ -473,7 +505,8 @@ if ( __name__ == '__main__'):
     devlist = get_dm_devices()
     devlist = sorted(devlist, key=lambda dev: dev[0].disk.first_minor)
     if (args.multipath):
-        print("NUMBER  NAME                   MULTIPATH           FIELDS")
+        print("{}  {:22s} {:30s} {:24s}  {}\n".format("NUMBER", "NAME", "MULTIPATH",
+              "nr_valid_paths", "queue_if_no_path"), end="")
     elif (args.multipathlist):
         pass
     elif (args.lvs):
@@ -498,9 +531,7 @@ if ( __name__ == '__main__'):
         if (args.multipath):
             if (not (dm_table_map.targets.type.name == "multipath")):
                 continue
-            mpath = StructResult("struct multipath", long(dm_table_map.targets.private))
-            print("dm-{:<4d} {:<22} {:#x} ".format(md.disk.first_minor, name, mpath), end="")
-            display_fields(mpath, args.multipath, usehex=args.usehex)
+            show_basic_mpath_info(dev)
             mpathfound = 1
 
         elif (args.multipathlist):
