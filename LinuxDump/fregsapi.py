@@ -42,7 +42,7 @@
 # figure everything out (which is probably impossible); this is a debugging
 # aid, not a tool that attempts to do all crash analysis automatically.
 
-__version__ = "1.03"
+__version__ = "1.04"
 
 from pykdump.API import *
 
@@ -177,7 +177,10 @@ def extract_registers (frame, stack):
                 basereg = dest[(paren+2):-1]
 
                 if basereg == "rbp":
-                    addr = rbp + offset
+                    try:
+                        addr = rbp + offset
+                    except:
+                        continue
                 elif basereg == "rsp":
                     addr = rsp + offset
                 else:
@@ -604,12 +607,18 @@ def extract_registers (frame, stack):
         elif opcode.startswith('stos'):
              regval['RDI'] = "invalid"
 
+        # DIV invalidates both RAX and RDX
+
+        elif opcode.startswith('div'):
+             regval['RAX'] = "invalid"
+             regval['RDX'] = "invalid"
+
         # For any other instruction that modified the contents of a register,
         # invalidate the register.
 
         elif opcode.startswith(('add','sub','inc','dec','imul','idiv','and',
             'or','xor','not','sbb','adc','neg','sh','pop','bt','sa','set',
-            'cmov','ro','rc')):
+            'cmov','ro','rc','bsf','bsr')):
             fields = operand.split(",")
             dst = fields[-1]
             if dst.startswith("%"):
