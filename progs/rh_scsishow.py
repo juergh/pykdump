@@ -152,7 +152,7 @@ def get_gendev():
 
     return gendev_dict
 
-def print_sdev_shost(version):
+def print_sdev_shost():
         sdev_state_dict = {
             1: 'SDEV_CREATED',
             2: 'SDEV_RUNNING',
@@ -165,11 +165,7 @@ def print_sdev_shost(version):
             9: 'SDEV_TRANSPORT_OFFLINE',
         }
 
-        if (version == 'rhel5'):
-           gendev_dict = get_gendev_rhel5()
-        elif ((version == 'rhel6') or (version == 'rhel7.0-1') or
-              (version == 'rhel7.2plus')):
-              gendev_dict = get_gendev_rhel67()
+        gendev_dict = get_gendev()
 
         for shost in get_scsi_hosts():
             if (shost.__devices.next != shost.__devices.next.next):
@@ -639,7 +635,7 @@ if ( __name__ == '__main__'):
             print("No SCSI commands found")
 
     if (args.devs):
-        print_sdev_shost(version)
+        print_sdev_shost()
 
     if (args.targets):
         print_starget_shost(version)
