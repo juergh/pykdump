@@ -219,23 +219,25 @@ def print_sdev_shost():
                           sdev.iorequest_cnt.counter-sdev.iodone_cnt.counter,
                           sdev.ioerr_cnt.counter), end='')
 
-def print_starget_shost(version):
-        if (version == 'rhel5'):
-            starget_state_dict = {
-                1: 'STARGET_RUNNING',
-                2: 'STARGET_DEL',
-            }
-        elif ((version == 'rhel6') or (version == 'rhel7.0-1') or
-              (version == 'rhel7.2plus')):
+def print_starget_shost():
+        if (member_size("enum scsi_target_state", "STARGET_CREATED") != -1):
             starget_state_dict = {
                 1: 'STARGET_CREATED',
                 2: 'STARGET_RUNNING',
                 3: 'STARGET_DEL',
+                4: 'STARGET_REMOVE',
+                5: 'STARGET_CREATED_REMOVE',
             }
+        else:
+            starget_state_dict = {
+                1: 'STARGET_RUNNING',
+                2: 'STARGET_DEL',
+            }
+
         for shost in get_scsi_hosts():
             if (shost.__targets.next != shost.__targets.next.next):
-                print("\n========================================================================"
-                      "=========================================================================")
+                print("\n======================================================="
+                      "========================================================")
                 print("HOST      DRIVER")
                 print("NAME      NAME                               {:24s} {:24s} {:24s}".format("Scsi_Host",
                       "shost_data", "&.hostdata[0]", end=""))
@@ -244,8 +246,8 @@ def print_starget_shost(version):
 
                 print_shost_header(shost)
 
-                print("------------------------------------------------------------------"
-                      "-----------------------------------------------------------------")
+                print("------------------------------------------------"
+                      "-----------------------------------------------")
                 print("{:15s} {:23s} {:10s} {:18s} {:20s}".format("TARGET DEVICE",
                     "scsi_target", "CHANNEL", "ID", "TARGET STATUS", end=""))
 
@@ -650,7 +652,7 @@ if ( __name__ == '__main__'):
         print_sdev_shost()
 
     if (args.targets):
-        print_starget_shost(version)
+        print_starget_shost()
 
     if (args.requests):
         display_requests(args.requests, args.usehex)
