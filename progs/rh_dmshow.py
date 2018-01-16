@@ -134,7 +134,7 @@ def show_mpath_info(prio):
             print("\t[scsi_device: {:#x} sdev_state: {}]".format(scsi_device,
                 sdev_state_dict[scsi_device.sdev_state]), end="")
 
-def show_multipath_list(dev, version):
+def show_multipath_list(dev):
     md, name = dev
     dm_table_map = StructResult("struct dm_table", long(md.map))
     print("------------------------------------------------------------------------------------------")
@@ -158,23 +158,16 @@ def show_multipath_list(dev, version):
     scsi_id = hash_cell.uuid
     scsi_id = scsi_id.partition("-")
 
-    if (version == 'rhel5'):
-        if ('cciss' in temp_pgpath.path.dev.bdev.bd_disk.disk_name):
-            print("{}  ({})  dm-{:<4d}  HP Smart Array RAID Device (cciss)".format(name, scsi_id[2],
-                md.disk.first_minor), end="")
-        else:
-            print("{}  ({})  dm-{:<4d}  {}  {}".format(name, scsi_id[2], md.disk.first_minor,
-                temp_scsi_device.vendor[:8], temp_scsi_device.model[:16]), end="")
-        print("\nsize={:.2f}M  ".format(temp_pgpath.path.dev.bdev.bd_disk.capacity * 512 // 1048576), end="")
-
-    elif ((version == 'rhel6') or (version == 'rhel7')):
+    if ('cciss' in temp_pgpath.path.dev.bdev.bd_disk.disk_name):
+        print("{}  ({})  dm-{:<4d}  HP Smart Array RAID Device (cciss)".format(name, scsi_id[2],
+            md.disk.first_minor), end="")
+    else:
         print("{}  ({})  dm-{:<4d}  {}  {}".format(name, scsi_id[2], md.disk.first_minor,
             temp_scsi_device.vendor[:8], temp_scsi_device.model[:16]), end="")
 
-        temp_hd_struct = readSU("struct hd_struct", long(temp_pgpath.path.dev.bdev.bd_disk.part0))
-        print("\nsize={:.2f}M  ".format(temp_hd_struct.nr_sects * 512 // 1048576), end="")
+    print("\nsize={:.2f}M  ".format(get_size(temp_pgpath.path.dev.bdev.bd_disk)))
 
-    if ((version == 'rhel7') and (minor_version >= 514)):
+    if (member_size("struct multipath", "flags") != -1):
         if ((mpath.flags & (1 << 0)) or (mpath.flags & (1 << 1)) or
             (mpath.flags & (1 << 2))):
             print("(queue_if_no_path enabled)  ".format(), end="")
@@ -539,7 +532,7 @@ if ( __name__ == '__main__'):
             if (not (dm_table_map.targets.type.name == "multipath")):
                 continue
             mpath = StructResult("struct multipath", long(dm_table_map.targets.private))
-            show_multipath_list(dev, version)
+            show_multipath_list(dev)
             mpathfound = 1
 
         elif (args.lvs):
