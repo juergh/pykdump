@@ -258,7 +258,8 @@ def print_starget_shost(version):
                     except KeyError:
                         pylog.warning("Error in processing scsi_target {:x}, please check manually".format(int(starget)))
 
-def print_shost_info(version):
+def print_shost_info():
+        use_host_busy_counter = -1
         shost_state_dict = {
             1: 'SHOST_CREATED',
             2: 'SHOST_RUNNING',
@@ -268,7 +269,15 @@ def print_shost_info(version):
             6: 'SHOST_CANCEL_RECOVERY',
             7: 'SHOST_DEL_RECOVERY',
         }
-        for shost in get_scsi_hosts():
+
+        hosts = get_scsi_hosts()
+
+        try:
+            use_host_busy_counter = readSU("struct Scsi_Host", long(hosts[0].host_busy.counter))
+        except:
+            use_host_busy_counter = -1
+
+        for shost in hosts:
             print("\n============================================================="
                   "============================================================")
             print("HOST      DRIVER")
@@ -283,12 +292,12 @@ def print_shost_info(version):
 
             print("\n   DRIVER VERSION      : {}".format(shost.hostt.module.version), end="")
 
-            if ((version == 'rhel5') or (version == 'rhel6') or (version == 'rhel7.0-1')):
-                print("\n   HOST BUSY           : {}".format(shost.host_busy), end="")
-                print("\n   HOST BLOCKED        : {}".format(shost.host_blocked), end="")
-            elif (version == 'rhel7.2plus'):
+            if (use_host_busy_counter != -1):
                 print("\n   HOST BUSY           : {}".format(shost.host_busy.counter), end="")
                 print("\n   HOST BLOCKED        : {}".format(shost.host_blocked.counter), end="")
+            else:
+                print("\n   HOST BUSY           : {}".format(shost.host_busy), end="")
+                print("\n   HOST BLOCKED        : {}".format(shost.host_blocked), end="")
 
             print("\n   HOST FAILED         : {}".format(shost.host_failed), end="")
             print("\n   SELF BLOCKED        : {}".format(shost.host_self_blocked), end="")
@@ -645,4 +654,4 @@ if ( __name__ == '__main__'):
 
     if(args.hosts or not (args.runcheck or args.proc_info or args.devs or
        args.commands or args.requests or args.time or args.targets)):
-        print_shost_info(version)
+        print_shost_info()
