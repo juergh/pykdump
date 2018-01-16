@@ -153,17 +153,7 @@ def get_gendev():
     return gendev_dict
 
 def print_sdev_shost():
-        sdev_state_dict = {
-            1: 'SDEV_CREATED',
-            2: 'SDEV_RUNNING',
-            3: 'SDEV_CANCEL',
-            4: 'SDEV_DEL',
-            5: 'SDEV_QUIESCE',
-            6: 'SDEV_OFFLINE',
-            7: 'SDEV_BLOCK',
-            8: 'SDEV_CREATED_BLOCK',
-            9: 'SDEV_TRANSPORT_OFFLINE',
-        }
+        enum_sdev_state = EnumInfo("enum scsi_device_state")
 
         gendev_dict = get_gendev()
 
@@ -214,7 +204,7 @@ def print_sdev_shost():
                           "{:11d} {:11}  ({:3d})\t{:10d}\n".format(name,
                           int(sdev), "", get_scsi_device_id(sdev),
                           sdev.vendor[:8], sdev.model[:16],
-                          sdev_state_dict[sdev.sdev_state],
+                          enum_sdev_state.getnam(sdev.sdev_state),
                           sdev.iorequest_cnt.counter, sdev.iodone_cnt.counter,
                           sdev.iorequest_cnt.counter-sdev.iodone_cnt.counter,
                           sdev.ioerr_cnt.counter), end='')
