@@ -292,7 +292,11 @@ def print_shost_info():
                 shost.hostt.name, shost, shost.shost_data,
                 shost.hostdata, end=""))
 
-            print("\n   DRIVER VERSION      : {}".format(shost.hostt.module.version), end="")
+            try:
+                print("\n   DRIVER VERSION      : {}".format(shost.hostt.module.version), end="")
+            except:
+                print("\n   DRIVER VERSION      : {}".format("Error in checking "
+                                                             "'Scsi_Host->hostt->module->version'"), end="")
 
             if (use_host_busy_counter != -1):
                 print("\n   HOST BUSY           : {}".format(shost.host_busy.counter), end="")
