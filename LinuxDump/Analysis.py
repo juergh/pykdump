@@ -147,7 +147,7 @@ def __print_pids(spids, h = ""):
 #           last 'maxpids/2'
 # verbose
 def print_pidlist(pids, title = '', verbose = False, maxpids = 10,
-                  sortbytime = True):
+                  sortbytime = True, statefilter = None):
     npids = len(pids)
     if (npids < 1):
         return
@@ -156,7 +156,12 @@ def print_pidlist(pids, title = '', verbose = False, maxpids = 10,
     T_table = TaskTable()
     for pid in pids:
         t = T_table.getByTid(pid)
-        mlist.append((int(t.Ran_ago), pid))
+        if (statefilter):
+            state = t.state[5:7]
+            if (state in statefilter):
+                mlist.append((int(t.Ran_ago), pid))
+        else:
+            mlist.append((int(t.Ran_ago), pid))
     mlist = sorted(mlist)
     # Youngest and oldest
     ago_y, pid_y = mlist[0]
@@ -176,7 +181,8 @@ def print_pidlist(pids, title = '', verbose = False, maxpids = 10,
             n2 = maxpids - n1
             ml1 = mlist[:n1]
             ml2 = mlist[-n2:]
-            mlp = ml1 + [(None, "<snip>")] + ml2
+            skipped = npids-maxpids
+            mlp = ml1 + [(None, "<{} skipped>".format(skipped))] + ml2
         else:
             mlp = mlist
         if (verbose):
@@ -338,10 +344,14 @@ def get_interesting_arguments(pid, re_funcnames, re_ctypes):
                 argprotos = funcargs(f.func)
                 if (not argprotos):
                     continue
+                nargs = len(argprotos)
+                #print(f.func, argprotos)
                 for reg in f.reg:
                     if (not reg in __ARG_REG or not f.func):
                         continue
                     index = __ARG_REG.index(reg)
+                    if (index >= nargs):
+                        continue
                     ctype = argprotos[index]
                     if (not re_ctypes.search(ctype)):
                         continue

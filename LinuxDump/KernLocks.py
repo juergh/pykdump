@@ -34,7 +34,12 @@ def decode_mutex(addr):
     out = []
     for w in wait_list:
         task = w.task
-        out.append([task.pid, task.comm])
+        if (task):
+            out.append([task.pid, task.comm])
+        else:
+            out.append([0, '<bad task!!!>'])
+            pylog.error("corrupted wait_list for {}".\
+                format(s))
     # Sort on PID
     out.sort()
     if (out):

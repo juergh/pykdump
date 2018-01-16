@@ -106,7 +106,17 @@ def get_mutex_waiters(mutex):
         return []
     wait_list = readSUListFromHead(Addr(mutex.wait_list), "list",
             "struct mutex_waiter", inchead = True)
-    return [w.task.pid for w in wait_list]
+    out = []
+    for w in wait_list:
+        task = w.task
+        if (task):
+            out.append(task.pid)
+        else:
+            pylog.error("corrupted wait_list for {}".\
+                format(mutex))
+            continue
+
+    return out
 
 structSetAttr("struct mutex", "Owner", ["owner.task", "owner"])
 # Try to classify the mutex and print its type and its owner
@@ -324,7 +334,7 @@ def check_other_mutexes(tasksrem):
         #if (not bt.hasfunc(__mutexfunc)):
             continue
         maddr = get_tentative_arg(pid, __mutexfunc, 0)
-        #print(pid, if_mutexOK(maddr))
+        #print("pid={} addr={:#x} OK={}".format(pid, maddr, if_mutexOK(maddr)))
         if (maddr and if_mutexOK(maddr)):
             mutex = readSU("struct mutex", maddr)
             mutexlist.add(mutex)
@@ -427,7 +437,7 @@ def check_throttle_direct_reclaim(tasksrem):
     if (pids):
         print_header("Waiting for kswapd")
         print_pidlist(pids, maxpids = _MAXPIDS, verbose = _VERBOSE, 
-                      sortbytime = _SORTBYTIME)
+                      sortbytime = _SORTBYTIME, statefilter = ('UN',))
         remove_pidlist(tasksrem, pids)
         
 
