@@ -439,15 +439,22 @@ def display_command_time(cmnd):
     print(" is {}, deadline: {} cmnd-alloc: {} rq-alloc: {}".format(state, deadline, start_time, rq_start_time), end='')
 
 
-def run_scsi_checks(version):
+def run_scsi_checks():
     warnings = 0
     errors = 0
+    use_host_busy_counter = -1
     gendev_q_sdev_q_mismatch = 0
     jiffies = readSymbol("jiffies")
 
     # host checks
     hosts = get_scsi_hosts()
-    if ((version == 'rhel5') or (version == 'rhel6') or (version == 'rhel7.0-1')):
+
+    try:
+        use_host_busy_counter = readSU("struct Scsi_Host", long(hosts[0].host_busy.counter))
+    except:
+        use_host_busy_counter = -1
+
+    if (use_host_busy_counter == -1):
         for host in hosts:
             if (host.host_failed):
                 warnings += 1
@@ -462,7 +469,7 @@ def run_scsi_checks(version):
                 print("WARNING: Scsi_Host {:#x} ({}) is blocked! HBA driver refusing all commands with SCSI_MLQUEUE_HOST_BUSY?".format(host,
                        host.shost_gendev.kobj.name))
 
-    elif (version == 'rhel7.2plus'):
+    elif (use_host_busy_counter != -1):
         for host in hosts:
             if (host.host_failed):
                 warnings += 1
@@ -478,20 +485,16 @@ def run_scsi_checks(version):
                        host.shost_gendev.kobj.name))
 
     # device checks
-    if (version == 'rhel5'):
-       gendev_dict = get_gendev_rhel5()
-    elif ((version == 'rhel6') or (version == 'rhel7.0-1') or
-          (version == 'rhel7.2plus')):
-          gendev_dict = get_gendev_rhel67()
+    gendev_dict = get_gendev()
 
     for sdev in get_SCSI_devices():
-        if ((version == 'rhel5') or (version == 'rhel6') or (version == 'rhel7.0-1')):
+        if (use_host_busy_counter == -1):
             if (sdev.device_blocked):
                 warnings += 1
                 print("WARNING: scsi_device {:#x} ({}) is blocked! HBA driver returning "
                       "SCSI_MLQUEUE_DEVICE_BUSY or device returning SAM_STAT_BUSY?".format(sdev,
                       get_scsi_device_id(sdev)))
-        elif (version == 'rhel7.2plus'):
+        elif (use_host_busy_counter != -1):
             if (sdev.device_blocked.counter):
                 warnings += 1
                 print("WARNING: scsi_device {:#x} ({}) is blocked! HBA driver returning "
@@ -619,7 +622,7 @@ if ( __name__ == '__main__'):
             pylog.warning("cannot parse:", l)
 
     if (args.runcheck):
-        run_scsi_checks(version)
+        run_scsi_checks()
 
     if (args.proc_info):
         print_SCSI_devices()
