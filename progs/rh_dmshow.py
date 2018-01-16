@@ -537,7 +537,6 @@ if ( __name__ == '__main__'):
         elif (args.multipathlist):
             if (not (dm_table_map.targets.type.name == "multipath")):
                 continue
-            mpath = StructResult("struct multipath", long(dm_table_map.targets.private))
             show_multipath_list(dev)
             mpathfound = 1
 
