@@ -240,15 +240,8 @@ def print_starget_shost():
 
 def print_shost_info():
         use_host_busy_counter = -1
-        shost_state_dict = {
-            1: 'SHOST_CREATED',
-            2: 'SHOST_RUNNING',
-            3: 'SHOST_CANCEL',
-            4: 'SHOST_DEL',
-            5: 'SHOST_RECOVERY',
-            6: 'SHOST_CANCEL_RECOVERY',
-            7: 'SHOST_DEL_RECOVERY',
-        }
+
+        enum_shost_state = EnumInfo("enum scsi_host_state")
 
         hosts = get_scsi_hosts()
 
@@ -285,7 +278,7 @@ def print_shost_info():
 
             print("\n   HOST FAILED         : {}".format(shost.host_failed), end="")
             print("\n   SELF BLOCKED        : {}".format(shost.host_self_blocked), end="")
-            print("\n   SHOST STATE         : {}".format(shost_state_dict[shost.shost_state]), end="")
+            print("\n   SHOST STATE         : {}".format(enum_shost_state.getnam(shost.shost_state)), end="")
             print("\n   MAX LUN             : {}".format(shost.max_lun), end="")
             print("\n   CMD/LUN             : {}".format(shost.cmd_per_lun), end="")
             print("\n   WORK Q NAME         : {}".format(shost.work_q_name), end="")
