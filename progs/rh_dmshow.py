@@ -116,23 +116,13 @@ def show_mpath_info(prio):
             block_device.bd_dev >> 20,
             block_device.bd_dev & 0xfffff), end="")
 
-        sdev_state_dict = {
-            1: 'SDEV_CREATED',
-            2: 'SDEV_RUNNING',
-            3: 'SDEV_CANCEL',
-            4: 'SDEV_DEL',
-            5: 'SDEV_QUIESCE',
-            6: 'SDEV_OFFLINE',
-            7: 'SDEV_BLOCK',
-            8: 'SDEV_CREATED_BLOCK',
-            9: 'SDEV_TRANSPORT_OFFLINE',
-        }
+        enum_sdev_state = EnumInfo("enum scsi_device_state")
 
         if ('cciss' in block_device.bd_disk.disk_name):
             print("\t[Not a scsi device, skipping scsi_device struct!]", end ="")
         else:
             print("\t[scsi_device: {:#x} sdev_state: {}]".format(scsi_device,
-                sdev_state_dict[scsi_device.sdev_state]), end="")
+                enum_sdev_state.getnam(scsi_device.sdev_state)), end="")
 
 def show_multipath_list(dev):
     md, name = dev
