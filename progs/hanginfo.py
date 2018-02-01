@@ -199,7 +199,7 @@ def get_sema_owners():
             out[t.mm.mmap_sem].append(t.pid)
     return out
 
-# Pritn statistics for threads having a given subroutine on the stack
+# Print statistics for threads having a given subroutine on the stack
 def summarize_subroutines(funcnames, title = None):
     subpids = _funcpids(funcnames)
     # funcnames are specified using | operator
@@ -222,10 +222,6 @@ def summarize_subroutines(funcnames, title = None):
     print_pidlist(subpids, maxpids = _MAXPIDS, verbose = _VERBOSE,
                   sortbytime = _SORTBYTIME)
 
-__shrinkfunc = "shrink_all_zones"
-def find_shrinkzones():
-    return summarize_subroutines("shrink_all_zones|shrink_zone",
-                                 title='shrinking zone')
 
 # Find all PIDs that match a give mm,mmap_sem address
 def find_pids_mmap(addr):
@@ -497,6 +493,9 @@ def classify_UN(v):
     check_kthread_create_list(tasksrem)
     check_throttle_direct_reclaim(tasksrem)
     check_console_sem(tasksrem)
+    check_stack_and_print('schedule_timeout', tasksrem)
+    check_stack_and_print('alloc_pages_slowpath', tasksrem)
+
 
     if (tasksrem):
         print ("\n\n ********  Non-classified UN Threads ********** {}"
@@ -598,8 +597,11 @@ if ( __name__ == '__main__'):
 
 
     classify_UN(v)
-    find_shrinkzones()
-    
+
+    summarize_subroutines("shrink_all_zones|shrink_zone",
+                                 title='shrinking zone')
+    summarize_subroutines("shrink_slab")
+   
     summarize_subroutines("balance_dirty_pages")
     
     print("\n")

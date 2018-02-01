@@ -1046,6 +1046,8 @@ def user_space_memory_report():
             rss_tot += rss
             pmem_tot += pmem
     print ("RSS_TOTAL=%d pages, %%mem=%7.1f" % (rss_tot, pmem_tot))
+    if (pmem_tot > 80):
+        pylog.warning("User-space applications consume moer than 80% of RAM")
 
 # Check for long (>nmin) chains of processes. E.g. custom script is looping and
 # spawns more and more processes recursively
@@ -1493,6 +1495,9 @@ try:
 except:
     # For those kernels where are test does not work
     pass
+
+# Check RSS used
+user_space_memory_report()
 
 # Check hangs/memory pressure/SAP HANA stuff
 stacks_helper = fastSubroutineStacks()
