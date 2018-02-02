@@ -294,7 +294,7 @@ re_rmvia = re.compile(r'\s*\(via\s+([^)]+)\)')
 re_exception_rip = re.compile(r'\[exception RIP: ([^+]+)\+([\da-f]+)')
 
 @memoize_cond(CU_LIVE | CU_PYMOD | CU_TIMEOUT)
-def exec_bt(crashcmd = None, text = None):
+def exec_bt(crashcmd = None, text = None, bg = False):
     #print "Doing exec_bt('%s')" % crashcmd
     btslist = []
     # Debugging
@@ -304,7 +304,7 @@ def exec_bt(crashcmd = None, text = None):
         # the next time is much faster, even with different pid.
         # This is mainly true when there are many DLKM subroutines on the stack
         # As a result, we execute in the background only 'foreach bt'
-        if ('foreach' in crashcmd or ' -a' in crashcmd):
+        if (bg or 'foreach' in crashcmd or ' -a' in crashcmd):
             _exec_cmd = exec_crash_command_bg
         else:
             _exec_cmd = exec_crash_command
@@ -538,15 +538,22 @@ class fastSubroutineStacks(object):
     def __init__(self):
         out = _get_threads_subroutines()
         self.funcpids, self.functasks, self.alltaskaddrs = out
-    # Find pids matching funcnames. This subroutine does not support
-    # wildcards/regexps, just one or more exact names joined by '|'
+    # Find pids matching funcnames. This subroutine supports either
+    # compiled regexp or simple string filter, in latter case
+    # just one or more exact names joined by '|'
     # Returns a set, not a list
     def find_pids_byfuncname(self, funcnames):
         # funcnames are specified using | operator
         subpids = set()
-        for fn in funcnames.split("|"):
-            fn = fn.strip()
-            subpids |= self.funcpids[fn]
+        if (isinstance(funcnames, str)):
+            for fn in funcnames.split("|"):
+                fn = fn.strip()
+                subpids |= self.funcpids[fn]
+        else:
+            # Regexp
+            for fn in self.funcpids.keys():
+                if (funcnames.match(fn)):
+                    subpids |= self.funcpids[fn]
 
         # we do not need to be 100% sure, this is just for information
         #verifyFastSet(shrinkpids, __shrinkfunc)

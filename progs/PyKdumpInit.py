@@ -134,11 +134,11 @@ scsi commands from RHEL 6/7 vmcore dumps. This command also provides
 options to internally run some of the heuristics to determine common
 problems with stuck scsi error handling, stalled commands etc.
 
-Note: At this time, rh-scsishow works with RHEL 5.6+, RHEL 6 and 7
+Note: At this time, rh_scsishow works with RHEL 5.6+, RHEL 6 and 7
       kernels.
 '''
 
-rprog("rh-scsishow", "Display information about SCSI subsystem from RHEL"
+rprog("rh_scsishow", "Display information about SCSI subsystem from RHEL"
       "kernels", "-h   - list available options",
       help)
 
@@ -146,10 +146,10 @@ help = '''
 Extract and display the information about multipath devices, LVM volumes
 from RHEL 5/6/7 vmcore dumps.
 
-Note: At this time, rh-dmshow works with RHEL 5.6+, RHEL 6 and 7
+Note: At this time, rh_dmshow works with RHEL 5.6+, RHEL 6 and 7
       kernels.
 '''
 
-rprog("rh-dmshow", "Display information about multipath devices and"
+rprog("rh_dmshow", "Display information about multipath devices and"
       "LVM volumes", "-h   - list available options",
       help)

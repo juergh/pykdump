@@ -319,7 +319,10 @@ def __getcomm(t):
 def __t_str(t):
     return "%s(%d)" % (t.comm, t.pid)
 
-def walk_children(t, top = False):
+def walk_children(t, top = False, depth = 0):
+    if (depth > 10):
+        yield " ==> more threads"
+        return
     parent_s = __t_str(t)
     if (not top):
         parent_s = '-' + parent_s
@@ -380,7 +383,7 @@ def walk_children(t, top = False):
         if (i == last and threads):
             yield s + c
         else:
-            for s1 in walk_children(c):
+            for s1 in walk_children(c, depth = depth + 1):
                 yield  s + s1
                 if (sc == p_end):
                     s = p_blank
@@ -418,6 +421,11 @@ if ( __name__ == '__main__'):
                 help="Equivalent to '-r --task=UN' and prints"
                 " just several newest and several oldest threads")
 
+    op.add_option("--maxpids", dest="Maxpids", default = 8,
+                action="store", type='int',
+                help="Maximum number of PIDs to print"
+                " for --hang and --mem")
+
     op.add_option("--pidinfo", dest="Pidinfo", default = 0,
                 action="store", type="int",
                 help="Display details for a given PID. You can specify PID or addr of task_struct")
@@ -449,6 +457,8 @@ if ( __name__ == '__main__'):
     (o, args) = op.parse_args()
     
     verbose = o.Verbose
+    maxpids = o.Maxpids
+
     if (o.Version):
         print ("TASKINFO version %s" % (__version__))
         if (verbose):
@@ -461,13 +471,13 @@ if ( __name__ == '__main__'):
         taskstates_filter = re.split("\s*,\s*", o.Taskfilter)
 
     if (o.Memory):
-        print_memory_stats()
+        print_memory_stats(maxpids)
 
     elif (o.Reverse):
         printTasks(reverse=True)
     elif (o.Hang):
         taskstates_filter = 'UN'
-        printTasks(reverse=True, maxtoprint=16)
+        printTasks(reverse=True, maxtoprint=maxpids*2)
     elif (o.Summary):
         tasksSummary()
     elif (o.Pstree):

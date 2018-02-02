@@ -1320,7 +1320,10 @@ class ListHead(list):
                   (self.sname, fname))
         return [readSU(self.sname, a-off) for a in self]
         
-        
+# Check whether LH is empty - either NULL pointer or no elements
+def LH_isempty(lh):
+    return (lh and Addr(lh) == lh.next)
+
 
 # readList returns the addresses of all linked structures, including
 # the start address. If the start address is 0, it returns an empty list

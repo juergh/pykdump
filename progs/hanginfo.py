@@ -90,7 +90,7 @@ def if_mutexOK(addr):
             _next_tasks = owner.tasks.next
         for i in range(5):
             _next_wait_list = _next_wait_list.next 
-            if (owner):
+            if (owner and _next_tasks):
                 _next_tasks = _next_tasks.next
         return 2 if owner else 1
     except:
@@ -105,8 +105,18 @@ def get_mutex_waiters(mutex):
     if (owner and mutex.count.counter >= 0):
         return []
     wait_list = readSUListFromHead(Addr(mutex.wait_list), "list",
-            "struct mutex_waiter")
-    return [w.task.pid for w in wait_list]
+            "struct mutex_waiter", inchead = True)
+    out = []
+    for w in wait_list:
+        task = w.task
+        if (task):
+            out.append(task.pid)
+        else:
+            pylog.error("corrupted wait_list for {}".\
+                format(mutex))
+            continue
+
+    return out
 
 structSetAttr("struct mutex", "Owner", ["owner.task", "owner"])
 # Try to classify the mutex and print its type and its owner
@@ -189,7 +199,7 @@ def get_sema_owners():
             out[t.mm.mmap_sem].append(t.pid)
     return out
 
-# Pritn statistics for threads having a given subroutine on the stack
+# Print statistics for threads having a given subroutine on the stack
 def summarize_subroutines(funcnames, title = None):
     subpids = _funcpids(funcnames)
     # funcnames are specified using | operator
@@ -212,10 +222,6 @@ def summarize_subroutines(funcnames, title = None):
     print_pidlist(subpids, maxpids = _MAXPIDS, verbose = _VERBOSE,
                   sortbytime = _SORTBYTIME)
 
-__shrinkfunc = "shrink_all_zones"
-def find_shrinkzones():
-    return summarize_subroutines("shrink_all_zones|shrink_zone",
-                                 title='shrinking zone')
 
 # Find all PIDs that match a give mm,mmap_sem address
 def find_pids_mmap(addr):
@@ -323,8 +329,8 @@ def check_other_mutexes(tasksrem):
         if (not pid in goodpids):
         #if (not bt.hasfunc(__mutexfunc)):
             continue
-        #print(bt)
         maddr = get_tentative_arg(pid, __mutexfunc, 0)
+        #print("pid={} addr={:#x} OK={}".format(pid, maddr, if_mutexOK(maddr)))
         if (maddr and if_mutexOK(maddr)):
             mutex = readSU("struct mutex", maddr)
             mutexlist.add(mutex)
@@ -427,7 +433,7 @@ def check_throttle_direct_reclaim(tasksrem):
     if (pids):
         print_header("Waiting for kswapd")
         print_pidlist(pids, maxpids = _MAXPIDS, verbose = _VERBOSE, 
-                      sortbytime = _SORTBYTIME)
+                      sortbytime = _SORTBYTIME, statefilter = ('UN',))
         remove_pidlist(tasksrem, pids)
         
 
@@ -448,6 +454,16 @@ def check_console_sem(tasksrem):
     verifyFastSet(pids, __testfunc)
     if (pids):
         print("    Possible owners: {}".format(pids))
+
+__waitonbitfunc = "out_of_line_wait_on_bit"
+def check_wait_on_bit(tasksrem):
+    #print(mutexlist)
+    mutexlist = set()
+    goodpids = _funcpids(__mutexfunc)
+    for pid in tasksrem:
+        if (not pid in goodpids):
+        #if (not bt.hasfunc(__mutexfunc)):
+            continue
 
         
 # ==============end of check subroutines=======================   
@@ -477,6 +493,9 @@ def classify_UN(v):
     check_kthread_create_list(tasksrem)
     check_throttle_direct_reclaim(tasksrem)
     check_console_sem(tasksrem)
+    check_stack_and_print('schedule_timeout', tasksrem)
+    check_stack_and_print('alloc_pages_slowpath', tasksrem)
+
 
     if (tasksrem):
         print ("\n\n ********  Non-classified UN Threads ********** {}"
@@ -578,8 +597,11 @@ if ( __name__ == '__main__'):
 
 
     classify_UN(v)
-    find_shrinkzones()
-    
+
+    summarize_subroutines("shrink_all_zones|shrink_zone",
+                                 title='shrinking zone')
+    summarize_subroutines("shrink_slab")
+   
     summarize_subroutines("balance_dirty_pages")
     
     print("\n")

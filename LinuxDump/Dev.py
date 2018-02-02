@@ -3,7 +3,7 @@
 #
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -152,6 +152,10 @@ def print_blkdevs(v=0):
         print('{:3}  {:16}'.format(major, _major_names[major]),end='')
       
         out = get_bd_gd(major)
+        
+        # Many devices share the same request queue for minors, 
+        # such as sda1, sda2, ... Print it once only
+        rqset = set()
              
         if (v == 0):
             if (len(out)):
@@ -176,11 +180,22 @@ def print_blkdevs(v=0):
                     except:
                         partno = ''
                     gd_name = gd.disk_name + partno
-                    print('   {:3d} {:5} {} {}'.format(minor, gd_name,
+                    extra = "  " if bd_queue in rqset else ""
+                    print('  {}{:3d} {:5} {} {}'.format(extra,
+                                                    minor, gd_name,
                                                     stripStructName(bd),
                                                     stripStructName(gd)))
                                   
-                if (v > 0 and bd_queue):
+                if (v > 0 and bd_queue and not bd_queue in rqset):
+                    rqset.add(bd_queue)
+                    elevator = bd_queue.elevator
+                    if (elevator):
+                        ename = PY_select(
+                            'addr2sym(elevator.elevator_type)',
+                            'elevator.elevator_name'
+                            )
+                        print("       I/O Elevator={}".format(ename))
+
                     # Print request queue length (if they are available)
                     #
                     # request queue can be either bd.bd_queue or 
@@ -190,8 +205,9 @@ def print_blkdevs(v=0):
                     lq, in_flight, count = check_request_queue(bd_queue)
 
                     if (v > 1 or (lq or in_flight or count)):
-                        print ("         {}  Len={} in_flight={} count={}".format(
-                            bd_queue, lq, in_flight, count))
+                        print ("        {} Len={} in_flight={} count={}".\
+                            format(bd_queue, lq, in_flight, count))
+
 
                       
         continue
@@ -362,10 +378,13 @@ def print_dm_devices(verbose = 0):
     nameb = readSymbol("_name_buckets")
     out = []
     off = member_offset("struct hash_cell", "name_list")
+    # On older kernels, struct mapped_device has 'struct dm_table *map' field
+    # On newer ones, it is just 'void *map'
     for b in nameb:
         for a in readListByHead(b):
             hc = readSU("struct hash_cell", a - off)
-            out.append((hc.md.disk.first_minor, hc.name, hc.md.map))
+            dm_table = readSU('struct dm_table', hc.md.map)
+            out.append((hc.md.disk.first_minor, hc.name, dm_table))
     
     out.sort()      # sort on minor
     print (" ========== Devicemapper devices ============")

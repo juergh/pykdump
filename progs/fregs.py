@@ -205,7 +205,7 @@ if ( __name__ == '__main__'):
 
         for s in stacklist:
 
-            search_for_registers(s)
+            search_for_registers(s,routine)
 
             print ("\nPID: {}  TASK: {:x}  CPU: {}  COMMAND: {}".format(
                    s.pid, s.addr, s.cpu, s.cmd))

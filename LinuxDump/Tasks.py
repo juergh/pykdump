@@ -38,6 +38,7 @@ import textwrap
 from textwrap import TextWrapper
 from collections import (defaultdict, namedtuple)
 import operator
+from functools import reduce
 
 
 
@@ -225,6 +226,9 @@ class Task:
         clist = readSUListFromHead(self.ts.children, "sibling",
                                   "struct task_struct", maxel=200000)
         return [Task(c, self.ttable) for c in clist]
+    # Check whether we have children (not threads!)
+    def hasChildren(self):
+        return not LH_isempty(self.ts.children)
     # Get 'struct sock' for our task
     def get_task_socks(self):
         socks = []
@@ -1022,9 +1026,8 @@ def __scan_all_pids():
     return out
 
 
-def print_memory_stats():
-    # Print top-ten
-    ntop = 8
+def print_memory_stats(ntop = 8):
+    # Print top memory hogs
     def print_top_ten(hdr, lst):
         print(" ==== First {} {} ====".format(ntop, hdr))
         for task, vsz, rss, shm in lst[:ntop]:
@@ -1040,20 +1043,32 @@ def print_memory_stats():
     plist = __scan_all_pids()
     #   0     1   2     3
     # (task, vsz, rss, shm)
-    # First, sort on rss
-    rsslist = sorted(plist, key = operator.itemgetter(2), reverse=True)
-    print_top_ten("Tasks Reverse-sorted by RSS", rsslist)
+    # First, sort on rss+shm
+    def rss_shm(e):
+        return e[2] + e[3]
+    rsslist = sorted(plist, 
+                     key = rss_shm, reverse=True)
+    print_top_ten("Tasks reverse-sorted by RSS+SHM", rsslist)
     
-    # Now only processes with shm=0
-    rss1list = sorted([v for v in plist if v[3] == 0],
+    
+    # Now only processes with SHM less than
+    sigshm = 2**20 # at least 1 Mb
+
+    rss1list = sorted([v for v in plist if v[3] < sigshm],
              key = operator.itemgetter(2), reverse=True)
+    print("")
     print_top_ten("Tasks Reverse-sorted by RSS, without SHM", rss1list)
+
+    # Compute and print sum of rss
+    totrss = reduce(lambda x, y: x+y[2], plist, 0)
+    print("\n === Total Memory in RSS {:6.3f} Gb"\
+          .format(totrss/2**20))
 
     # Find and print total amount of memory in SHMs
     
     totshm = 0
     for shmi in get_ipcs_m().values():
         totshm += shmi.bytes
-    print("\n === Total Memory in SHM {:6.3f} Gb"\
+    print(" === Total Memory in SHM {:6.3f} Gb"\
           .format(totshm/2**30))
     return

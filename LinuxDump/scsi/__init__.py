@@ -52,16 +52,29 @@ except TypeError:
     except TypeError:
         pass
 
-def scsi_debuginfo_OK():
+# A pathological case on some SLES kernel - something is built
+# in way that even after loading debuginfo we cannot find
+# the type of scsi_device_types:
+# <data variable, no debug info> scsi_device_types;
+
+
+def scsi_debuginfo_OK(printwarn=True):
     if (scsi_device_types is None):
-        print("+++Cannot find symbolic info for <scsi_device_types>\n"
-            "   Put 'scsi_mod' debuginfo file into current directory\n"
-            "   and then re-run the command adding --reload option")
+        if (printwarn):
+            print("+++Cannot find symbolic info for <scsi_device_types>\n"
+                "   Put 'scsi_mod' debuginfo file into current directory\n"
+                "   and then re-run the command adding --reload option")
+        return False
+    elif (isinstance(scsi_device_types, int)):
+        if (printwarn):
+            print("+++Debuginfo for this kernel is built in a way\n"
+                "  that does not let us analyse SCSI devices, even\n"
+                "  after loading debuginfo for SCSI")
         return False
     return True
 
 # The following enums exists on all kernels we support
-if (scsi_device_types is not None):
+if (scsi_debuginfo_OK(printwarn=False)):
     enum_shost_state = EnumInfo("enum scsi_host_state")
     enum_st_state = EnumInfo("enum scsi_target_state")
 

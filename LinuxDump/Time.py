@@ -3,7 +3,7 @@
 # module LinuxDump.Time
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -18,20 +18,20 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-from __future__ import print_function
 
 __doc__ = '''
 This is a package providing subroutines for time manipulation
 '''
 
 __all__ = ['j_delay', 'seconds_since_boot', 'get_uptime_fromproc',
-           'get_uptime_fromcrash']
+           'get_uptime_fromcrash', 'get_ktime_j', 'get_ktime_t']
 
 # Tasks and Pids
 
 from pykdump.API import *
 import crash
 from collections import namedtuple
+import re
 
 
 def j_delay(ts, jiffies,maxhours = 20):
@@ -108,3 +108,29 @@ def get_uptime_fromproc():
 
 def get_uptime_fromcrash():
     return crash.get_uptime()/HZ
+
+# Get ktime_get() value as saved in last_jiffies_update. Precision is
+# limited by HZ as this specifies how often jiffies are updated
+# A better value can be probable extracted from timer bases
+@memoize_cond(CU_LIVE)
+def get_ktime_j():
+    try:
+        value = readSymbol("last_jiffies_update").tv64
+    except:
+        value = None
+    return value
+
+# Parse 'timer -r' output until we provide a proper implementation
+# We are interested in lines like that:
+# CLOCK: 1  HRTIMER_CLOCK_BASE: ffff880123410628  [ktime_get]
+#     CURRENT    
+# 671354073000000
+
+__re_ktime = re.compile(r'^.*\[ktime_get].*\n\s+CURRENT\s*\n\s*(\d+)\s*$',
+                        re.M)
+
+@memoize_cond(CU_LIVE)
+def get_ktime_t():
+    s = exec_crash_command("timer -r")
+    for v in __re_ktime.findall(s):
+        print(v)

@@ -42,7 +42,7 @@
 # figure everything out (which is probably impossible); this is a debugging
 # aid, not a tool that attempts to do all crash analysis automatically.
 
-__version__ = "1.02"
+__version__ = "1.04"
 
 from pykdump.API import *
 
@@ -177,7 +177,10 @@ def extract_registers (frame, stack):
                 basereg = dest[(paren+2):-1]
 
                 if basereg == "rbp":
-                    addr = rbp + offset
+                    try:
+                        addr = rbp + offset
+                    except:
+                        continue
                 elif basereg == "rsp":
                     addr = rsp + offset
                 else:
@@ -252,7 +255,11 @@ def extract_registers (frame, stack):
         disinst.pop()  # discard last line, since it will come back
         nlines = (rip - int(addr,16)) // 5 + 2
         disout = disasm(addr,nlines)
-        disinst.extend(disout.splitlines())
+        try:
+            disinst.extend(disout.splitlines())
+        except:
+            return   # probably a bogus RIP
+
         addr = disinst[-1].split()[0].rstrip(":")
 
     # Discard everything after the ripstr
@@ -600,12 +607,18 @@ def extract_registers (frame, stack):
         elif opcode.startswith('stos'):
              regval['RDI'] = "invalid"
 
+        # DIV invalidates both RAX and RDX
+
+        elif opcode.startswith('div'):
+             regval['RAX'] = "invalid"
+             regval['RDX'] = "invalid"
+
         # For any other instruction that modified the contents of a register,
         # invalidate the register.
 
         elif opcode.startswith(('add','sub','inc','dec','imul','idiv','and',
             'or','xor','not','sbb','adc','neg','sh','pop','bt','sa','set',
-            'cmov','ro','rc')):
+            'cmov','ro','rc','bsf','bsr')):
             fields = operand.split(",")
             dst = fields[-1]
             if dst.startswith("%"):
@@ -667,18 +680,34 @@ class DisasmFlavor():
             #print("Restoring output radix to {}".format(self.radix))
             exec_gdb_command("set output-radix {}".format(self.radix))
 
-# search_for_registers(s) - s is a BTstack object. 
+# search_for_registers(s,filter) - s is a BTstack object.  If filter is 
+# specified, only routines containing that string will be checked. 
 
-def search_for_registers(s):
+# ALEXS: filter can be either a simple string (as described above) or
+# compiled regex
+
+# ALEXS: for convenience, return a list of filtered frames
+
+def search_for_registers(s, filter=''):
 
     # Make sure we're on an x86_64 vmcore, or this will fail miserably.
     if (sys_info.machine != "x86_64"):
         return 1
 
+    outframes = []
     lastf = s.frames[-1]
     stackdict = {}
-    
+
     for f, nf in zip(s.frames[:-1], s.frames[1:]):
+
+        # A test for simple string filter
+        if (isinstance(filter, str)):
+            if filter not in f.func:
+                continue
+        # And now for regexp
+        elif (not filter.search(f.func)):
+            continue
+
         calledfrom = nf.func
         
         if (f is not lastf):
@@ -712,9 +741,12 @@ def search_for_registers(s):
             f.from_func = "called from {:#x} <{}+{}>".format(nf.addr, nf.func, nf.offset)
             f.lookup_regs = True
             extract_registers(f, stackdict)
+
+        outframes.append(f)
     
     # For last frame, empty string for from_func
     lastf.from_func = ''
     lastf.lookup_regs = False
     lastf.reg = {}
  
+    return outframes

@@ -107,73 +107,60 @@ def print_shost_header(shost):
             shost.hostt.name, shost, shost.shost_data,
             shost.hostdata, end=""))
 
-def get_gendev_rhel67():
+def get_gendev():
     gendev_dict = {}
-    block_class = readSymbol("block_class")
     klist_devices = 0
 
-    try:
-        klist_devices = block_class.p.class_devices
-    except KeyError:
-        pass
+    if (member_size("struct device", "knode_class") != -1):
+        block_class = readSymbol("block_class")
 
-    if (not klist_devices):
         try:
-            klist_devices = block_class.p.klist_devices
+            klist_devices = block_class.p.class_devices
         except KeyError:
             pass
 
-    if (klist_devices):
-        for knode in klistAll(klist_devices):
-            dev = container_of(knode, "struct device", "knode_class")
-            hd_temp = container_of(dev, "struct hd_struct", "__dev")
-            gendev = container_of(hd_temp, "struct gendisk", "part0")
-            gendev_q = format(gendev.queue, 'x')
-            gendev_dict[gendev_q] = format(gendev, 'x')
+        if (not klist_devices):
+            try:
+                klist_devices = block_class.p.klist_devices
+            except KeyError:
+                pass
+
+        if (klist_devices):
+            for knode in klistAll(klist_devices):
+                dev = container_of(knode, "struct device", "knode_class")
+                hd_temp = container_of(dev, "struct hd_struct", "__dev")
+                gendev = container_of(hd_temp, "struct gendisk", "part0")
+                gendev_q = format(gendev.queue, 'x')
+                gendev_dict[gendev_q] = format(gendev, 'x')
+
+    elif (member_size("struct gendisk", "kobj") != -1):
+        block_subsys = readSymbol("block_subsys")
+        try:
+            kset_list = block_subsys.kset.list
+        except KeyError:
+            pass
+
+        if (kset_list):
+            for kobject in readSUListFromHead(kset_list, "entry", "struct kobject"):
+                gendev = container_of(kobject, "struct gendisk", "kobj")
+                gendev_q = format(gendev.queue, 'x')
+                gendev_dict[gendev_q] = format(gendev, 'x')
+
+    else:
+        print("Unable to process the vmcore, cant find 'struct class' or 'struct subsystem'.")
+        return
 
     return gendev_dict
 
-def get_gendev_rhel5():
-    gendev_dict = {}
-    block_subsys = readSymbol("block_subsys")
-    klist_devices = 0
+def print_sdev_shost():
+        enum_sdev_state = EnumInfo("enum scsi_device_state")
 
-    try:
-        kset_list = block_subsys.kset.list
-    except KeyError:
-        pass
-
-    if (kset_list):
-        for kobject in readSUListFromHead(kset_list, "entry", "struct kobject"):
-            gendev = container_of(kobject, "struct gendisk", "kobj")
-            gendev_q = format(gendev.queue, 'x')
-            gendev_dict[gendev_q] = format(gendev, 'x')
-
-    return gendev_dict
-
-def print_sdev_shost(version):
-        sdev_state_dict = {
-            1: 'SDEV_CREATED',
-            2: 'SDEV_RUNNING',
-            3: 'SDEV_CANCEL',
-            4: 'SDEV_DEL',
-            5: 'SDEV_QUIESCE',
-            6: 'SDEV_OFFLINE',
-            7: 'SDEV_BLOCK',
-            8: 'SDEV_CREATED_BLOCK',
-            9: 'SDEV_TRANSPORT_OFFLINE',
-        }
-
-        if (version == 'rhel5'):
-           gendev_dict = get_gendev_rhel5()
-        elif ((version == 'rhel6') or (version == 'rhel7.0-1') or
-              (version == 'rhel7.2plus')):
-              gendev_dict = get_gendev_rhel67()
+        gendev_dict = get_gendev()
 
         for shost in get_scsi_hosts():
             if (shost.__devices.next != shost.__devices.next.next):
-                print("\n====================================================================================="
-                      "======================================================================================")
+                print("\n=============================================================================="
+                      "===============================================================================")
                 print("HOST      DRIVER")
                 print("NAME      NAME                               {:24s} {:24s} {:24s}".format("Scsi_Host",
                       "shost_data", "&.hostdata[0]", end=""))
@@ -182,13 +169,13 @@ def print_sdev_shost(version):
 
                 print_shost_header(shost)
 
-                print("{:17s} {:23s} {:16s} {:25s} {:24s} {:12s}   {}  {}    {}"
+                print("{:17s} {:23s} {:16s} {:25s} {:24s}   {}  {}    {}"
                       "\n".format("DEV NAME", "scsi_device", "H:C:T:L", "VENDOR/MODEL",
-                      "DEVICE STATE", "WRITABLE", "IOREQ-CNT", "IODONE-CNT",
+                      "DEVICE STATE", "IOREQ-CNT", "IODONE-CNT",
                       "           IOERR-CNT"), end="")
-                print("-------------------------------------------------------------"
-                      "------------------------------------------------------------"
-                      "--------------------------------------------------")
+                print("-----------------------------------------------------"
+                      "-----------------------------------------------------"
+                      "---------------------------------------------------")
 
                 for sdev in readSUListFromHead(shost.__devices, "siblings", "struct scsi_device"):
                     name = scsi_device_type(sdev.type)
@@ -214,31 +201,21 @@ def print_sdev_shost(version):
                         name = "null"
 
                     print("{:17s} {:x} {:6s} {:16} {} {} {:22s}"
-                          "{:11d} {:15} {:11}  ({:3d})\t{:10d}\n".format(name,
+                          "{:11d} {:11}  ({:3d})\t{:10d}\n".format(name,
                           int(sdev), "", get_scsi_device_id(sdev),
                           sdev.vendor[:8], sdev.model[:16],
-                          sdev_state_dict[sdev.sdev_state], sdev.writeable,
+                          enum_sdev_state.getnam(sdev.sdev_state),
                           sdev.iorequest_cnt.counter, sdev.iodone_cnt.counter,
                           sdev.iorequest_cnt.counter-sdev.iodone_cnt.counter,
                           sdev.ioerr_cnt.counter), end='')
 
-def print_starget_shost(version):
-        if (version == 'rhel5'):
-            starget_state_dict = {
-                1: 'STARGET_RUNNING',
-                2: 'STARGET_DEL',
-            }
-        elif ((version == 'rhel6') or (version == 'rhel7.0-1') or
-              (version == 'rhel7.2plus')):
-            starget_state_dict = {
-                1: 'STARGET_CREATED',
-                2: 'STARGET_RUNNING',
-                3: 'STARGET_DEL',
-            }
+def print_starget_shost():
+        enum_starget_state = EnumInfo("enum scsi_target_state")
+
         for shost in get_scsi_hosts():
             if (shost.__targets.next != shost.__targets.next.next):
-                print("\n========================================================================"
-                      "=========================================================================")
+                print("\n======================================================="
+                      "========================================================")
                 print("HOST      DRIVER")
                 print("NAME      NAME                               {:24s} {:24s} {:24s}".format("Scsi_Host",
                       "shost_data", "&.hostdata[0]", end=""))
@@ -247,31 +224,33 @@ def print_starget_shost(version):
 
                 print_shost_header(shost)
 
-                print("------------------------------------------------------------------"
-                      "-----------------------------------------------------------------")
+                print("------------------------------------------------"
+                      "-----------------------------------------------")
                 print("{:15s} {:23s} {:10s} {:18s} {:20s}".format("TARGET DEVICE",
                     "scsi_target", "CHANNEL", "ID", "TARGET STATUS", end=""))
 
                 for starget in readSUListFromHead(shost.__targets, "siblings", "struct scsi_target"):
                     try:
                         print("{:15s} {:x} {:6s} {:7d} {:5d} {:16s}"
-                            "{:20s} \n".format(starget.dev.kobj.name,
+                            "{:20s}\n".format(starget.dev.kobj.name,
                             int(starget), "", starget.channel,
-                            starget.id, "", starget_state_dict[starget.state]), end='')
+                            starget.id, "", enum_starget_state.getnam(starget.state)), end='')
                     except KeyError:
                         pylog.warning("Error in processing scsi_target {:x}, please check manually".format(int(starget)))
 
-def print_shost_info(version):
-        shost_state_dict = {
-            1: 'SHOST_CREATED',
-            2: 'SHOST_RUNNING',
-            3: 'SHOST_CANCEL',
-            4: 'SHOST_DEL',
-            5: 'SHOST_RECOVERY',
-            6: 'SHOST_CANCEL_RECOVERY',
-            7: 'SHOST_DEL_RECOVERY',
-        }
-        for shost in get_scsi_hosts():
+def print_shost_info():
+        use_host_busy_counter = -1
+
+        enum_shost_state = EnumInfo("enum scsi_host_state")
+
+        hosts = get_scsi_hosts()
+
+        try:
+            use_host_busy_counter = readSU("struct Scsi_Host", long(hosts[0].host_busy.counter))
+        except:
+            use_host_busy_counter = -1
+
+        for shost in hosts:
             print("\n============================================================="
                   "============================================================")
             print("HOST      DRIVER")
@@ -284,18 +263,22 @@ def print_shost_info(version):
                 shost.hostt.name, shost, shost.shost_data,
                 shost.hostdata, end=""))
 
-            print("\n   DRIVER VERSION      : {}".format(shost.hostt.module.version), end="")
+            try:
+                print("\n   DRIVER VERSION      : {}".format(shost.hostt.module.version), end="")
+            except:
+                print("\n   DRIVER VERSION      : {}".format("Error in checking "
+                                                             "'Scsi_Host->hostt->module->version'"), end="")
 
-            if ((version == 'rhel5') or (version == 'rhel6') or (version == 'rhel7.0-1')):
-                print("\n   HOST BUSY           : {}".format(shost.host_busy), end="")
-                print("\n   HOST BLOCKED        : {}".format(shost.host_blocked), end="")
-            elif (version == 'rhel7.2plus'):
+            if (use_host_busy_counter != -1):
                 print("\n   HOST BUSY           : {}".format(shost.host_busy.counter), end="")
                 print("\n   HOST BLOCKED        : {}".format(shost.host_blocked.counter), end="")
+            else:
+                print("\n   HOST BUSY           : {}".format(shost.host_busy), end="")
+                print("\n   HOST BLOCKED        : {}".format(shost.host_blocked), end="")
 
             print("\n   HOST FAILED         : {}".format(shost.host_failed), end="")
             print("\n   SELF BLOCKED        : {}".format(shost.host_self_blocked), end="")
-            print("\n   SHOST STATE         : {}".format(shost_state_dict[shost.shost_state]), end="")
+            print("\n   SHOST STATE         : {}".format(enum_shost_state.getnam(shost.shost_state)), end="")
             print("\n   MAX LUN             : {}".format(shost.max_lun), end="")
             print("\n   CMD/LUN             : {}".format(shost.cmd_per_lun), end="")
             print("\n   WORK Q NAME         : {}".format(shost.work_q_name), end="")
@@ -433,15 +416,22 @@ def display_command_time(cmnd):
     print(" is {}, deadline: {} cmnd-alloc: {} rq-alloc: {}".format(state, deadline, start_time, rq_start_time), end='')
 
 
-def run_scsi_checks(version):
+def run_scsi_checks():
     warnings = 0
     errors = 0
+    use_host_busy_counter = -1
     gendev_q_sdev_q_mismatch = 0
     jiffies = readSymbol("jiffies")
 
     # host checks
     hosts = get_scsi_hosts()
-    if ((version == 'rhel5') or (version == 'rhel6') or (version == 'rhel7.0-1')):
+
+    try:
+        use_host_busy_counter = readSU("struct Scsi_Host", long(hosts[0].host_busy.counter))
+    except:
+        use_host_busy_counter = -1
+
+    if (use_host_busy_counter == -1):
         for host in hosts:
             if (host.host_failed):
                 warnings += 1
@@ -456,7 +446,7 @@ def run_scsi_checks(version):
                 print("WARNING: Scsi_Host {:#x} ({}) is blocked! HBA driver refusing all commands with SCSI_MLQUEUE_HOST_BUSY?".format(host,
                        host.shost_gendev.kobj.name))
 
-    elif (version == 'rhel7.2plus'):
+    elif (use_host_busy_counter != -1):
         for host in hosts:
             if (host.host_failed):
                 warnings += 1
@@ -472,20 +462,16 @@ def run_scsi_checks(version):
                        host.shost_gendev.kobj.name))
 
     # device checks
-    if (version == 'rhel5'):
-       gendev_dict = get_gendev_rhel5()
-    elif ((version == 'rhel6') or (version == 'rhel7.0-1') or
-          (version == 'rhel7.2plus')):
-          gendev_dict = get_gendev_rhel67()
+    gendev_dict = get_gendev()
 
     for sdev in get_SCSI_devices():
-        if ((version == 'rhel5') or (version == 'rhel6') or (version == 'rhel7.0-1')):
+        if (use_host_busy_counter == -1):
             if (sdev.device_blocked):
                 warnings += 1
                 print("WARNING: scsi_device {:#x} ({}) is blocked! HBA driver returning "
                       "SCSI_MLQUEUE_DEVICE_BUSY or device returning SAM_STAT_BUSY?".format(sdev,
                       get_scsi_device_id(sdev)))
-        elif (version == 'rhel7.2plus'):
+        elif (use_host_busy_counter != -1):
             if (sdev.device_blocked.counter):
                 warnings += 1
                 print("WARNING: scsi_device {:#x} ({}) is blocked! HBA driver returning "
@@ -596,24 +582,8 @@ if ( __name__ == '__main__'):
 
     args = parser.parse_args()
 
-        #Check the version of kernel, to accomodate some changes in struct definitions accordingly:
-    for l in exec_crash_command_bg('sys').splitlines()[1:]:
-        try:
-            if ('RELEASE: ' in l): 
-                if ('2.6.18-' in l): 
-                    version = 'rhel5'
-                elif ('2.6.32-' in l): 
-                    version = 'rhel6'
-                elif ('3.10.0-' in l):
-                    if (('3.10.0-1' in l) or ('3.10.0-2' in l)):
-                        version = 'rhel7.0-1'    #RHEL 7.0, 7.1
-                    else:
-                        version = 'rhel7.2plus'  #RHEL 7.2 and above
-        except:
-            pylog.warning("cannot parse:", l)
-
     if (args.runcheck):
-        run_scsi_checks(version)
+        run_scsi_checks()
 
     if (args.proc_info):
         print_SCSI_devices()
@@ -638,14 +608,14 @@ if ( __name__ == '__main__'):
             print("No SCSI commands found")
 
     if (args.devs):
-        print_sdev_shost(version)
+        print_sdev_shost()
 
     if (args.targets):
-        print_starget_shost(version)
+        print_starget_shost()
 
     if (args.requests):
         display_requests(args.requests, args.usehex)
 
     if(args.hosts or not (args.runcheck or args.proc_info or args.devs or
        args.commands or args.requests or args.time or args.targets)):
-        print_shost_info(version)
+        print_shost_info()

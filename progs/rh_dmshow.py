@@ -83,6 +83,18 @@ def display_fields(display, fieldstr, usehex=0):
             print(" {}: {:<10}".format(fieldname, field), end='')
     print("")
 
+def get_size(gendisk):
+    try:
+        if (member_size("struct gendisk", "capacity") != -1):
+            return (gendisk.capacity * 512 / 1048576)
+        else:
+            tmp_hd_struct = readSU("struct hd_struct", long(gendisk.part0))
+            return (tmp_hd_struct.nr_sects * 512 / 1048576)
+    except:
+        pylog.warning("Error in processing 'struct gendisk'", gendisk)
+        pylog.warning("To debug this issue, you could manually examine "
+                      "the contents of gendisk struct")
+        return
 
 def show_table_mpath_priogroup(prio):
     print(" {} 0 {} 1".format(prio.ps.type.name, prio.nr_pgpaths), end="")
@@ -104,25 +116,15 @@ def show_mpath_info(prio):
             block_device.bd_dev >> 20,
             block_device.bd_dev & 0xfffff), end="")
 
-        sdev_state_dict = {
-            1: 'SDEV_CREATED',
-            2: 'SDEV_RUNNING',
-            3: 'SDEV_CANCEL',
-            4: 'SDEV_DEL',
-            5: 'SDEV_QUIESCE',
-            6: 'SDEV_OFFLINE',
-            7: 'SDEV_BLOCK',
-            8: 'SDEV_CREATED_BLOCK',
-            9: 'SDEV_TRANSPORT_OFFLINE',
-        }
+        enum_sdev_state = EnumInfo("enum scsi_device_state")
 
         if ('cciss' in block_device.bd_disk.disk_name):
             print("\t[Not a scsi device, skipping scsi_device struct!]", end ="")
         else:
             print("\t[scsi_device: {:#x} sdev_state: {}]".format(scsi_device,
-                sdev_state_dict[scsi_device.sdev_state]), end="")
+                enum_sdev_state.getnam(scsi_device.sdev_state)), end="")
 
-def show_multipath_list(dev, version):
+def show_multipath_list(dev):
     md, name = dev
     dm_table_map = StructResult("struct dm_table", long(md.map))
     print("------------------------------------------------------------------------------------------")
@@ -146,23 +148,16 @@ def show_multipath_list(dev, version):
     scsi_id = hash_cell.uuid
     scsi_id = scsi_id.partition("-")
 
-    if (version == 'rhel5'):
-        if ('cciss' in temp_pgpath.path.dev.bdev.bd_disk.disk_name):
-            print("{}  ({})  dm-{:<4d}  HP Smart Array RAID Device (cciss)".format(name, scsi_id[2],
-                md.disk.first_minor), end="")
-        else:
-            print("{}  ({})  dm-{:<4d}  {}  {}".format(name, scsi_id[2], md.disk.first_minor,
-                temp_scsi_device.vendor[:8], temp_scsi_device.model[:16]), end="")
-        print("\nsize={:.2f}M  ".format(temp_pgpath.path.dev.bdev.bd_disk.capacity * 512 // 1048576), end="")
-
-    elif ((version == 'rhel6') or (version == 'rhel7')):
+    if ('cciss' in temp_pgpath.path.dev.bdev.bd_disk.disk_name):
+        print("{}  ({})  dm-{:<4d}  HP Smart Array RAID Device (cciss)".format(name, scsi_id[2],
+            md.disk.first_minor), end="")
+    else:
         print("{}  ({})  dm-{:<4d}  {}  {}".format(name, scsi_id[2], md.disk.first_minor,
             temp_scsi_device.vendor[:8], temp_scsi_device.model[:16]), end="")
 
-        temp_hd_struct = readSU("struct hd_struct", long(temp_pgpath.path.dev.bdev.bd_disk.part0))
-        print("\nsize={:.2f}M  ".format(temp_hd_struct.nr_sects * 512 // 1048576), end="")
+    print("\nsize={:.2f}M  ".format(get_size(temp_pgpath.path.dev.bdev.bd_disk)), end="")
 
-    if ((version == 'rhel7') and (minor_version >= 514)):
+    if (member_size("struct multipath", "flags") != -1):
         if ((mpath.flags & (1 << 0)) or (mpath.flags & (1 << 1)) or
             (mpath.flags & (1 << 2))):
             print("(queue_if_no_path enabled)  ".format(), end="")
@@ -197,7 +192,7 @@ def show_dmsetup_table_multipath(dev):
     # general parameters
     params = []
 
-    if ((version == 'rhel7') and (minor_version >= 514)):
+    if (member_size("struct multipath", "flags") != -1):
         if ((mpath.flags & (1 << 0)) or (mpath.flags & (1 << 1)) or
             (mpath.flags & (1 << 2))):
             params.append("queue_if_no_path")
@@ -240,6 +235,38 @@ def show_dmsetup_table_multipath(dev):
 
     print("")
 
+def show_basic_mpath_info(dev):
+    md, name = dev
+    dm_table_map = StructResult("struct dm_table", long(md.map))
+    mpath = StructResult("struct multipath", long(dm_table_map.targets.private))
+
+    print("dm-{:<4d} {:<22} {:#x} ".format(md.disk.first_minor, name, mpath), end="")
+
+    use_nr_paths_counter = -1
+
+    try:
+        use_nr_paths_counter = readSU("struct multipath", long(mpath.nr_valid_paths.counter))
+    except:
+        use_nr_paths_counter = -1
+
+    if (use_nr_paths_counter != -1):
+        print("{:26d}".format(mpath.nr_valid_paths.counter), end="")
+    else:
+        print("{:26d}".format(mpath.nr_valid_paths), end="")
+
+    if (member_size("struct multipath", "flags") != -1):
+        if ((mpath.flags & (1 << 0)) or (mpath.flags & (1 << 1)) or
+            (mpath.flags & (1 << 2))):
+            print("\t\t{}".format("Enabled"))
+        else:
+            print("\t\t{}".format("Disabled"))
+
+    else:
+        if (mpath.queue_if_no_path):
+            print("\t\t{}".format("Enabled"))
+        else:
+            print("\t\t{}".format("Disabled"))
+
 def get_vg_lv_names(string):
     temp = ["", ""]
     i = flag = 0
@@ -263,7 +290,7 @@ def get_md_mpath_from_gendisk(pv_gendisk):
         if (tmp_mapped_device == temp_dev[0]):
             return temp_dev
 
-def show_linear_lvm(dev, version):
+def show_linear_lvm(dev):
     md, name = dev
     dm_table_map = StructResult("struct dm_table", long(md.map))
     for target_id in range(dm_table_map.num_targets):
@@ -279,11 +306,7 @@ def show_linear_lvm(dev, version):
 
         if ((vg_lv_names[0]) and (vg_lv_names[1])):
 
-            if (version == 'rhel5'):
-                lv_capacity = gendisk.capacity * 512 // 1048576
-            elif ((version == 'rhel6') or (version == 'rhel7')):
-                hd_struct = readSU("struct hd_struct", long(gendisk.part0))
-                lv_capacity = hd_struct.nr_sects * 512 // 1048576
+            lv_capacity = get_size(gendisk)
 
             if ('dm-' in pv_gendisk.disk_name[:3]):
                 pv_md, pv_md_name = get_md_mpath_from_gendisk(pv_gendisk)
@@ -301,7 +324,7 @@ def show_linear_lvm(dev, version):
                       lv_capacity,
                       pv_gendisk.disk_name), end="")
 
-def show_linear_lvm_uuid(dev, version):
+def show_linear_lvm_uuid(dev):
     md, name = dev
     dm_table_map = StructResult("struct dm_table", long(md.map))
     for target_id in range(dm_table_map.num_targets):
@@ -318,18 +341,14 @@ def show_linear_lvm_uuid(dev, version):
 
         if ((vg_lv_names[0]) and (vg_lv_names[1])):
 
-             if (version == 'rhel5'):
-                 lv_capacity = gendisk.capacity * 512 // 1048576
-             elif ((version == 'rhel6') or (version == 'rhel7')):
-                 hd_struct = readSU("struct hd_struct", long(gendisk.part0))
-                 lv_capacity = hd_struct.nr_sects * 512 // 1048576
+             lv_capacity = get_size(gendisk)
 
              print("dm-{:<10d} {:45s} {:20s} {:18.2f}      {:10s}  {:10s}\n".format(md.disk.first_minor,
                  vg_lv_names[1], vg_lv_names[0],
                  lv_capacity,
                  lv_uuid[-32:], lv_uuid[:32]), end="")
 
-def show_linear_lvm_pv(dev, version):
+def show_linear_lvm_pv(dev):
     md, name = dev
     dm_table_map = StructResult("struct dm_table", long(md.map))
     for target_id in range(dm_table_map.num_targets):
@@ -345,11 +364,7 @@ def show_linear_lvm_pv(dev, version):
 
         if ((vg_lv_names[0]) and (vg_lv_names[1])):
 
-            if (version == 'rhel5'):
-                pv_capacity = pv_gendisk.capacity * 512 // 1048576
-            elif ((version == 'rhel6') or (version == 'rhel7')):
-                hd_struct = readSU("struct hd_struct", long(pv_gendisk.part0))
-                pv_capacity = hd_struct.nr_sects * 512 // 1048576
+            pv_capacity = get_size(pv_gendisk)
 
             if ('dm-' in pv_gendisk.disk_name[:3]):
                 pv_md, pv_md_name = get_md_mpath_from_gendisk(pv_gendisk)
@@ -470,30 +485,18 @@ if ( __name__ == '__main__'):
                    "the modules manually")
             sys.exit()
 
-    #Check the version of kernel, to accomodate some changes in struct definitions accordingly:
-    for l in exec_crash_command_bg('sys').splitlines()[1:]:
-        try:
-            if ('RELEASE: ' in l): 
-                if ('2.6.18-' in l):
-                    version = 'rhel5'
-                    exec_crash_command("set scope dm_table_get_devices")
-                elif ('2.6.32-' in l):
-                    version = 'rhel6'
-                    exec_crash_command("set scope dm_table_get_devices")
-                elif ('3.10.0-' in l):
-                    version = 'rhel7'
-                    exec_crash_command("sym dm_table_get_devices")
-                    exec_crash_command("set scope dm_table_get_devices")
-                minor_version = int(l.split("-")[1].split(".")[0])
-                setscope = 1 
-        except:
-            pylog.warning("cannot parse:", l)
-            setscope = 0
+    try:
+        exec_crash_command("sym dm_table_get_devices")
+        exec_crash_command("set scope dm_table_create")
+        setscope = 1
+    except:
+        setscope = 0
 
     devlist = get_dm_devices()
     devlist = sorted(devlist, key=lambda dev: dev[0].disk.first_minor)
     if (args.multipath):
-        print("NUMBER  NAME                   MULTIPATH           FIELDS")
+        print("{}  {:22s} {:30s} {:24s}  {}\n".format("NUMBER", "NAME", "MULTIPATH",
+              "nr_valid_paths", "queue_if_no_path"), end="")
     elif (args.multipathlist):
         pass
     elif (args.lvs):
@@ -518,21 +521,18 @@ if ( __name__ == '__main__'):
         if (args.multipath):
             if (not (dm_table_map.targets.type.name == "multipath")):
                 continue
-            mpath = StructResult("struct multipath", long(dm_table_map.targets.private))
-            print("dm-{:<4d} {:<22} {:#x} ".format(md.disk.first_minor, name, mpath), end="")
-            display_fields(mpath, args.multipath, usehex=args.usehex)
+            show_basic_mpath_info(dev)
             mpathfound = 1
 
         elif (args.multipathlist):
             if (not (dm_table_map.targets.type.name == "multipath")):
                 continue
-            mpath = StructResult("struct multipath", long(dm_table_map.targets.private))
-            show_multipath_list(dev, version)
+            show_multipath_list(dev)
             mpathfound = 1
 
         elif (args.lvs):
             if (dm_table_map.targets.type.name == "linear"):
-                show_linear_lvm(dev, version)
+                show_linear_lvm(dev)
             elif ((dm_table_map.targets.type.name != "linear") and 
                   (dm_table_map.targets.type.name != "multipath")):
                   print("{}: {} not yet supported by this command".format(name,
@@ -540,7 +540,7 @@ if ( __name__ == '__main__'):
 
         elif (args.lvuuid):
             if (dm_table_map.targets.type.name == "linear"):
-                show_linear_lvm_uuid(dev, version)
+                show_linear_lvm_uuid(dev)
             elif ((dm_table_map.targets.type.name != "linear") and 
                   (dm_table_map.targets.type.name != "multipath")):
                   print("{}: {} not yet supported by this command".format(name,
@@ -548,7 +548,7 @@ if ( __name__ == '__main__'):
 
         elif (args.pvs):
             if (dm_table_map.targets.type.name == "linear"):
-                show_linear_lvm_pv(dev, version)
+                show_linear_lvm_pv(dev)
             elif ((dm_table_map.targets.type.name != "linear") and 
                   (dm_table_map.targets.type.name != "multipath")):
                   print("{}: {} not yet supported by this command".format(name,
