@@ -144,12 +144,9 @@ rprog("rh_scsishow", "Display information about SCSI subsystem from RHEL"
 
 help = '''
 Extract and display the information about multipath devices, LVM volumes
-from RHEL 5/6/7 vmcore dumps.
-
-Note: At this time, rh_dmshow works with RHEL 5.6+, RHEL 6 and 7
-      kernels.
+from vmcore dumps.
 '''
 
-rprog("rh_dmshow", "Display information about multipath devices and"
+rprog("dmshow", "Display information about multipath devices and"
       "LVM volumes", "-h   - list available options",
       help)
