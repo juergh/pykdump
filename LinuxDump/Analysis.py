@@ -3,7 +3,7 @@
 # module LinuxDump.Analysis
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -32,7 +32,7 @@ from LinuxDump.Tasks import (TaskTable, Task, tasksSummary, ms2uptime,
                              decode_tflags, decode_waitq, TASK_STATE)
 
 from LinuxDump.fregsapi import (search_for_registers, DisasmFlavor)
-from LinuxDump.BTstack import exec_bt
+from LinuxDump.BTstack import (exec_bt, verifyFastSet)
 
 
 # Print processes waiting for UNIX sockets (usually syslog /dev/log)
@@ -250,6 +250,8 @@ def check_memory_pressure(_funcpids):
     subpids = _funcpids(__mp_names)
     if (not subpids):
         return False
+    if (len(subpids) < 100):
+        verifyFastSet(subpids, __mp_names)
     d = defaultdict(int)
     total = 0
     T_table = TaskTable()
