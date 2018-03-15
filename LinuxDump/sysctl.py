@@ -1,7 +1,7 @@
 # module LinuxDump.sysctl
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -17,8 +17,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-# To facilitate migration to Python-3, we start from using future statements/builtins
-from __future__ import print_function
 
 __doc__ = '''
 This is a package providing access to ctl_table trees used by 'sysctl'
@@ -246,7 +244,8 @@ def process_subdir(subdir, parents = ''):
             process_subdir(newdir, fname + '.')
         elif (S_ISLNK(ct.mode)):
             newdir = follow_symlink(h, ct, nsproxy)
-            process_subdir(newdir, fname + '.')
+            if (newdir):
+                process_subdir(newdir, fname + '.')
         else:
             # A simple entry - add it to entries
             __entries[fname] = ct
@@ -261,14 +260,23 @@ def print_sysdir(sysdir, indent = 0):
         elif (S_ISLNK(e.mode)):
             #print("!!!", e.procname)
             newdir = follow_symlink(h, e, nsproxy)
-            print_sysdir(newdir, indent+4)
+            if (newdir):
+                print_sysdir(newdir, indent+4)
 
 def follow_symlink(head, ct, namespaces):
     root = readSU("struct ctl_table_root", ct.data)
     lookup = addr2sym(root.lookup)
-    if (lookup != "net_ctl_header_lookup"):
-        raise TypeError("Unknown lookup type")
-    ctset = namespaces.net_ns.sysctls
+    #print(root, hex(root.lookup))
+    if (lookup == "net_ctl_header_lookup"):
+        ctset = namespaces.net_ns.sysctls
+    elif (lookup == "set_lookup"):
+        # These are user.max_xxx_namespaces, not of general interest,
+        # I have added code to handle it but for now let us ignore it
+        return None
+        #  &current_user_ns()->set;
+        ctset = PYKD.init_user_ns.set
+    else:
+        raise TypeError(lookup)
     #print(root, ctset)
     return xlate_dir(ctset, head.parent)
 
