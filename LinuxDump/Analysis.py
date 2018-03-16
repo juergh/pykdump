@@ -89,7 +89,13 @@ def print_wait_for_AF_UNIX(v=0):
         if (tasklist):
             owners = sorted(socks_dict[peer])
             last_ran, t = owners[0]
-            pids = [tt.pid for tt in tasklist]
+            #pids = [tt.pid for tt in tasklist]
+            pids = []
+            for tt in tasklist:
+                try:
+                    pids.append(tt.pid)
+                except:
+                    pylog.warning("Corrupted waitq of", peer)
             state, ino, path = proto.unix_sock(peer)
              # if last_ran is greater than this, issue a warning
             __max_time = 5
