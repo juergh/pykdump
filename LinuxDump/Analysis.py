@@ -89,13 +89,16 @@ def print_wait_for_AF_UNIX(v=0):
         if (tasklist):
             owners = sorted(socks_dict[peer])
             last_ran, t = owners[0]
-            #pids = [tt.pid for tt in tasklist]
+            # Sanitize tasklist in case it has corrupted pointers
+            ntasklist = []
             pids = []
             for tt in tasklist:
                 try:
                     pids.append(tt.pid)
+                    ntasklist.append(tt)
                 except:
                     pylog.warning("Corrupted waitq of", peer)
+            tasklist = ntasklist
             state, ino, path = proto.unix_sock(peer)
              # if last_ran is greater than this, issue a warning
             __max_time = 5
@@ -127,10 +130,17 @@ def print_wait_for_AF_UNIX(v=0):
             print(" -- Socket we wait for: {} {}".format(peer, path))
             print("   Youngest process with this socket <{}> pid={}({}) ran "
                 "{:5.2f}s ago".format(t.comm, t.pid, t.state[5:7], last_ran))
-            print("   ...  {} tasks waiting for this socket".format(len(tasklist)))
-            if (v > 0):
-                for task in sorted(tasklist, key=operator.attrgetter('pid')):
-                    print("     pid=%7d   CMD=%s" % (task.pid, task.comm))
+            # Tasklist has been already sanitized getting rid of those
+            # elements where we have been unable to deref task.pid
+            if (tasklist):
+                print("   ...  {} tasks waiting for this socket".\
+                    format(len(tasklist)))
+
+                if (v > 0):
+                    for task in sorted(tasklist, key=operator.attrgetter('pid')):
+                        print("     pid=%7d   CMD=%s" % (task.pid, task.comm))
+            else:
+                print("     cannot print tasks as socket wait queue is corrupted")                    
 
     #if (once):
     #    print("--pid={} comm={} ran {:5.2f}s ago".format(t.pid, t.comm, last_ran))
