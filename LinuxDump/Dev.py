@@ -710,7 +710,7 @@ def is_request_BAD(rq):
         if (not rq_disk):
             return "bad rq.rq_disk"
         # Is major reasonable?
-        if (rq_disk.major < 0 or rq_disk.major > 10000):
+        if (rq_disk.major <= 0 or rq_disk.major > 10000):
             return "bad rq.rq_disk.major"
     except KeyError:
         pass
