@@ -670,16 +670,19 @@ def check_request_queue(rqueue):
 #define RQ_SCSI_DONE            0xfffe
 #define RQ_SCSI_DISCONNECTING   0xffe0
 
-# Sanity check. We retirn None if everything's fine, 
-# otherwise a string withmoer details
+# Sanity check. We return None if everything's fine, 
+# otherwise a string with more details
 def is_request_BAD(rq):
     if (not rq.bio):
         return "rq.bio = NULL"
 
+    if (rq.bio & 0x3):
+        return 'rq.bio unaligned'
+
     # Can we dereference bio?
     try:
         readS64(rq.bio)
-    except crash.error:
+    except crash.error as val:
         return "cannot dereference rq.bio"
     
     # Is cpu within bounds:
@@ -893,7 +896,7 @@ def print_request_slab(v):
     for rqa in alloc:
         rq = readSU("struct request", rqa)
         #bad = is_request_BAD(rq)
-        #print(rq, hexl(rq.Flags), bad)
+        #print(rq)
         if (is_request_BAD(rq)):
             continue
         if (is_request_STARTED(rq)):
