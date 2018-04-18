@@ -10,7 +10,7 @@
 #  Analyze reasons why some tasks are hanging (TASK_UNINTERRUPTIBLE)
 
 
-__version__ = "0.3.2"
+__version__ = "0.4.0"
 
 import sys
 import re
@@ -29,6 +29,7 @@ from LinuxDump.Analysis import (print_wait_for_AF_UNIX, print_pidlist,
 
 from LinuxDump.Files import pidFiles
 from LinuxDump.KernLocks import decode_semaphore
+from pykdump.Misc import AA_Node
 
 from collections import namedtuple, defaultdict
 
@@ -38,6 +39,51 @@ debug = API_options.debug
 # other threads are waiting on
 
 __resource_owners = set()
+__resource_owner_extra = defaultdict(set)      # pids owned by us
+
+def resource_owners_clear():
+    __resource_owners.clear()
+    __resource_owner_extra.clear()
+    
+def add_resource_pid(pid, extra = set()):
+    __resource_owners.add(pid)
+    __resource_owner_extra[pid] |= extra
+    
+# Debugging
+def _print_wait_tree():
+    print("\n+++ Debugging +++")
+    print(__resource_owners)
+    print("Extra:", __resource_owner_extra)
+
+def print_wait_tree():
+    __owners = __resource_owner_extra
+    # Create a set of small branches
+    branches = set()
+    for top, children in __owners.items():
+        # If it is an empty set, do nothing
+        if (not children):
+            continue
+        top = AA_Node(top)
+        branches.add(top)
+        for c in children:
+            leaf = AA_Node(c, top)
+    # Now glue small branches together
+    for b in branches:
+        for bo in branches:
+            if (bo == b):
+                continue
+            bo.glue(b)
+
+    topbranches = {b for b in branches if b.parent is None}
+    for b in topbranches:
+        print('-'*78)
+        #print(b)
+        sys.stdout.flush()
+        sys.stdout.buffer.write(str(b.HorTree()).encode("utf8"))
+        #print(b.HorTree())
+        print()
+        sys.stdout.flush()
+
 
 # Print header: what we are waiting for and number of pids
 def print_header(msg, n = None):
@@ -120,7 +166,7 @@ def get_mutex_waiters(mutex):
 
 structSetAttr("struct mutex", "Owner", ["owner.task", "owner"])
 # Try to classify the mutex and print its type and its owner
-def print_mutex(mutex):
+def print_mutex(mutex, pids = set()):
     mtype = ''
     if (long(mutex) == sym2addr("rtnl_mutex")):
         mtype = "rtnl_mutex"
@@ -136,7 +182,7 @@ def print_mutex(mutex):
     else:
         ownertask = ''
     if (ownertask):
-        __resource_owners.add(ownerpid)
+        add_resource_pid(ownerpid, pids)
         ownertask = "\n   Owner: pid={0.pid} cmd={0.comm}".format(ownertask)
     else:
         ownertask = "\n   No Owner"
@@ -205,6 +251,10 @@ def summarize_subroutines(funcnames, title = None):
     # funcnames are specified using | operator
     if (not subpids):
         return
+    if (len(subpids) < 100):
+        verifyFastSet(subpids, funcnames)
+    if (not subpids):
+        return
     d = defaultdict(int)
     total = 0
     for pid in subpids:
@@ -263,7 +313,7 @@ def check_mmap_sem(tasksrem):
                 rem = powners - pid_set
                 print("        Possible owners:", list(rem))
                 for o in rem:
-                    __resource_owners.add(o)
+                    add_resource_pid(o)
             remove_pidlist(tasksrem, pids)
 
       
@@ -304,7 +354,7 @@ def check_inode_mutexes(tasksrem):
         print_header("Waiting on inode mutexes")
         for inode, (fn, pids) in mutex_waiters.items():
             print ("  --", inode, fn)
-            print_mutex(inode.i_mutex)
+            print_mutex(inode.i_mutex, set(pids))
             print_pidlist(pids, maxpids = _MAXPIDS, verbose = _VERBOSE,
                           sortbytime = _SORTBYTIME)
             remove_pidlist(tasksrem, pids)
@@ -356,7 +406,7 @@ def check_other_mutexes(tasksrem):
             continue
         if (once):
             print_header("Waiting on mutexes")
-        print_mutex(mutex)
+        print_mutex(mutex, set(pids))
         print_pidlist(pids, maxpids = _MAXPIDS, verbose = _VERBOSE,
                       sortbytime = _SORTBYTIME)
         remove_pidlist(tasksrem, pids)
@@ -393,6 +443,7 @@ def check_stack_and_print(funcname, tasksrem):
     print_header("Waiting in {}".format(funcname))
     print_pidlist(pids, maxpids = _MAXPIDS, verbose = _VERBOSE,
                   sortbytime = _SORTBYTIME)
+    add_resource_pid(funcname, set(pids))
     remove_pidlist(tasksrem, pids)
 
 
@@ -472,7 +523,7 @@ def check_wait_on_bit(tasksrem):
 # Classify UNINTERRUPTIBLE threads
 def classify_UN(v):
     # Reset owners
-    __resource_owners.clear()
+    resource_owners_clear()
     # We get a list of UN tasks
     tasksrem = getUNTasks()
     
@@ -510,13 +561,24 @@ def classify_UN(v):
         #btlist = [exec_bt("bt %d" % pid)[0] for pid in tasksrem]
         bt_mergestacks(btlist, verbose=1)
     #print(un)
-    # Print resource owners
-    if (__resource_owners):
+    # Print resource owners. We have two kinds: real pids and pseudo-owners,
+    # such as "io_schedule"
+    __real_owners = {x for x in __resource_owners if isinstance(x, int)}
+    __pseudo_owners = __resource_owners - __real_owners
+    if (__real_owners):
         print("\n*** Threads that own resources the other threads are"
             " waiting on ***")
-        for pid in __resource_owners:
+        for pid in __real_owners:
             s = exec_bt("bt {}".format(pid))[0]
             print(s)
+            print(__resource_owner_extra[pid])
+    if (__pseudo_owners):
+        print("\n*** System activities other threads are waiting for ***")
+        for pid in __pseudo_owners:
+            print("  --- Doing {} ---".format(pid))
+            print(__resource_owner_extra[pid])
+        
+
     # Are any of these owners looping in zone allocator?
     #_owners = zvm_pids & rem
     #if (_owners):
@@ -559,6 +621,10 @@ if ( __name__ == '__main__'):
                   action="store_true",
                   help="Print info about hangs on AF_UNIX sockets (such as used by syslogd")
 
+    op.add_option("--tree", dest="Tree", default = 0,
+                  action="store_true",
+                  help="Print tree of resources owners  (experimental!)")
+
     op.add_option("--saphana", dest="Saphana", default = 0,
                   action="store_true",
                   help="Print recommendations for SAP HANA specific hangs")
@@ -566,6 +632,7 @@ if ( __name__ == '__main__'):
     (o, args) = op.parse_args()
     
     v = _VERBOSE = o.Verbose
+    _PRINT_TREE = o.Tree
     _MAXPIDS = o.Maxpids
     _SORTBYTIME = not o.Sortbypid
     T_table = TaskTable()
@@ -616,4 +683,6 @@ if ( __name__ == '__main__'):
             "\n\tof the hang"
             "\n\tRun 'hanginfo --saphana' for explanations and tuning suggestions")
  
-
+    if (_PRINT_TREE):
+        #_print_wait_tree()
+        print_wait_tree()
