@@ -4,7 +4,7 @@
 #
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -340,14 +340,14 @@ class TypeInfo(object):
 
         # Here we will insert the varname
         pref = ''.join(out)
-        
+
         out = []
         if (self.dims != None):
             for i in self.dims:
                 out.append("[%d]" % i)
         suff = ''.join(out)
         return (self.stype, pref,suff)
-  
+
     # A string without a terminating ';', suitable for function args description
     def typestr(self):
         stype, pref, suff = self.fullname()
@@ -359,8 +359,8 @@ class TypeInfo(object):
             else:
                 rc = "{} {}{}".format(stype, pref, suff)
         return rc
-        
-    # A full form with embedded structs unstubbed. 
+
+    # A full form with embedded structs unstubbed.
     # Terminated by ;, to emulate C-style definition
     def fullstr(self, indent = 0):
         stype, pref, suff = self.fullname()
@@ -380,7 +380,7 @@ class TypeInfo(object):
                 astype, apref, asuff = ati.fullname()
                 out.append(("%s %s%s" % (astype, apref, asuff)).strip())
             stype = out[0]
-            suff = "(func)(" + ", ".join(out[1:]) + ")" 
+            suff = "(func)(" + ", ".join(out[1:]) + ")"
 
         out = "TypeInfo <%s %s%s> size=%d" % (stype, pref, suff, self.size)
         return out
@@ -451,11 +451,11 @@ class VarInfo(object):
                       self.name + suff + '+;'
              else:
                  rc = self.ti.details.fullstr(indent)+  pref + suff + ';'
-                 
+
          else:
              rc =  ' ' * indent + "%s %s%s%s;" % \
                   (stype, pref, self.name, suff)
-                 
+
          #return rc
          # Add offset etc.
          size = self.ti.size * self.ti.elements
@@ -477,7 +477,7 @@ class VarInfo(object):
              bitoffset = self.bitoffset - self.offset * 8
          else:
              bitoffset = None
-         
+
          codetype = ti.codetype
          if (codetype == TYPE_CODE_INT):
              return d.ti_intReader(ti, bitoffset, self.bitsize)
@@ -492,7 +492,8 @@ class VarInfo(object):
              return d.ptrReader(self, ptrlev)
          elif (codetype == TYPE_CODE_ENUM):     # TYPE_CODE_ENUM
              return d.ti_enumReader(ti)
-             #return d.ti_intReader(ti, bitoffset, self.bitsize)
+         elif (codetype == TYPE_CODE_BOOL):
+             return d.ti_boolReader(ti, bitoffset, self.bitsize)
          else:
              raise TypeError("don't know how to read codetype "+str(codetype))
 
@@ -505,7 +506,7 @@ class VarInfo(object):
                  astype, apref, asuff = ati.fullname()
                  out.append(("%s %s%s" % (astype, apref, asuff)).strip())
              stype = out[0]
-             suff = "(" + ", ".join(out[1:]) + ")" 
+             suff = "(" + ", ".join(out[1:]) + ")"
          out = "%s <%s%s %s%s> addr=0x%x" % (self.__class__.__name__,
                                              stype, pref,
                                              self.name, suff, self.addr)
@@ -527,7 +528,7 @@ class VarInfo(object):
              return dims[0]
          else:
              return dims
-    
+
      reader = LazyEval("reader", getReader)
      dereferencer = LazyEval("dereferencer", getDereferencer)
 
@@ -553,7 +554,7 @@ class SUInfo(dict):
         #self.parentstype = None
         #dict.__init__(self, {})
 
-        # These three attributes will not be accessible via dict 
+        # These three attributes will not be accessible via dict
         object.__setattr__(self, "PYT_sname", sname)
         # PYT_body is needed for printing mainly. As we can have internal
         # struct/union with empty names and there can be several of them,

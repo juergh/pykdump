@@ -1,19 +1,19 @@
 /* Python3 extension to interact with CRASH
  * WARNING: it will not work with Python2!
- * 
- * 
+ *
+ *
  * # --------------------------------------------------------------------
- * # (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
+ * # (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
  * #
  * # Author: Alex Sidorenko <asid@hpe.com>
  * #
  * # --------------------------------------------------------------------
- * 
+ *
  *  This program is free software; you can redistribute it and/or modify
  *  it under the terms of the GNU General Public License as published by
  *  the Free Software Foundation; either version 2 of the License, or
  *  (at your option) any later version.
- * 
+ *
  *  This program is distributed in the hope that it will be useful,
  *  but WITHOUT ANY WARRANTY; without even the implied warranty of
  *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -38,7 +38,7 @@
 int debug = 0;
 
 /* This is C-module version */
-static char crashmod_version_s[] = "@(#)pycrash 3.0.1";
+static char crashmod_version_s[] = "@(#)pycrash 3.0.2";
 const char * crashmod_version = crashmod_version_s + 12;
 
 extern const char *build_crash_version;
@@ -65,10 +65,10 @@ PyMODINIT_FUNC PyInit_crash(void);
 void connect2fp(void) {
     PyObject *crashfp;
     PyObject* sys = PyImport_ImportModule("sys");     // New reference
-    
+
     crashfp = PyFile_FromFd(fileno(fp), "<crash fp>", "w",
                             -1, NULL, NULL, NULL, 0);
-    
+
     PyObject_SetAttrString(sys, "stdout", crashfp);
     PyObject_SetAttrString(sys, "stderr", crashfp);
     Py_DECREF(sys);
@@ -94,15 +94,15 @@ Py_Exit(int sts) {
 }
 
 /* ============ Dealing with SIGINT =====================
- * 
+ *
  *   Both Python and crash/gdb have SIGINT handlers and to avoid
  *   conflict we need to use a proper handler depending on context:
  *   - when executing Python code not using this module, use Python handler
  *   - when executing commands such as exec_crash_command, use crash.gdb handler
- *   
+ *
  */
 
-// Default SIGINT handlers: crash/GDB and Python. We save them during 
+// Default SIGINT handlers: crash/GDB and Python. We save them during
 // extension loading, in its init subroutine
 static struct sigaction crashgdb_sa, py_sa;
 
@@ -110,7 +110,7 @@ static struct sigaction crashgdb_sa, py_sa;
 void checksignals(void) {
     struct sigaction sa;
     sigaction(SIGINT, NULL, &sa);
-    fprintf(stderr, "crash=%p, python=%p, current=%p\n", 
+    fprintf(stderr, "crash=%p, python=%p, current=%p\n",
             crashgdb_sa.sa_handler, py_sa.sa_handler, sa.sa_handler);
 }
 
@@ -137,7 +137,7 @@ static void
 call_sys_enterepython(void)
 {
     PyObject *enterfunc = PySys_GetObject("enterepython");
-    
+
     if (enterfunc) {
         PyObject *res;
         Py_INCREF(enterfunc);
@@ -159,7 +159,7 @@ static void
 call_sys_exitepython(void)
 {
     PyObject *exitfunc = PySys_GetObject("exitepython");
-    
+
     if (exitfunc) {
         PyObject *res;
         Py_INCREF(exitfunc);
@@ -210,9 +210,9 @@ wchar_t wstdpath[BUFLEN];
 void _init(void)  {
     //void __attribute__((constructor)) n_init(void) {
     //PyObject *syspath;
-    
+
     //PyObject *s;
-    
+
     struct command_table_entry *ct_copy;
     /*
      *    WARNING:
@@ -223,17 +223,17 @@ void _init(void)  {
         debug = atoi(getenv("PYKDUMPDEBUG"));
     if (debug)
         printf("Running epython_init\n");
-    
+
     // If crash is in 'minimal' mode, we just bail out as we depend on full
     // crash functionality
     if (pc->flags & MINIMAL_MODE)
         return;
-    
+
     /* Before doing anything else, check whether the versions of crash
      *    used for build and the currently running version are compatible:
      *    build_crash_version vs build_version
      */
-    
+
     if (build_crash_version[0] != build_version[0]) {
         fprintf(stderr, "\nYou need to use mpykdump.so matching the major"
         " crash version\n");
@@ -242,16 +242,16 @@ void _init(void)  {
         fprintf(stderr, "Cannot continue, exiting\n\n");
         exit(1);
     }
-    
-    
+
+
     ext_filename = malloc(strlen(pc->curext->filename)+1);
     strcpy(ext_filename,  pc->curext->filename);
     if (debug)
         printf("extname=%s\n", ext_filename);
-    
+
     // Store our extension table for registering subcommands
     epython_curext = pc->curext;
-    
+
     if (!Py_IsInitialized()) {
         Py_NoSiteFlag = 1;
         Py_FrozenFlag = 1;
@@ -260,7 +260,7 @@ void _init(void)  {
         if (debug)
             fprintf(fp, "     *** Initializing Embedded Python %s ***\n",
                     crashmod_version);
-            
+
             extrapath = getenv("PYKDUMPPATH");
         // To be able debug sources, we need real FS to be searched
         // before ZIP. So if PYKDUMPPATH is set, we insert it _before_ our
@@ -277,10 +277,10 @@ void _init(void)  {
         strncat(stdpath, "/", BUFLEN-1);
         strncat(stdpath, PYSTDLIBDIR, BUFLEN-1);
         mbstowcs(wstdpath, stdpath, BUFLEN-1);
-        
+
         PyImport_AppendInittab("crash", PyInit_crash);
         Py_SetPath(wstdpath);
-        
+
         // Get crash/gdb SIGINT handler and store it.
         sigaction(SIGINT, NULL, &crashgdb_sa);
         // Set SIG_DFL - we need this to get Python handler initialized
@@ -297,11 +297,11 @@ void _init(void)  {
         if (debug)
             printf("Trying to Py_Initialize() twice\n");
     }
-    
+
     /* Make a copy of the initial command table on heap, so we'll be able to
      *     modify it if needed
      */
-    
+
     ct_copy = (struct command_table_entry *) malloc(sizeof(command_table));
     if (!ct_copy) {
         printf("Cannot allocate ct_copy\n");
@@ -309,27 +309,27 @@ void _init(void)  {
     }
     memcpy(ct_copy, command_table, sizeof(command_table));
     register_extension(ct_copy);
-    
+
     // Set scroll if it has not been done yet
-    
+
     if (pc->flags & SCROLL) {
         printf("Setting scroll off while initializing PyKdump\n");
         pc->flags &= ~SCROLL;
     }
-    
-    
+
+
     if (debug) {
         printf("Epython extension registered\n");
         PyRun_SimpleString("import sys; print (sys.path)");
     }
-    
+
     // Get the realpath of vmcore
     if (pc->dumpfile)
         py_vmcore_realpath = realpath(pc->dumpfile, NULL);
     else if (pc->live_memsrc)
         py_vmcore_realpath = realpath(pc->live_memsrc, NULL);
-    
-    
+
+
     if (debug)
         fprintf(fp, "vmcore=<%s>\n", py_vmcore_realpath);
     // Run the initialization Python script if it is available
@@ -337,7 +337,7 @@ void _init(void)  {
         char *argv[]= {"_init", "PyKdumpInit", NULL};
         epython_execute_prog(2, argv, 1);
     }
-    
+
     return;
 }
 
@@ -348,20 +348,20 @@ int _unload_epython = 1;
 void _fini(void) {
     //void __attribute__((destructor)) n_fini(void) {
     struct command_table_entry *ce;
-    
+
     // We do nothing in minimal mode
     if (pc->flags & MINIMAL_MODE)
         return;
-    
+
     if (! _unload_epython)
         return;
-    
+
     if (debug)
         fprintf(fp, "Unloading epython\n");
     free(ext_filename);
     ext_filename = NULL;
     Py_Finalize();
-    
+
     // Free name and help pointers for added entries
     for (ce = epython_curext->command_table, ce++; ce->name; ce++) {
         if (debug)
@@ -370,7 +370,7 @@ void _fini(void) {
         if (ce->help_data)
             free(ce->help_data);
     }
-    
+
     free(epython_curext->command_table);
     if (py_vmcore_realpath)
         free((void *)py_vmcore_realpath);
@@ -397,7 +397,7 @@ run_fromzip(const char *progname, const char *zipfilename) {
     }
     importer = PyObject_CallMethod(m, "zipimporter", "s", zipfilename);
     Py_DECREF(m);
-    
+
     code = (evalPyObject *) PyObject_CallMethod(importer, "get_code", "s",
                                                 progname);
     Py_DECREF(importer);
@@ -407,25 +407,25 @@ run_fromzip(const char *progname, const char *zipfilename) {
         PyErr_Clear();
         return 0;
     }
-    
+
     m = PyImport_AddModule("__main__");
     if (m == NULL) {
         PyErr_Print();
         return 0;
     }
-    
+
     d = PyModule_GetDict(m);
     v =  PyString_FromString(progname);
     PyDict_SetItemString(d, "__file__", v);
     Py_DECREF(v);
-    
+
     /* Execute code in __main__ context */
     if (debug)
         printf("Executing code from ZIP\n\n");
     v = PyEval_EvalCode(code, d, d);
-    
+
     Py_DECREF(code);
-    
+
     if (v == NULL) {
         // Even though we have been able to run the program, it has ended
         // raising an exception
@@ -443,7 +443,7 @@ run_fromzip(const char *progname, const char *zipfilename) {
     }
     Py_DECREF(v);
     return 1;
-    
+
 }
 
 /*
@@ -467,17 +467,17 @@ const char *find_pyprog(const char *prog) {
     char buf2[BUFSIZE];
     static char buf1[BUFSIZE];
     char *tok;
-    
+
     //If prognames start from '/', no need to search
     if (prog[0] == '/')
         return prog;
-    
+
     if (extrapath) {
         strcpy(buf2, ".:");
         strncat(buf2, extrapath, BUFSIZE-1);
     } else
         strcpy(buf2, ".");
-    
+
     tok = strtok(buf2, ":");
     while (tok) {
         snprintf(buf1, BUFSIZE, "%s/%s", tok, prog);
@@ -506,7 +506,7 @@ const char *find_pyprog(const char *prog) {
  *  We pass to it argc and argv.
  *  If 'quiet' is 1, we do not report errors and do not print stats.
  *  This is used for one-time initialiation script
- * 
+ *
  *  We use the same convention as for exec() system calls: argv[0] is not
  *  the name of the program but rather something used for information purposes
  *  and useful for debugging
@@ -536,14 +536,14 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
     wchar_t **argv_copy = NULL;
     wchar_t **argv_copy2 = NULL;
     int i;
-    
+
     // Options/args processing.
     // The general approach we use is like that:
     // epython [eopt1] [eopt2] ... progname [popt1] ...
     // That is - all options specified before the first real arg (progname)
     // are internal for epython
-    
-    
+
+
     static struct option long_options[] = {
         {"help",     no_argument,       0, 'h' },
         {"version",  no_argument,       0, 'v' },
@@ -551,23 +551,23 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
         {"path",     no_argument,       0, 'p' },
         {0,          0,             0, 0 }
     };
-    
+
     int need_prog = 1;		/* Usually we need a prog argument */
     int c;
     int option_index;
     int emulate_m = 0;
-    
+
     use_python_sigint();
     // Connect sys.stdout and sys.stderr to fp
     connect2fp();
-    
+
     if (debug) {
         int i;
         fprintf(fp, "***options processing\n");
         for(i=0; i < argc; i++)
             fprintf(fp,"  argv[%d] = %s\n", i, argv[i]);
     }
-    
+
     optind = 0;
     while ((c = getopt_long(argc, argv, "+hvpmd:",
         long_options, &option_index)) != -1) {
@@ -598,7 +598,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
                 return;
         }
         }
-        
+
         // Unprocessed arguments now start from optind
         if (optind == argc) {
             if (need_prog)
@@ -608,18 +608,18 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
             use_crash_sigint();
             return;
         }
-        
+
         /* Shift argv, argc by optind */
         nargv = argv+optind;
         argc -= optind;
-        
+
         if (debug) {
             int i;
             printf(" >>> after options processed\n");
             for(i=0; i < argc; i++)
                 printf("  nargv[%d] = %s\n", i, nargv[i]);
         }
-        
+
         prog = find_pyprog(nargv[0]);
         if (prog) {
             if (debug)
@@ -640,9 +640,9 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
                 }
             }
         }
-        
-        
-        
+
+
+
         // We should add handling exceptions here to prevent 'crash' from exiting
         if (argc > 0) {
             // We need to convert char **nargv -> wchar_t **argv. We'll allocate memory
@@ -657,7 +657,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
                 argv_copy2[i] = argv_copy[i];
             }
             PySys_SetArgvEx(argc, argv_copy, 0);
-            
+
             /* The function will be available only on the 2nd and further invocations
              *     of epython as it is normally defined in API.py which is not loaded yet */
             if (!quiet)
@@ -678,7 +678,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
                         else
                             strcpy(buffer, "progs/");
                     }
-                    
+
                     rc = run_fromzip(strncat(buffer, nargv[0], BUFLEN - 60), ext_filename);
                 if (!rc && !quiet)
                     fprintf(fp, " Cannot find the program <%s>\n", nargv[0]);
@@ -693,7 +693,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
         fflush(fp);
         // Reset sys.path every time after running a program as we do not destory the intepreter
         Py_SetPath(wstdpath);
-        
+
         // Free memory allocated for wchar copies
         for (i = 0; i < argc; i++) {
             PyMem_Free(argv_copy2[i]);
@@ -705,7 +705,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
         use_crash_sigint();
         if (debug)
             checksignals();
-        
+
 }
 
 void
@@ -718,12 +718,10 @@ char *help_epython[] = {
     "epython",                        /* command name */
     "invokes embedded Python interpreter",   /* short description */
     "program.py arg ...",	/* argument synopsis, or " " if none */
-    
+
     "  This command invokes embedded Python.",
     "\nEXAMPLE",
     "  Output help information for 'xportshow' tool:\n",
     "    crash> epython xportshow.py --help",
     NULL
 };
-
-
