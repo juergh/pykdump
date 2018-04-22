@@ -130,16 +130,13 @@ rprog("scsi", "Print information about SCSI subsystem",
 
 help = '''
 Extract and display the information about SCSI adapter, scsi devices,
-scsi commands from RHEL 6/7 vmcore dumps. This command also provides
+scsi commands from vmcore dumps. This command also provides
 options to internally run some of the heuristics to determine common
 problems with stuck scsi error handling, stalled commands etc.
-
-Note: At this time, rh_scsishow works with RHEL 5.6+, RHEL 6 and 7
-      kernels.
 '''
 
-rprog("rh_scsishow", "Display information about SCSI subsystem from RHEL"
-      "kernels", "-h   - list available options",
+rprog("scsishow", "Display information about SCSI subsystem from"
+      "vmcores", "-h   - list available options",
       help)
 
 help = '''
