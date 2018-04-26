@@ -201,7 +201,7 @@ def print_sdev_shost():
                         name = "null"
 
                     print("{:17s} {:x} {:6s} {:16} {} {} {:22s}"
-                          "{:11d} {:11}  ({:3d})\t{:10d}\n".format(name,
+                          "{:14d} {:11}  ({:3d})\t{:10d}\n".format(name,
                           int(sdev), "", get_scsi_device_id(sdev),
                           sdev.vendor[:8], sdev.model[:16],
                           enum_sdev_state.getnam(sdev.sdev_state),
