@@ -211,6 +211,7 @@ def print_sdev_shost():
 
 def print_starget_shost():
         enum_starget_state = EnumInfo("enum scsi_target_state")
+        stgt_busy_block_cnt = -1
 
         for shost in get_scsi_hosts():
             if (shost.__targets.next != shost.__targets.next.next):
@@ -218,25 +219,47 @@ def print_starget_shost():
                       "========================================================")
                 print("HOST      DRIVER")
                 print("NAME      NAME                               {:24s} {:24s} {:24s}".format("Scsi_Host",
-                      "shost_data", "&.hostdata[0]", end=""))
+                      "shost_data", "&.hostdata[0]"))
                 print("--------------------------------------------------------"
                       "-------------------------------------------------------")
 
                 print_shost_header(shost)
 
-                print("------------------------------------------------"
-                      "-----------------------------------------------")
-                print("{:15s} {:23s} {:10s} {:18s} {:20s}".format("TARGET DEVICE",
-                    "scsi_target", "CHANNEL", "ID", "TARGET STATUS", end=""))
+                print("----------------------------------------------------"
+                      "----------------------------------------------------")
+                print("{:15s} {:20s} {:8s} {:6s} {:20s} {:15s} {:15s}".format("TARGET DEVICE",
+                      "scsi_target", "CHANNEL", "ID", "TARGET STATUS", 
+                      "TARGET_BUSY", "TARGET_BLOCKED"))
 
                 for starget in readSUListFromHead(shost.__targets, "siblings", "struct scsi_target"):
-                    try:
-                        print("{:15s} {:x} {:6s} {:7d} {:5d} {:16s}"
-                            "{:20s}\n".format(starget.dev.kobj.name,
-                            int(starget), "", starget.channel,
-                            starget.id, "", enum_starget_state.getnam(starget.state)), end='')
-                    except KeyError:
-                        pylog.warning("Error in processing scsi_target {:x}, please check manually".format(int(starget)))
+
+                    if (member_size("struct scsi_target", "target_busy") != -1):
+                        try:
+                            stgt_busy_block_cnt = readSU("struct scsi_target", long(starget.target_busy.counter))
+                        except:
+                            stgt_busy_block_cnt = -1
+
+                        try:
+                            print("{:15s} {:x} {:3s} {:5d} {:5d} {:4s}"
+                                  "{:20s}".format(starget.dev.kobj.name,
+                                  int(starget), "", starget.channel,
+                                  starget.id, "", enum_starget_state.getnam(starget.state)), end='')
+
+                            if (stgt_busy_block_cnt != -1):
+                                print("{:12d} {:18d}".format(starget.target_busy.counter,
+                                      starget.target_blocked.counter))
+
+                            elif (stgt_busy_block_cnt == -1 and
+                                  member_size("struct scsi_target", "target_busy") == -1):
+                                print(" <Not defined in scsi_target>")
+
+                            else:
+                                print("{:12d} {:18d}".format(starget.target_busy,
+                                      starget.target_blocked))
+
+                        except KeyError:
+                            pylog.warning("Error in processing scsi_target {:x},"
+                                          "please check manually".format(int(starget)))
 
 def print_shost_info():
         use_host_busy_counter = -1
