@@ -545,6 +545,47 @@ def run_scsi_checks():
                       "EH or stalled queue?".format(cmnd, cmnd.device, get_scsi_device_id(cmnd.device)))
                 warnings += 1
 
+    # scsi_target checks
+    stgt_busy_block_cnt = -1
+    for shost in get_scsi_hosts():
+        if (shost.__targets.next != shost.__targets.next.next):
+            for starget in readSUListFromHead(shost.__targets, "siblings", "struct scsi_target"):
+                if (member_size("struct scsi_target", "target_busy") != -1):
+                    try:
+                        stgt_busy_block_cnt = readSU("struct scsi_target", long(starget.target_busy.counter))
+                    except:
+                        stgt_busy_block_cnt = -1
+
+                    try:
+                        if (stgt_busy_block_cnt != -1):
+                            if (starget.target_busy.counter > 0):
+                                print("WARNING: scsi_target {:10s} {:x} is having non-zero "
+                                      "target_busy count: {:d}".format(starget.dev.kobj.name,
+                                      int(starget), starget.target_busy.counter))
+                                warnings += 1
+                            if (starget.target_blocked.counter > 0):
+                                print("WARNING: scsi_target {:10s} {:x} is blocked "
+                                      "(target_blocked count: {:d})".format(starget.dev.kobj.name,
+                                      int(starget), starget.target_blocked.counter))
+                                warnings += 1
+
+                        elif (stgt_busy_block_cnt == -1 and
+                              member_size("struct scsi_target", "target_busy") != -1):
+                            if (starget.target_busy > 0):
+                                print("WARNING: scsi_target {:10s} {:x} is having non-zero "
+                                      "target_busy count: {:d}".format(starget.dev.kobj.name,
+                                      int(starget), starget.target_busy))
+                                warnings += 1
+                            if (starget.target_blocked > 0):
+                                print("WARNING: scsi_target {:10s} {:x} is blocked "
+                                      "(target_blocked count: {:d})".format(starget.dev.kobj.name,
+                                      int(starget), starget.target_blocked))
+                                warnings += 1
+
+                    except KeyError:
+                        pylog.warning("Error in processing scsi_target {:x},"
+                                      "please check manually".format(int(starget)))
+
     if (gendev_q_sdev_q_mismatch != 0):
         print("\n\tNOTE: The scsi_device->request_queue is not same as gendisk->request_queue\n"
                 "\t      for {} scsi device(s). \n\n"
