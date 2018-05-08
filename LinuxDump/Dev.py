@@ -578,37 +578,46 @@ def print_gendisk(v = 1):
 #      Requests and request queues code
 #
 # ***************************************************************************
+__RQ_FLAG_realbits = None
 
-try:
 # Decode cmd_flags using "enum rq_flag_bits"  from include/linux/blk_types.h
 # Bits are defined as 1<<enumval
-
+if (struct_exists("enum rq_flag_bits")):
     __RQ_FLAG_bits = EnumInfo("enum rq_flag_bits")
     # Convert it to proper bits
     __RQ_FLAG_realbits = {k[6:]: 1<<v for k,v in __RQ_FLAG_bits.items()}
-except TypeError:
+elif (symbol_exists("rq_flags")):
     # Old kernels
     __RQ_FLAG_realbits = {}
     for bit, s in enumerate(readSymbol("rq_flags")):
         __RQ_FLAG_realbits[str(s)[4:]] = 1<<bit
 
 # WRITE can be both __REQ_RW and __REQ_WRITE
-if ("WRITE" in __RQ_FLAG_realbits):    
-    def is_request_WRITE(rq):
-        return (rq.Flags & __RQ_FLAG_realbits["WRITE"])
-else:
-    def is_request_WRITE(rq):
-        return (rq.Flags & __RQ_FLAG_realbits["RW"])
-
-def decode_cmd_flags(f):
-    return dbits2str(f, __RQ_FLAG_realbits)
-
-def is_request_STARTED(rq):
-    return (rq.Flags & __RQ_FLAG_realbits["STARTED"])
-
-
-
 structSetAttr("struct request", "Flags", ["flags", "cmd_flags"])
+
+if (__RQ_FLAG_realbits is None):
+    def is_request_WRITE(rq):
+        return False
+    def is_request_STARTED(rq):
+        return False
+    def decode_cmd_flags(f):
+        return "n/a"
+else:
+    if ("WRITE" in __RQ_FLAG_realbits):    
+        def is_request_WRITE(rq):
+            return (rq.Flags & __RQ_FLAG_realbits["WRITE"])
+    else:
+        def is_request_WRITE(rq):
+            return (rq.Flags & __RQ_FLAG_realbits["RW"])
+
+    def decode_cmd_flags(f):
+        return dbits2str(f, __RQ_FLAG_realbits)
+
+    def is_request_STARTED(rq):
+        return (rq.Flags & __RQ_FLAG_realbits["STARTED"])
+
+
+
 
 
 def XXX_get_requestqueue(bd, gd):

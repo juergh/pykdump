@@ -2,7 +2,7 @@
 # module LinuxDump.inet.netdevice
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -18,7 +18,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-from __future__ import print_function
 
 __doc__ = '''
 This is a package providing useful tables and functions for 'struct netdevice'
@@ -827,8 +826,10 @@ def print_If(dev, details = 0):
         ipwithmask = ipm_list[0][0]
     except IndexError:
         pass
-
-    last_rx = dev.last_rx
+    if (dev.hasField("last_rx")):
+        last_rx = dev.last_rx
+    else:
+        last_rx = None
     if (dev.hasField("_tx")):
         trans_start = dev._tx.trans_start
     else:
@@ -905,7 +906,7 @@ def print_If(dev, details = 0):
     print ("    open=<%s>, stats=<%s> mtu=%d promisc=%d" % \
           (addr2sym(dev.open), addr2sym(dev.get_stats),
            dev.mtu, dev.promiscuity))
-    if (dev.ip_ptr and last_rx <2*jiffies):
+    if (last_rx is not None and dev.ip_ptr and last_rx <2*jiffies):
         # If device is up but never was used, both last_rx and 
         # trans_start are bogus (usually very big)
         print ("    \tlast_rx %7.2f s ago" % ((jiffies - last_rx)/HZ))
