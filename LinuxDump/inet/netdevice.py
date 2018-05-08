@@ -910,7 +910,7 @@ def print_If(dev, details = 0):
         # If device is up but never was used, both last_rx and 
         # trans_start are bogus (usually very big)
         print ("    \tlast_rx %7.2f s ago" % ((jiffies - last_rx)/HZ))
-        if (trans_start):
+    if (dev.ip_ptr and trans_start):
             print ("    \ttrans_start %7.2f s ago" % \
                   ((jiffies - trans_start)/HZ))
     getStats(dev)

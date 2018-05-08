@@ -2,7 +2,7 @@
 # module LinuxDump.inet.summary
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -17,7 +17,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-from __future__ import print_function
 
 __doc__ = '''
 This is a package printing various summaries of networking subsystems.
@@ -226,18 +225,21 @@ def IF_Summarize(quiet = False):
     print ("---------------")
     dev_base_list = netdevice.dev_base_list()
     print ("  How long ago (in seconds) interfaces trasmitted/received?")
-    print ("\t  Name     RX          TX")
-    print ("\t  ----   ----------  ---------")
+    print ("\t  Name        RX          TX")
+    print ("\t  ----    ----------    ---------")
 
     jiffies = readSymbol("jiffies")
     for dev in dev_base_list:
-        last_rx = __j_delay(dev.last_rx, jiffies)
+        try:
+            last_rx = __j_delay(dev.last_rx, jiffies)
+        except KeyError:
+            last_rx = "n/a"
         if (dev.hasField("_tx")):
             trans_start = dev._tx.trans_start
         else:
             trans_start = dev.trans_start
         trans_start = __j_delay(trans_start, jiffies)
-        print ("\t%5s    %s     %s"% ( dev.name, last_rx, trans_start))
+        print ("\t%8s    %s       %s"% ( dev.name, last_rx, trans_start))
 
 
     print ("\n\n")
