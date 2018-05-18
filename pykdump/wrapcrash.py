@@ -37,33 +37,19 @@ experimental = True
 
 debug = False
 
-# Python2 vs Python3
-_Pym = sys.version_info[0]
-if (_Pym == 2):
-    from StringIO import StringIO
-    from tparser import parseSUDef
-    import Generic as Gen
-    from Generic import (Bunch, TypeInfo, VarInfo, PseudoVarInfo,
-         SUInfo, ArtStructInfo, EnumInfo,
-         memoize_cond, CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT,
-         memoize_typeinfo, purge_typeinfo)
-    def b2str(s): return s
+from io import StringIO
+from .tparser import parseSUDef
+from . import Generic as Gen
+long = int
+from .Generic import (Bunch, TypeInfo, VarInfo, PseudoVarInfo,
+     SUInfo, ArtStructInfo, EnumInfo,
+     memoize_cond, CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT,
+     memoize_typeinfo, purge_typeinfo)
+def b2str(s):
+    return  str(s, 'ascii', errors='backslashreplace')
+_bjoin = b''
 
-    _bjoin = ''
-else:
-    from io import StringIO
-    from .tparser import parseSUDef
-    from . import Generic as Gen
-    long = int
-    from .Generic import (Bunch, TypeInfo, VarInfo, PseudoVarInfo,
-         SUInfo, ArtStructInfo, EnumInfo,
-         memoize_cond, CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT,
-         memoize_typeinfo, purge_typeinfo)
-    def b2str(s):
-        return  str(s, 'ascii', errors='backslashreplace')
-    _bjoin = b''
 hexl = Gen.hexl
-
 
 # GLobals used my this module
 
@@ -664,8 +650,7 @@ class StructResult(long):
 
 
 # This adds a metaclass
-if (_Pym == 3):
-    StructResult = subStructResult('StructResult', (StructResult,), {})
+StructResult = subStructResult('StructResult', (StructResult,), {})
 
 # A factory function for Enum readers. If understand correctly,
 # in C we cannot have enums in bitfields (but we can in C++!)
@@ -859,8 +844,8 @@ def ptrReader(vi, ptrlev):
         ptr = readPtr(addr)
         return StructResult(stype, ptr)
     # Smart String reader
-    def strPtr(addr):
-        ptr = readPtr(addr)
+    def strPtr(ptraddr):
+        ptr = readPtr(ptraddr)
         # If ptr = NULL, return None, needed for backwards compatibility
         if (ptr == 0):
             return None
@@ -874,7 +859,7 @@ def ptrReader(vi, ptrlev):
         except crash.error:
             bytes = (((ptr>>8) +1)<<8) - ptr
             s = readmem(ptr, bytes)
-        return SmartString(s, addr, ptr)
+        return SmartString(s, ptr, ptraddr)
     # Generic pointer
     def genPtr(addr):
         return tPtr(readPtr(addr), ti)
@@ -1097,17 +1082,36 @@ class tEnum(long):
     def __repr__(self):
         return self.einfo.getnam(self)
 
-# With Python2 readmem() returns 'str', with Python3 'bytes'
 
+# With Python3 readmem() returns 'bytes'
+# We always have the address where data is located as 'addr'
+# If this is created from a struct field, we have another address available,
+# that of the variable in struct. That is:
+# struct {
+#    char *var;
+# } s;
+#  s.var - addr
+# &s.var - ptraddr
+#
+# We can create this object either providing a bytestring and addr (optionally ptraddr)
+# or tPtr
 class SmartString(str):
-    def __new__(cls, s, addr, ptr):
+    def __new__(cls, s, addr = None, ptr = None):
+        if (isinstance(s, tPtr) and s.ptrlev == 1):
+            addr = long(s)
+            s = readmem(s, 256)
+        elif (not isinstance(s, bytes)):
+            raise TypeError("Cannot convert type {} to SmartString".format(
+                type(s)))
         ss = b2str(s)
-        return str.__new__(cls, ss.split('\0')[0])
-    def __init__(self, s, addr, ptr):
-        self.addr = addr
-        self.ptr = ptr
-        self.ByteArray = bytearray(s)
-        self.__fullstr = b2str(s)
+        sobj = str.__new__(cls, ss.split('\0')[0])
+        sobj.ByteArray = s
+        sobj.addr = addr
+        sobj.ptr = ptr
+        sobj.__fullstr = b2str(s)
+        return sobj
+    def __init__(self, s, addr = None, ptr = None):
+        pass
     def __long__(self):
         return self.ptr
     def __getslice__(  self, i, j):

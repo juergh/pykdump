@@ -73,6 +73,8 @@ struct ASID {
 
   int (*funcptr)(int);
 
+  const char **dpchar;
+
   struct {
     int a1;
     char *b1;
@@ -154,6 +156,8 @@ struct ASID_ptr {
   struct AA *aa[4];
 } asid_ptr;
 
+const char *dpchar[] = {"one", "two"};
+
 static int __init
 testmod_init(void) {
 
@@ -169,6 +173,7 @@ testmod_init(void) {
   asid.bf2 = 2;
   asid.bf3 = -2;
   asid.bf4 = 123;
+  asid.dpchar = dpchar;
 
   asid.booli1 = true;
   asid.booli2 = false;

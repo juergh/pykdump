@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 
-# Time-stamp: <2018-04-19 13:10:22 alexs>
+# Time-stamp: <2018-05-18 14:18:19 alexs>
 
 # --------------------------------------------------------------------
 # (C) Copyright 2006-2018 Hewlett-Packard Development Company, L.P.
@@ -32,6 +32,8 @@ loadModule("testmod", "testmod.ko")
 addr = sym2addr("asid")
 asid = readSU("struct ASID", addr)
 
+
+
 nfailed = 0
 ntests = 0
 
@@ -41,6 +43,16 @@ if(asid.li == 123456789 and  asid.i2 == -555):
 else:
     print ("Integers failed")
     nfailed += 1
+
+# tPtr (char *) -> SmartString
+ntests += 1
+__vals = ("one", "two")
+for i in range(2):
+    cp = asid.dpchar[i]
+    s = SmartString(cp)
+    if (s != __vals[i]):
+        print ("tPtr->SmartString failed")
+        nfailed += 1
 
 # Global boolean
 ntests += 1
