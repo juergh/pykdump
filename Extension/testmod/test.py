@@ -1,9 +1,9 @@
 #!/usr/bin/env python
 
-# Time-stamp: <2018-04-19 13:04:50 alexs>
+# Time-stamp: <2018-04-19 13:10:22 alexs>
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2013 Hewlett-Packard Development Company, L.P.
+# (C) Copyright 2006-2018 Hewlett-Packard Development Company, L.P.
 #
 # Author: Alex Sidorenko <asid@hp.com>
 #
@@ -13,7 +13,7 @@
 
 
 import sys
-sys.path.insert(0, "../..")
+#sys.path.insert(0, "../..")
 import time
 
 #import cProfile
