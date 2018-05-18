@@ -75,7 +75,7 @@ print("\n   --- PyKdump API Version: {} ----".format(__version__))
 print("\n   --- Programs Included ------")
 
 __commands = ["xportshow", "crashinfo", "taskinfo", "nfsshow", "hanginfo",
-       "scsi", "fregs", "tslog", "rh_scsishow", "rh_dmshow"]
+       "scsi", "fregs", "tslog", "scsishow", "dmshow"]
 
 for c in __commands:
     try:

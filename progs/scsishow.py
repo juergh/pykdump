@@ -26,7 +26,7 @@
 # GNU General Public License for more details.
 
 
-__version__ = "0.0.1"
+__version__ = "0.0.2"
 
 from pykdump.API import *
 
@@ -201,7 +201,7 @@ def print_sdev_shost():
                         name = "null"
 
                     print("{:17s} {:x} {:6s} {:16} {} {} {:22s}"
-                          "{:11d} {:11}  ({:3d})\t{:10d}\n".format(name,
+                          "{:14d} {:11}  ({:3d})\t{:10d}\n".format(name,
                           int(sdev), "", get_scsi_device_id(sdev),
                           sdev.vendor[:8], sdev.model[:16],
                           enum_sdev_state.getnam(sdev.sdev_state),
@@ -211,6 +211,7 @@ def print_sdev_shost():
 
 def print_starget_shost():
         enum_starget_state = EnumInfo("enum scsi_target_state")
+        stgt_busy_block_cnt = -1
 
         for shost in get_scsi_hosts():
             if (shost.__targets.next != shost.__targets.next.next):
@@ -218,25 +219,47 @@ def print_starget_shost():
                       "========================================================")
                 print("HOST      DRIVER")
                 print("NAME      NAME                               {:24s} {:24s} {:24s}".format("Scsi_Host",
-                      "shost_data", "&.hostdata[0]", end=""))
+                      "shost_data", "&.hostdata[0]"))
                 print("--------------------------------------------------------"
                       "-------------------------------------------------------")
 
                 print_shost_header(shost)
 
-                print("------------------------------------------------"
-                      "-----------------------------------------------")
-                print("{:15s} {:23s} {:10s} {:18s} {:20s}".format("TARGET DEVICE",
-                    "scsi_target", "CHANNEL", "ID", "TARGET STATUS", end=""))
+                print("----------------------------------------------------"
+                      "----------------------------------------------------")
+                print("{:15s} {:20s} {:8s} {:6s} {:20s} {:15s} {:15s}".format("TARGET DEVICE",
+                      "scsi_target", "CHANNEL", "ID", "TARGET STATUS", 
+                      "TARGET_BUSY", "TARGET_BLOCKED"))
 
                 for starget in readSUListFromHead(shost.__targets, "siblings", "struct scsi_target"):
-                    try:
-                        print("{:15s} {:x} {:6s} {:7d} {:5d} {:16s}"
-                            "{:20s}\n".format(starget.dev.kobj.name,
-                            int(starget), "", starget.channel,
-                            starget.id, "", enum_starget_state.getnam(starget.state)), end='')
-                    except KeyError:
-                        pylog.warning("Error in processing scsi_target {:x}, please check manually".format(int(starget)))
+
+                    if (member_size("struct scsi_target", "target_busy") != -1):
+                        try:
+                            stgt_busy_block_cnt = readSU("struct scsi_target", long(starget.target_busy.counter))
+                        except:
+                            stgt_busy_block_cnt = -1
+
+                        try:
+                            print("{:15s} {:x} {:3s} {:5d} {:5d} {:4s}"
+                                  "{:20s}".format(starget.dev.kobj.name,
+                                  int(starget), "", starget.channel,
+                                  starget.id, "", enum_starget_state.getnam(starget.state)), end='')
+
+                            if (stgt_busy_block_cnt != -1):
+                                print("{:12d} {:18d}".format(starget.target_busy.counter,
+                                      starget.target_blocked.counter))
+
+                            elif (stgt_busy_block_cnt == -1 and
+                                  member_size("struct scsi_target", "target_busy") == -1):
+                                print(" <Not defined in scsi_target>")
+
+                            else:
+                                print("{:12d} {:18d}".format(starget.target_busy,
+                                      starget.target_blocked))
+
+                        except KeyError:
+                            pylog.warning("Error in processing scsi_target {:x},"
+                                          "please check manually".format(int(starget)))
 
 def print_shost_info():
         use_host_busy_counter = -1
@@ -521,6 +544,47 @@ def run_scsi_checks():
                 print("Warning: scsi_cmnd {:#x} on scsi_device {:#x} ({}) older than its timeout: "
                       "EH or stalled queue?".format(cmnd, cmnd.device, get_scsi_device_id(cmnd.device)))
                 warnings += 1
+
+    # scsi_target checks
+    stgt_busy_block_cnt = -1
+    for shost in get_scsi_hosts():
+        if (shost.__targets.next != shost.__targets.next.next):
+            for starget in readSUListFromHead(shost.__targets, "siblings", "struct scsi_target"):
+                if (member_size("struct scsi_target", "target_busy") != -1):
+                    try:
+                        stgt_busy_block_cnt = readSU("struct scsi_target", long(starget.target_busy.counter))
+                    except:
+                        stgt_busy_block_cnt = -1
+
+                    try:
+                        if (stgt_busy_block_cnt != -1):
+                            if (starget.target_busy.counter > 0):
+                                print("WARNING: scsi_target {:10s} {:x} is having non-zero "
+                                      "target_busy count: {:d}".format(starget.dev.kobj.name,
+                                      int(starget), starget.target_busy.counter))
+                                warnings += 1
+                            if (starget.target_blocked.counter > 0):
+                                print("WARNING: scsi_target {:10s} {:x} is blocked "
+                                      "(target_blocked count: {:d})".format(starget.dev.kobj.name,
+                                      int(starget), starget.target_blocked.counter))
+                                warnings += 1
+
+                        elif (stgt_busy_block_cnt == -1 and
+                              member_size("struct scsi_target", "target_busy") != -1):
+                            if (starget.target_busy > 0):
+                                print("WARNING: scsi_target {:10s} {:x} is having non-zero "
+                                      "target_busy count: {:d}".format(starget.dev.kobj.name,
+                                      int(starget), starget.target_busy))
+                                warnings += 1
+                            if (starget.target_blocked > 0):
+                                print("WARNING: scsi_target {:10s} {:x} is blocked "
+                                      "(target_blocked count: {:d})".format(starget.dev.kobj.name,
+                                      int(starget), starget.target_blocked))
+                                warnings += 1
+
+                    except KeyError:
+                        pylog.warning("Error in processing scsi_target {:x},"
+                                      "please check manually".format(int(starget)))
 
     if (gendev_q_sdev_q_mismatch != 0):
         print("\n\tNOTE: The scsi_device->request_queue is not same as gendisk->request_queue\n"

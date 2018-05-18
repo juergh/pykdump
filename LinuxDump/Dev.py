@@ -578,37 +578,59 @@ def print_gendisk(v = 1):
 #      Requests and request queues code
 #
 # ***************************************************************************
+__RQ_FLAG_realbits = None
 
-try:
 # Decode cmd_flags using "enum rq_flag_bits"  from include/linux/blk_types.h
 # Bits are defined as 1<<enumval
-
+if (struct_exists("enum rq_flag_bits")):
     __RQ_FLAG_bits = EnumInfo("enum rq_flag_bits")
     # Convert it to proper bits
     __RQ_FLAG_realbits = {k[6:]: 1<<v for k,v in __RQ_FLAG_bits.items()}
-except TypeError:
+elif (symbol_exists("rq_flags")):
     # Old kernels
     __RQ_FLAG_realbits = {}
     for bit, s in enumerate(readSymbol("rq_flags")):
         __RQ_FLAG_realbits[str(s)[4:]] = 1<<bit
 
 # WRITE can be both __REQ_RW and __REQ_WRITE
-if ("WRITE" in __RQ_FLAG_realbits):    
-    def is_request_WRITE(rq):
-        return (rq.Flags & __RQ_FLAG_realbits["WRITE"])
-else:
-    def is_request_WRITE(rq):
-        return (rq.Flags & __RQ_FLAG_realbits["RW"])
-
-def decode_cmd_flags(f):
-    return dbits2str(f, __RQ_FLAG_realbits)
-
-def is_request_STARTED(rq):
-    return (rq.Flags & __RQ_FLAG_realbits["STARTED"])
-
-
-
 structSetAttr("struct request", "Flags", ["flags", "cmd_flags"])
+
+def blk_rq_deadline(rq):
+    if (rq.hasField("deadline")):
+        return  rq.deadline
+    elif (rq.hasField("__deadline")):
+        return  rq.__deadline & (~0x1 & LONG_MASK)
+
+
+# New kernels do not have "enum rq_flag_bits", they have enum req_opf and
+# enum req_flag_bits 
+
+if (struct_exists("enum req_flag_bits")):
+    __REQ_FLAG_bits = EnumInfo("enum req_flag_bits")
+    # Convert it to proper bits
+    __REQ_FLAG_realbits = {k[6:]: 1<<v for k,v in __REQ_FLAG_bits.items()}
+ 
+if (__RQ_FLAG_realbits is None):
+    def is_request_WRITE(rq):
+        return False
+    def is_request_STARTED(rq):
+        return False
+    decode_rq_state = None      # means not implemented yet
+else:
+    if ("WRITE" in __RQ_FLAG_realbits):    
+        def is_request_WRITE(rq):
+            return (rq.Flags & __RQ_FLAG_realbits["WRITE"])
+    else:
+        def is_request_WRITE(rq):
+            return (rq.Flags & __RQ_FLAG_realbits["RW"])
+
+    def decode_rq_state(rq):
+        return dbits2str(rq.Flags, __RQ_FLAG_realbits)
+
+    def is_request_STARTED(rq):
+        return (rq.Flags & __RQ_FLAG_realbits["STARTED"])
+
+
 
 
 def XXX_get_requestqueue(bd, gd):
@@ -670,16 +692,19 @@ def check_request_queue(rqueue):
 #define RQ_SCSI_DONE            0xfffe
 #define RQ_SCSI_DISCONNECTING   0xffe0
 
-# Sanity check. We retirn None if everything's fine, 
-# otherwise a string withmoer details
+# Sanity check. We return None if everything's fine, 
+# otherwise a string with more details
 def is_request_BAD(rq):
     if (not rq.bio):
         return "rq.bio = NULL"
 
+    if (rq.bio & 0x3):
+        return 'rq.bio unaligned'
+
     # Can we dereference bio?
     try:
         readS64(rq.bio)
-    except crash.error:
+    except crash.error as val:
         return "cannot dereference rq.bio"
     
     # Is cpu within bounds:
@@ -707,7 +732,7 @@ def is_request_BAD(rq):
         if (not rq_disk):
             return "bad rq.rq_disk"
         # Is major reasonable?
-        if (rq_disk.major < 0 or rq_disk.major > 10000):
+        if (rq_disk.major <= 0 or rq_disk.major > 10000):
             return "bad rq.rq_disk.major"
     except KeyError:
         pass
@@ -765,32 +790,48 @@ def decode_request(rq, v = 0, reqscsmap = {}):
         q = rq.q
     except KeyError:
         pass
-    try:
-        cmd_flags = rq.cmd_flags
-        ref_count = rq.ref_count
-        atomic_flags  = rq.atomic_flags
-        special = rq.special
-        if (v > 1):
-            out.append("        cmd_flags=0x%x, ref_count=%d" %\
-            (cmd_flags, ref_count))
+    if (v > 1):
+        # flags present in 'struct request' are very different in different kernels
+        # So let us try printing them one by one
+        __rq_fields = ("cmd_type", "cmd_flags", "rq_flags", "ref_count")
+        _rq_out = []
+        for _f in __rq_fields:
+            if(rq.hasField(_f)):
+                _rq_out.append("{}={:#x}".format(_f, getattr(rq, _f)))
+        out.append("        RQ: " + " ".join(_rq_out))
+        
+        # Now print BIO
+        bio = rq.bio
+        if (bio):
+            _bio_out = []
+            for _f in ("bi_opf", "bi_flags"):
+                if(bio.hasField(_f)):
+                    _bio_out.append("{}={:#x}".format(_f, getattr(bio, _f)))
+            out.append("        BIO: " + " ".join(_bio_out))
+
+
+        try:
+            atomic_flags  = rq.atomic_flags
+            special = rq.special
             if (atomic_flags == 1):
                 out.append("        atomic_flags=0x%x" % atomic_flags)
             if (special):
                 scsi = readSU("struct scsi_cmnd", special)
                 out.append("        special=0x%x %s" % (special, str(scsi)))
-
-    except KeyError:
-        pass
+        except KeyError:
+            pass
     
-    if (v > 1):
-        out.append(decode_cmd_flags(rq.Flags))
+    if (v > 1 and decode_rq_state):
+        out.append(decode_rq_state(rq))
     jiffies = readSymbol("jiffies")
     ran_ago = j_delay(rq.start_time, jiffies)
 
     # On RHEL5, 'struct request' does not have 'deadline' field
     try:
-        if (rq.deadline):
-            deadline = float(rq.deadline - jiffies)/HZ
+        deadline = blk_rq_deadline(rq)
+        #print("deadline", deadline, jiffies)
+        if (deadline):
+            deadline = float(deadline - jiffies)/HZ
             if (deadline > 0):
                 fmt = "\t  started {} ago, times out in {:5.2f}s"
             else:
@@ -893,7 +934,7 @@ def print_request_slab(v):
     for rqa in alloc:
         rq = readSU("struct request", rqa)
         #bad = is_request_BAD(rq)
-        #print(rq, hexl(rq.Flags), bad)
+        #print(rq)
         if (is_request_BAD(rq)):
             continue
         if (is_request_STARTED(rq)):
@@ -901,8 +942,9 @@ def print_request_slab(v):
         if (is_request_WRITE(rq)):
             f_write += 1
         ran_ago = (jiffies - rq.start_time) & INT_MASK
- 
-        cmd_stats[decode_cmd_flags(rq.Flags)] += 1
+        
+        if (decode_rq_state):
+            cmd_stats[decode_rq_state(rq)] += 1
         rqlist.append((ran_ago, rq))
     
     # Sort by ran ago - newest first
@@ -937,7 +979,7 @@ def print_request_slab(v):
             rqs = str(rq) + " is BAD"
         print(rqs)
     # Print stats for cmd flags
-    if (totreq):
+    if (totreq and decode_rq_state):
         print ("  -- Summary of flags combinations")
         out = []
         for k, val in cmd_stats.items():

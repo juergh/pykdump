@@ -1,6 +1,6 @@
 
 set edit emacs
-extend /uuu/users/sid/tools/pykdump/Extension/pykdump64.so
-#extend /usr/local/lib/pykdump32.so
+#extend /home/alexs/tools/pykdump/Extension/mpykdump.so
+extend /usr/local/lib/mpykdump64.so
 set scroll off
 mod -s testmod testmod.ko

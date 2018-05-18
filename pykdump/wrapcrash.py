@@ -6,7 +6,7 @@
 # high-level functions that do not depend on internal
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -96,7 +96,7 @@ def multilist(mdim):
         a =  [None for i in range(d1)]
     return a
 
-def _arr1toM(dims, arr1):    
+def _arr1toM(dims, arr1):
     # We do this for 2- and 3-dim only
     out = multilist(dims)
     if (len(dims) == 2):
@@ -118,7 +118,7 @@ def _arr1toM(dims, arr1):
         raise TypeError("Array with dim >3")
     return out
 
-    
+
 # Classes to be used for basic types representation
 # We adjust 'stype' if needed
 
@@ -188,8 +188,8 @@ def update_EI_fromgdb(f, sname):
     f._Lst = e["edef"]
     for n, v in f._Lst:
         f[n] = v
-        
-        
+
+
 
 # Choose a tag used for caching:
 # - if we have typedef, use it
@@ -205,9 +205,9 @@ def e_to_tagname(e):
         tag = tag + " fake-" + str(id(e))
 
     return tag
-        
- 
-   
+
+
+
 def update_SUI(f, e):
     f.PYT_size = f.size = e["typelength"]
     for ee in e["body"]:
@@ -227,7 +227,7 @@ def update_SUI(f, e):
 def update_TI_fromgdb(f, sname):
     e = gdb_typeinfo(sname)
     update_TI(f, e)
-    
+
 
 def update_SUI_fromgdb(f, sname):
     try:
@@ -268,7 +268,7 @@ class subStructResult(type):
         return rc
 
 # ------------Pseudoattributes------------------------------------------------
-        
+
 
 # Pseudoattributes.
 class PseudoAttr(object):
@@ -282,7 +282,7 @@ class PseudoAttr(object):
         return val
 
 # Procedural
-class PseudoAttrProc(object): 
+class PseudoAttrProc(object):
     def __init__(self, proc):
         self.proc = proc
     def __get__(self, obj, objtype):
@@ -307,7 +307,7 @@ def _test_chain(sname, aname, fi, chain):
     vi.addr = 0
     vi.offset = totoffset
     return vi
-    
+
 def structSetAttr(sname, aname, estrings, sextra = []):
     if (type(estrings) == type("")):
         estrings = [estrings]
@@ -340,7 +340,7 @@ def structSetAttr(sname, aname, estrings, sextra = []):
             return True
     return False
 
-# Set a general procedural attr        
+# Set a general procedural attr
 def structSetProcAttr(sname, aname, meth):
     try:
         cls = StructResult(sname).__class__
@@ -486,7 +486,7 @@ class StructResult(long):
     __metaclass__ = subStructResult
     def __new__(cls, sname, addr = 0):
         return long.__new__(cls, addr)
-    
+
     def X__init__(self, sname, addr = 0):
         # Create a new class and change our instance to point to it
         try:
@@ -528,7 +528,7 @@ class StructResult(long):
     def __add__(self, i):
         #raise TypeError, "!!!"
         return self[i]
-    
+
     def X__getattr__(self, name):
         try:
             fi = self.PYT_sinfo[name]
@@ -584,7 +584,7 @@ class StructResult(long):
         self.PYT_attrcache[name] = reader
         #print("+++", self.PYT_symbol, name)
         return reader(long(self))
-    
+
     def __eq__(self, cmp):
         return (long(self) == cmp)
     # In Python 3, object with __eq__ but without explicit __hash__ method
@@ -616,9 +616,9 @@ class StructResult(long):
                 print (sindent, "    %18s " % fn, val)
             except TypeError as err:
                 print (sindent, "    %18s  unknown type" % fn)
-        
-        
-    
+
+
+
     # Backwards compatibility
     #def __nonzero__(self):
     #    return (self.PYT_addr != 0)
@@ -632,7 +632,7 @@ class StructResult(long):
 
     def isNamed(self, sname):
         return sname == self.PYT_symbol
-    
+
     def fieldOffset(self, fname):
         return self.PYT_sinfo[fname].offset
 
@@ -683,6 +683,36 @@ def ti_enumReader(ti):
     if (ti.dims is not None):
         return ti_intReader(ti)
     return signedReader
+
+# A reader for 'bool' type. The size of a bool is the same size as an int.
+def ti_boolReader(ti, bitoffset = None, bitsize = None):
+    def boolReader(addr):
+        val = readIntN(addr, size)
+        return True if val else False
+    def boolArrayReader(addr):
+        s = readmem(addr, totsize)
+        val = mem2long(s, signed = False, array = elements)
+        #convert integer array to boolean array
+        val = [True if e else False for e in val]
+        if (len(dims) > 1):
+            val = _arr1toM(dims, bval)
+        return val
+    def boolBfReader(addr):
+        val = readIntN(addr, size)
+        val = (val>>bitoffset) & mask
+        return True if val else False
+    size = ti.size
+    dims = ti.dims
+    elements = ti.elements
+    totsize = size * elements
+    if (dims is not None):
+        # There are no bitfield arrays in C!
+        return boolArrayReader
+    if (bitsize is None):
+        return boolReader
+    else:
+        mask = (~(~0<<bitsize))
+        return boolBfReader
 
 # A factory function for integer readers
 def ti_intReader(ti, bitoffset = None, bitsize = None):
@@ -757,7 +787,7 @@ def ti_intReader(ti, bitoffset = None, bitsize = None):
         # CharArray
         dim1 = dims[0]
         # If dimension is zero, return the address. Some structs
-        # have this at the end, e.g. 
+        # have this at the end, e.g.
         # struct Qdisc {
         # ...
         #     char data[0];
@@ -819,7 +849,7 @@ def suReader(vi):
         return zeroArrayReader
     else:
         return readerarr
-    
+
 
 # A factory function for pointer readers
 def ptrReader(vi, ptrlev):
@@ -875,7 +905,7 @@ def ptrReader(vi, ptrlev):
             basereader = funcPtr
         else:
             # Is this OK for all types?
-            basereader = genPtr        
+            basereader = genPtr
         # Now check whether we have arrays
         if (dims == None):
             # No need to do anything else
@@ -914,13 +944,13 @@ def ptrReader(vi, ptrlev):
     else:
        # ptrlev > 1
        return genPtr
-                   
-               
+
+
     # Error - print debugging info
     raise TypeError("Cannot find a suitable reader for {} ptrbasetype={} dims={}".format(ti, ti.ptrbasetype,dims))
     return None
 
-        
+
 # Wrapper functions to return attributes of StructResult
 
 def Addr(obj, extra = None):
@@ -1021,7 +1051,7 @@ class tPtrZeroArraySU(tPtr):
     def __getitem__(self, i):
         return readSU(self.ti.stype, readPtr(long(self) + i * self.ti.size))
 
-    
+
 
 # An experimental dereferencer. We assume that there can be no pointer bitfields!
 @memoize_cond(CU_PYMOD)
@@ -1031,7 +1061,7 @@ def newDereferencer(ti):
         tti = ti.getTargetType()
     except:
         return None
-    #print('+++ti', ti, ti.size, ti.elements, ti.codetype)    
+    #print('+++ti', ti, ti.size, ti.elements, ti.codetype)
     #print('+++ti', ti, ti.size, tti.size, tti.elements, tti.codetype)
     codetype = tti.codetype
     reader = None
@@ -1053,7 +1083,7 @@ def newDereferencer(ti):
     else:
         return None
         raise TypeError("don't know how to read codetype "+str(codetype))
-    
+
     # Attache basetype size to the reader
     reader.basesize = tti.size
     return reader
@@ -1084,7 +1114,7 @@ class SmartString(str):
         return self.__fullstr.__getslice__(i, j)
     def __getitem__(self, key):
         return self.__fullstr.__getitem__(key)
-        
+
 
 class SmartList(list):
     def __new__(cls, l = [], addr = None):
@@ -1092,8 +1122,8 @@ class SmartList(list):
     def __init__(self, l = [], addr = None):
         list.__init__(self, l)
         self.addr = addr
-    
-    
+
+
 
 # Print the object delegating all work to GDB. At this moment can do this
 # for StructResult only
@@ -1109,7 +1139,7 @@ def printObject(obj):
         print (rest)
     else:
         raise TypeError
-        
+
 
 # =============================================================
 #
@@ -1140,7 +1170,7 @@ def readU64(addr):
 def readS64(addr):
     s = readmem(addr, 8)
     return mem2long(s, signed = True)
-    
+
 # addr should be numeric here
 def readSU(symbol, addr):
     return StructResult(symbol, addr)
@@ -1177,7 +1207,7 @@ def readProcessMem(taskaddr, uvaddr, size):
         uvaddr += cnt
         size -= cnt
     return _bjoin.join(out)
-    
+
 #          ======== read lists  =========
 
 
@@ -1219,7 +1249,7 @@ def readStructNext(shead, nextname, maxel=_MAXEL, inchead = True):
     out = []
     for p in readList(Addr(shead), offset, maxel, inchead=inchead):
         out.append(readSU(stype, p))
-    return out 
+    return out
 
 #    ======= Arrays Without Dimension =============
 #
@@ -1280,7 +1310,7 @@ list_for_each_entry = readListByHead
 # We assume that listhead here is declared outside any specific structure,
 # e.g.
 # struct list_head modules;
-# 
+#
 # We can do the following:
 # ListHead(addr) - will return a list of all list_head objects, excluding
 # the head itself.
@@ -1312,14 +1342,14 @@ class ListHead(list):
             del self[-1]
             if (self.warn):
                 pylog.warning("We have reached the limit while reading a list")
-        
+
     def __getattr__(self, fname):
         off = member_offset(self.sname, fname)
         if (off == -1):
             raise KeyError("<%s> does not have a field <%s>" % \
                   (self.sname, fname))
         return [readSU(self.sname, a-off) for a in self]
-        
+
 # Check whether LH is empty - either NULL pointer or no elements
 def LH_isempty(lh):
     return (lh and Addr(lh) == lh.next)
@@ -1363,7 +1393,7 @@ def readList(start, offset=0, maxel = _MAXEL, inchead = True, warn = True):
     return out
 
 # The same as readList, but in case we are interested
-# in partial lists even when there are low-level errors 
+# in partial lists even when there are low-level errors
 # Returns (partiallist, error/None)
 def readBadList(start, offset=0, maxel = _MAXEL, inchead = True):
     start = long(start)     # equivalent to (void *) cast
@@ -1417,7 +1447,7 @@ def getListSize(addr, offset, maxel):
 def readSymbol(symbol, art = None):
     vi = whatis(symbol)
     return vi.reader(vi.addr)
-    
+
 
 
 
@@ -1434,7 +1464,7 @@ def container_of(ptr, ctype, member):
 import time
 
 # ..............................................................
-    
+
 # Get a list of non-empty bucket addrs (ppointers) from a hashtable.
 # A hashtable here is is an array of buckets, each one is a structure
 # with a pointer to next structure. On 2.6 'struct hlist_head' is used
@@ -1472,7 +1502,7 @@ def hlist_for_each_entry(emtype, head, member):
         pos = pos.next
 
     return
-    
+
 
 @memoize_typeinfo
 def getStructInfo(stype):
@@ -1543,7 +1573,7 @@ def sdef2ArtSU(sdef):
                 ti.elements
                 ti.stype = btype
                 #ti.dump()
-            
+
         vi = VarInfo(fn)
         vi.ti = ti
         vi.offset = uas.PYT_size
@@ -1554,7 +1584,7 @@ def sdef2ArtSU(sdef):
         uas.PYT_size += vi.size
         uas.size = uas.PYT_size
     return uas
-    
+
 
 #
 #
@@ -1588,7 +1618,7 @@ def struct_exists(sname):
         return False
     else:
         return True
-    
+
 @memoize_typeinfo
 def member_size(sname, fname):
     #print "++member_size", sname, fname
@@ -1699,7 +1729,7 @@ def exec_crash_command_bg(cmd, timeout = None):
         badmsg = "<{}> failed to complete within the timeout period of {}s".\
             format(cmd, timeout)
     elif (selerror):
-         badmsg = "<{}> interrupted after {}s {}".format(cmd, timeout, selerror)   
+         badmsg = "<{}> interrupted after {}s {}".format(cmd, timeout, selerror)
     elif (status):
         if (os.WIFEXITED(status)):
             ecode = os.WEXITSTATUS(status)

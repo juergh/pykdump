@@ -19,6 +19,9 @@
 
 #define LBLOG(...) printk (KERN_ALERT "LBI: " __VA_ARGS__)
 
+bool true_ = true;
+bool false_ = false;
+
 int testfunc(int a) {
   return a*2;
 }
@@ -45,7 +48,13 @@ struct ASID {
     struct AA zf[0];
   } f1;
 
-  
+  bool booli1;
+  bool booli2;
+  bool boolbf1:1;
+  bool boolbf2:1;
+  // Boolean array
+  bool boolarr[6];
+
   struct AA *sptr;
   struct AA sarr[3];
 
@@ -55,7 +64,7 @@ struct ASID {
   struct AA *nullptr;
 
   long *lptr;
-  
+
   int *iptr;
   int **ipptr;
   int ***ippptr;
@@ -63,7 +72,7 @@ struct ASID {
   int iarr2[5][3];
 
   int (*funcptr)(int);
-  
+
   struct {
     int a1;
     char *b1;
@@ -125,8 +134,8 @@ struct ASID_ANON {
     };
   };
 };
-      
-struct ASID_ANON asid_anon;	
+
+struct ASID_ANON asid_anon;
 
 
 // for tPtr testing
@@ -153,13 +162,22 @@ testmod_init(void) {
   one = 1;
   LBLOG("++++++++++++++ testmod loaded\n");
 
-  
+
   asid.li = 123456789;
   asid.i2 = -555;
   asid.bf1 = 1;
   asid.bf2 = 2;
   asid.bf3 = -2;
   asid.bf4 = 123;
+
+  asid.booli1 = true;
+  asid.booli2 = false;
+  asid.boolbf1 = false;
+  asid.boolbf2 = true;
+
+  for (i=0; i < 6; i++)
+    asid.boolarr[i] = (i%3) ? true : false;
+
   asid.f1.ff.bb = "bbstring";
   asid.f2.l2.l3.a = 666;
   asid.f2.buf[0] = 'b';
@@ -209,7 +227,7 @@ testmod_init(void) {
   }
 
 
-  
+
   return 0;
 }
 
@@ -223,4 +241,3 @@ module_init(testmod_init);
 module_exit(testmod_cleanup_module);
 
 MODULE_LICENSE("GPL");
-

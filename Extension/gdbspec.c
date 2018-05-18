@@ -1,18 +1,18 @@
 /* Python extension to interact with CRASH - GDB-specific subroutines
-   
+
 
 // --------------------------------------------------------------------
-// (C) Copyright 2006-2015 Hewlett-Packard Enterprise Development LP
+// (C) Copyright 2006-2018 Hewlett-Packard Enterprise Development LP
 //
 // Author: Alex Sidorenko <asid@hpe.com>
 //
-// --------------------------------------------------------------------  
- 
+// --------------------------------------------------------------------
+
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License as published by
   the Free Software Foundation; either version 2 of the License, or
   (at your option) any later version.
- 
+
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
   MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
@@ -70,7 +70,7 @@ static FILE *nullfp = NULL;
 static void my_cleanups(void) {
   error_hook = NULL; \
   //printf("mycleanups\n");
-  
+
 }
 
 // crash 6.X uses GDB version where we do do_cleanups(NULL);
@@ -89,7 +89,7 @@ my_error_hook(void)  {
   PY_DO_CLEANUPS;
   my_cleanups();
   longjmp(eenv, 1);
-} 
+}
 
 int
 myDict_SetCharChar(PyObject *v, const char *key, const char *item) {
@@ -127,8 +127,8 @@ extern void replace_ui_file_FILE(struct ui_file *, FILE *);
       return NULL; \
     } \
   } while (0)
-    
-  
+
+
 #define GDB2PY_EXIT \
   do { \
     my_cleanups(); \
@@ -166,7 +166,7 @@ do_ftype(struct type *ftype, PyObject *item) {
   char buf[256];
 
   int i;
-  
+
   int stars = 0;
   int dims[4] = {0,0,0,0};
   int ndim = 0;
@@ -177,18 +177,18 @@ do_ftype(struct type *ftype, PyObject *item) {
   PyObject *ptr;
 
   if(TYPE_STUB(ftype) && tagname) {
-#if defined(GDB7)    
+#if defined(GDB7)
     struct symbol *sym = lookup_symbol(tagname,
 				       0, STRUCT_DOMAIN,
 				       0);
-#else    
+#else
     struct symbol *sym = lookup_symbol(tagname,
 				       0, STRUCT_DOMAIN,
 				       0, (struct symtab **) NULL);
-#endif    
+#endif
     if(sym) {
       ftype=sym->type;
-    } 
+    }
   }
 
   switch (codetype) {
@@ -242,7 +242,7 @@ do_ftype(struct type *ftype, PyObject *item) {
 	myDict_SetCharChar(item, "typedef", ttypename);
       CHECK_TYPEDEF(tmptype);
     }
-    
+
     v =  PyInt_FromLong(stars);
     PyDict_SetItemString(item, "stars", v);
     Py_DECREF(v);
@@ -269,7 +269,6 @@ do_ftype(struct type *ftype, PyObject *item) {
     v= PyInt_FromLong(TYPE_UNSIGNED(ftype));
     PyDict_SetItemString(item, "uint", v);
     Py_DECREF(v);
-    
     myDict_SetCharChar(item, "basetype", TYPE_NAME(ftype));
     break;
   case TYPE_CODE_ARRAY:
@@ -284,7 +283,7 @@ do_ftype(struct type *ftype, PyObject *item) {
 	dim = 0;
       else
 	dim = high_bound + 1;
-	
+
       ftype= TYPE_TARGET_TYPE(ftype);
      /* The following worked with older GDB, but not with 7.3.1
       range_type = TYPE_FIELD_TYPE (ftype, 0);
@@ -309,7 +308,7 @@ do_ftype(struct type *ftype, PyObject *item) {
       PyList_Append(pdims, v);
       Py_DECREF(v);
     }
-    
+
     PyDict_SetItemString(item, "dims", pdims);
     Py_DECREF(pdims);
     break;
@@ -330,7 +329,7 @@ do_ftype(struct type *ftype, PyObject *item) {
   v = PyInt_FromLong(TYPE_LENGTH(ftype));
   PyDict_SetItemString(item, "typelength", v);
   Py_DECREF(v);
-  
+
 }
 
 static void
@@ -356,13 +355,13 @@ do_func(struct type *type, PyObject *pitem) {
     PyList_Append(body, item);
     sprintf(buf, "arg%d", i);
     myDict_SetCharChar(item, "fname", buf);
- 
+
     do_ftype(ftype, item);
     Py_DECREF(item);
   }
   Py_DECREF(body);
 }
-    
+
 static void
 do_SU(struct type *type, PyObject *pitem) {
   int nfields =   TYPE_NFIELDS(type);
@@ -390,13 +389,13 @@ do_SU(struct type *type, PyObject *pitem) {
     v = PyInt_FromLong(boffset);
     PyDict_SetItemString(item, "bitoffset", v);
     Py_DECREF(v);
-   
+
     do_ftype(ftype, item);
     Py_DECREF(item);
 
   }
   Py_DECREF(body);
- 
+
 }
 
 static void
@@ -420,7 +419,7 @@ do_enum(struct type *type, PyObject *pitem) {
     PyList_Append(item, v);
     Py_DECREF(n);
     Py_DECREF(v);
-    
+
     PyList_Append(edef, item);
     Py_DECREF(item);
   }
@@ -455,7 +454,7 @@ PyObject * py_gdb_typeinfo(PyObject *self, PyObject *args) {
 
   PyObject *topdict =  PyDict_New();
   do_ftype(type, topdict);
-  
+
   do_cleanups (old_chain);
   // ----------------------------------------------
 
@@ -517,6 +516,7 @@ void py_gdb_register_enums(PyObject *m) {
   REGISTER_ENUM(TYPE_CODE_INT);
   REGISTER_ENUM(TYPE_CODE_FLT);
   REGISTER_ENUM(TYPE_CODE_VOID);
+  REGISTER_ENUM(TYPE_CODE_BOOL);
 }
 
 // Some of GDB-6 values

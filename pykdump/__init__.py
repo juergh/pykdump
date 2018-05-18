@@ -6,18 +6,18 @@
 It is now Python-3 based
 """
 # Version number
-__version__ = '3.0.1'
+__version__ = '3.0.2'
 
 import sys
 
 # Copyright notice string
 __copyright__ = """\
-(C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
+(C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
 Author: Alex Sidorenko <asid@hpe.com>
 """
 
 # A minimal C-module version that is needed for API to work
-minimal_cmod_version = "3.0.1"
+minimal_cmod_version = "3.0.2"
 
 
 # The next subroutines are used for version compatibility control.
@@ -59,4 +59,4 @@ def require_cmod_version(vers, c_mod_version =__c_mod_version ):
         print ("Python API requires at least", vers,\
               "and your C-module is", c_mod_version)
         sys.exit(0)
-    
+

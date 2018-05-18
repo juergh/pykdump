@@ -5,7 +5,7 @@
 #
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -32,7 +32,6 @@ from LinuxDump import percpu, sysctl, Dev
 from LinuxDump.KernLocks import (decode_mutex, spin_is_locked, decode_semaphore,
                                  decode_rwsemaphore)
 from LinuxDump.Dev import (print_dm_devices, print_gendisk,
-            decode_cmd_flags, 
             print_request_slab, print_request_queues, print_blk_cpu_done)
     
 from LinuxDump import percpu
