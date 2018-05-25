@@ -1376,6 +1376,8 @@ def readList(start, offset=0, maxel = _MAXEL, inchead = True, warn = True):
         out = []
         count = 0
     next = start
+    # Detect list corruption when next refers to one of previous elements
+    known = set()
     while (count < maxel+1):
         # If we get an error while reading lists, report it but return what we
         # have already collected anyway
@@ -1386,6 +1388,11 @@ def readList(start, offset=0, maxel = _MAXEL, inchead = True, warn = True):
             break
         if (next == 0 or next == start):
             break
+        if (next in known):
+            msgextra = str(MsgExtra())
+            pylog.error("{} Circular dependency in list".format(msgextra))
+            break
+        known.add(next)
         out.append(next)
         count += 1
     if (count > maxel):
