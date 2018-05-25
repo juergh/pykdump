@@ -8,7 +8,7 @@
 # depending on availability of low-level shared library dlopened from crash
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -257,6 +257,22 @@ class PyLog:
 
 pylog = PyLog()
 setattr(wrapcrash, 'pylog', pylog)
+
+class MsgExtra(object):
+    _msgstack = [None]
+    def __init__(self, msg = None):
+        self.msg = msg
+
+    def __enter__(self):
+        self._msgstack.append(self.msg)
+        return None
+
+    def __exit__(self, *args):
+        self._msgstack.pop()
+    def __str__(self):
+        return str(self._msgstack[-1])
+
+setattr(wrapcrash, 'MsgExtra', MsgExtra)
 
 # Check whether we output to a real file.
 
