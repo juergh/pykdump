@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -28,7 +28,8 @@ from LinuxDump.Analysis import (print_wait_for_AF_UNIX, print_pidlist,
                                 get_tentative_arg)                                
 
 from LinuxDump.Files import pidFiles
-from LinuxDump.KernLocks import decode_semaphore
+from LinuxDump.KernLocks import (decode_semaphore, get_rwsemaphore_tasks,
+                                 get_mutex_waiters)
 from pykdump.Misc import AA_Node
 
 from collections import namedtuple, defaultdict
@@ -142,27 +143,6 @@ def if_mutexOK(addr):
     except:
         return 0
 
-# Get a list of pids waiting on mutex
-def get_mutex_waiters(mutex):
-    try:
-        owner = mutex.Owner
-    except KeyError:
-        owner = None
-    if (owner and mutex.count.counter >= 0):
-        return []
-    wait_list = readSUListFromHead(Addr(mutex.wait_list), "list",
-            "struct mutex_waiter", inchead = True)
-    out = []
-    for w in wait_list:
-        task = w.task
-        if (task):
-            out.append(task.pid)
-        else:
-            pylog.error("corrupted wait_list for {}".\
-                format(mutex))
-            continue
-
-    return out
 
 structSetAttr("struct mutex", "Owner", ["owner.task", "owner"])
 # Try to classify the mutex and print its type and its owner
@@ -290,10 +270,11 @@ def check_mmap_sem(tasksrem):
         if (not task.mm or not task.mm.mmap_sem):
             continue
         s = task.mm.mmap_sem
-        #wait_list elements are embedded in struct rwsem_waiter
-        wait_list = readSUListFromHead(Addr(s.wait_list), "list",
-                "struct rwsem_waiter")
-        pids = [w.task.pid for w in wait_list]
+        cmsg = "task={} mmap_sem={}".format(task, s)
+        with MsgExtra(cmsg):
+            wtasks = get_rwsemaphore_tasks(s)
+
+        pids = [t.pid for t in wtasks]
         if (pids):
             waiters[s] = pids
 
@@ -344,9 +325,8 @@ def check_inode_mutexes(tasksrem):
         if (counter >= 0):
             continue
         mutex = inode.i_mutex
-        wait_list = readSUListFromHead(Addr(mutex.wait_list), "list",
-             "struct mutex_waiter")
-        pids = [w.task.pid for w in wait_list]
+        wait_tasks = get_mutex_waiters(mutex)
+        pids = [t.pid for t in wait_tasks]
         waiters[inode] = (v, pids)
 
     mutex_waiters = waiters
@@ -480,7 +460,7 @@ def check_kthread_create_list(tasksrem):
 __tdr_func = "throttle_direct_reclaim"
 def check_throttle_direct_reclaim(tasksrem):
     pids = _funcpids(__tdr_func)
-    #verifyFastSet(pids, __tdr_func)
+    verifyFastSet(pids, __tdr_func)
     if (pids):
         print_header("Waiting for kswapd")
         print_pidlist(pids, maxpids = _MAXPIDS, verbose = _VERBOSE, 

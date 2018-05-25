@@ -31,14 +31,7 @@ from LinuxDump.KernLocks import spin_is_locked
 import string
 
 from collections import defaultdict
-
-# Python2 vs Python3
-_Pym = sys.version_info[0]
-
-if (_Pym < 3):
-    from StringIO import StringIO
-else:
-    from io import StringIO
+from io import StringIO
 
 
 __IFF_FLAGS_c = '''
@@ -878,7 +871,8 @@ def print_If(dev, details = 0):
         master = None
         if (dev.hasField("master")):
             master = Deref(dev.master)
-        elif (dev.hasField("upper_dev_list")):
+        elif (dev.hasField("upper_dev_list") and 
+                struct_exists("struct netdev_upper")):
             # upper = list_first_entry(&dev->upper_dev_list,
             #                          struct netdev_upper, list);
             upper = ListHead(dev.upper_dev_list, "struct netdev_upper").list[0]

@@ -180,6 +180,9 @@ def print_pidlist(pids, title = '', verbose = False, maxpids = 10,
             mlist.append((int(t.Ran_ago), pid))
     mlist = sorted(mlist)
     # Youngest and oldest
+    if (not mlist):
+        print("  no Pids")
+        return
     ago_y, pid_y = mlist[0]
     ago_o, pid_o = mlist[-1]
 

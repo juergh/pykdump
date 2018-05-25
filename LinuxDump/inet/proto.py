@@ -3,7 +3,7 @@
 # module LinuxDump.inet.proto
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -19,7 +19,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-from __future__ import print_function
 
 __doc__ = '''
 This is a package providing generic access to INET protocol structures.
@@ -93,15 +92,16 @@ def sk_nulls_for_each(first, hbucket):
                        sock_common_info["skc_nulls_node"].offset
 
     ptr = first
+    #print("first={:#x}".format(ptr))
     addrs = []
-    while (not (ptr & 1)):
+    while (ptr and not (ptr & 1)):
         addrs.append(ptr)
         #print("ptr={:#x}".format(ptr))
         ptr = readPtr(ptr)
     else:
         slot = (ptr>>1) & 0xfffffff
         #print("SLOT={}".format(slot))
-    if (hbucket != slot):
+    if (hbucket != slot and ptr):
         pylog.silent("hbucket={:#x} != SLOT={:#x}".format(hbucket, slot))
     # Now recompute addrs to point to 'struct sock' where head_list is embedded
     return [a - skc_nulls_node_off for a in addrs]
