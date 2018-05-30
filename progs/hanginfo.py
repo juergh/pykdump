@@ -378,7 +378,7 @@ def check_other_mutexes(tasksrem):
             owner = None
         # Sometimes we cannot get this mutex
         try:
-            pids = get_mutex_waiters(mutex)
+            pids = [t.pid for t in get_mutex_waiters(mutex)]
         except:
             pylog.warning("Cannot get waiters for mutex {}".format(mutex))
             continue
