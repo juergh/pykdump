@@ -440,7 +440,7 @@ if ( __name__ == '__main__'):
 
     parser.add_argument("-x", "--hex", dest="usehex", default = 0,
         action="store_true",
-        help="Display fields in hex")
+        help="display fields in hex")
 
     parser.add_argument("--check", dest="runcheck", default = 0,
         action="store_true",
@@ -448,31 +448,31 @@ if ( __name__ == '__main__'):
 
     parser.add_argument("-m", "--multipath", dest="multipath", nargs='?',
         const="nr_valid_paths,queue_io", default=0, metavar="FIELDS",
-        help="Show multipath devices and fields")
+        help="show multipath devices and fields")
 
     parser.add_argument("-ll", "--list", dest="multipathlist", nargs='?',
         const="nr_valid_paths,queue_io", default=0, metavar="FIELDS",
-        help="Show multipath device listing similar to \"multipath -ll\"")
+        help="show multipath device listing similar to \"multipath -ll\"")
 
     parser.add_argument("-d", "--mapdev", dest="mapdev", nargs='?',
         const="flags", default=0, metavar="FIELDS",
-        help="Show mapped_devices and fields")
+        help="show mapped_devices and fields")
 
     parser.add_argument("--table", dest="table", default=0,
         action="store_true",
-        help="Show \"dmsetup table\" like output")
+        help="show \"dmsetup table\" like output")
 
     parser.add_argument("--lvs", dest="lvs", default=0,
         action="store_true",
-        help="Show lvm volume information similar to \"lvs\" command")
+        help="show lvm volume information similar to \"lvs\" command")
 
     parser.add_argument("--lvuuid", dest="lvuuid", default=0,
         action="store_true",
-        help="Show lvm volume and volume group's UUID")
+        help="show lvm volume and volume group's UUID")
 
     parser.add_argument("--pvs", dest="pvs", default=0,
         action="store_true",
-        help="Show physical volume information similar to \"pvs\" command")
+        help="show physical volume information similar to \"pvs\" command")
 
     args = parser.parse_args()
 

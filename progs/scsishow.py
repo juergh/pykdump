@@ -689,35 +689,35 @@ if ( __name__ == '__main__'):
 
     parser.add_argument("-p", "--proc", dest="proc_info", default = 0,
         action="store_true",
-        help="Show /proc/scsi/scsi style information")
+        help="show /proc/scsi/scsi style information")
 
     parser.add_argument("-d", "--devices", dest="devs", nargs='?',
                 const="device_busy,sdev_state", default=0, metavar="FIELDS",
-        help="Show all devices")
+        help="show all devices")
 
     parser.add_argument("-s", "--hosts", dest="hosts", nargs='?',
                 const="host_busy,host_failed", default=0, metavar="FIELDS",
-        help="Show all hosts")
+        help="show all hosts")
 
     parser.add_argument("-T", "--Targets", dest="targets", nargs='?',
                 const="target_busy", default=0, metavar="FIELDS",
-                help="Show all the scsi targets")
+        help="show all the scsi targets")
 
     parser.add_argument("-c", "--commands", dest="commands", nargs='?',
         const="jiffies_at_alloc", default=0, metavar="FIELDS",
-        help="Show SCSI commands")
+        help="show SCSI commands")
 
     parser.add_argument("-q", "--queue", dest="queue", nargs='?',
         const="jiffies_at_alloc", default=0, metavar="FIELDS",
-        help="Show the IO requests, SCSI commands from request_queue")
+        help="show the IO requests, SCSI commands from request_queue")
 
     parser.add_argument("-r", "--requests", dest="requests", nargs='?',
         const="start_time,special", default=0, metavar="FIELDS",
-        help="Show requests to SCSI devices (INCOMPLETE)")
+        help="show requests to SCSI devices (INCOMPLETE)")
 
     parser.add_argument("-x", "--hex", dest="usehex", default = 0,
         action="store_true",
-        help="Display fields in hex")
+        help="display fields in hex")
 
     parser.add_argument("--check", dest="runcheck", default = 0,
         action="store_true",
@@ -725,11 +725,11 @@ if ( __name__ == '__main__'):
 
     parser.add_argument("--time", dest="time", default = 0,
         action="store_true",
-        help="Display time and state information for  SCSI commands")
+        help="display time and state information for  SCSI commands")
 
     parser.add_argument("--relative", dest="relative", nargs='?',
         const="jiffies", default=0,
-        help="Show fields relative to the given value/symbol.  Uses jiffies without argument")
+        help="show fields relative to the given value/symbol.  Uses jiffies without argument")
 
 
     args = parser.parse_args()
