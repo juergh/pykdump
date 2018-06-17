@@ -153,158 +153,158 @@ def get_gendev():
     return gendev_dict
 
 def print_sdev_shost():
-        enum_sdev_state = EnumInfo("enum scsi_device_state")
+    enum_sdev_state = EnumInfo("enum scsi_device_state")
 
-        gendev_dict = get_gendev()
+    gendev_dict = get_gendev()
 
-        for shost in get_scsi_hosts():
-            if (shost.__devices.next != shost.__devices.next.next):
-                print("\n=============================================================================="
-                      "===============================================================================")
-                print("HOST      DRIVER")
-                print("NAME      NAME                               {:24s} {:24s} {:24s}".format("Scsi_Host",
-                      "shost_data", "&.hostdata[0]", end=""))
-                print("--------------------------------------------------------"
-                      "-------------------------------------------------------")
-
-                print_shost_header(shost)
-
-                print("{:17s} {:23s} {:16s} {:25s} {:24s}   {}  {}    {}"
-                      "\n".format("DEV NAME", "scsi_device", "H:C:T:L", "VENDOR/MODEL",
-                      "DEVICE STATE", "IOREQ-CNT", "IODONE-CNT",
-                      "           IOERR-CNT"), end="")
-                print("-----------------------------------------------------"
-                      "-----------------------------------------------------"
-                      "---------------------------------------------------")
-
-                for sdev in readSUListFromHead(shost.__devices, "siblings", "struct scsi_device"):
-                    name = scsi_device_type(sdev.type)
-
-                    if (name):
-                        if (name in 'Sequential-Access'):
-                            name = "Tape"
-                        elif (name in 'Medium Changer   '):
-                            name = "Chngr"
-                        elif (name in 'RAID             '):
-                            name = "CTRL"
-                        elif ((name in 'Direct-Access    ') or
-                              (name in 'CD-ROM           ')):
-                             sdev_q = StructResult("struct request_queue", long(sdev.request_queue))
-                             sdev_q = format(sdev_q, 'x')
-                             try:
-                                 gendev = gendev_dict[sdev_q]
-                                 gendev = readSU("struct gendisk", long (gendev, 16))
-                                 name = gendev.disk_name
-                             except:
-                                 name = "Disk"
-                    else:
-                        name = "null"
-
-                    print("{:17s} {:x} {:6s} {:16} {} {} {:22s}"
-                          "{:14d} {:11}  ({:3d})\t{:10d}\n".format(name,
-                          int(sdev), "", get_scsi_device_id(sdev),
-                          sdev.vendor[:8], sdev.model[:16],
-                          enum_sdev_state.getnam(sdev.sdev_state),
-                          sdev.iorequest_cnt.counter, sdev.iodone_cnt.counter,
-                          sdev.iorequest_cnt.counter-sdev.iodone_cnt.counter,
-                          sdev.ioerr_cnt.counter), end='')
-
-def print_starget_shost():
-        enum_starget_state = EnumInfo("enum scsi_target_state")
-        stgt_busy_block_cnt = -1
-
-        for shost in get_scsi_hosts():
-            if (shost.__targets.next != shost.__targets.next.next):
-                print("\n======================================================="
-                      "========================================================")
-                print("HOST      DRIVER")
-                print("NAME      NAME                               {:24s} {:24s} {:24s}".format("Scsi_Host",
-                      "shost_data", "&.hostdata[0]"))
-                print("--------------------------------------------------------"
-                      "-------------------------------------------------------")
-
-                print_shost_header(shost)
-
-                print("----------------------------------------------------"
-                      "----------------------------------------------------")
-                print("{:15s} {:20s} {:8s} {:6s} {:20s} {:15s} {:15s}".format("TARGET DEVICE",
-                      "scsi_target", "CHANNEL", "ID", "TARGET STATUS", 
-                      "TARGET_BUSY", "TARGET_BLOCKED"))
-
-                for starget in readSUListFromHead(shost.__targets, "siblings", "struct scsi_target"):
-
-                    if (member_size("struct scsi_target", "target_busy") != -1):
-                        try:
-                            stgt_busy_block_cnt = readSU("struct scsi_target", long(starget.target_busy.counter))
-                        except:
-                            stgt_busy_block_cnt = -1
-
-                        try:
-                            print("{:15s} {:x} {:3s} {:5d} {:5d} {:4s}"
-                                  "{:20s}".format(starget.dev.kobj.name,
-                                  int(starget), "", starget.channel,
-                                  starget.id, "", enum_starget_state.getnam(starget.state)), end='')
-
-                            if (stgt_busy_block_cnt != -1):
-                                print("{:12d} {:18d}".format(starget.target_busy.counter,
-                                      starget.target_blocked.counter))
-
-                            elif (stgt_busy_block_cnt == -1 and
-                                  member_size("struct scsi_target", "target_busy") == -1):
-                                print(" <Not defined in scsi_target>")
-
-                            else:
-                                print("{:12d} {:18d}".format(starget.target_busy,
-                                      starget.target_blocked))
-
-                        except KeyError:
-                            pylog.warning("Error in processing scsi_target {:x},"
-                                          "please check manually".format(int(starget)))
-
-def print_shost_info():
-        use_host_busy_counter = -1
-
-        enum_shost_state = EnumInfo("enum scsi_host_state")
-
-        hosts = get_scsi_hosts()
-
-        try:
-            use_host_busy_counter = readSU("struct Scsi_Host", long(hosts[0].host_busy.counter))
-        except:
-            use_host_busy_counter = -1
-
-        for shost in hosts:
-            print("\n============================================================="
-                  "============================================================")
+    for shost in get_scsi_hosts():
+        if (shost.__devices.next != shost.__devices.next.next):
+            print("\n=============================================================================="
+                  "===============================================================================")
             print("HOST      DRIVER")
             print("NAME      NAME                               {:24s} {:24s} {:24s}".format("Scsi_Host",
                   "shost_data", "&.hostdata[0]", end=""))
-            print("-------------------------------------------------------------"
-                  "------------------------------------------------------------")
+            print("--------------------------------------------------------"
+                  "-------------------------------------------------------")
 
-            print("{:8s}  {:32s}   {:12x} {:24x} {:24x}".format(shost.shost_gendev.kobj.name,
-                shost.hostt.name, shost, shost.shost_data,
-                shost.hostdata, end=""))
+            print_shost_header(shost)
 
-            try:
-                print("\n   DRIVER VERSION      : {}".format(shost.hostt.module.version), end="")
-            except:
-                print("\n   DRIVER VERSION      : {}".format("Error in checking "
+            print("{:17s} {:23s} {:16s} {:25s} {:24s}   {}  {}    {}"
+                  "\n".format("DEV NAME", "scsi_device", "H:C:T:L", "VENDOR/MODEL",
+                  "DEVICE STATE", "IOREQ-CNT", "IODONE-CNT",
+                  "           IOERR-CNT"), end="")
+            print("-----------------------------------------------------"
+                  "-----------------------------------------------------"
+                  "---------------------------------------------------")
+
+            for sdev in readSUListFromHead(shost.__devices, "siblings", "struct scsi_device"):
+                name = scsi_device_type(sdev.type)
+
+                if (name):
+                    if (name in 'Sequential-Access'):
+                        name = "Tape"
+                    elif (name in 'Medium Changer   '):
+                        name = "Chngr"
+                    elif (name in 'RAID             '):
+                        name = "CTRL"
+                    elif ((name in 'Direct-Access    ') or
+                          (name in 'CD-ROM           ')):
+                         sdev_q = StructResult("struct request_queue", long(sdev.request_queue))
+                         sdev_q = format(sdev_q, 'x')
+                         try:
+                             gendev = gendev_dict[sdev_q]
+                             gendev = readSU("struct gendisk", long (gendev, 16))
+                             name = gendev.disk_name
+                         except:
+                             name = "Disk"
+                else:
+                    name = "null"
+
+                print("{:17s} {:x} {:6s} {:16} {} {} {:22s}"
+                      "{:14d} {:11}  ({:3d})\t{:10d}\n".format(name,
+                      int(sdev), "", get_scsi_device_id(sdev),
+                      sdev.vendor[:8], sdev.model[:16],
+                      enum_sdev_state.getnam(sdev.sdev_state),
+                      sdev.iorequest_cnt.counter, sdev.iodone_cnt.counter,
+                      sdev.iorequest_cnt.counter-sdev.iodone_cnt.counter,
+                      sdev.ioerr_cnt.counter), end='')
+
+def print_starget_shost():
+    enum_starget_state = EnumInfo("enum scsi_target_state")
+    stgt_busy_block_cnt = -1
+
+    for shost in get_scsi_hosts():
+        if (shost.__targets.next != shost.__targets.next.next):
+            print("\n======================================================="
+                  "========================================================")
+            print("HOST      DRIVER")
+            print("NAME      NAME                               {:24s} {:24s} {:24s}".format("Scsi_Host",
+                  "shost_data", "&.hostdata[0]"))
+            print("--------------------------------------------------------"
+                  "-------------------------------------------------------")
+
+            print_shost_header(shost)
+
+            print("----------------------------------------------------"
+                  "----------------------------------------------------")
+            print("{:15s} {:20s} {:8s} {:6s} {:20s} {:15s} {:15s}".format("TARGET DEVICE",
+                  "scsi_target", "CHANNEL", "ID", "TARGET STATUS", 
+                  "TARGET_BUSY", "TARGET_BLOCKED"))
+
+            for starget in readSUListFromHead(shost.__targets, "siblings", "struct scsi_target"):
+
+                if (member_size("struct scsi_target", "target_busy") != -1):
+                    try:
+                        stgt_busy_block_cnt = readSU("struct scsi_target", long(starget.target_busy.counter))
+                    except:
+                        stgt_busy_block_cnt = -1
+
+                    try:
+                        print("{:15s} {:x} {:3s} {:5d} {:5d} {:4s}"
+                              "{:20s}".format(starget.dev.kobj.name,
+                              int(starget), "", starget.channel,
+                              starget.id, "", enum_starget_state.getnam(starget.state)), end='')
+
+                        if (stgt_busy_block_cnt != -1):
+                            print("{:12d} {:18d}".format(starget.target_busy.counter,
+                                  starget.target_blocked.counter))
+
+                        elif (stgt_busy_block_cnt == -1 and
+                              member_size("struct scsi_target", "target_busy") == -1):
+                            print(" <Not defined in scsi_target>")
+
+                        else:
+                            print("{:12d} {:18d}".format(starget.target_busy,
+                                  starget.target_blocked))
+
+                    except KeyError:
+                        pylog.warning("Error in processing scsi_target {:x},"
+                                      "please check manually".format(int(starget)))
+
+def print_shost_info():
+    use_host_busy_counter = -1
+
+    enum_shost_state = EnumInfo("enum scsi_host_state")
+
+    hosts = get_scsi_hosts()
+
+    try:
+        use_host_busy_counter = readSU("struct Scsi_Host", long(hosts[0].host_busy.counter))
+    except:
+        use_host_busy_counter = -1
+
+    for shost in hosts:
+        print("\n============================================================="
+              "============================================================")
+        print("HOST      DRIVER")
+        print("NAME      NAME                               {:24s} {:24s} {:24s}".format("Scsi_Host",
+              "shost_data", "&.hostdata[0]", end=""))
+        print("-------------------------------------------------------------"
+              "------------------------------------------------------------")
+
+        print("{:8s}  {:32s}   {:12x} {:24x} {:24x}".format(shost.shost_gendev.kobj.name,
+            shost.hostt.name, shost, shost.shost_data,
+            shost.hostdata, end=""))
+
+        try:
+            print("\n   DRIVER VERSION      : {}".format(shost.hostt.module.version), end="")
+        except:
+            print("\n   DRIVER VERSION      : {}".format("Error in checking "
                                                              "'Scsi_Host->hostt->module->version'"), end="")
 
-            if (use_host_busy_counter != -1):
-                print("\n   HOST BUSY           : {}".format(shost.host_busy.counter), end="")
-                print("\n   HOST BLOCKED        : {}".format(shost.host_blocked.counter), end="")
-            else:
-                print("\n   HOST BUSY           : {}".format(shost.host_busy), end="")
-                print("\n   HOST BLOCKED        : {}".format(shost.host_blocked), end="")
+        if (use_host_busy_counter != -1):
+            print("\n   HOST BUSY           : {}".format(shost.host_busy.counter), end="")
+            print("\n   HOST BLOCKED        : {}".format(shost.host_blocked.counter), end="")
+        else:
+            print("\n   HOST BUSY           : {}".format(shost.host_busy), end="")
+            print("\n   HOST BLOCKED        : {}".format(shost.host_blocked), end="")
 
-            print("\n   HOST FAILED         : {}".format(shost.host_failed), end="")
-            print("\n   SELF BLOCKED        : {}".format(shost.host_self_blocked), end="")
-            print("\n   SHOST STATE         : {}".format(enum_shost_state.getnam(shost.shost_state)), end="")
-            print("\n   MAX LUN             : {}".format(shost.max_lun), end="")
-            print("\n   CMD/LUN             : {}".format(shost.cmd_per_lun), end="")
-            print("\n   WORK Q NAME         : {}".format(shost.work_q_name), end="")
+        print("\n   HOST FAILED         : {}".format(shost.host_failed), end="")
+        print("\n   SELF BLOCKED        : {}".format(shost.host_self_blocked), end="")
+        print("\n   SHOST STATE         : {}".format(enum_shost_state.getnam(shost.shost_state)), end="")
+        print("\n   MAX LUN             : {}".format(shost.max_lun), end="")
+        print("\n   CMD/LUN             : {}".format(shost.cmd_per_lun), end="")
+        print("\n   WORK Q NAME         : {}".format(shost.work_q_name), end="")
 
 def print_request_queue():
     counter = 0
