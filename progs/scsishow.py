@@ -306,6 +306,90 @@ def print_shost_info():
             print("\n   CMD/LUN             : {}".format(shost.cmd_per_lun), end="")
             print("\n   WORK Q NAME         : {}".format(shost.work_q_name), end="")
 
+def print_request_queue():
+    counter = 0
+    cmnd_requests = []
+    gendev_dict = get_gendev()
+    jiffies = readSymbol("jiffies")
+
+    opcode_table = {'0x00':'TUR', '0x03':'REQ-SENSE', '0x08':'READ(6)',\
+                    '0x0a':'WRITE(6)', '0x12':'INQUIRY', '0x16':'RESERVE(6)',\
+                    '0x17':'RELEASE(6)', '0x25':'READ-CAP(10)', '0x28':'READ(10)',\
+                    '0x2a':'WRITE(10)', '0x41':'WR SAME', '0x56':'RESERVE(10)',\
+                    '0x57':'RELEASE(10)', '0x88':'READ(16)', '0x8a':'WRITE(16)',\
+                    '0xa0':'REPORT LUNS', '0xa8':'READ(12)', '0xaa':'WRITE (12)'}
+
+    for sdev in get_SCSI_devices():
+        name = scsi_device_type(sdev.type)
+        if (name):
+            if ((name in 'Direct-Access    ') or
+                (name in 'CD-ROM           ')):
+               sdev_q = StructResult("struct request_queue", long(sdev.request_queue))
+               if (member_size("struct elevator_queue", "elevator_type") != -1):
+                   elevator_name = sdev_q.elevator.elevator_type.elevator_name
+               elif(member_size("struct elevator_queue", "type") != -1):
+                   elevator_name = sdev_q.elevator.type.elevator_name
+               else:
+                   elevator_name = "<Unknown>"
+               sdev_q = format(sdev_q, 'x')
+               try:
+                   gendev = gendev_dict[sdev_q]
+                   gendev = readSU("struct gendisk", long (gendev, 16))
+                   name = gendev.disk_name
+               except:
+                   name = "Disk"
+
+               print("\n==========================================================="
+                     "============================================================")
+               print("    ### DEVICE : {}\n".format(name))
+
+               print("        ----------------------------------------------------"
+                     "-----------------------------------")
+               print("\tgendisk        \t:  {:x}\t|\tscsi_device \t:  {:x}".format(int(gendev), int(sdev)))
+               print("\trequest_queue  \t:  {}\t|\tH:C:T:L       \t:  {}".format(sdev_q,
+                     sdev.sdev_gendev.kobj.name))
+               print("\televator_name  \t:  {}    \t\t|\tVENDOR/MODEL\t:  {} {}".format(elevator_name,
+                     sdev.vendor[:8], sdev.model[:16]))
+               print("        ----------------------------------------------------"
+                     "-----------------------------------")
+
+               cmnd_requests.clear()
+               cmnds = get_scsi_commands(sdev)
+               for cmnd in cmnds:
+                   cmnd_requests.append(cmnd.request)
+
+               requests = get_queue_requests(sdev.request_queue)
+               requests = list(set(requests + cmnd_requests))
+
+               print("\n     {:10s}{:20s} {:20s} {:18s} {:10s} {:20s} {:10s}".format("NO.", "request",
+                     "bio", "scsi_cmnd", "OPCODE", "COMMAND AGE", "SECTOR"))
+               print("     -------------------------------------------------------"
+                     "------------------------------------------------------")
+
+               counter = 0
+               for req in requests:
+                   counter = counter + 1
+                   cmnd = StructResult("struct scsi_cmnd", long(req.special))
+                   try:
+                       time = (long(jiffies) - long(cmnd.jiffies_at_alloc))
+                       opcode = StructResult("struct scsi_cmnd", long(cmnd.cmnd[0]))
+                       opcode = hex(opcode)
+                       try:
+                           opcode = opcode_table[opcode]
+                       except:
+                           pass
+                       print("     {:3d} {:3s} {:18x} {:20x} {:20x}   {:10} {:8d} ms ".format(counter, "",
+                             req, req.bio, cmnd, opcode, long(time)), end="")
+                       if (req.bio):
+                           print("{:15d}".format(req.bio.bi_sector))
+                       else:
+                           print("       ---NA---")
+                   except:
+                       pylog.warning("Invalid scsi_cmnd address in request: ", name,  req, cmnd)
+               if (counter == 0):
+                   print("\t\t<<< NO I/O REQUESTS FOUND ON THE DEVICE! >>>")
+
+
 def lookup_field(obj, fieldname):
     segments = fieldname.split("[")
     while (len(segments) > 0):
@@ -623,6 +707,10 @@ if ( __name__ == '__main__'):
         const="jiffies_at_alloc", default=0, metavar="FIELDS",
         help="Show SCSI commands")
 
+    parser.add_argument("-q", "--queue", dest="queue", nargs='?',
+        const="jiffies_at_alloc", default=0, metavar="FIELDS",
+        help="Show the IO requests, SCSI commands from request_queue")
+
     parser.add_argument("-r", "--requests", dest="requests", nargs='?',
         const="start_time,special", default=0, metavar="FIELDS",
         help="Show requests to SCSI devices (INCOMPLETE)")
@@ -680,6 +768,10 @@ if ( __name__ == '__main__'):
     if (args.requests):
         display_requests(args.requests, args.usehex)
 
+    if (args.queue):
+        print_request_queue()
+
     if(args.hosts or not (args.runcheck or args.proc_info or args.devs or
-       args.commands or args.requests or args.time or args.targets)):
+       args.commands or args.requests or args.time or args.targets or
+       args.queue)):
         print_shost_info()
