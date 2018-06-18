@@ -2,7 +2,7 @@
 # module LinuxDump.kobjects
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2013-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2013-2018 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -18,8 +18,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-from __future__ import print_function
-
 __doc__ = '''
 This is a package providing generic access to kobjects/klist/kref stuff
 '''
@@ -29,9 +27,11 @@ from pykdump.API import *
 # Iterate klist_devices
 def klistAll(klist):
     try:
-        return readSUListFromHead(klist.k_list, "n_node", "struct klist_node")
+        return readSUListFromHead(klist.k_list, "n_node", "struct klist_node",
+                                  maxel=20000)
     except KeyError:
-        return readSUListFromHead(klist.list, "n_node", "struct klist_node")
+        return readSUListFromHead(klist.list, "n_node", "struct klist_node",
+                                  maxel=20000)
 
 #static inline const char *dev_name(const struct device *dev)
 #{
