@@ -1,0 +1,15 @@
+# Edit this file for local setup changes
+*static*
+zlib zlibmodule.c -lz
+select selectmodule.c
+_struct _struct.c      # binary structure packing/unpacking
+_socket socketmodule.c
+math mathmodule.c _math.c # -lm # math library functions, e.g. sin()
+# Crypto
+_sha1 sha1module.c
+_sha256 sha256module.c
+_sha512 sha512module.c
+_md5 md5module.c
+_blake2 _blake2/blake2module.c _blake2/blake2b_impl.c _blake2/blake2s_impl.c
+_datetime _datetimemodule.c    # datetime accelerator
+array arraymodule.c    # array objects
