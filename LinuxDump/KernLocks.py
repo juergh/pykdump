@@ -57,8 +57,16 @@ __mutex_w_offset = getStructInfo(__mutex_waiter)["list"].offset
 # Get mutex waiters
 def get_mutex_waiters(addr):
     s = readSU("struct mutex", addr)
+    # Two different cases:
+    # 'struct list_head wait_list' - we should not include the head itself
+    # 'struct list_head *wait_list' - we should include the list head
+    #
+    # This logic should be moved into Generic or wrapcrash
+    isPtr = s.PYT_sinfo['wait_list'].ti.ptrlev  # None or 1
+    inchead = True if isPtr else False
+    wait_list = s.wait_list
     out = []
-    for a in __get_mrw_wait_list(s.wait_list, inchead = False):
+    for a in __get_mrw_wait_list(s.wait_list, inchead = inchead):
         w = readSU(__mutex_waiter, a - __mutex_w_offset)
         out.append(w.task)
     return out
