@@ -25,6 +25,7 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
+from __future__ import print_function
 
 __version__ = "0.0.2"
 
@@ -33,6 +34,21 @@ from pykdump.API import *
 from LinuxDump.scsi import *
 
 from pykdump.wrapcrash import StructResult, tPtr
+
+def get_sdev_state(enum_state):
+    if not isinstance(enum_state, long):
+        return enum_state
+    return {
+        1: "SDEV_CREATED",
+        2: "SDEV_RUNNING",
+        3: "SDEV_CANCEL",
+        4: "SDEV_DEL",
+        5: "SDEV_QUIESCE",
+        6: "SDEV_OFFLINE",
+        7: "SDEV_BLOCK",
+        8: "SDEV_CREATED_BLOCK",
+    }[enum_state]
+
 
 def print_request_header(request, devid):
     print("{:x} {:<13}".format(int(request), "({})".format(devid)), end='')
@@ -204,7 +220,7 @@ def print_sdev_shost():
                       "{:14d} {:11}  ({:3d})\t{:10d}\n".format(name,
                       int(sdev), "", get_scsi_device_id(sdev),
                       sdev.vendor[:8], sdev.model[:16],
-                      enum_sdev_state.getnam(sdev.sdev_state),
+                      get_sdev_state(enum_sdev_state.getnam(sdev.sdev_state)),
                       sdev.iorequest_cnt.counter, sdev.iodone_cnt.counter,
                       sdev.iorequest_cnt.counter-sdev.iodone_cnt.counter,
                       sdev.ioerr_cnt.counter), end='')
@@ -240,10 +256,11 @@ def print_starget_shost():
                         stgt_busy_block_cnt = -1
 
                     try:
+                        sdev_state = get_sdev_state(enum_starget_state.getnam(starget.state))
                         print("{:15s} {:x} {:3s} {:5d} {:5d} {:4s}"
                               "{:20s}".format(starget.dev.kobj.name,
                               int(starget), "", starget.channel,
-                              starget.id, "", enum_starget_state.getnam(starget.state)), end='')
+                              starget.id, "", sdev_state), end='') 
 
                         if (stgt_busy_block_cnt != -1):
                             print("{:12d} {:18d}".format(starget.target_busy.counter,
@@ -353,7 +370,7 @@ def print_request_queue():
                print("        ----------------------------------------------------"
                      "-----------------------------------")
 
-               cmnd_requests.clear()
+               cmnd_requests = []
                cmnds = get_scsi_commands(sdev)
                for cmnd in cmnds:
                    cmnd_requests.append(cmnd.request)
