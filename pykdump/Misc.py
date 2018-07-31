@@ -240,6 +240,8 @@ class Box(Array2u):
     # Text can be a string with LF embedded
     @classmethod
     def TextBox(cls, s, header = None):
+        #if (s is None):
+            #s = "Empty"
         lines = s.splitlines()
         pad = 0
         w = max([len(l) for l in lines])
@@ -336,7 +338,11 @@ class AA_Node(object):
         return textwrap.indent(txt, '  ')
     # ASCII-art version (tree grow horizontally)
     def _hleaves(self):
-        return Box.TextBox(self._strleaves())
+        leaves = self._strleaves()
+        if (leaves):
+            return Box.TextBox(self._strleaves())
+        else:
+            return None
     def HorTree(self):
         nodebox = Box.TextBox(str(self.node))
         c = BoxContainer(nodebox)
