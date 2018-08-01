@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -10,7 +10,7 @@
 
 # Print info about NFS/RPC
 
-__version__ = "1.0.4"
+__version__ = "1.0.5"
 
 from collections import (Counter, OrderedDict, defaultdict)
 import itertools
@@ -36,6 +36,9 @@ from LinuxDump.nfsrpc import *
 
 # Time info
 from LinuxDump.Time import *
+
+# Decoding waitq
+from LinuxDump.Tasks import decode_waitq
 
 # Stacks info
 from LinuxDump.BTstack import (exec_bt, bt_mergestacks, fastSubroutineStacks,
@@ -1021,6 +1024,8 @@ def print_nfsmount(v = 0):
     nfs_clients = nfstable.get_nfs_clients()
     if (nfs_clients):
         print ("  ............. struct nfs_client .....................")
+    # idmap with busy waitqueues, if any
+    idmap_busy = {}
     for nfs_cl in nfs_clients:
         # At this moment, only IPv4
         addr_in = nfs_cl.cl_addr.castTo("struct sockaddr_in")
@@ -1028,6 +1033,16 @@ def print_nfsmount(v = 0):
         print ("     ---", nfs_cl, nfs_cl.cl_hostname, ip)
         if (ip in my_ipv4):
             pylog.warning("NFS loopback mount")
+        
+        # Check idmap queues
+        idmap = nfs_cl.cl_idmap
+        if (idmap):
+            wq = idmap.idmap_wq
+            if (wq):
+                if (idmap not in idmap_busy):
+                    tasks = decode_waitq(wq)
+                    if (tasks):
+                        idmap_busy[idmap] = tasks
 
         rpc_clnt = nfs_cl.cl_rpcclient
         if (v > 1):
@@ -1037,6 +1052,13 @@ def print_nfsmount(v = 0):
         print_xprt(xprt, detail)
         #print rpc_clnt, rpc_clnt.cl_metrics
 
+    if (idmap_busy):
+        print ("\n  ............. idmap with busy workqueues .................")
+        for idmap, tasks in idmap_busy.items():
+            print("      --- {} ---".format(idmap))
+            for t in tasks:
+                print("          PID={}".format(t.pid))
+            print("")
     # Stats are per RPC program, and all clients are using "NFS"
     cl_stats = rpc_clnt.cl_stats
     rpc_prog = cl_stats.program

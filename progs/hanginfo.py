@@ -10,7 +10,7 @@
 #  Analyze reasons why some tasks are hanging (TASK_UNINTERRUPTIBLE)
 
 
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 
 import sys
 import re
@@ -325,6 +325,7 @@ def check_inode_mutexes(tasksrem):
         if (counter >= 0):
             continue
         mutex = inode.i_mutex
+        print(mutex)
         wait_tasks = get_mutex_waiters(mutex)
         pids = [t.pid for t in wait_tasks]
         waiters[inode] = (v, pids)
@@ -415,15 +416,17 @@ def check_congestion_queues(tasksrem):
             remove_pidlist(tasksrem, pids)
 
 # Check and print based on functions on the stack
-def check_stack_and_print(funcname, tasksrem):
+def check_stack_and_print(funcname, tasksrem, txt = None):
     pids = _funcpids(funcname) & tasksrem
     verifyFastSet(pids, funcname)
     if (not pids):
         return
-    print_header("Waiting in {}".format(funcname))
+    if (txt is None):
+        txt = funcname
+    print_header("Waiting in {}".format(txt))
     print_pidlist(pids, maxpids = _MAXPIDS, verbose = _VERBOSE,
                   sortbytime = _SORTBYTIME)
-    add_resource_pid(funcname, set(pids))
+    add_resource_pid(txt, set(pids))
     remove_pidlist(tasksrem, pids)
 
 
@@ -526,6 +529,7 @@ def classify_UN(v):
     check_console_sem(tasksrem)
     check_stack_and_print('schedule_timeout', tasksrem)
     check_stack_and_print('alloc_pages_slowpath', tasksrem)
+    check_stack_and_print('nfs_idmap_id', tasksrem, "NFS idmapper")
 
 
     if (tasksrem):
