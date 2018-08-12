@@ -405,17 +405,24 @@ def show_dmsetup_table(dev):
               dm_table_map.targets.type.name))
 
 def run_check_on_multipath():
-    multipathd_blocked = 0
-    wq_blocked = 0
+    errors = 0
+    multipathd_daemon = 0   # To verify if multipathd daemon is running
+    multipath_blocked = 0   # To verify if multipathd daemon or command is blocked
+
+    mpath_present = 0       # To verify if multipath device exists with or without
+                            # multipathd daemon running
+    wq_blocked = 0          # To verify if scsi_wq or fc_wq is blocked
     print("\n\n")
     for l in exec_crash_command_bg('ps -m').splitlines()[1:]:
         spl = re.split("\s+", l[1:].strip())
         try:
             days, time, state, pid_disp, pid, task_disp, task_hex, cpu_disp, cpu = spl[:9]
             comm = '   '.join(spl[9:])
+            if ('multipathd' in comm):
+                multipathd_daemon = 1
             if ((state == '[UN]') and (('multipath' in comm) or ('scsi_wq' in comm) or ('fc_wq' in comm))):
                 if ('multipath' in comm):
-                    multipathd_blocked = 1
+                    multipath_blocked = 1
                 if (('scsi_wq' in comm) or ('fc_wq' in comm)):
                     wq_blocked = 1
                 print("[{} {} {} {} {}    \t{} {} {} {}\t{}".format(days, time, state,
@@ -423,13 +430,28 @@ def run_check_on_multipath():
         except:
             pylog.warning("cannot parse:", l)
 
-    if (multipathd_blocked == 1 and wq_blocked == 1):
+    for dev in devlist:
+        md, name = dev
+        dm_table_map = StructResult("struct dm_table", long(md.map))
+        if (dm_table_map.targets.type.name == "multipath"):
+            mpath_present = 1
+            break
+
+    if (mpath_present == 1 and multipathd_daemon == 0):
+        print("\n ** multipath device(s) are present, but multipathd service is"
+              "\n    not running. IO failover/failback may not work.")
+        errors += 1
+
+    if (multipath_blocked == 1 and wq_blocked == 1):
         print("\n ** multipathd and scsi/fc work_queue processes are stuck in UN state,"
             "\n    this could block IO failover on multipath devices")
-    elif (multipathd_blocked == 1):
+        errors += 1
+    elif (multipath_blocked == 1):
         print("\n ** multipathd processes stuck in UN state,"
               "\n    this could block IO failover on multipath devices")
-    else:
+        errors += 1
+
+    if (errors == 0):
         print("\n    No issues detected by utility.")
 
 
