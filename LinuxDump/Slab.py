@@ -3,7 +3,7 @@
 # module LinuxDump.Slab
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -19,7 +19,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-from __future__ import print_function
 
 __doc__ = '''
 This is a package providing generic access to SLAB-caches.
@@ -35,7 +34,7 @@ __re_free = re.compile(r'^\s+([a-f0-9]+)\s*(\(cpu.*cache\))?\s*$')
 def get_slab_addrs(slabname):
     alloc = []
     free = []
-    res = exec_crash_command("kmem -S %s" % slabname)
+    res = exec_crash_command_bg("kmem -S %s" % slabname)
     if (len(res) == 0):
         raise KeyError("no slab %s" % slabname)
     for s in res.splitlines():

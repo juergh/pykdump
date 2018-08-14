@@ -188,7 +188,11 @@ def print_blkdevs(v=0):
                                   
                 if (v > 0 and bd_queue and not bd_queue in rqset):
                     rqset.add(bd_queue)
-                    elevator = bd_queue.elevator
+                    try:
+                        elevator = bd_queue.elevator
+                    except crash.error:
+                        pylog.error("corrupted block device {}:{}".format(major, minor))
+                        continue
                     if (elevator):
                         ename = PY_select(
                             'addr2sym(elevator.elevator_type)',
@@ -884,7 +888,11 @@ def print_request_queues(v=0):
     out = []
     hl = '-'*70
     for bd_queue, (bd, gd) in qlist.items():
-        lq, in_flight, count = check_request_queue(bd_queue)
+        try:
+            lq, in_flight, count = check_request_queue(bd_queue)
+        except crash.error:
+            pylog.error("corrupted structures for {} {}".format(bd, gd))
+            continue
         if (lq or in_flight or count):
             t_in += in_flight
             t_count += count
