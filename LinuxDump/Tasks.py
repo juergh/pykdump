@@ -893,14 +893,40 @@ def print_pid_namespaces(tt, v = 0):
 
 #  Decode wait_queue_head_t - similar to 'waitq' crash command.
 # Returns a list of 'struct task_struct'
+
+# On new kernels:
+#/*
+ #* A single wait-queue entry structure:
+ #*/
+#struct wait_queue_entry {
+	#unsigned int		flags;
+	#void			*private;
+	#wait_queue_func_t	func;
+	#struct list_head	entry;
+#};
+
+#struct wait_queue_head {
+	#spinlock_t		lock;
+	#struct list_head	head;
+#};
+#typedef struct wait_queue_head wait_queue_head_t;
+
+
 structSetAttr("struct __wait_queue", "Task", ["task", "private"])
 def decode_waitq(wq):
     # 2.4 used to have 'struct __wait_queue'
     # 2.6 has 'wait_queue_head_t' = 'struct __wait_queue_head'
+    # 4.15 has wait_queue_head_t' = 'struct wait_queue_head'
     out = []
-    for l in ListHead(wq.task_list, "struct __wait_queue").task_list:
-        task = readSU("struct task_struct", l.Task)
-        out.append(task)
+    if (wq.hasField("head")):
+        # 4.15
+        for l in ListHead(wq.head, "struct wait_queue_entry").entry:
+            task = readSU("struct task_struct", l.private)
+            out.append(task)
+    else:
+        for l in ListHead(wq.task_list, "struct __wait_queue").task_list:
+            task = readSU("struct task_struct", l.Task)
+            out.append(task)
     return out
 
 if ( __name__ == '__main__'):
