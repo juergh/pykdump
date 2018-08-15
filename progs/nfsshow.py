@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
 # --------------------------------------------------------------------
@@ -1024,7 +1023,8 @@ def print_nfsmount(v = 0):
     nfs_clients = nfstable.get_nfs_clients()
     if (nfs_clients):
         print ("  ............. struct nfs_client .....................")
-    # idmap with busy waitqueues, if any
+    # idmap with busy waitqueues, if any. At this moment it works for older
+    # kernels only (e.g. RHEL6), on newer kernels there is no 'idmap_wq' field
     idmap_busy = {}
     for nfs_cl in nfs_clients:
         # At this moment, only IPv4
@@ -1035,8 +1035,14 @@ def print_nfsmount(v = 0):
             pylog.warning("NFS loopback mount")
         
         # Check idmap queues
-        idmap = nfs_cl.cl_idmap
-        if (idmap):
+        try:
+            idmap = nfs_cl.cl_idmap
+        except (TypeError,KeyError):
+            # On newer kernels we need to load debuginfo for nfsv4.ko
+            # But it does not make sense to try it until we modify the code
+            # for waitqueue - on these kernels there is no 'idmap_wq' field
+            idmap = None
+        if (idmap and idmap.hasField('idmap_wq')):
             wq = idmap.idmap_wq
             if (wq):
                 if (idmap not in idmap_busy):
