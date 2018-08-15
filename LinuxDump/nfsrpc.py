@@ -96,7 +96,7 @@ if (sys_info.kernel <= "2.6.12"):
 # or not - e.g. on a live testing systems the default modules can contain
 # symbolic info. So we just check for some struct definitions
 
-__needed_kmods = ('nfs', 'nfsd', 'sunrpc', 'lockd')
+__needed_kmods = ('nfs', 'nfsd', 'sunrpc', 'lockd', 'nfsv3', 'nfsv4')
 __needed_kmods_info = '''
 To use this program, you need 'crash' to be able to find
 some extra debuginfo DLKMs, not just vmlinux. These modules should either
