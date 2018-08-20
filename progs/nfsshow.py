@@ -245,7 +245,14 @@ def getCache(cname):
     if (not details):
         return
 
+    # It is  struct cache_head **hash_table; on older kernels
+    # but    struct hlist_head *hash_table; on newer ones (e.g. 4.4)
+    #
+    # Until we fix it properly, just return an empty table
     table = details.hash_table
+    if (not table.hasField("next")):
+        print ("No support yet for NFS cache details, will be added later")
+        return []
     size = details.hash_size
     for i in range(size):
         ch1 = table[i]
