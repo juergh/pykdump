@@ -88,6 +88,9 @@ def print_wait_for_AF_UNIX(v=0):
         tasklist = decode_waitq(waitq)
         if (tasklist):
             owners = sorted(socks_dict[peer])
+            if (not owners):
+                pylog.warning("Cannot find a socket for peer {}".format(peer))
+                continue
             last_ran, t = owners[0]
             # Sanitize tasklist in case it has corrupted pointers
             ntasklist = []
