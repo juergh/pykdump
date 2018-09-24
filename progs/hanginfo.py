@@ -30,6 +30,8 @@ from LinuxDump.Analysis import (print_wait_for_AF_UNIX, print_pidlist,
 from LinuxDump.Files import pidFiles
 from LinuxDump.KernLocks import (decode_semaphore, get_rwsemaphore_tasks,
                                  get_mutex_waiters)
+
+from pykdump.tparser import parser_header_tabs
 from pykdump.Misc import AA_Node
 
 from collections import namedtuple, defaultdict
@@ -152,9 +154,12 @@ def print_mutex(mutex, pids = set()):
         mtype = "rtnl_mutex"
     else:
         kmem_s = exec_crash_command("kmem -s {:#x}".format(mutex),
-                                    1).splitlines()
-        if (len(kmem_s) > 1):
-            mtype = kmem_s[1].split()[1]
+                                    1)
+        out = parser_header_tabs(kmem_s, anyws=True)
+        try:
+            mtype = out[0]['NAME']
+        except:
+            mtype = ''
     # Try to get the owner
     if (mutex.hasField("owner") and mutex.owner):
         ownertask = mutex.Owner

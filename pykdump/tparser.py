@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -16,12 +16,8 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-from __future__ import print_function
-
 __doc__ = '''
-This is a parser for processing C-like declarations.
-Its main purpose is to substitute real info in case when this info is
-for some reason unavailable in vmlinux or modules.o
+A collection of useful parsers, e.g. a parser for processing C-like declarations.
 '''
 
 import sys
@@ -278,6 +274,46 @@ struct OneTwo{
   void (*func3)(int, long) [2][3];
  };
 '''
+
+# ================== parsers for text obtained executing crash commands ======
+#
+
+# -------- Parse tables with the following structure:
+#   header1 header2 ...  headern
+#    val1    val2         valn
+
+# A parser for tables with header line (filednames) followed by
+# lines of data fields, all separated by TAB or whitespace
+# Everything's fine for lines where number of data fields matches
+# number of header filednames.
+# Empty lines or lines that consist of whitespace only are ignored
+#
+# Sometimes we have tables with less data fields than expected - it is
+# for consumer to decide how to process them.
+#
+# Finally, if there are more fields than headers, we return the remainder
+# in '__extra' key
+def parser_header_tabs(txt, anyws=False, skip = 0):
+    lines = txt.splitlines()[skip:]
+    header = lines[0]
+    datalines = lines[1:]
+
+    ws = r'\s+' if anyws else r'\t+'
+
+    hnames = re.split(ws, header)
+    lhnames = len(hnames)
+    # We cannot use namedtuple as field names may contain special characters
+    out = []
+    for l in datalines:
+        if (re.match(r'^\s*$', l)):
+            continue
+        fields = re.split(ws, l)
+        d = {k:v for k, v in zip(hnames, fields)}
+        if (len(fields) > lhnames):
+            d['__extra'] = fields[lhnames:]
+        out.append(d)
+    return out
+
 
 # --------- Main for testing purposes ------------
 if __name__ == '__main__':
