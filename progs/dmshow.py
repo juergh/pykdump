@@ -299,8 +299,12 @@ def show_linear_lvm(dev):
         gendisk = StructResult("struct gendisk", long(md.disk))
         pv_gendisk = StructResult("struct gendisk", long(linear_c.dev.bdev.bd_disk))
         hash_cell = StructResult("struct hash_cell", long(md.interface_ptr))
-        if ('LVM-' not in hash_cell.uuid):
-            return
+        try:
+            if ('LVM-' not in hash_cell.uuid):
+                return
+        except:
+            pylog.warning("Invalid UUID for mapped_device:", hex(md), 
+                          "| hash_cell.uuid (UUID) is:", hash_cell.uuid)
 
         vg_lv_names = get_vg_lv_names(name)
 
@@ -331,7 +335,12 @@ def show_linear_lvm_uuid(dev):
         target = dm_table_map.targets.__getitem__(target_id)
         gendisk = StructResult("struct gendisk", long(md.disk))
         hash_cell = StructResult("struct hash_cell", long(md.interface_ptr))
-        if ('LVM-' not in hash_cell.uuid):
+        try:
+            if ('LVM-' not in hash_cell.uuid):
+                return
+        except:
+            pylog.warning("Invalid UUID for mapped_device:", hex(md), 
+                          "| hash_cell.uuid (UUID) is:", hash_cell.uuid)
             return
 
         lv_uuid = hash_cell.uuid.partition("-")
@@ -357,7 +366,12 @@ def show_linear_lvm_pv(dev):
         gendisk = StructResult("struct gendisk", long(md.disk))
         pv_gendisk = StructResult("struct gendisk", long(linear_c.dev.bdev.bd_disk))
         hash_cell = StructResult("struct hash_cell", long(md.interface_ptr))
-        if ('LVM-' not in hash_cell.uuid):
+        try:
+            if ('LVM-' not in hash_cell.uuid):
+                return
+        except:
+            pylog.warning("Invalid UUID for mapped_device:", hex(md), 
+                          "| hash_cell.uuid (UUID) is:", hash_cell.uuid)
             return
 
         vg_lv_names =  get_vg_lv_names(name)
