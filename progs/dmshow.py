@@ -305,6 +305,7 @@ def show_linear_lvm(dev):
         except:
             pylog.warning("Invalid UUID for mapped_device:", hex(md), 
                           "| hash_cell.uuid (UUID) is:", hash_cell.uuid)
+            return
 
         vg_lv_names = get_vg_lv_names(name)
 
