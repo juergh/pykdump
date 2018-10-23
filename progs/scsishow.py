@@ -362,7 +362,11 @@ def print_request_queue():
 
                print("        ----------------------------------------------------"
                      "-----------------------------------")
-               print("\tgendisk        \t:  {:x}\t|\tscsi_device \t:  {:x}".format(int(gendev), int(sdev)))
+               if (name == "Disk"):
+                   print("\tgendisk        \t:  {} |"
+                         "\tscsi_device \t:  {:x}".format("<Can't find gendisk>", int(sdev)))
+               else:
+                   print("\tgendisk        \t:  {:x}\t|\tscsi_device \t:  {:x}".format(int(gendev), int(sdev)))
                print("\trequest_queue  \t:  {}\t|\tH:C:T:L       \t:  {}".format(sdev_q,
                      sdev.sdev_gendev.kobj.name))
                print("\televator_name  \t:  {}    \t\t|\tVENDOR/MODEL\t:  {} {}".format(elevator_name,
