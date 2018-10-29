@@ -1059,7 +1059,7 @@ def longChainOfPids(tt, nmin):
     ntot = 0
     leafs = []
     pidparent = {}
-    for t in tt.allTasks():
+    for t in tt.allThreads():
         ntot += 1
         pid = t.pid
         if (pid == 0):
@@ -1071,6 +1071,7 @@ def longChainOfPids(tt, nmin):
         except crash.error:
             pylog.error("corrupted", t)
             continue
+        #print("{} => {}".format(pid, ppid))
         pidparent[pid] = ppid
     #print("{} total, {} leafs".format(ntot, len(leafs)))
 
@@ -1105,7 +1106,7 @@ def longChainOfPids(tt, nmin):
             nmiddle = chainlength - ntoprint
             i = 0
             for pid in it_toprint:
-                comm = tt.getByPid(pid).comm
+                comm = tt.getByTid(pid).comm
                 if (i == nbeg and chainlength > ntoprint):
                     print ('   {}--- <{} threads not printed> ---'.\
                         format(' '*i, nmiddle))
