@@ -59,7 +59,12 @@ traceback.py
 trace.py
 tty.py
 types.py
+urllib/error.py
+urllib/__init__.py
 urllib/parse.py
+urllib/request.py
+urllib/response.py
+urllib/robotparser.py
 warnings.py
 weakref.py
 weakref.py
