@@ -9,7 +9,7 @@
 
 # Print info about NFS/RPC
 
-__version__ = "1.0.5"
+__version__ = "1.0.6"
 
 from collections import (Counter, OrderedDict, defaultdict)
 import itertools
@@ -250,7 +250,11 @@ def getCache(cname):
     #
     # Until we fix it properly, just return an empty table
     table = details.hash_table
-    if (not table.hasField("next")):
+    try:
+        unsupported = bool(table.hasField("next"))
+    except AttributeError:
+        unsupported = False        
+    if (unsupported):
         print ("No support yet for NFS cache details, will be added later")
         return []
     size = details.hash_size
@@ -1039,8 +1043,15 @@ def print_nfsmount(v = 0):
         ip = ntodots(addr_in.sin_addr.s_addr)
         print ("     ---", nfs_cl, nfs_cl.cl_hostname, ip)
         if (ip in my_ipv4):
-            pylog.warning("NFS loopback mount")
-        
+            pylog.warning("NFS loopback mount -> {}".format(ip))
+
+        if (v):
+            # Print owner_id if available
+            try:
+                cl_owner_id = nfs_cl.cl_owner_id
+                print("     ", cl_owner_id)
+            except:
+                pass
         # Check idmap queues
         try:
             idmap = nfs_cl.cl_idmap
@@ -1475,11 +1486,11 @@ if ( __name__ == '__main__'):
         print_deferred(detail)
 
     # If no options have been provided, print just a summary
-    if (len(sys.argv) > 1):
+    if (len(sys.argv) > 1 and not detail):
         sys.exit(0)
 
     if (get_nfs_mounts()):
-        host_as_client()
+        host_as_client(detail)
 
     # As server
     host_as_server(-1)
