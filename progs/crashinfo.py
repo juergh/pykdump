@@ -131,6 +131,70 @@ def print_dmesg():
     else:
         printHeader("Last 40 lines of dmesg buffer")
         print ("\n".join(dmesg.splitlines()[-40:]))
+
+def kmemi_parser(data):
+    __re_l = re.compile(r'^([^\d]+)(\d+)\s+([\d.]+\s(?:.B)?)\s+(\d+%)?')
+    # Put results into a dictionary, name:(total, percent)
+    # For convenience, convert total to MB
+    out = {}
+    for l in data.splitlines()[1:]:
+        l = l.rstrip()
+        if (not l):
+            continue
+        m =  __re_l.match(l)
+        #print (m.groups())
+        #continue
+        fname, pages, total, percent = m.groups()
+        if (total):
+            v, *suff = total.split()
+            v = float(v)
+            if (suff):
+                suff = suff[0]
+                if (suff == 'GB'):
+                    v *= 1024
+                elif (suff == 'KB'):
+                    v /= 1024
+                elif (suff == 'MB'):
+                    pass
+                else:
+                    raise ValueError("Unknown suffix "+ l)
+            
+        fname = fname.strip()
+        if (percent):
+            percent = int(percent[:-1])
+        out[fname] = (v, percent)
+    return out
+def analyze_kmem(d):
+    # Analyse memory usage. We look at the following:
+    # 1. SWAP usage
+    # 2. Commit
+    # 3. HUGE (total/free)
+    totmem = d['TOTAL MEM'][0]
+    free, freeper = d['FREE']
+    tothuge = d['TOTAL HUGE'][0]
+    hugefree, hugefreeper = d['HUGE FREE']
+    totswap = d['TOTAL SWAP'][0]
+    swapusedper = d['SWAP USED'][1]
+    committedper = d['COMMITTED'][1]
+
+    # Now some tests.
+    #
+    # If there is plenty of free memory, no need to do anything!
+    if (freeper > 10):
+        return
+    
+    # Is committed > 100?
+    if (committedper > 100):
+        pylog.warning("Commited {}%".format(committedper))
+        
+    # Did we reserve many huge pages but not really using them?
+    if (tothuge > totmem/2 and hugefreeper > 30):
+        pylog.warning("{:2.1f} GB of huge memory reserved but {}% of it is not used".\
+            format(tothuge/1024, hugefreeper))
+        
+    # IF swap reserved is at least 20% of RAM, check how much is used
+    if (totswap > totmem/5 and swapusedper > 15):
+        pylog.warning("Significant swapping")
     
 def check_mem():
     if (not quiet):
@@ -138,6 +202,12 @@ def check_mem():
         kmemi = memoize_cond(CU_LIVE | CU_TIMEOUT)(exec_crash_command_bg)("kmem -i")
         if (kmemi):
             print (kmemi)
+            try:
+                d = kmemi_parser(kmemi)
+                analyze_kmem(d)
+            except:
+                # In case something goes wrong
+                pass
         else:
             # Timeout
             print ("")
