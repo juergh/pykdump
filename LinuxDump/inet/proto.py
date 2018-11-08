@@ -794,6 +794,9 @@ class _emulate_lopt(object):
         # There is no syn_table in kernel 4.4. We insert incoming
         # requests (converted to sock) directly into ehash
         return []
+    # Emulate hasField
+    def hasField(self, fname):
+        return hasattr(self, fname)
 
 # TCP structures are quite different for 2.4 and 2.6 kernels, it makes sense to
 # have two different versions of code
