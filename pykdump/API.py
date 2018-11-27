@@ -184,6 +184,10 @@ class PyLog:
             traceback.print_stack()
         name = WARNING
         self._printandcache(name, (args, kwargs))
+    # Another flavor of warning - print on exit only
+    def warning_onexit(self, *args, **kwargs):
+        name = WARNING
+        self._addtocache(name, (args, kwargs))
     def info(self, *args, **kwargs):
         name = INFO
         self._addtocache(name, (args, kwargs))

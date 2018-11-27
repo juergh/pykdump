@@ -13,13 +13,13 @@
 
 
 # 1st-pass dumpanalysis
-__version__ = "1.3.2"
+__version__ = "1.3.3"
 
 from pykdump.API import *
 
 from LinuxDump import BTstack
 from LinuxDump.BTstack import (exec_bt, bt_summarize, bt_mergestacks,
-                               fastSubroutineStacks)
+                               fastSubroutineStacks, verifyFastSet)
 from LinuxDump.kmem import parse_kmemf, print_Zone
 from LinuxDump.Tasks import (TaskTable, Task, tasksSummary, getRunQueues,
             TASK_STATE, sched_clock2ms, decode_waitq)
@@ -39,6 +39,9 @@ from LinuxDump.Time import j_delay
 
 # For FS stuff
 from LinuxDump.fs import *
+
+# DLKM info
+from LinuxDump.dlkm import lsmod
 
 
 import sys
@@ -1116,6 +1119,32 @@ def user_space_memory_report():
             pmem_tot += pmem
     print ("RSS_TOTAL=%d pages, %%mem=%7.1f" % (rss_tot, pmem_tot))
 
+
+# Check pcufreq-related problems:
+# 1. is module pcc_cpufreq being loaded
+__cpufreq_warn1 = '''
+The CPU frequency governor "pcc_cpufreq" is in use. This is known to not scale
+well beyond 4 CPUs and can have a deleterious effect on system performance,
+consider disabling it via BIOS "Collaborative_Power_Control" setting or switch
+the performance profile from "ondemand" to "performance" whilst online using 
+cpupower(1).  Check for high sys% cpu for kworker threads.
+
+For maximum performance also adjust BIOS "HP_Power_Regulator" to "
+HP Static High Performance Mode". Optionally set to "OS control"  if regulation from the OS is still desired.
+'''
+# 2. are there related spinlocks in user
+def check_pcc_cpufreq(_funcpids):
+    mods = lsmod()
+    if ('pcc_cpufreq' in mods):
+        pylog.warning_onexit(__cpufreq_warn1)
+    pids =  _funcpids('pcc_cpufreq_target')
+    verifyFastSet(pids, 'queued_spin_lock_slowpath')
+    verifyFastSet(pids, 'pcc_cpufreq_target')
+
+    if(pids):
+        pylog.warning_onexit('possible pcc_cpufreq spinlock contention problems')
+    
+
 # Check for long (>nmin) chains of processes. E.g. custom script is looping and
 # spawns more and more processes recursively
 #
@@ -1515,6 +1544,10 @@ else:
 # 2. -q option. Print warnings only
 # 3. -v option. Print a more detailed summary suitable for sending by email
 
+stacks_helper = fastSubroutineStacks()
+_funcpids = stacks_helper.find_pids_byfuncname
+
+
 print_basics()
 dump_reason(dmesg)
 check_loadavg()
@@ -1567,9 +1600,10 @@ except:
 # Check RSS used
 user_space_memory_report()
 
+# Check pcc_cpufreq
+check_pcc_cpufreq(_funcpids)
+
 # Check hangs/memory pressure/SAP HANA stuff
-stacks_helper = fastSubroutineStacks()
-_funcpids = stacks_helper.find_pids_byfuncname
 _SAPHANA = check_saphana()
 _p_hang = check_possible_hang()
 if (_p_hang):
