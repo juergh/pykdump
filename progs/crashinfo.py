@@ -13,7 +13,7 @@
 
 
 # 1st-pass dumpanalysis
-__version__ = "1.3.3"
+__version__ = "1.3.4"
 
 from pykdump.API import *
 
@@ -32,7 +32,8 @@ from LinuxDump import percpu, sysctl, Dev
 from LinuxDump.KernLocks import (decode_mutex, spin_is_locked, decode_semaphore,
                                  decode_rwsemaphore)
 from LinuxDump.Dev import (print_dm_devices, print_gendisk,
-            print_request_slab, print_request_queues, print_blk_cpu_done)
+            get_blkreq_fromslab, print_request_slab, 
+            print_request_queues, print_blk_cpu_done)
     
 from LinuxDump import percpu
 from LinuxDump.Time import j_delay
@@ -1143,7 +1144,60 @@ def check_pcc_cpufreq(_funcpids):
 
     if(pids):
         pylog.warning_onexit('possible pcc_cpufreq spinlock contention problems')
+
+
+__cssd_warning = '''
+The server was performing a lot of IO writeback, this starved some tasks
+from running beyond the timeout threshold of the cssdmonitor.
+
+Recommendations:
+    * change IO scheduler to noop or deadline
+    * tune the non-ratio writeback kernel tunables 
+    * consider altering the cssdmonitor timeout period 
+
+'''
+
+# A test of Oracle's cssdagenttriggering panic
+def check_cssdagent(_funcpids, v = 0):
+    # Check whether we are doing sync/fsync
+    funcnames = 'sync_supers|reiserfs_sync_fs|sys_sync|sys_fdatasync|sys_fsync'
+    subpids = _funcpids(funcnames)
+    if (len(subpids) < 100):
+        verifyFastSet(subpids, funcnames)
+    if (subpids):
+        pylog.warning("Panic while we were doing sync on FS")
+        # First 5 pids
+        if (v):
+            print("  ... For example ....")
+            pidstr = " ".join([str(i) for i in sorted(list(subpids))[:5]])
+            for p in exec_bt("bt {}".format(pidstr)):
+                print(p)
+    pstack = exec_bt('bt')[0]
+    if (not pstack.hasfunc('write_sysrq_trigger') or not 
+        pstack.cmd in ('cssdagent, cssdmonitor')):
+        return
+    pylog.warning_onexit("Panic has been triggered explicitly by Oracle RAC {}".\
+        format(pstack.cmd))
+    if (not subpids):
+        return
     
+    # Find the oldest blk request
+    rqlist = get_blkreq_fromslab()
+    if (len(rqlist) < 20):
+        # It is normal to have some outstanding requests
+        return
+    oldest = rqlist[-1][0]/HZ
+    if (oldest > 10):
+        pylog.warning_onexit("Something's wrong with SAN, controller or DM, the oldest"
+            " request\n    has been put on queue {:8.2f}s ago".format(oldest))
+    else:
+        pylog.warning_onexit(__cssd_warning)
+    
+                        
+            
+
+    
+
 
 # Check for long (>nmin) chains of processes. E.g. custom script is looping and
 # spawns more and more processes recursively
@@ -1547,7 +1601,6 @@ else:
 stacks_helper = fastSubroutineStacks()
 _funcpids = stacks_helper.find_pids_byfuncname
 
-
 print_basics()
 dump_reason(dmesg)
 check_loadavg()
@@ -1565,6 +1618,9 @@ check_mem()
 
 # Tests that make sense for non-panic situations
 print_blkreq(-1)
+
+# Panics triggered by Oracle RAC
+check_cssdagent(_funcpids, verbose)
 
 # Check gendisk structures
 print_gendisk(0)

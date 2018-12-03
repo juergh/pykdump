@@ -881,12 +881,12 @@ def print_blk_cpu_done(v = 0):
 # Analyze 'request_queue' lists. Print the results and return t_count
 # (to compare it with heuristics from slabs)
 
-def print_request_queues(v=0):
+# Get info about request queues - might be useful in several places
+def get_blkreq_info():
     qlist = get_request_queues()
 
     t_in = t_count = 0
     out = []
-    hl = '-'*70
     for bd_queue, (bd, gd) in qlist.items():
         try:
             lq, in_flight, count = check_request_queue(bd_queue)
@@ -896,6 +896,17 @@ def print_request_queues(v=0):
         if (lq or in_flight or count):
             t_in += in_flight
             t_count += count
+            out.append((bd_queue, gd, count, in_flight))
+
+    return (t_count, t_in, out)
+
+
+def print_request_queues(v=0):
+    t_count, t_in, dlist = get_blkreq_info()
+    out = []
+    hl = '-'*70
+    for bd_queue, gd, count, in_flight in dlist:
+        if (in_flight or count):
             oa = []
             if (v):
                 oa.append("{:<16s} count={:<4d} in_flight={:<4d}".\
@@ -917,8 +928,9 @@ def print_request_queues(v=0):
             print("\n".join(sorted(out)))
     return t_count
 
-# Heuristcis: find requests allocated on SLAB
-def print_request_slab(v):    
+
+# Get requests from SLAB. Returns a sorted list of (ran_ago, rq)
+def get_blkreq_fromslab():
     # Requests allocated on SLAB
     from LinuxDump.Slab import get_slab_addrs
     # WARNING: on some kernels (e.g. Ubuntu/Hardy, 2.6.24)
@@ -936,27 +948,38 @@ def print_request_slab(v):
         return
     rqlist = []
     jiffies = readSymbol("jiffies")
-    f_started = 0
-    f_write = 0
-    cmd_stats = Counter()
     for rqa in alloc:
         rq = readSU("struct request", rqa)
         #bad = is_request_BAD(rq)
         #print(rq)
         if (is_request_BAD(rq)):
             continue
+        ran_ago = (jiffies - rq.start_time) & INT_MASK
+        rqlist.append((ran_ago, rq))
+    
+    # Sort by ran ago - newest first
+    return sorted(rqlist)
+
+
+# Heuristcis: find requests allocated on SLAB
+def print_request_slab(v):    
+    # Requests allocated on SLAB
+
+    f_started = 0
+    f_write = 0
+    cmd_stats = Counter()
+    rqlist = get_blkreq_fromslab()
+    for ran_ago, rq in rqlist:
         if (is_request_STARTED(rq)):
             f_started += 1
         if (is_request_WRITE(rq)):
             f_write += 1
-        ran_ago = (jiffies - rq.start_time) & INT_MASK
-        
+       
         if (decode_rq_state):
             cmd_stats[decode_rq_state(rq)] += 1
-        rqlist.append((ran_ago, rq))
+ 
     
-    # Sort by ran ago - newest first
-    rqlist = sorted(rqlist)
+    # Sorted by ran ago - newest first
     totreq = len(rqlist)
 
     if (totreq or v >= 0):
