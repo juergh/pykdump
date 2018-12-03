@@ -1058,10 +1058,10 @@ def print_memory_stats(ntop = 8):
         print(" ==== First {} {} ====".format(ntop, hdr))
         for task, vsz, rss, shm in lst[:ntop]:
             if (shm):
-                print("   PID={:5d} CMD={:15s} RSS={:5.3f} Gb shm={:5.3f} Gb".\
+                print("   PID={:6d} CMD={:15s} RSS={:5.3f} Gb shm={:5.3f} Gb".\
                     format(task.pid, task.comm, rss/2**20, shm/2**20))
             else:
-                print("   PID={:5d} CMD={:15s} RSS={:5.3f} Gb".\
+                print("   PID={:6d} CMD={:15s} RSS={:5.3f} Gb".\
                     format(task.pid, task.comm, rss/2**20))
     
             
@@ -1077,13 +1077,11 @@ def print_memory_stats(ntop = 8):
     print_top_ten("Tasks reverse-sorted by RSS+SHM", rsslist)
     
     
-    # Now only processes with SHM less than
-    sigshm = 2**20 # at least 1 Mb
-
-    rss1list = sorted([v for v in plist if v[3] < sigshm],
+    # Now processes sorted by RSS, nort caring about SHM
+    rss1list = sorted([v for v in plist],
              key = operator.itemgetter(2), reverse=True)
     print("")
-    print_top_ten("Tasks Reverse-sorted by RSS, without SHM", rss1list)
+    print_top_ten("Tasks Reverse-sorted by RSS only", rss1list)
 
     # Compute and print sum of rss
     totrss = reduce(lambda x, y: x+y[2], plist, 0)
