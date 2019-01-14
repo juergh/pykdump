@@ -1,8 +1,25 @@
 #
 # Makefile to build standalone extension. We link with a Python library
-# build with -fPIC but not linked to .so. That is, something like
-# libpython2.7.a
+# build with -fPIC but not converted to .so. That is, something like
+# libpython3.7m.a
 # After that we create ZIP by appending code written in pure Python
+
+# --------------------------------------------------------------------
+# (C) Copyright 2006-2019 Hewlett Packard Enterprise Development LP
+#
+# Author: Alex Sidorenko <asid@hpe.com>
+#
+# --------------------------------------------------------------------
+#
+#  This program is free software; you can redistribute it and/or modify
+#  it under the terms of the GNU General Public License as published by
+#  the Free Software Foundation; either version 2 of the License, or
+#  (at your option) any later version.
+#
+#  This program is distributed in the hope that it will be useful,
+#  but WITHOUT ANY WARRANTY; without even the implied warranty of
+#  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+#  GNU General Public License for more details.
 
 
 # Programs from prog/ ro include
@@ -12,7 +29,7 @@ ZIPPROGS := $(addprefix progs/, $(PROGS))
 FULLPROGS =  $(addprefix ../progs/, $(PROGS))
 INITPROG := PyKdumpInit.py
 
-# File with imformation about this build, used for imnformational purposes
+# File with information about this build
 # We create it as a simple Python program, so that we can invoke it
 README = README.py
 
@@ -87,19 +104,9 @@ vpath %.c ..
 gdbspec.o: gdbspec.c $(PYTHON) $(MK)
 	$(CC) -c $(BASE_CFLAGS) $(GDBINCL) $(EXTRA) $(PYINCLUDE)  $< -o $@
 
-# File from Python sources that contains Py_Exit
-PYTHON_EXITSUB := pylifecycle
-PYTHON_EXITSUB_C := $(PYTHON_EXITSUB).c
-# Source file to patch
-PYTHON_PATCH := $(PYTHONSRCDIR)/Python/$(PYTHON_EXITSUB_C)
 
-OBJS :=  epython.o functions.o gdbspec.o $(PYTHON_EXITSUB).o
+OBJS :=  epython.o functions.o gdbspec.o
 
-
-$(PYTHON_EXITSUB).o: $(PYTHON_PATCH) $(MK)
-	sed 's/Py_Exit(int sts)/xPy_Exit(int sts)/' $(PYTHON_PATCH) > $(PYTHON_EXITSUB_C)
-	$(CC) -c $(CFLAGS) $(GDBINCL) $(PYINCLUDE) -DPy_BUILD_CORE $(PYTHON_EXITSUB_C)  -o $@
-	@rm -f $(PYTHON_EXITSUB_C)
 
 
 $(EXT_C): $(OBJS) $(PYTHON)

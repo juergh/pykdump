@@ -3,7 +3,7 @@
  *
  *
  * # --------------------------------------------------------------------
- * # (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
+ * # (C) Copyright 2006-2019 Hewlett Packard Enterprise Development LP
  * #
  * # Author: Alex Sidorenko <asid@hpe.com>
  * #
@@ -38,7 +38,7 @@
 int debug = 0;
 
 /* This is C-module version */
-static char crashmod_version_s[] = "@(#)pycrash 3.0.2";
+static char crashmod_version_s[] = "@(#)pycrash 3.1.0";
 const char * crashmod_version = crashmod_version_s + 12;
 
 extern const char *build_crash_version;
@@ -78,20 +78,6 @@ void epython_execute_prog(int argc, char *argv[], int quiet);
 
 static int run_fromzip(const char *progname, const char* zipfile);
 
-/* This function is called when we do sys.exit(n). The standard Py_Exit is
- *   defined in Python sourcefile Modules/pythonrun.c and it does Py_Finalize
- *   and exit(). This will destroy the interpreter and terminate crash.
- *   We don't want our extensions to terminate crash, so we link-in our own
- *   version of this function. This works on x86/x86_64 but I am not sure about other
- *   architectures
- */
-
-
-void
-Py_Exit(int sts) {
-    if (sts)
-        printf("sys.exit(%d)\n", sts);
-}
 
 /* ============ Dealing with SIGINT =====================
  *
@@ -376,7 +362,66 @@ void _fini(void) {
         free((void *)py_vmcore_realpath);
 }
 
+// Emulate PyRun_SimpleFile but with a special sys.exit() handling
+int PyKdump_Run_File(FILE *_fp, const char *filename) {
+    int closeit = 0;
+    PyCompilerFlags *flags = NULL;
+    
+    PyObject *m, *d, *v;
+    int set_file_name = 0, ret = -1;
 
+    m = PyImport_AddModule("__main__");
+    if (m == NULL)
+        return -1;
+    Py_INCREF(m);
+    d = PyModule_GetDict(m);
+    if (PyDict_GetItemString(d, "__file__") == NULL) {
+        PyObject *f;
+        f = PyUnicode_DecodeFSDefault(filename);
+        if (f == NULL)
+            goto done;
+        if (PyDict_SetItemString(d, "__file__", f) < 0) {
+            Py_DECREF(f);
+            goto done;
+        }
+        if (PyDict_SetItemString(d, "__cached__", Py_None) < 0) {
+            Py_DECREF(f);
+            goto done;
+        }
+        set_file_name = 1;
+        Py_DECREF(f);
+    }
+
+    v = PyRun_FileExFlags(_fp, filename, Py_file_input, d, d,
+                              closeit, flags);
+    if (v == NULL) {
+        PyObject *exc = PyErr_Occurred();
+        Py_CLEAR(m);
+        
+        if (PyErr_GivenExceptionMatches(exc, PyExc_SystemExit)) {
+            // If this was sys.exit(n), do not terminate the program.
+            PyObject *p_type, *p_value, *p_traceback;
+            PyErr_Fetch(&p_type, &p_value, &p_traceback);
+            long i = PyLong_AsLong(p_value);
+            // for sys.exit() we have None-> -1
+            if (i > 0) {
+                fprintf(fp, " -- sys.exit(%ld) --\n", i);
+                fflush(fp);
+            }
+        } else
+            PyErr_Print();
+        PyErr_Clear();
+        goto done;
+    }
+    Py_DECREF(v);
+    ret = 0;
+  done:
+    if (set_file_name && PyDict_DelItemString(d, "__file__"))
+        PyErr_Clear();
+
+    Py_XDECREF(m);
+    return ret;
+}
 
 /*
  *  Try to run the program from internal ZIP (should be in progs/).
@@ -437,8 +482,19 @@ run_fromzip(const char *progname, const char *zipfilename) {
                 PyErr_Print();
             else
                 PyErr_Clear();
+        } else if (PyErr_ExceptionMatches(PyExc_SystemExit)) {
+            // If this was sys.exit(n), do not terminate the program.
+            PyObject *p_type, *p_value, *p_traceback;
+            PyErr_Fetch(&p_type, &p_value, &p_traceback);
+            long i = PyLong_AsLong(p_value);
+            // for sys.exit() we have None-> -1
+            if (i > 0) {
+                fprintf(fp, " -- sys.exit(%ld) --\n", i);
+                fflush(fp);
+            }
         } else
             PyErr_Print();
+        PyErr_Clear();
         return 1;
     }
     Py_DECREF(v);
@@ -524,6 +580,11 @@ static void ep_usage(void) {
     "      [--ehelp]       - show extra options, common for all programs\n"
     "\n");
 }
+
+
+
+    
+
 
 void
 epython_execute_prog(int argc, char *argv[], int quiet) {
@@ -665,8 +726,10 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
             /* This is where we run the real user-provided script */
             // checksignals();
             if (scriptfp) {
-                PyRun_SimpleFile(scriptfp, nargv[0]);
+                // Out subroutine emulates PyRun_SimpleFile but catches PyExc_SystemExit
+                PyKdump_Run_File(scriptfp, nargv[0]);
                 fclose(scriptfp);
+
             } else {
                 /* Try to load code from ZIP */
                 int rc = 0;
