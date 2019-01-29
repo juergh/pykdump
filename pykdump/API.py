@@ -8,7 +8,7 @@
 # depending on availability of low-level shared library dlopened from crash
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2019 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -47,6 +47,7 @@ import atexit
 from collections import defaultdict
 import pprint
 pp = pprint.PrettyPrinter(indent=4)
+
 
 # Python2 vs Python3
 _Pym = sys.version_info[0]
@@ -490,6 +491,9 @@ def enter_epython():
     t_starta = time.time()
 
     # We might redefine stdout every time we execute a command...
+    # We expect stdout supporting utf-8
+    sys.stdout.reconfigure(encoding='utf-8')
+
     pp = pprint.PrettyPrinter(indent=4)
 
     pylog.cleanup()     # Do cleanup every time
