@@ -251,7 +251,7 @@ def getCache(cname):
     # Until we fix it properly, just return an empty table
     table = details.hash_table
     try:
-        unsupported = bool(table.hasField("next"))
+        unsupported = not bool(table.hasField("next"))
     except AttributeError:
         unsupported = False        
     if (unsupported):
