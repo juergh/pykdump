@@ -513,14 +513,57 @@ if ( __name__ == '__main__'):
 
     args = parser.parse_args()
 
+    mod_error = ""
     for m in exec_crash_command_bg('mod').splitlines()[1:]:
-        if (('not loaded' in m) and (('dm_mod' in m) or ('dm_multipath' in m))):
-            print ("\n ** Unable to process dm device information since dm_mod/dm_multipath "
-                   "modules are not loaded")
-            print ("    Please try to verify, load the above modules manually and try again.")
-            print ("\n    You can use 'help mod' command for more information on how to load "
-                   "the modules manually")
-            sys.exit()
+        if (('not loaded' in m) and ('dm_bio_prison' in m)):
+            mod_error += " dm_bio_prison"
+
+        elif (('not loaded' in m) and ('dm_bufio' in m)):
+            mod_error += " dm_bufio"
+
+        elif (('not loaded' in m) and ('dm_crypt' in m)):
+            mod_error += " dm_crypt"
+
+        elif (('not loaded' in m) and ('dm_log' in m)):
+            mod_error += " dm_log"
+
+        elif (('not loaded' in m) and ('dm_mirror' in m)):
+            mod_error += " dm_mirror"
+
+        elif (('not loaded' in m) and ('dm_mod' in m)):
+            mod_error += " dm_mod"
+
+        elif (('not loaded' in m) and ('dm_multipath' in m)):
+            mod_error += " dm_multipath"
+
+        elif (('not loaded' in m) and ('dm_queue_length' in m)):
+            mod_error += " dm_queue_length"
+
+        elif (('not loaded' in m) and ('dm_raid' in m)):
+            mod_error += " dm_raid"
+
+        elif (('not loaded' in m) and ('dm_region_hash' in m)):
+            mod_error += " dm_region_hash"
+
+        elif (('not loaded' in m) and ('dm_round_robin' in m)):
+            mod_error += " dm_round_robin"
+
+        elif (('not loaded' in m) and ('dm_service_time' in m)):
+            mod_error += " dm_service_time"
+
+        elif (('not loaded' in m) and ('dm_snapshot' in m)):
+            mod_error += " dm_snapshot"
+
+        elif (('not loaded' in m) and ('dm_thin_pool' in m)):
+            mod_error += " dm_thin_pool"
+
+    if (len(mod_error) > 0):
+        print ("\n   ***  Missing required modules: ", mod_error)
+        print ("\n\tPlease try to verify, load the above modules manually using "
+               "'mod -s <mod-name>' and try again")
+        print ("\tYou can use 'help mod' command for more information on how to load "
+               "the modules manually")
+        sys.exit(0)
 
     try:
         exec_crash_command("sym dm_table_get_devices")
