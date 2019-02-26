@@ -137,16 +137,16 @@ def print_rt_hash():
 
 
 # If All is True, print all routing tables, not just RT_TABLE_MAIN
-def print_fib(All = False):
+def print_fib(All = False, v = 0):
     fib_tables = get_fib_tables(All)
     for t in fib_tables:
         if (All):
             print ("\n====", t, _tableIdName(t.tb_id))
         g = get_fib_entries(t)
-        do_fib_print(g)
+        do_fib_print(g, v)
 
 # Do the real printing, an Iterable passed as an argument
-def do_fib_print(g):
+def do_fib_print(g, v = 0):
     cmdformat = True
     print ("")
     if (cmdformat):
@@ -159,7 +159,7 @@ def do_fib_print(g):
         if (cmdformat):
             # emulate 'route -n' format
             dest = ntodots(e.dest)
-            gw= ntodots(e.gw)
+            gw = ntodots(e.gw)
             genmask = ntodots(e.mask)
             oflags = flags2str(e.flags)
             print ("%-15s %-15s %-15s %-5s %-6s %-6s %3s %-8s" % \
@@ -167,7 +167,12 @@ def do_fib_print(g):
         else:
             print ("%s\t%08X\t%08X\t%04X\t%d\t%08X\t%d" % \
                   (e.dev, e.dest, e.gw, e.flags, e.metric, e.mask, e.mtu))
-                        
+        if (v):
+            try:
+                fib_nh = e.fa.fa_info.fib_nh
+                print("    ", fib_nh)
+            except KeyError:
+                pass
 
 # get all entries from a table
 def get_fib_entries(table):

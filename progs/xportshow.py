@@ -1077,7 +1077,7 @@ if ( __name__ == '__main__'):
         from LinuxDump.inet.routing import print_fib, print_fib_rules
         # In Verbose mode, print all routing tables and policy rules
         if (details):
-            print_fib(True)
+            print_fib(True, details > 1)
             print ("\n=== Policy Rules")
             print_fib_rules()
         else:
