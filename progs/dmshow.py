@@ -33,6 +33,10 @@ from pykdump.API import *
 
 from pykdump.wrapcrash import StructResult, tPtr
 
+required_modules = ('dm_mod', 'dm_multipath', 'dm_log', 'dm_mirror',
+                    'dm_queue_length', 'dm_round_robin', 'dm_service_time',
+                    'dm_region_hash', 'dm_snapshot', 'dm_thin_pool', 'dm_raid')
+
 def get_dm_devices():
     sn = "struct hash_cell"
     nameb = readSymbol("_name_buckets")
@@ -513,56 +517,18 @@ if ( __name__ == '__main__'):
 
     args = parser.parse_args()
 
-    mod_error = ""
-    for m in exec_crash_command_bg('mod').splitlines()[1:]:
-        if (('not loaded' in m) and ('dm_bio_prison' in m)):
-            mod_error += " dm_bio_prison"
 
-        elif (('not loaded' in m) and ('dm_bufio' in m)):
-            mod_error += " dm_bufio"
+    # Try to load all modules from the required list.
+    nodlkms = []
+    for m in required_modules:
+        if (m in lsModules() and not loadModule(m)):
+            nodlkms.append(m)
 
-        elif (('not loaded' in m) and ('dm_crypt' in m)):
-            mod_error += " dm_crypt"
-
-        elif (('not loaded' in m) and ('dm_log' in m)):
-            mod_error += " dm_log"
-
-        elif (('not loaded' in m) and ('dm_mirror' in m)):
-            mod_error += " dm_mirror"
-
-        elif (('not loaded' in m) and ('dm_mod' in m)):
-            mod_error += " dm_mod"
-
-        elif (('not loaded' in m) and ('dm_multipath' in m)):
-            mod_error += " dm_multipath"
-
-        elif (('not loaded' in m) and ('dm_queue_length' in m)):
-            mod_error += " dm_queue_length"
-
-        elif (('not loaded' in m) and ('dm_raid' in m)):
-            mod_error += " dm_raid"
-
-        elif (('not loaded' in m) and ('dm_region_hash' in m)):
-            mod_error += " dm_region_hash"
-
-        elif (('not loaded' in m) and ('dm_round_robin' in m)):
-            mod_error += " dm_round_robin"
-
-        elif (('not loaded' in m) and ('dm_service_time' in m)):
-            mod_error += " dm_service_time"
-
-        elif (('not loaded' in m) and ('dm_snapshot' in m)):
-            mod_error += " dm_snapshot"
-
-        elif (('not loaded' in m) and ('dm_thin_pool' in m)):
-            mod_error += " dm_thin_pool"
-
-    if (len(mod_error) > 0):
-        print ("\n   ***  Missing required modules: ", mod_error)
-        print ("\n\tPlease try to verify, load the above modules manually using "
-               "'mod -s <mod-name>' and try again")
-        print ("\tYou can use 'help mod' command for more information on how to load "
-               "the modules manually")
+    # If the required modules could not be loaded, then flag a warning 
+    # message about the same
+    if (nodlkms):
+        s = ", ".join(nodlkms)
+        print("\n+++Cannot find debuginfo for DLKMs: {}".format(s))
         sys.exit(0)
 
     try:
