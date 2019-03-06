@@ -336,7 +336,9 @@ def __epythonOptions():
     op.add_option("--timeout", dest="timeout", default=120,
               action="store", type="int",
               help="set default timeout for crash commands")
-
+    op.add_option("--maxel", dest="Maxel", default=10000,
+              action="store", type="int",
+              help="set maximum number of list elements to traverse")
     op.add_option("--usens", dest="usens",
               action="store", type="int",
               help="use namespace of the specified PID")
@@ -413,6 +415,8 @@ def __epythonOptions():
         if (o.timeout > __timeout_exec):
             purge_memoize_cache(CU_TIMEOUT)
         __timeout_exec = o.timeout
+    if (o.Maxel):
+        wrapcrash._MAXEL = o.Maxel
 
     # Reset nsproxy every time
     set_nsproxy(None)

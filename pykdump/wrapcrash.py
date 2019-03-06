@@ -6,7 +6,7 @@
 # high-level functions that do not depend on internal
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2019 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -1222,8 +1222,10 @@ def readProcessMem(taskaddr, uvaddr, size):
 #
 # If we pass a string as 'headaddr', this is the symbol pointing
 # to structure itself, not its listhead member
-def readSUListFromHead(headaddr, listfieldname, mystruct, maxel=_MAXEL,
+def readSUListFromHead(headaddr, listfieldname, mystruct, maxel=None,
                      inchead = False, warn = True):
+    if (maxel is None):
+        maxel = _MAXEL
     msi = getStructInfo(mystruct)
     offset = msi[listfieldname].offset
     if (type(headaddr) == type("")):
@@ -1242,7 +1244,9 @@ def readSUListFromHead(headaddr, listfieldname, mystruct, maxel=_MAXEL,
 # an embedded listhead. 'shead' is either a structure or tPtr pointer
 # to structure
 
-def readStructNext(shead, nextname, maxel=_MAXEL, inchead = True):
+def readStructNext(shead, nextname, maxel=None, inchead = True):
+    if (maxel is None):
+        maxel = _MAXEL
     if (not isinstance(shead, StructResult)):
         # This should be tPtr
         if (shead == 0):
@@ -1287,7 +1291,9 @@ class tPtrDimensionlessArray(object):
 
 
 #     ======= return a Generator to iterate through SU array
-def SUArray(sname, addr, maxel = _MAXEL):
+def SUArray(sname, addr, maxel = None):
+    if (maxel is None):
+        maxel = _MAXEL
     size = getSizeOf(sname)
     addr -= size
     while (maxel):
@@ -1304,7 +1310,9 @@ def SUArray(sname, addr, maxel = _MAXEL):
 # In most cases the head is standalone and other list_heads are embedded
 # in parent structures.
 
-def readListByHead(start, offset=0, maxel = _MAXEL, warn = True):
+def readListByHead(start, offset=0, maxel = None, warn = True):
+    if (maxel is None):
+        maxel = _MAXEL
     return readList(start, offset, maxel, False, warn)
 
 # An alias
@@ -1324,11 +1332,13 @@ list_for_each_entry = readListByHead
 #
 
 class ListHead(list):
-    def __new__(cls, lhaddr, sname = None, maxel = _MAXEL, warn = True):
+    def __new__(cls, lhaddr, sname = None, maxel = None, warn = True):
         return list.__new__(cls)
-    def __init__(self, lhaddr, sname = None, maxel = _MAXEL, warn = True):
+    def __init__(self, lhaddr, sname = None, maxel = None, warn = True):
         self.sname = sname
-        self.maxel = _MAXEL
+        if (maxel is None):
+            maxel = _MAXEL
+        #self.maxel = _MAXEL
         self.warn = warn
         count = 0
         next = lhaddr
@@ -1365,7 +1375,9 @@ def LH_isempty(lh):
 # For list declared using LIST_HEAD, the empty list is when both next and prev
 # of LIST_HEAD point to its own address
 
-def readList(start, offset=0, maxel = _MAXEL, inchead = True, warn = True):
+def readList(start, offset=0, maxel = None, inchead = True, warn = True):
+    if (maxel is None):
+        maxel = _MAXEL
     start = long(start)     # equivalent to (void *) cast
     if (start == 0):
         return []
