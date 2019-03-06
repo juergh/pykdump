@@ -104,7 +104,7 @@ def show_table_mpath_priogroup(prio):
     print(" {} 0 {} 1".format(prio.ps.type.name, prio.nr_pgpaths), end="")
 
     for path in readSUListFromHead(prio.pgpaths, "list", "struct pgpath"):
-        path_info = StructResult("struct path_info", long(path.path.pscontext))
+        path_info = StructResult("struct path_info", path.path.pscontext)
 
         print(" {}:{} [{}] {}".format(path.path.dev.bdev.bd_dev >> 20,
             path.path.dev.bdev.bd_dev & 0xfffff,
@@ -112,8 +112,8 @@ def show_table_mpath_priogroup(prio):
 
 def show_mpath_info(prio):
     for path in readSUListFromHead(prio.pgpaths, "list", "struct pgpath"):
-        block_device = StructResult("struct block_device", long(path.path.dev.bdev))
-        scsi_device = StructResult("struct scsi_device", long(block_device.bd_disk.queue.queuedata))
+        block_device = StructResult("struct block_device", path.path.dev.bdev)
+        scsi_device = StructResult("struct scsi_device", block_device.bd_disk.queue.queuedata)
 
         print("\n  `- {} {} {}:{}    ".format(scsi_device.sdev_gendev.kobj.name,
             block_device.bd_disk.disk_name,
@@ -130,25 +130,25 @@ def show_mpath_info(prio):
 
 def show_multipath_list(dev):
     md, name = dev
-    dm_table_map = StructResult("struct dm_table", long(md.map))
+    dm_table_map = StructResult("struct dm_table", md.map)
     print("------------------------------------------------------------------------------------------")
 
-    mpath = StructResult("struct multipath", long(dm_table_map.targets.private))
+    mpath = StructResult("struct multipath", dm_table_map.targets.private)
     prio_groups = readSUListFromHead(mpath.priority_groups, "list", "struct priority_group")
 
-    temp_prio_groups_list = readSU("struct list_head", long (mpath.priority_groups))
-    temp_priority_group = StructResult("struct priority_group", long (temp_prio_groups_list.next))
-    temp_pgpath_list = readSU("struct list_head", long (temp_priority_group.pgpaths))
-    temp_pgpath = StructResult("struct pgpath", long (temp_pgpath_list.next))
+    temp_prio_groups_list = readSU("struct list_head", mpath.priority_groups)
+    temp_priority_group = StructResult("struct priority_group", temp_prio_groups_list.next)
+    temp_pgpath_list = readSU("struct list_head", temp_priority_group.pgpaths)
+    temp_pgpath = StructResult("struct pgpath", temp_pgpath_list.next)
 
     try:
-        temp_scsi_device = StructResult("struct scsi_device", long(temp_pgpath.path.dev.bdev.bd_disk.queue.queuedata))
+        temp_scsi_device = StructResult("struct scsi_device", temp_pgpath.path.dev.bdev.bd_disk.queue.queuedata)
     except:
         pylog.warning("Error in processing sub paths for multipath device:", name)
         pylog.warning("Use 'dmshow --table|grep <mpath-device-name>' to manually verify sub paths.")
         return
 
-    hash_cell = StructResult("struct hash_cell", long(md.interface_ptr))
+    hash_cell = StructResult("struct hash_cell", md.interface_ptr)
     scsi_id = hash_cell.uuid
     scsi_id = scsi_id.partition("-")
 
@@ -188,10 +188,10 @@ def show_multipath_list(dev):
 
 def show_dmsetup_table_multipath(dev):
     md, name = dev
-    dm_table_map = StructResult("struct dm_table", long(md.map))
+    dm_table_map = StructResult("struct dm_table", md.map)
     print("{}: {} {} multipath".format(name, dm_table_map.targets.begin,
         dm_table_map.targets.len),end="")
-    mpath = StructResult("struct multipath", long(dm_table_map.targets.private))
+    mpath = StructResult("struct multipath", dm_table_map.targets.private)
 
     # general parameters
     params = []
@@ -241,8 +241,8 @@ def show_dmsetup_table_multipath(dev):
 
 def show_basic_mpath_info(dev):
     md, name = dev
-    dm_table_map = StructResult("struct dm_table", long(md.map))
-    mpath = StructResult("struct multipath", long(dm_table_map.targets.private))
+    dm_table_map = StructResult("struct dm_table", md.map)
+    mpath = StructResult("struct multipath", dm_table_map.targets.private)
 
     print("dm-{:<4d} {:<22} {:#x} ".format(md.disk.first_minor, name, mpath), end="")
 
@@ -289,20 +289,20 @@ def get_vg_lv_names(string):
     return temp
 
 def get_md_mpath_from_gendisk(pv_gendisk):
-    tmp_mapped_device = StructResult("struct mapped_device", long(pv_gendisk.queue.queuedata))
+    tmp_mapped_device = StructResult("struct mapped_device", pv_gendisk.queue.queuedata)
     for temp_dev in devlist:
         if (tmp_mapped_device == temp_dev[0]):
             return temp_dev
 
 def show_linear_lvm(dev):
     md, name = dev
-    dm_table_map = StructResult("struct dm_table", long(md.map))
+    dm_table_map = StructResult("struct dm_table", md.map)
     for target_id in range(dm_table_map.num_targets):
         target = dm_table_map.targets.__getitem__(target_id)
-        linear_c = StructResult("struct linear_c", long(target.private))
-        gendisk = StructResult("struct gendisk", long(md.disk))
-        pv_gendisk = StructResult("struct gendisk", long(linear_c.dev.bdev.bd_disk))
-        hash_cell = StructResult("struct hash_cell", long(md.interface_ptr))
+        linear_c = StructResult("struct linear_c", target.private)
+        gendisk = StructResult("struct gendisk", md.disk)
+        pv_gendisk = StructResult("struct gendisk", linear_c.dev.bdev.bd_disk)
+        hash_cell = StructResult("struct hash_cell", md.interface_ptr)
         try:
             if ('LVM-' not in hash_cell.uuid):
                 return
@@ -335,11 +335,11 @@ def show_linear_lvm(dev):
 
 def show_linear_lvm_uuid(dev):
     md, name = dev
-    dm_table_map = StructResult("struct dm_table", long(md.map))
+    dm_table_map = StructResult("struct dm_table", md.map)
     for target_id in range(dm_table_map.num_targets):
         target = dm_table_map.targets.__getitem__(target_id)
-        gendisk = StructResult("struct gendisk", long(md.disk))
-        hash_cell = StructResult("struct hash_cell", long(md.interface_ptr))
+        gendisk = StructResult("struct gendisk", md.disk)
+        hash_cell = StructResult("struct hash_cell", md.interface_ptr)
         try:
             if ('LVM-' not in hash_cell.uuid):
                 return
@@ -364,13 +364,13 @@ def show_linear_lvm_uuid(dev):
 
 def show_linear_lvm_pv(dev):
     md, name = dev
-    dm_table_map = StructResult("struct dm_table", long(md.map))
+    dm_table_map = StructResult("struct dm_table", md.map)
     for target_id in range(dm_table_map.num_targets):
         target = dm_table_map.targets.__getitem__(target_id)
-        linear_c = StructResult("struct linear_c", long(target.private))
-        gendisk = StructResult("struct gendisk", long(md.disk))
-        pv_gendisk = StructResult("struct gendisk", long(linear_c.dev.bdev.bd_disk))
-        hash_cell = StructResult("struct hash_cell", long(md.interface_ptr))
+        linear_c = StructResult("struct linear_c", target.private)
+        gendisk = StructResult("struct gendisk", md.disk)
+        pv_gendisk = StructResult("struct gendisk", linear_c.dev.bdev.bd_disk)
+        hash_cell = StructResult("struct hash_cell", md.interface_ptr)
         try:
             if ('LVM-' not in hash_cell.uuid):
                 return
@@ -401,10 +401,10 @@ def show_linear_lvm_pv(dev):
 
 def show_dmsetup_table_linear(dev):
     md, name = dev
-    dm_table_map = StructResult("struct dm_table", long(md.map))
+    dm_table_map = StructResult("struct dm_table", md.map)
     for target_id in range(dm_table_map.num_targets):
         target = dm_table_map.targets.__getitem__(target_id)
-        linear_c = StructResult("struct linear_c", long(target.private))
+        linear_c = StructResult("struct linear_c", target.private)
 
         print("{}: {} {} linear {}:{} [{}] {}".format(name, target.begin,
             target.len, linear_c.dev.bdev.bd_dev >> 20,
@@ -451,7 +451,7 @@ def run_check_on_multipath():
 
     for dev in devlist:
         md, name = dev
-        dm_table_map = StructResult("struct dm_table", long(md.map))
+        dm_table_map = StructResult("struct dm_table", md.map)
         if (dm_table_map.targets.type.name == "multipath"):
             mpath_present = 1
             break
@@ -563,7 +563,7 @@ if ( __name__ == '__main__'):
 
     for dev in devlist:
         md, name = dev
-        dm_table_map = StructResult("struct dm_table", long(md.map))
+        dm_table_map = StructResult("struct dm_table", md.map)
         if (args.multipath):
             if (not (dm_table_map.targets.type.name == "multipath")):
                 continue

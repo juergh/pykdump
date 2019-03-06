@@ -205,7 +205,7 @@ def print_sdev_shost():
                         name = "CTRL"
                     elif ((name in 'Direct-Access    ') or
                           (name in 'CD-ROM           ')):
-                         sdev_q = StructResult("struct request_queue", long(sdev.request_queue))
+                         sdev_q = StructResult("struct request_queue", sdev.request_queue)
                          sdev_q = format(sdev_q, 'x')
                          try:
                              gendev = gendev_dict[sdev_q]
@@ -341,7 +341,7 @@ def print_request_queue():
         if (name):
             if ((name in 'Direct-Access    ') or
                 (name in 'CD-ROM           ')):
-               sdev_q = StructResult("struct request_queue", long(sdev.request_queue))
+               sdev_q = StructResult("struct request_queue", sdev.request_queue)
                if (member_size("struct elevator_queue", "elevator_type") != -1):
                    elevator_name = sdev_q.elevator.elevator_type.elevator_name
                elif(member_size("struct elevator_queue", "type") != -1):
@@ -390,7 +390,7 @@ def print_request_queue():
                counter = 0
                for req in requests:
                    counter = counter + 1
-                   cmnd = StructResult("struct scsi_cmnd", long(req.special))
+                   cmnd = StructResult("struct scsi_cmnd", req.special)
                    try:
                        time = (long(jiffies) - long(cmnd.jiffies_at_alloc))
                        opcode = StructResult("struct scsi_cmnd", long(cmnd.cmnd[0]))
@@ -610,7 +610,7 @@ def run_scsi_checks():
         name = scsi_device_type(sdev.type)
         if (name):
             if (name in 'Direct-Access    '):
-                sdev_q = StructResult("struct request_queue", long(sdev.request_queue))
+                sdev_q = StructResult("struct request_queue", sdev.request_queue)
                 sdev_q = format(sdev_q, 'x')
                 try:
                     gendev = gendev_dict[sdev_q]
