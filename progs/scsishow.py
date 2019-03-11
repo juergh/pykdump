@@ -617,6 +617,17 @@ def run_scsi_checks():
                 except:
                     gendev_q_sdev_q_mismatch += 1
 
+        # Checks for qla2xxx bug for retry_delay RH BZ#1588133
+        fc_port = readSU("struct fc_port", long(sdev.hostdata))
+        retry_delay_timestamp = readSU("struct fc_port", long(fc_port.retry_delay_timestamp))
+        if(retry_delay_timestamp != 0):
+            retry_delay = (retry_delay_timestamp - jiffies)/1000/60
+            print("ERROR:   scsi_device {:#x} has huge retry_delay_timestamp: {:d}, "
+                  "IOs delayed for {:f} more minutes"
+                  "\n                   HBA driver returning 'SCSI_MLQUEUE_TARGET_BUSY'"
+                  " See BZ#1682364".format(sdev,
+                  retry_delay_timestamp, retry_delay))
+
         # command checks
         for cmnd in get_scsi_commands(sdev):
             try:
@@ -633,7 +644,7 @@ def run_scsi_checks():
             # Check for large timeout values
             if (timeout > 300000):
                 errors += 1
-                print("ERROR: scsi_cmnd {:#x} on scsi_device {:#x} ({}) has a huge timeout of {}ms!".format(cmnd,
+                print("ERROR:   scsi_cmnd {:#x} on scsi_device {:#x} ({}) has a huge timeout of {}ms!".format(cmnd,
                        cmnd.device, get_scsi_device_id(cmnd.device), timeout))
             elif (timeout == 300000):
                 warnings += 1
