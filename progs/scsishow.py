@@ -549,6 +549,7 @@ def run_scsi_checks():
     errors = 0
     use_host_busy_counter = -1
     gendev_q_sdev_q_mismatch = 0
+    retry_delay_bug = 0
     jiffies = readSymbol("jiffies")
 
     # host checks
@@ -620,13 +621,15 @@ def run_scsi_checks():
         # Checks for qla2xxx bug for retry_delay RH BZ#1588133
         fc_port = readSU("struct fc_port", long(sdev.hostdata))
         retry_delay_timestamp = readSU("struct fc_port", long(fc_port.retry_delay_timestamp))
-        if(retry_delay_timestamp != 0):
+        if (retry_delay_timestamp != 0):
             retry_delay = (retry_delay_timestamp - jiffies)/1000/60
-            print("ERROR:   scsi_device {:#x} has huge retry_delay_timestamp: {:d}, "
-                  "IOs delayed for {:f} more minutes"
-                  "\n                   HBA driver returning 'SCSI_MLQUEUE_TARGET_BUSY'"
-                  " See BZ#1682364".format(sdev,
-                  retry_delay_timestamp, retry_delay))
+            if (retry_delay > 2):
+                errors += 1
+                print("ERROR:   scsi_device {:#x} has retry_delay_timestamp: {:d}, "
+                      "IOs delayed for {:f} more minutes".format(sdev,
+                      retry_delay_timestamp, retry_delay))
+                if ((sdev.host.hostt.name in "qla2xxx") and (retry_delay_bug == 0)):
+                    retry_delay_bug = 1
 
         # command checks
         for cmnd in get_scsi_commands(sdev):
@@ -701,6 +704,10 @@ def run_scsi_checks():
                     except KeyError:
                         pylog.warning("Error in processing scsi_target {:x},"
                                       "please check manually".format(int(starget)))
+
+    if (retry_delay_bug):
+        print("\t HBA driver returning 'SCSI_MLQUEUE_TARGET_BUSY' due to a large retry_delay.\n"
+              "\t See https://patchwork.kernel.org/patch/10450567/")
 
     if (gendev_q_sdev_q_mismatch != 0):
         print("\n\tNOTE: The scsi_device->request_queue is not same as gendisk->request_queue\n"
