@@ -2,7 +2,7 @@
 # module LinuxDump.inet.summary
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2019 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -66,6 +66,7 @@ def TCPIP_Summarize(quiet = False):
     nodelay = 0
     w_rcv_closed = 0
     w_snd_closed = 0
+    n_retrans = 0
 
     # Process ESTABLISHED + TIME_WAIT
     all_tcp = itertools.chain(proto.get_TCP_ESTABLISHED(),
@@ -102,6 +103,8 @@ def TCPIP_Summarize(quiet = False):
                 w_rcv_closed += 1
             if (snd_wnd == 0):
                 w_snd_closed += 1
+            if (pstr.Retransmits):
+                n_retrans += 1
         elif (otype == "tw"):
             # TIME_WAIT
             jiffies = readSymbol("jiffies")
@@ -119,7 +122,7 @@ def TCPIP_Summarize(quiet = False):
         if (udata):
             print ("\t\t\tuser_data set (NFS etc.):     %5d" % udata)
         
-    if  (lqne or lqfull or w_rcv_closed or w_rcv_closed):
+    if  (lqne or lqfull or w_rcv_closed or w_rcv_closed or n_retrans):
         print ("")
         print ("  Unusual Situations:")
     if (lqne):
@@ -130,6 +133,8 @@ def TCPIP_Summarize(quiet = False):
         print ("    Receive Window Closed:        %5d" % w_rcv_closed)
     if (w_snd_closed):
         print ("    Send Window Closed:           %5d" % w_snd_closed)
+    if (n_retrans):
+        print ("    Doing Retransmission:         %5d" % n_retrans)
 
     if (not quiet):
         print ("\n\nUDP Connection Info")

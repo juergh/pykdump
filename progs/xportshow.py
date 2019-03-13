@@ -1,8 +1,8 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2019 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -10,10 +10,7 @@
 
 # Print info about connections and sockets
 
-# To facilitate migration to Python-3, we start from using future statements/builtins
-from __future__ import print_function
-
-__version__ = "0.9.0"
+__version__ = "1.0.0"
 
 
 from pykdump.API import *
@@ -37,12 +34,7 @@ import itertools
 
 from collections import namedtuple, defaultdict
 
-# Python2 vs Python3
-_Pym = sys.version_info[0]
-if (_Pym < 3):
-    from StringIO import StringIO
-else:
-    from io import StringIO
+from io import StringIO
 
 debug = API_options.debug
 
@@ -116,6 +108,11 @@ def print_TCP_sock(o):
     if (pstr.wrongNameSpace()): return
     jiffies = readSymbol("jiffies")
     tcp_state = pstr.state
+
+    # If we have tcp_retrans_only set, limit output
+    if (tcp_retrans_only and not pstr.Retransmits):
+        return
+
     if(tcpstate_filter and tcpstate_filter != tcp_state):
         return
     if (port_filter):
@@ -207,6 +204,12 @@ def print_TCP_sock(o):
         if (udaddr):
             print ("\t   |user_data|", hexl(udaddr),end='')
             decode_user_data(udaddr, long(o))
+    # Print retranmissions even without details
+    if (not details and tcp_retrans_only):
+        print("       retransmits=%d, ca_state=%s,"
+                " %s since last retransmission" %\
+                (pstr.Retransmits, proto.TCP_CA_STATE[pstr.CA_state],
+                j_delay(o.retrans_stamp, jiffies)))
 
 
 # Try to decode user_data
@@ -287,6 +290,10 @@ def decode_user_data(addr, saddr):
 
 # Print TCP info from TIMEWAIT buckets
 def print_TCP_tw(tw):
+    # If we have tcp_retrans_only set, do not print TIME_WAIT
+    if (tcp_retrans_only):
+        return
+
     pstr = proto.IP_conn_tw(tw, details)
     # Check whether it belongs to our namespace
     if (pstr.wrongNameSpace()): return
@@ -325,7 +332,7 @@ def print_TCP_rqs(rqs):
             pids = ""
         print (rqs, '\t\tTCP' + pids)
     print (pstr)
-    if (not details):
+    if (not details and not tcp_retrans_only):
         return
     print("\tmss={}, num_retrans={}".format(rqs.mss, rqs.num_retrans))
 
@@ -908,7 +915,9 @@ if ( __name__ == '__main__'):
     parser.add_argument("--tcpstate", default = "",
                   action="store",
                   help="Limit display for this state only, e.g. SYN_SENT")
-
+    parser.add_argument("--retransonly", default = 0,
+                  action="store_true",
+                  help="Show only TCP retransmissions")
 
     parser.add_argument("-u", "--udp", dest="UDP", default = 0,
                   action="store_true",
@@ -1009,6 +1018,12 @@ if ( __name__ == '__main__'):
         tasks = tt.allTasks()
         _tasksocktable = getAllSocks(tasks)
 
+    # IF we are interested in retransmissions, add '--tcp' automatically
+    tcp_retrans_only = o.retransonly
+    if (tcp_retrans_only):
+        o.TCP = True
+    
+    
     # Check whether it is one of standard values
     if (o.tcpstate):
         try:
