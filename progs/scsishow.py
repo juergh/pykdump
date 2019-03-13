@@ -549,6 +549,7 @@ def run_scsi_checks():
     errors = 0
     use_host_busy_counter = -1
     gendev_q_sdev_q_mismatch = 0
+    retry_delay_bug = 0
     jiffies = readSymbol("jiffies")
 
     # host checks
@@ -617,6 +618,19 @@ def run_scsi_checks():
                 except:
                     gendev_q_sdev_q_mismatch += 1
 
+        # Checks for qla2xxx bug for retry_delay RH BZ#1588133
+        fc_port = readSU("struct fc_port", long(sdev.hostdata))
+        retry_delay_timestamp = readSU("struct fc_port", long(fc_port.retry_delay_timestamp))
+        if (retry_delay_timestamp != 0):
+            retry_delay = (retry_delay_timestamp - jiffies)/1000/60
+            if (retry_delay > 2):
+                errors += 1
+                print("ERROR:   scsi_device {:#x} has retry_delay_timestamp: {:d}, "
+                      "IOs delayed for {:f} more minutes".format(sdev,
+                      retry_delay_timestamp, retry_delay))
+                if ((sdev.host.hostt.name in "qla2xxx") and (retry_delay_bug == 0)):
+                    retry_delay_bug = 1
+
         # command checks
         for cmnd in get_scsi_commands(sdev):
             try:
@@ -633,7 +647,7 @@ def run_scsi_checks():
             # Check for large timeout values
             if (timeout > 300000):
                 errors += 1
-                print("ERROR: scsi_cmnd {:#x} on scsi_device {:#x} ({}) has a huge timeout of {}ms!".format(cmnd,
+                print("ERROR:   scsi_cmnd {:#x} on scsi_device {:#x} ({}) has a huge timeout of {}ms!".format(cmnd,
                        cmnd.device, get_scsi_device_id(cmnd.device), timeout))
             elif (timeout == 300000):
                 warnings += 1
@@ -690,6 +704,10 @@ def run_scsi_checks():
                     except KeyError:
                         pylog.warning("Error in processing scsi_target {:x},"
                                       "please check manually".format(int(starget)))
+
+    if (retry_delay_bug):
+        print("\t HBA driver returning 'SCSI_MLQUEUE_TARGET_BUSY' due to a large retry_delay.\n"
+              "\t See https://patchwork.kernel.org/patch/10450567/")
 
     if (gendev_q_sdev_q_mismatch != 0):
         print("\n\tNOTE: The scsi_device->request_queue is not same as gendisk->request_queue\n"

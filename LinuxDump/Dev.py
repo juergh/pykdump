@@ -3,7 +3,7 @@
 #
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2019 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -704,6 +704,9 @@ def is_request_BAD(rq):
 
     if (rq.bio & 0x3):
         return 'rq.bio unaligned'
+
+    if (rq.biotail & 0x3):
+        return 'rq.biotail unaligned'
 
     # Can we dereference bio?
     try:
