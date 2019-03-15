@@ -2,7 +2,7 @@
 # -*- coding: utf-8 -*-
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2015 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2015-2019 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -17,7 +17,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-from __future__ import print_function
 
 __doc__ = '''
 This is a module for working with stack traces/frames as obtained
@@ -60,6 +59,9 @@ class BTStack:
         for f in self.frames:
             out.append(repr(f))
         return "\n".join(out)
+    # Make it sortable using PID as a key
+    def __lt__(self, other):
+        return (self.pid < other.pid)
     # A simplified repr - just functions on the stack
     def simplerepr(self):
         out =[]
@@ -117,8 +119,8 @@ class BTStack:
         for f in self.frames:
             out.append(repr(f))
         return "\n".join(out)
-        
-        
+
+
 class BTFrame:
     def __init__(self):
         pass
@@ -172,13 +174,13 @@ class BTFrame:
         out.append("  #{} func=<{}>  via=<{}>".format(self.level, self.func, self.via))
         out.append("      addr={:#x}  offset={}".format(self.addr, self.offset))
         return "\n".join(out)
-                   
+
 
 
 import pprint
 pp = pprint.PrettyPrinter(indent=4)
 
-    
+
 
 # Prepare a summary of sleeping threads
 
@@ -215,7 +217,7 @@ _d_kthread = ['kernel_thread_helper',
 _d_kthread = ['kernel_thread_helper']
 _d_syscall = ['sys_.+']
 
-_d_all = [_d_socket, 
+_d_all = [_d_socket,
           _d_fswrite, _d_fsopen,
           _d_pipe, _d_futex, _d_wait,
           _d_exit, _d_kthread, _d_syscall, _d_catchall]
@@ -230,7 +232,7 @@ def bt_summarize(btlist):
     bt_un = []
     for e in btlist:
         # FS-stuff
-        
+
         for d in _d_all:
             m = stack_categorize(e, d)
             if (m):
@@ -257,7 +259,7 @@ def bt_summarize(btlist):
     for f in bt_un:
         print (f)
 
-    
+
 
 # A parser using regular expressions only - no pyparsing
 # PID: 0      TASK: c55c10b0  CPU: 1   COMMAND: "swapper"
@@ -300,7 +302,7 @@ def exec_bt(crashcmd = None, text = None, bg = False):
     # Debugging
     if (crashcmd is not None):
         # Execute a crash command...
-        # For some vmcores, 'bt pid' is very slow the first time but 
+        # For some vmcores, 'bt pid' is very slow the first time but
         # the next time is much faster, even with different pid.
         # This is mainly true when there are many DLKM subroutines on the stack
         # As a result, we execute in the background only 'foreach bt'
@@ -359,7 +361,7 @@ def exec_bt(crashcmd = None, text = None, bg = False):
 
             if (m):
                 f = BTFrame()
-                # For exception RIP limes there is no frame 
+                # For exception RIP limes there is no frame
                 if (len(m.groups()) < 3):
                     # exception RIP
                     f.level = -1
@@ -371,7 +373,7 @@ def exec_bt(crashcmd = None, text = None, bg = False):
                     f.data = []
                     bts.frames.append(f)
                     continue
-                    
+
                 f.level = level
                 level += 1
                 f.func = m.group(2)
@@ -380,7 +382,7 @@ def exec_bt(crashcmd = None, text = None, bg = False):
                     f.frame = int(m.group(1), 16)
                 except ValueError:
                     f.frame = None
-                
+
 
                 # If we have a pattern like 'error_code (via page_fault)'
                 # it makes more sense to use 'via' func as a name
@@ -388,7 +390,7 @@ def exec_bt(crashcmd = None, text = None, bg = False):
 
                 f.addr = int(m.group(3), 16)
                 f.module = m.group(4)
-                    
+
                 if (crashcmd):
                     # Real dump environment
                     f.offset = f.addr - sym2addr(f.func)
@@ -405,7 +407,7 @@ def exec_bt(crashcmd = None, text = None, bg = False):
 
 # Merge similar stacks and print them. If TaskTable is available,
 # add timing info
-def bt_mergestacks(btlist, precise = False, 
+def bt_mergestacks(btlist, precise = False,
         count = 1, reverse=False, tt=None, verbose=0):
     # Leave only those frames that have CMD=mss.1
 
@@ -478,9 +480,9 @@ def bt_mergestacks(btlist, precise = False,
 
 
 
-# An auxiliary class to get subroutine-stack results quickly even though not 
+# An auxiliary class to get subroutine-stack results quickly even though not
 # 100%-reliable
-# 
+#
 # we just search strings on 'bt -r' and sometimes there are fake
 # positives. So you should check real 'bt' output for threads
 # found here if you want to be sure
@@ -531,7 +533,7 @@ def _get_threads_subroutines():
                 funcpids[func].add(pid)
                 functasks[func].add(taskaddr)
 
-    return funcpids, functasks, alltaskaddrs   
+    return funcpids, functasks, alltaskaddrs
 
 # Now the class itself - this should be used by other modules
 class fastSubroutineStacks(object):
@@ -575,7 +577,7 @@ def get_threads_subroutines_slow():
             funcpids[func].add(pid)
             functasks[func].add(taskaddr)
 
-    return funcpids, functasks, alltaskaddrs 
+    return funcpids, functasks, alltaskaddrs
 
 # Search funcpids and other similar objects for functions matching a pattern.
 # E.g we might want to match both _raw_spin_lock and _raw_spin_lock_irqsave
@@ -647,12 +649,12 @@ if ( __name__ == '__main__'):
         verbose = 1
     else:
         verbose =0
-    
+
     fname = args[0]
     count = o.Count
     reverse = o.Reverse
     precise = o.Precise
-    
+
     #text = open("/home/alexs/cu/Vxfs/bt.out", "r").read()
     text = open(fname, "r").read()
 
@@ -661,6 +663,6 @@ if ( __name__ == '__main__'):
     if (o.Summary):
         bt_summarize(btlist)
         sys.exit(0)
-            
+
 
     bt_mergestacks(btlist, precise=precise, count=count, reverse=reverse)
