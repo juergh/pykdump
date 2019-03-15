@@ -625,7 +625,11 @@ def traverse_binary_tree(node):
 
 # Print CFS runqueue
 def print_CFS_runqueue(rq):
-    rb_node = rq.cfs.tasks_timeline.rb_node
+    try:
+        rb_node = rq.cfs.tasks_timeline.rb_node
+    except KeyError:
+        rb_node = rq.cfs.tasks_timeline.rb_root.rb_node
+
     for node in traverse_binary_tree(rb_node):
         se = container_of(node, "struct sched_entity", "run_node")
         task = container_of(se, "struct task_struct", "se")
