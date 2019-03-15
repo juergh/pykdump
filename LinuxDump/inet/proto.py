@@ -625,6 +625,8 @@ def init_PseudoAttrs():
     inet_sock.rmem_alloc_counter = ["sk.sk_rmem_alloc.counter",
                                     "sk.sk_backlog.rmem_alloc.counter"]
     inet_sock.wmem_alloc_counter = "sk.sk_wmem_alloc.counter"
+    if (not inet_sock.wmem_alloc_counter):
+        inet_sock.wmem_alloc_counter = "sk.sk_wmem_alloc.refs.counter"
     inet_sock.user_data = "sk.sk_user_data"
     inet_sock.Socket = "sk.sk_socket"
 
