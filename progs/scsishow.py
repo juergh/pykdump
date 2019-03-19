@@ -550,6 +550,7 @@ def run_scsi_checks():
     use_atomic_counters = -1
     gendev_q_sdev_q_mismatch = 0
     retry_delay_bug = 0
+    qla_cmd_abort_bug = 0
     jiffies = readSymbol("jiffies")
 
     # host checks
@@ -601,12 +602,22 @@ def run_scsi_checks():
                 print("WARNING: scsi_device {:#x} ({}) is blocked! HBA driver returning "
                       "SCSI_MLQUEUE_DEVICE_BUSY or device returning SAM_STAT_BUSY?".format(sdev,
                       get_scsi_device_id(sdev)))
+            if (sdev.device_busy < 0):
+                print("ERROR:   scsi_device {:#x} device_busy count is: {}".format(sdev,
+                       sdev.device_busy))
+                if (sdev.host.hostt.name in "qla2xxx"):
+                    qla_cmd_abort_bug += 1
         elif (use_atomic_counters != -1):
             if (sdev.device_blocked.counter):
                 warnings += 1
                 print("WARNING: scsi_device {:#x} ({}) is blocked! HBA driver returning "
                       "SCSI_MLQUEUE_DEVICE_BUSY or device returning SAM_STAT_BUSY?".format(sdev,
                       get_scsi_device_id(sdev)))
+            if (sdev.device_busy.counter < 0):
+                print("ERROR:   scsi_device {:#x} device_busy count is: {}".format(sdev,
+                       sdev.device_busy.counter))
+                if (sdev.host.hostt.name in "qla2xxx"):
+                    qla_cmd_abort_bug += 1
 
         # Check if scsi_device->request_queue is same as corresponding gendisk->queue.
         name = scsi_device_type(sdev.type)
@@ -709,6 +720,11 @@ def run_scsi_checks():
     if (retry_delay_bug):
         print("\t HBA driver returning 'SCSI_MLQUEUE_TARGET_BUSY' due to a large retry_delay.\n"
               "\t See https://patchwork.kernel.org/patch/10450567/")
+
+    if (qla_cmd_abort_bug):
+        print("\t scsi_device.device_busy count is negative, this could be caused due to"
+              " double completion of scsi_cmnd from qla2xxx_eh_abort.\n"
+              "\t See https://patchwork.kernel.org/patch/10587997/")
 
     if (gendev_q_sdev_q_mismatch != 0):
         print("\n\tNOTE: The scsi_device->request_queue is not same as gendisk->request_queue\n"
