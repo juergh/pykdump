@@ -547,7 +547,7 @@ def display_command_time(cmnd):
 def run_scsi_checks():
     warnings = 0
     errors = 0
-    use_host_busy_counter = -1
+    use_atomic_counters = -1
     gendev_q_sdev_q_mismatch = 0
     retry_delay_bug = 0
     jiffies = readSymbol("jiffies")
@@ -556,12 +556,12 @@ def run_scsi_checks():
     hosts = get_scsi_hosts()
 
     try:
-        use_host_busy_counter = readSU("struct Scsi_Host", long(hosts[0].host_busy.counter))
+        use_atomic_counters = readSU("struct Scsi_Host", long(hosts[0].host_busy.counter))
     except:
-        use_host_busy_counter = -1
+        use_atomic_counters = -1
 
-    if (use_host_busy_counter == -1):
-        for host in hosts:
+    for host in hosts:
+        if (use_atomic_counters == -1):
             if (host.host_failed):
                 warnings += 1
                 if (host.host_failed == host.host_busy):
@@ -570,13 +570,13 @@ def run_scsi_checks():
                 else:
                     print("WARNING: Scsi_Host {:#x} ({}) has timed out commands, but has not started error recovery!".format(host,
                            host.shost_gendev.kobj.name))
+
             if (host.host_blocked):
                 warnings += 1
                 print("WARNING: Scsi_Host {:#x} ({}) is blocked! HBA driver refusing all commands with SCSI_MLQUEUE_HOST_BUSY?".format(host,
                        host.shost_gendev.kobj.name))
 
-    elif (use_host_busy_counter != -1):
-        for host in hosts:
+        elif (use_atomic_counters != -1):
             if (host.host_failed):
                 warnings += 1
                 if (host.host_failed == host.host_busy.counter):
@@ -585,6 +585,7 @@ def run_scsi_checks():
                 else:
                     print("WARNING: Scsi_Host {:#x} ({}) has timed out commands, but has not started error recovery!".format(host,
                            host.shost_gendev.kobj.name))
+
             if (host.host_blocked.counter):
                 warnings += 1
                 print("WARNING: Scsi_Host {:#x} ({}) is blocked! HBA driver refusing all commands with SCSI_MLQUEUE_HOST_BUSY?".format(host,
@@ -594,13 +595,13 @@ def run_scsi_checks():
     gendev_dict = get_gendev()
 
     for sdev in get_SCSI_devices():
-        if (use_host_busy_counter == -1):
+        if (use_atomic_counters == -1):
             if (sdev.device_blocked):
                 warnings += 1
                 print("WARNING: scsi_device {:#x} ({}) is blocked! HBA driver returning "
                       "SCSI_MLQUEUE_DEVICE_BUSY or device returning SAM_STAT_BUSY?".format(sdev,
                       get_scsi_device_id(sdev)))
-        elif (use_host_busy_counter != -1):
+        elif (use_atomic_counters != -1):
             if (sdev.device_blocked.counter):
                 warnings += 1
                 print("WARNING: scsi_device {:#x} ({}) is blocked! HBA driver returning "
