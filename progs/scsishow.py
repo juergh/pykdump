@@ -279,16 +279,16 @@ def print_starget_shost():
                                       "please check manually".format(int(starget)))
 
 def print_shost_info():
-    use_host_busy_counter = -1
+    use_atomic_counters = -1
 
     enum_shost_state = EnumInfo("enum scsi_host_state")
 
     hosts = get_scsi_hosts()
 
     try:
-        use_host_busy_counter = readSU("struct Scsi_Host", long(hosts[0].host_busy.counter))
+        use_atomic_counters = readSU("struct Scsi_Host", long(hosts[0].host_busy.counter))
     except:
-        use_host_busy_counter = -1
+        use_atomic_counters = -1
 
     for shost in hosts:
         print("\n============================================================="
@@ -309,7 +309,7 @@ def print_shost_info():
             print("\n   DRIVER VERSION      : {}".format("Error in checking "
                                                              "'Scsi_Host->hostt->module->version'"), end="")
 
-        if (use_host_busy_counter != -1):
+        if (use_atomic_counters != -1):
             print("\n   HOST BUSY           : {}".format(shost.host_busy.counter), end="")
             print("\n   HOST BLOCKED        : {}".format(shost.host_blocked.counter), end="")
         else:
