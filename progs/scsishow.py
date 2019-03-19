@@ -603,8 +603,8 @@ def run_scsi_checks():
                       "SCSI_MLQUEUE_DEVICE_BUSY or device returning SAM_STAT_BUSY?".format(sdev,
                       get_scsi_device_id(sdev)))
             if (sdev.device_busy < 0):
-                print("ERROR:   scsi_device {:#x} device_busy count is: {}".format(sdev,
-                       sdev.device_busy))
+                print("ERROR:   scsi_device {:#x} ({}) device_busy count is: {}".format(sdev,
+                       get_scsi_device_id(sdev), sdev.device_busy))
                 if (sdev.host.hostt.name in "qla2xxx"):
                     qla_cmd_abort_bug += 1
         elif (use_atomic_counters != -1):
@@ -614,8 +614,8 @@ def run_scsi_checks():
                       "SCSI_MLQUEUE_DEVICE_BUSY or device returning SAM_STAT_BUSY?".format(sdev,
                       get_scsi_device_id(sdev)))
             if (sdev.device_busy.counter < 0):
-                print("ERROR:   scsi_device {:#x} device_busy count is: {}".format(sdev,
-                       sdev.device_busy.counter))
+                print("ERROR:   scsi_device {:#x} ({}) device_busy count is: {}".format(sdev,
+                       get_scsi_device_id(sdev), sdev.device_busy.counter))
                 if (sdev.host.hostt.name in "qla2xxx"):
                     qla_cmd_abort_bug += 1
 
@@ -638,8 +638,8 @@ def run_scsi_checks():
                 retry_delay = (retry_delay_timestamp - jiffies)/1000/60
                 if (retry_delay > 2):
                     errors += 1
-                    print("ERROR:   scsi_device {:#x} has retry_delay_timestamp: {:d}, "
-                          "IOs delayed for {:f} more minutes".format(sdev,
+                    print("ERROR:   scsi_device {:#x} ({}) has retry_delay_timestamp: {:d}, "
+                          "IOs delayed for {:f} more minutes".format(sdev, get_scsi_device_id(sdev),
                           retry_delay_timestamp, retry_delay))
                     retry_delay_bug += 1
 
