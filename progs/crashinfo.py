@@ -1358,7 +1358,8 @@ def check_SG():
 __SG_retrans = '''
 The panic appears to have been caused by the deadman driver. There are also 
 significant TCP retransmissions. This could potentially indicate a networking
-issue affecting cluster or package communications over one or more network interfaces. Review the TCP connections that were being retransmitted to
+issue affecting cluster or package communications over one or more network
+interfaces. Review the TCP connections that were being retransmitted to
 determine if there are more general networking issues and if cluster or other
 communications could have been impacted leading to the panic. Note that
 the issue may not be on this system a networking component or the remote
