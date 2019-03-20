@@ -66,7 +66,8 @@ def TCPIP_Summarize(quiet = False):
     nodelay = 0
     w_rcv_closed = 0
     w_snd_closed = 0
-    n_retrans = 0
+    n_retrans = 0           # how many connections are in retransmission
+    tcp_max_retrans = 0     # maximum number of retranmissions on any socket
 
     # Process ESTABLISHED + TIME_WAIT
     all_tcp = itertools.chain(proto.get_TCP_ESTABLISHED(),
@@ -105,6 +106,7 @@ def TCPIP_Summarize(quiet = False):
                 w_snd_closed += 1
             if (pstr.Retransmits):
                 n_retrans += 1
+                tcp_max_retrans = max(tcp_max_retrans, pstr.Retransmits)
         elif (otype == "tw"):
             # TIME_WAIT
             jiffies = readSymbol("jiffies")
@@ -126,16 +128,18 @@ def TCPIP_Summarize(quiet = False):
         print ("")
         print ("  Unusual Situations:")
     if (lqne):
-        print ("    Listen Queue Non-Empty:       %5d" % lqne)
+        print ("    Listen Queue Non-Empty:    {:5d}".format(lqne))
     if (lqfull):
-        print ("    Listen Queue Full:            %5d" % lqfull)
+        print ("    Listen Queue Full:         {:5d}".format(lqfull))
     if (w_rcv_closed):
-        print ("    Receive Window Closed:        %5d" % w_rcv_closed)
+        print ("    Receive Window Closed:     {:5d}".format(w_rcv_closed))
     if (w_snd_closed):
-        print ("    Send Window Closed:           %5d" % w_snd_closed)
+        print ("    Send Window Closed:        {:5d}".format(w_snd_closed))
     if (n_retrans):
-        print ("    Doing Retransmission:         %5d" % n_retrans)
-
+        print ("    Doing Retransmission:      {:5d}  {:s}".format\
+               (n_retrans, "(run xportshow --retrans for details)"))
+        if (tcp_max_retrans > 3):
+            DCache.tmp.tcp_max_retrans = tcp_max_retrans
     if (not quiet):
         print ("\n\nUDP Connection Info")
         print ("-------------------")
