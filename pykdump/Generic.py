@@ -4,7 +4,7 @@
 #
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2019 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -98,6 +98,42 @@ class Bunch(dict):
         rc = prn.getvalue()
         prn.close()
         return rc
+
+# A special subclass of Bunch to be used for 'DataCache' class
+class _Bunch(Bunch):
+    def clear(self):
+        for name in self.keys():
+            object.__delattr__(self, name)
+        dict.clear(self)
+    def __getattr__(self, name):
+        return None
+
+class DataCache(object):
+    def __init__(self):
+        self._tmp = _Bunch()
+        self._perm = _Bunch()
+    @property
+    def tmp(self):
+        return self._tmp
+    @property
+    def perm(self):
+        return self._perm
+    def cleartmp(self):
+        # Clear both attrs and dict
+        self._tmp.clear()
+    def clearperm(self):
+        # Clear both attrs and dict
+        self._perm.clear()
+    def __str__(self):
+        return "{} in tmp, {} in perm".format(len(self._tmp), len(self._perm))
+    def dump(self):
+        if (len(self.tmp)):
+            print("   ** DCache.tmp **")
+            print(self.tmp)
+        if (len(self.perm)):
+            print("   ** DCache.perm **")
+            print(self.perm)
+
 
 # Produce an object that will return True a predefined number of times.
 # For example:

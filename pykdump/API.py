@@ -49,11 +49,8 @@ import pprint
 pp = pprint.PrettyPrinter(indent=4)
 
 
-# Python2 vs Python3
-_Pym = sys.version_info[0]
-
-if (_Pym > 2):
-    long = int
+# To be able to use legacy (Python-2) based subroutines
+long = int
 
 # It does not make sense to continue if C-module is unavailable
 try:
@@ -90,7 +87,8 @@ require_cmod_version(pykdump.minimal_cmod_version)
 # visible to API
 
 from . import Generic as gen
-from .Generic import (Bunch, TrueOnce, ArtStructInfo, EnumInfo, iterN,
+from .Generic import (Bunch, DataCache, TrueOnce, 
+        ArtStructInfo, EnumInfo, iterN,
         memoize_cond, purge_memoize_cache, PY_select_purge,
         CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT,
         memoize_typeinfo, purge_typeinfo, PY_select)
@@ -262,6 +260,8 @@ class PyLog:
 
 pylog = PyLog()
 setattr(wrapcrash, 'pylog', pylog)
+
+DCache = DataCache()
 
 class MsgExtra(object):
     _msgstack = [None]
@@ -488,6 +488,8 @@ def argv2s(argv):
 
 re_apidebug=re.compile(r'^--apidebug=(\d+)$')
 def enter_epython():
+    # Purge temp entries in DCache
+    DCache.cleartmp()
     global t_start, t_start_children, t_starta, pp
     ost = os.times()
     t_start = ost[0]+ost[1]
