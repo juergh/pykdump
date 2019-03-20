@@ -3,7 +3,7 @@
 # module LinuxDump.inet.proto
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2019 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -30,6 +30,7 @@ after that extract more info from them, as needed.
 import string, struct
 import sys
 import types
+import itertools
 from stat import S_ISSOCK
 
 from pykdump.API import *
@@ -642,7 +643,10 @@ def init_PseudoAttrs():
                                 "inet_conn.icsk_inet.sk.sk_max_ack_backlog"]
     tcp_sock.accept_queue = ["inet_conn.icsk_accept_queue",
                              "tcp.accept_queue"]
-                   
+           
+    # RTO
+    tcp_sock.Rto = ["inet_conn.icsk_rto"]
+    
     # Retransmits
     tcp_sock.Retransmits = ["inet_conn.icsk_retransmits",
                             "tcp.retransmits"]
@@ -846,17 +850,26 @@ def get_TCP_ESTABLISHED():
         # 2.6
         # On 3.13 TCP_WAIT socks are in this hash too
         # on 4.X SYN_RECV are in this has too
+        tw_list = []            # TIME_WAIT
+        sr_list = []            # SYN_RECV
+        ss_list = []            # SYN_SENT
         for h, b in getFullBucketsH(t.ehash_addr, t.eb_size, t.ehash_size, t.chain_off):
             for a in inet_sk_for_each(b, h):
                 s = readSU("struct tcp_sock", a)
                 # two special cases: this table can contain
                 # TIME_WAIT and SYN_RECV
                 if (s.state == tcpState.TCP_TIME_WAIT):
-                        yield (s.castTo("struct tcp_timewait_sock"), "tw")
+                    tw_list.append((s.castTo("struct tcp_timewait_sock"), "tw"))
                 elif (s.state == tcpState.TCP_NEW_SYN_RECV):
-                        yield (s.castTo("struct request_sock"), "rqs")
+                    sr_list.append((s.castTo("struct request_sock"), "rqs"))
+                elif (s.state == tcpState.TCP_SYN_SENT):
+                    ss_list.append((s, "tcp"))
                 else:
                     yield (s, "tcp")
+        # Now yield SYN_RECV and TIME_WAIT
+        for s_t in itertools.chain(sr_list, ss_list, tw_list):
+            yield s_t
+
 
 
 
