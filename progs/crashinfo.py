@@ -5,7 +5,7 @@
 #
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2019 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -13,7 +13,7 @@
 
 
 # 1st-pass dumpanalysis
-__version__ = "1.3.4"
+__version__ = "1.3.5"
 
 from pykdump.API import *
 
@@ -58,10 +58,7 @@ import itertools
 # The type of the dump. We should check different things for real panic and
 # dump created by sysrq_handle
 
-Panic = False
 Fast = False
-
-#print ("%7.2f s to parse, %d entries" % (t1 - t0, len(btsl)))
 
 def printHeader(format, *args, **kwargs):
     if (len(args) > 0):
@@ -306,69 +303,101 @@ def check_mem():
             pylog.warning("PID=%d CMD=%s uses %5.1f%% of total memory" %\
                (pid, comm, pmem))
     
-# Check how the dump has been triggered
 def dump_reason(dmesg):
-    global Panic
-    def test(l, t):
-        if (len([bts for bts in l if bts.hasfunc(t)])):
-            return True
+    def search_dmesg(pattern):
+        m = re.search(pattern,dmesg, re.M)
+        if (m):
+            return m.group(1)
         else:
-            return False
-    def ifnetdump(dmesg):
-        re_netdump = re.compile('netdump', re.M)
-        if (re_netdump.search(dmesg)):
-            return True
-        else:
-            return False
+            return None
+    def print1(msg):
+        print("   *** {} ***".format(msg))
+    def print2(msg):
+        if (msg):
+            print("     {}".format(msg))
 
+    if (sys_info.livedump):
+        print1("Running on a live kernel")
+        return
+
+    bt = exec_bt("bt")[0]
     if (not quiet):
         printHeader("How This Dump Has Been Created")
-    if (sys_info.livedump):
-        print ("Running on a live kernel")
+    
+    # Check for sysrq
+    if (bt.hasfunc('sysrq_handle|handle_sysrq|netconsole')):
+        print1("Dump has been initiated: with sysrq")
+        if (bt.hasfunc('vfs_write|sys_write')):
+            print2("programmatically (via sysrq-trigger)")
+        elif (bt.hasfunc('keyboard_interrupt|kbd_event')):
+            print2("via keyboard")
+        else:
+            print2("???")
         return
-    func1 = 'sysrq_handle|handle_sysrq|netconsole'
-    trigger = re.compile('vfs_write|sys_write')
-    kbd  = re.compile('keyboard_interrupt')
-    netconsole = re.compile('netconsole')
-    die = re.compile('die')
-    res = [bts for bts in bta if bts.hasfunc(func1)]
-    if (res and not test(res, die)):
+    
+    # Check for Deadman timer
+    if (bt.hasfunc("deadman_timer")):
+       print1("Dump has been initiated: with SG Deadman Timer")
+       DCache.tmp.SG_deadman_timer = True
+       return
+   
+    # A real panic? (E.g. kernel bug)
+    kbug_re = r'^.*(Kernel BUG.*|BUG: .*)$'
+    if (bt.hasfunc("die|do_page_fault|__bad_area_nosemaphore|general_protection")):
         if (quiet):
             return
-        # Now check whether we used keyboard or sysrq-trigger
-        print ("Dump has been initiated: with sysrq")
-        if (test(res, trigger)):
-            print ("\t- programmatically (via sysrq-trigger)")
-        elif (test(res, kbd)):
-            print ("\t- via keyboard")
-        elif (test(res, netconsole)):
-            print ("\t- via netconsole")
-        else:
-            print ("\t- ???")
-        if (test(bta, "disk_dump")):
-            print ("\t- using diskdump")
-        elif (ifnetdump(dmesg)):
-            print ("\t- using netdump")
-        else:
-            print ("\t- using unknown dump method")
-        if (verbose):
-            for bts in res:
-                print (bts)
-    else:
-        # This seems to be a real panic - search for BUG/general protection
-        res = [bts for bts in bta if bts.hasfunc('die')]
-        if (res):
-            Panic = True
-            if (quiet):
-                return
-            print ("Dump was triggered by kernel")
-            if (test(res, "general_protection")):
-                print ("\t- General Protection Fault")
-            m = re.search(r'^(.*Kernel BUG.*)$',dmesg, re.M)
-            if (m):
-                print (m.group(1))
+        print1("Dump was triggered by kernel")
+        if (bt.hasfunc("general_protection")):
+            print2("General Protection Fault")
+            return
+        s = search_dmesg(kbug_re)
+        print2(s)
+        if (s):
+            return
+        s = search_dmesg(r'^(Unable to handle kernel .*)$')
+        if (s):
+            print2(s)
+            return
+            
+    if (bt.hasfunc("panic")):
+        print1("Panic")
+        # Now do tests, from more specific to less specific
+        if (bt.hasfunc("fence")):
+            s = search_dmesg(r'^(.*fencing.*)$')
+            print2(s)
+            return
+        elif (bt.hasfunc("mce_panic")):
+            print2("MCE")
+            return
+        elif (bt.hasfunc("hpwdt")):
+            print2("hpwdt timeout")
+            DCache.tmp.hpwdt = True
+            return
+        elif (bt.hasfunc("watchdog_timer")):
+            print2("watchdog timer")
+            return
+        elif (bt.hasfunc("nmi_handle|do_nmi")):
+            print2("Panic triggered by NMI")
+            s = search_dmesg(r'^.*(NMI: .*)$')
+            print2(s)
+            return
+
+        s = search_dmesg(kbug_re)
+        if (s):
+            print2(s)
+            return
+    elif (bt.hasfunc("nmi_handle|do_nmi")):
+        s = search_dmesg(r'.*(NMI received .*)$')
+        if (s):
+            print2(s)
             return
         
+        
+    print2("Cannot identify the specific condition that triggered vmcore")
+
+
+            
+
 def stackSummary():
     btsl = exec_bt("foreach bt")
     #print_(memoize_cache())
@@ -1320,7 +1349,23 @@ def checkAllStacks():
         if (rc):
             pylog.error("Corrupted Stack Detected\n\t%s\n\t  %s" % (str(t), rc))
 
+# Check SG-specific things
+def check_SG():
+    tmp = DCache.tmp
+    if (tmp.SG_deadman_timer and tmp.tcp_max_retrans):
+        pylog.warning_onexit(__SG_retrans)
 
+__SG_retrans = '''
+The panic appears to have been caused by the deadman driver. There are also 
+significant TCP retransmissions. This could potentially indicate a networking
+issue affecting cluster or package communications over one or more network interfaces. Review the TCP connections that were being retransmitted to
+determine if there are more general networking issues and if cluster or other
+communications could have been impacted leading to the panic. Note that
+the issue may not be on this system a networking component or the remote
+system may no longer be responding.
+
+Run 'xportshow --retrans' to see all retransmissions
+'''
 
 # ----------------------------------------------------------------------------
 
@@ -1701,3 +1746,4 @@ if (verbose):
     printHeader("A Summary Of Threads Stacks")
     stackSummary()
 
+check_SG()
