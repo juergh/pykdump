@@ -157,9 +157,20 @@ def print_TCP_sock(o):
                                                   tx_queue))
             print ("\trcvbuf=%d, sndbuf=%d" % (pstr.rcvbuf, pstr.sndbuf))
             #print (pstr.rcv_tstamp, pstr.lsndtime)
-            print ("\trcv_tstamp=%s, lsndtime=%s  ago" %\
-                                       (j_delay(pstr.rcv_tstamp, jiffies),
-                                        j_delay(pstr.lsndtime, jiffies)))
+            rcv_tstamp = pstr.rcv_tstamp
+            if (rcv_tstamp):
+                s_rcv_tstamp = j_delay(pstr.rcv_tstamp, jiffies)
+            else:
+                s_rcv_tstamp = "n/a"
+            lsndtime = pstr.lsndtime
+            if (lsndtime):
+                s_lsndtime = "{} ago".format(j_delay(lsndtime, jiffies))
+            else:
+                s_lsndtime = "n/a"
+                  
+            print ("\trcv_tstamp={}, lsndtime={},  RTO={} ms".format(
+                                s_rcv_tstamp, s_lsndtime,
+                                o.Rto*1000//HZ))
 
             if (details > 1):
                 ss = o.castTo("struct sock")
@@ -171,10 +182,19 @@ def print_TCP_sock(o):
                     pass
 
             # Extra details when there are retransmissions
+            # WARNING: this needs to be redone for recent upstream kernels as they use
+            # static inline u32 tcp_skb_timestamp(const struct sk_buff *skb)
+            #    {
+            #       return div_u64(skb->skb_mstamp, USEC_PER_SEC / TCP_TS_HZ);
+            #    }
+            #
+            #  Now - up to 4.4 - it is in jiffies, using just lower 32 bits
             if (pstr.Retransmits):
+                # Comments from kernel:
+                # /* Save stamp of the first retransmit. */
                 print("    -- Retransmissions --")
                 print("       retransmits=%d, ca_state=%s,"
-                      " %s since last retransmission" %\
+                      " %s since first retransmission" %\
                       (pstr.Retransmits, proto.TCP_CA_STATE[pstr.CA_state],
                        j_delay(o.retrans_stamp, jiffies)))
 
@@ -207,7 +227,7 @@ def print_TCP_sock(o):
     # Print retranmissions even without details
     if (not details and tcp_retrans_only):
         print("       retransmits=%d, ca_state=%s,"
-                " %s since last retransmission" %\
+                " %s since first retransmission" %\
                 (pstr.Retransmits, proto.TCP_CA_STATE[pstr.CA_state],
                 j_delay(o.retrans_stamp, jiffies)))
 
@@ -381,6 +401,7 @@ def print_TCP():
 
     all_tcp = itertools.chain(proto.get_TCP_ESTABLISHED(),
                              proto.get_TCP_TIMEWAIT())
+
     for o, otype in  all_tcp :
         msg = pylog.getsilent()
         if (msg):
