@@ -229,7 +229,7 @@ def IF_Summarize(quiet = False):
     print ("Interfaces Info")
     print ("---------------")
     dev_base_list = netdevice.dev_base_list()
-    print ("  How long ago (in seconds) interfaces trasmitted/received?")
+    print ("  How long ago (in seconds) interfaces transmitted/received?")
     print ("\t  Name        RX          TX")
     print ("\t  ----    ----------    ---------")
 

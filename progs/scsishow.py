@@ -279,16 +279,16 @@ def print_starget_shost():
                                       "please check manually".format(int(starget)))
 
 def print_shost_info():
-    use_host_busy_counter = -1
+    use_atomic_counters = -1
 
     enum_shost_state = EnumInfo("enum scsi_host_state")
 
     hosts = get_scsi_hosts()
 
     try:
-        use_host_busy_counter = readSU("struct Scsi_Host", long(hosts[0].host_busy.counter))
+        use_atomic_counters = readSU("struct Scsi_Host", long(hosts[0].host_busy.counter))
     except:
-        use_host_busy_counter = -1
+        use_atomic_counters = -1
 
     for shost in hosts:
         print("\n============================================================="
@@ -309,7 +309,7 @@ def print_shost_info():
             print("\n   DRIVER VERSION      : {}".format("Error in checking "
                                                              "'Scsi_Host->hostt->module->version'"), end="")
 
-        if (use_host_busy_counter != -1):
+        if (use_atomic_counters != -1):
             print("\n   HOST BUSY           : {}".format(shost.host_busy.counter), end="")
             print("\n   HOST BLOCKED        : {}".format(shost.host_blocked.counter), end="")
         else:
@@ -547,21 +547,22 @@ def display_command_time(cmnd):
 def run_scsi_checks():
     warnings = 0
     errors = 0
-    use_host_busy_counter = -1
+    use_atomic_counters = -1
     gendev_q_sdev_q_mismatch = 0
     retry_delay_bug = 0
+    qla_cmd_abort_bug = 0
     jiffies = readSymbol("jiffies")
 
     # host checks
     hosts = get_scsi_hosts()
 
     try:
-        use_host_busy_counter = readSU("struct Scsi_Host", long(hosts[0].host_busy.counter))
+        use_atomic_counters = readSU("struct Scsi_Host", long(hosts[0].host_busy.counter))
     except:
-        use_host_busy_counter = -1
+        use_atomic_counters = -1
 
-    if (use_host_busy_counter == -1):
-        for host in hosts:
+    for host in hosts:
+        if (use_atomic_counters == -1):
             if (host.host_failed):
                 warnings += 1
                 if (host.host_failed == host.host_busy):
@@ -570,13 +571,13 @@ def run_scsi_checks():
                 else:
                     print("WARNING: Scsi_Host {:#x} ({}) has timed out commands, but has not started error recovery!".format(host,
                            host.shost_gendev.kobj.name))
+
             if (host.host_blocked):
                 warnings += 1
                 print("WARNING: Scsi_Host {:#x} ({}) is blocked! HBA driver refusing all commands with SCSI_MLQUEUE_HOST_BUSY?".format(host,
                        host.shost_gendev.kobj.name))
 
-    elif (use_host_busy_counter != -1):
-        for host in hosts:
+        elif (use_atomic_counters != -1):
             if (host.host_failed):
                 warnings += 1
                 if (host.host_failed == host.host_busy.counter):
@@ -585,6 +586,7 @@ def run_scsi_checks():
                 else:
                     print("WARNING: Scsi_Host {:#x} ({}) has timed out commands, but has not started error recovery!".format(host,
                            host.shost_gendev.kobj.name))
+
             if (host.host_blocked.counter):
                 warnings += 1
                 print("WARNING: Scsi_Host {:#x} ({}) is blocked! HBA driver refusing all commands with SCSI_MLQUEUE_HOST_BUSY?".format(host,
@@ -594,18 +596,28 @@ def run_scsi_checks():
     gendev_dict = get_gendev()
 
     for sdev in get_SCSI_devices():
-        if (use_host_busy_counter == -1):
+        if (use_atomic_counters == -1):
             if (sdev.device_blocked):
                 warnings += 1
                 print("WARNING: scsi_device {:#x} ({}) is blocked! HBA driver returning "
                       "SCSI_MLQUEUE_DEVICE_BUSY or device returning SAM_STAT_BUSY?".format(sdev,
                       get_scsi_device_id(sdev)))
-        elif (use_host_busy_counter != -1):
+            if (sdev.device_busy < 0):
+                print("ERROR:   scsi_device {:#x} ({}) device_busy count is: {}".format(sdev,
+                       get_scsi_device_id(sdev), sdev.device_busy))
+                if (sdev.host.hostt.name in "qla2xxx"):
+                    qla_cmd_abort_bug += 1
+        elif (use_atomic_counters != -1):
             if (sdev.device_blocked.counter):
                 warnings += 1
                 print("WARNING: scsi_device {:#x} ({}) is blocked! HBA driver returning "
                       "SCSI_MLQUEUE_DEVICE_BUSY or device returning SAM_STAT_BUSY?".format(sdev,
                       get_scsi_device_id(sdev)))
+            if (sdev.device_busy.counter < 0):
+                print("ERROR:   scsi_device {:#x} ({}) device_busy count is: {}".format(sdev,
+                       get_scsi_device_id(sdev), sdev.device_busy.counter))
+                if (sdev.host.hostt.name in "qla2xxx"):
+                    qla_cmd_abort_bug += 1
 
         # Check if scsi_device->request_queue is same as corresponding gendisk->queue.
         name = scsi_device_type(sdev.type)
@@ -626,8 +638,8 @@ def run_scsi_checks():
                 retry_delay = (retry_delay_timestamp - jiffies)/1000/60
                 if (retry_delay > 2):
                     errors += 1
-                    print("ERROR:   scsi_device {:#x} has retry_delay_timestamp: {:d}, "
-                          "IOs delayed for {:f} more minutes".format(sdev,
+                    print("ERROR:   scsi_device {:#x} ({}) has retry_delay_timestamp: {:d}, "
+                          "IOs delayed for {:f} more minutes".format(sdev, get_scsi_device_id(sdev),
                           retry_delay_timestamp, retry_delay))
                     retry_delay_bug += 1
 
@@ -708,6 +720,11 @@ def run_scsi_checks():
     if (retry_delay_bug):
         print("\t HBA driver returning 'SCSI_MLQUEUE_TARGET_BUSY' due to a large retry_delay.\n"
               "\t See https://patchwork.kernel.org/patch/10450567/")
+
+    if (qla_cmd_abort_bug):
+        print("\t scsi_device.device_busy count is negative, this could be caused due to"
+              " double completion of scsi_cmnd from qla2xxx_eh_abort.\n"
+              "\t See https://patchwork.kernel.org/patch/10587997/")
 
     if (gendev_q_sdev_q_mismatch != 0):
         print("\n\tNOTE: The scsi_device->request_queue is not same as gendisk->request_queue\n"
