@@ -632,16 +632,17 @@ def run_scsi_checks():
 
         # Checks for qla2xxx bug for retry_delay RH BZ#1588133
         if (sdev.host.hostt.name in "qla2xxx"):
-            fc_port = readSU("struct fc_port", long(sdev.hostdata))
-            retry_delay_timestamp = readSU("struct fc_port", long(fc_port.retry_delay_timestamp))
-            if (retry_delay_timestamp != 0):
-                retry_delay = (retry_delay_timestamp - jiffies)/1000/60
-                if (retry_delay > 2):
-                    errors += 1
-                    print("ERROR:   scsi_device {:#x} ({}) has retry_delay_timestamp: {:d}, "
-                          "IOs delayed for {:f} more minutes".format(sdev, get_scsi_device_id(sdev),
-                          retry_delay_timestamp, retry_delay))
-                    retry_delay_bug += 1
+            if (member_size("struct fc_port", "retry_delay_timestamp") != -1):
+                fc_port = readSU("struct fc_port", long(sdev.hostdata))
+                retry_delay_timestamp = readSU("struct fc_port", long(fc_port.retry_delay_timestamp))
+                if (retry_delay_timestamp != 0):
+                    retry_delay = (retry_delay_timestamp - jiffies)/1000/60
+                    if (retry_delay > 2):
+                        errors += 1
+                        print("ERROR:   scsi_device {:#x} ({}) has retry_delay_timestamp: {:d}, "
+                              "IOs delayed for {:f} more minutes".format(sdev, get_scsi_device_id(sdev),
+                              retry_delay_timestamp, retry_delay))
+                        retry_delay_bug += 1
 
         # command checks
         for cmnd in get_scsi_commands(sdev):
