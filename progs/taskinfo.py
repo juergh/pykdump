@@ -3,7 +3,7 @@
 
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2019 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -264,9 +264,10 @@ def printTasks(reverse = False, maxtoprint = -1):
 
     # Print the header
     print("=== {}{} ===".format(hdr, extra))
-
-    print (" PID          CMD       CPU   Ran ms ago   STATE")
-    print ("--------   ------------  --  ------------- -----")
+    _header = " PID          CMD       CPU   Ran ms ago   STATE\n" +\
+    "--------   ------------  --  ------------- -----"
+    if (not runcmd):
+        print(_header)
 
     for ran_ms_ago, pid, t in out:
         if (pid is None):
@@ -288,14 +289,24 @@ def printTasks(reverse = False, maxtoprint = -1):
         uid = t.Uid
         # Thread pointers might be corrupted
         try:
+            if (runcmd):
+                print(_header)
             print ("%s %14s %3d %14d  %s %s" \
                         % (pid_s, t.comm,  t.cpu,
                             int(ran_ms_ago), sstate, extra))
+            if (runcmd):
+                _cmdline = "{} {}".format(runcmd, pid)
+                print("\ncrash> {}".format(_cmdline))
+                out = exec_crash_command(_cmdline)
+                if (": command not found: " in out):
+                    sys.exit(1)
+                print(out)
             # In versbose mode, print stack as well
             if (verbose):
                 bt = exec_bt("bt %d" % pid)
                 print (bt[0])
-                print(" ....................................................................")
+            if (verbose or runcmd):
+                print("\n", "-"*78, "\n", sep='')
                 
         except crash.error:
             pylog.error("corrupted", t)
@@ -400,6 +411,7 @@ def pstree(pid = 1):
         print (s)
         
 taskstates_filter=None
+runcmd = None
 sort_by = None
 
 verbose = 0
@@ -442,6 +454,11 @@ if ( __name__ == '__main__'):
                     action="store_true",
                     help="Reverse order while sorting by ran_ago")
 
+    op.add_option("--cmd", dest="Cmd", default = None,
+                action="store",
+                help="For each listed task, display output of specified command, "
+                "e.g. '--cmd files'")
+
     op.add_option("--memory", dest="Memory", default = 0,
                     action="store_true",
                     help="Print a summary of memory usage by tasks")
@@ -469,6 +486,9 @@ if ( __name__ == '__main__'):
 
     if (o.Taskfilter):
         taskstates_filter = re.split("\s*,\s*", o.Taskfilter)
+    
+    if (o.Cmd):
+        runcmd = o.Cmd
 
     if (o.Memory):
         print_memory_stats(maxpids)
