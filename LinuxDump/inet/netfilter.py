@@ -81,6 +81,9 @@ def nf():
         NPROTO, NF_MAX_HOOKS = len(nf_hooks), len(nf_hooks[0])
     offset = member_offset("struct nf_hook_ops", "list")
     print ("NPROTO=%d, NF_MAX_HOOKS=%d" % (NPROTO, NF_MAX_HOOKS))
+    if (offset == -1):
+        print("  Netfilter analysis not implemented for this kernel yet")
+        return
     for np in range(NPROTO):
         headerprinted = False
         for nh in range(NF_MAX_HOOKS):
@@ -97,7 +100,7 @@ def nf():
                 hook = addr2sym(hops.hook)
                 prio = hops.priority
                 print ("\tprio=%d,  hook=%s" % (prio, hook))
-                
+
 
 _NF_HOOKS_c = '''
 #define NF_IP_PRE_ROUTING       0

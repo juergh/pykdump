@@ -1,6 +1,6 @@
 # module LinuxDump.inet.neighbour
 #
-# Time-stamp: <13/07/29 15:58:21 alexs>
+# Time-stamp: <2019-03-27 15:56:04 alexs>
 #
 # --------------------------------------------------------------------
 # (C) Copyright 2006-2015 Hewlett Packard Enterprise Development LP
@@ -48,14 +48,28 @@ _NUD_c = '''
 
 NUD = CDefine(_NUD_c)
 
+# On older kernels we have
+# struct neigh_table *neigh_tables;
+#
+# On newer ones
+# struct neigh_table *neigh_tables[3];
 
-def print_neighbour_info(v = 0):
+def __get_neigh_tables():
     neigh_tables = readSymbol("neigh_tables")
-    
-    for t in readStructNext(neigh_tables, "next"):
+    ti = whatis("neigh_tables").ti
+    if (ti.dims is None):
+        # Not an array
+        return readStructNext(neigh_tables, "next")
+    else:
+        # An array of pointers
+        return neigh_tables
+def print_neighbour_info(v = 0):
+    for t in __get_neigh_tables():
+        if (not t):
+            continue
         print ("===",t, P_FAMILIES.value2key(t.family), addr2sym(Addr(t)))
         print_neighbour_table(t, v)
-    
+
 
 def print_neighbour_table(tbl, v = 0):
     # Kernel 3.0moved hash_buckets to struct neigh_hash_table *nht;
@@ -85,7 +99,7 @@ def print_neighbour_table(tbl, v = 0):
                     ip = ntodots6(readSU("struct in6_addr", s.primary_key))
                 else:
                     ip = '???'
-                    
+
                 nud_state = dbits2str(s.nud_state, NUD, 4)
                 dev = Deref(s.dev)
                 dev_type = dev.type
@@ -134,5 +148,3 @@ def print_neighbour_table(tbl, v = 0):
 
 
     print ("")
-
-
