@@ -411,8 +411,6 @@ def bt_mergestacks(btlist, precise = False,
         count = 1, reverse=False, tt=None, verbose=0):
     # Leave only those frames that have CMD=mss.1
 
-    if (tt):
-        basems = tt.basems
     smap = {}
     for i, s in enumerate(btlist):
         if (precise):
@@ -446,7 +444,7 @@ def bt_mergestacks(btlist, precise = False,
                 task = tt.getByTid(pid)
                 if (not task):
                     continue
-                ran_ms_ago = basems - task.Last_ran
+                ran_ms_ago =  task.Ran_ago
                 if (sch_old == None or ran_ms_ago > sch_old):
                     sch_old = ran_ms_ago
                     pid_old = pid
