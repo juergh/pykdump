@@ -11,7 +11,7 @@
 
 # Print info about tasks
 
-__version__ = "0.6"
+__version__ = "0.7"
 
 from pykdump.API import *
 
@@ -56,7 +56,7 @@ def __rlim2str(v):
         return "INFINITY"
     else:
         return "%d" % v
-    
+
 
 # Old kernels have typedef unsigned int gid_t;
 # new kernels
@@ -162,7 +162,7 @@ def printTaskDetails(t):
             for i in range(ngroups):
                 out.append(gid_t(small_block[i]))
             print ("     ", out)
-         
+
     # for EXIT_DEAD processes, it does not make sense to continue
     if (sstate == 'DE'):
         return
@@ -195,7 +195,7 @@ def printTaskDetails(t):
         cpuusage = percpu.percpu_ptr(ca.cpuusage, t.cpu)
         print("       ", repr(cpuusage), Deref(cpuusage))
         ca = ca.parent
-  
+
 
 def find_and_print(pid):
     tt = TaskTable()
@@ -217,28 +217,25 @@ def find_and_print(pid):
 
 # Print up to 'maxtoprint' tasks, everything ig maxtoprint=-1
 def printTasks(reverse = False, maxtoprint = -1):
-    basems = None
-    #quit()
     tt = TaskTable()
     if (debug):
-        print ("Basems", tt.basems, "Uptime:",  ms2uptime(tt.basems))
-    
+        print ("Uptime:",  ms2uptime(tt.basems))
+
 
     out = []
-    basems = tt.basems
-    
+
     if (not reverse):
         # Natural order (task followed by its threads)
         for mt in tt.allTasks():
-            out.append((basems - mt.Last_ran, mt.pid, mt))
+            out.append((mt.Ran_ago, mt.pid, mt))
             for t in mt.threads:
                 #print ("    struct thread_info 0x%x" % long(t))
-                out.append((basems - t.Last_ran, t.pid, t))
+                out.append((t.Ran_ago, t.pid, t))
         hdr = 'Tasks in PID order, grouped by Thread Group leader'
     else:
     # Most recent first
         for t in tt.allThreads():
-            out.append((basems - t.Last_ran, t.pid, t))
+            out.append((t.Ran_ago, t.pid, t))
         out.sort()
         hdr ='Tasks in reverse order, scheduled recently first'
 
@@ -275,17 +272,19 @@ def printTasks(reverse = False, maxtoprint = -1):
             continue
         sstate = t.state[5:7]
         tgid = t.tgid
+        pid_template = " {:6d}"
         if (pid != tgid):
-            pid_s =  "  %6d" % pid
+            if (not reverse):
+                pid_template =  "  {:6d}"
             extra = " (tgid=%d)" % tgid
         else:
-            pid_s =  " %6d " % pid
             extra = ""
         uid = t.Uid
+        pid_s = pid_template.format(pid)
         extra = "%13s UID=%d" % (extra, uid)
         if (is_task_active(long(t.ts))):
             pid_s = ">" + pid_s[1:]
-                
+
         uid = t.Uid
         # Thread pointers might be corrupted
         try:
@@ -307,7 +306,7 @@ def printTasks(reverse = False, maxtoprint = -1):
                 print (bt[0])
             if (verbose or runcmd):
                 print("\n", "-"*78, "\n", sep='')
-                
+
         except crash.error:
             pylog.error("corrupted", t)
 
@@ -362,7 +361,7 @@ def walk_children(t, top = False, depth = 0):
         else:
             st ="-{%s}" % t.comm
         sorted_c.append(st)
-    
+
     newl = len(sorted_c)
     last = newl - 1
     if (newl == 0):
@@ -380,7 +379,7 @@ def walk_children(t, top = False, depth = 0):
                 sc = p_end
         else:
             sc = padding + '|'
-        
+
         if (i == 0):
             if (newl == 1):
                 s = parent_s + "--"
@@ -403,13 +402,13 @@ def walk_children(t, top = False, depth = 0):
 
 
 
-            
+
 def pstree(pid = 1):
     tt = TaskTable()
     init = tt.getByPid(pid)
     for s in walk_children(init, top = True):
         print (s)
-        
+
 taskstates_filter=None
 runcmd = None
 sort_by = None
@@ -423,7 +422,7 @@ if ( __name__ == '__main__'):
     op.add_option("-v", dest="Verbose", default = 0,
                 action="count",
                 help="verbose output")
-    
+
     op.add_option("--summary", dest="Summary", default = 0,
                 action="store_true",
                 help="Summary")
@@ -470,9 +469,9 @@ if ( __name__ == '__main__'):
                   action="store_true",
                   help="Print program version and exit")
 
-    
+
     (o, args) = op.parse_args()
-    
+
     verbose = o.Verbose
     maxpids = o.Maxpids
 
@@ -482,7 +481,7 @@ if ( __name__ == '__main__'):
             # Print C-module and API versions
             print("C-Module version: %s" %(crash.version))
         sys.exit(0)
-  
+
 
     if (o.Taskfilter):
         taskstates_filter = re.split("\s*,\s*", o.Taskfilter)
@@ -512,4 +511,3 @@ if ( __name__ == '__main__'):
         print_namespaces_info(tt, verbose)
     else:
         printTasks()
-

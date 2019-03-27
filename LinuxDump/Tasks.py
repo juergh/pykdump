@@ -3,7 +3,7 @@
 # module LinuxDump.Tasks
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2019 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -73,7 +73,7 @@ class Task:
     Last_ran = property(__get_last_ran)
 
     def __get_ran_ago(self):
-        return self.ttable.basems - self.Last_ran 
+        return self.Rq.Timestamp//1000000 - self.Last_ran
     Ran_ago = property(__get_ran_ago)
 
     # -- Get CPU --
@@ -87,6 +87,11 @@ class Task:
         else:
             return  self.ts.Deref.thread_info.cpu
     cpu = property(__get_cpu)
+
+    # -- Get RunQueue
+    def __get_rq(self):
+        return self.ttable.runqueues[self.cpu]
+    Rq = property(__get_rq)
 
     # -- Get Task State in a symbolic format --
     def __get_state(self):
@@ -300,7 +305,7 @@ class _TaskTable:
         if (sys_info.livedump):
             self.__init_tids()
 
-        self.basems = get_schedclockbase()
+        self.runqueues = getRunQueues()
 
         # File objects cache
         self.files_cache = {}
@@ -464,7 +469,7 @@ def __get_states_from_array():
             tstate[__snames[ind]] = val
         except ValueError:
             pass
-    
+
     return tstate
 
 __tstate = __get_states_from_array()
@@ -482,11 +487,11 @@ def task_state2str(state):
         return "TASK_RUNNING"
 
     out = []
-    
+
     for val, name in __TASK_STATE[1:]:
         if (val and (state & val)):
             out.append(name)
- 
+
     return "|".join(out) if out else "state:{}".format(state)
 
 def jiffies2ms(jiffies):
@@ -553,24 +558,6 @@ def ms2uptime(ms):
 def get_uptime():
     return ms2uptime(jiffie_clock_base())
 
-
-# Find the current TSC value (we cannot really obtain the current one, just
-# the last value saved recently). We convert it to milliseconds
-
-def tsc_clock_base():
-    recent = 0
-    for cpu in range(sys_info.CPUS):
-        rq = readSU(rqtype, sys_info.runqueues_addrs[cpu])
-        #print rq, rq.Timestamp
-        if (rq.Timestamp > recent):
-            recent = rq.Timestamp
-#     try:
-#         recent = rq_cpu0.timestamp_last_tick
-#     except KeyError:
-#         recent = rq_cpu0.most_recent_timestamp
-    return  sched_clock2ms(recent)
-
-
 # Find the current jiffies/jiffies_64 value. We convert it to milliseconds
 def jiffie_clock_base():
     try:
@@ -582,10 +569,10 @@ def jiffie_clock_base():
 
 
 # Read runqueues
+@memoize_cond(CU_LIVE)
 def getRunQueues():
     rqs = [readSU(rqtype, rqa) for rqa in runqueues_addrs]
     return rqs
-
 
 # -------- Initializations done after dump is accessible ------
 
@@ -602,13 +589,11 @@ if (symbol_exists("sched_clock")):
     if (debug):
         print ("Using sched_clock")
     # last_ran is in ns, derived from TSC
-    get_schedclockbase = tsc_clock_base
     sched_clock2ms = sched_clock2ms_26_tsc
 else:
     # last_ran is in ticks, derived from jiffies
     if (debug):
         print ("Using jiffies for clock base")
-    get_schedclockbase = jiffie_clock_base
 
     if (sys_info.kernel >= "2.6.0"):
         sched_clock2ms = sched_clock2ms_26_jiffies
@@ -620,9 +605,17 @@ sys_info.runqueues_addrs = runqueues_addrs
 
 # Older 2.6 use 'struct runqueue', newer ones 'struct rq'
 rqtype = percpu.get_cpu_var_type('runqueues')
+# In crash sources the order is like that:
+#        if (MEMBER_EXISTS("rq", "clock"))
+#                  rq_timestamp_name = "clock";
+#           else if (MEMBER_EXISTS("rq", "most_recent_timestamp"))
+#                  rq_timestamp_name = "most_recent_timestamp";
+#            else if (MEMBER_EXISTS("rq", "timestamp_last_tick"))
+#                  rq_timestamp_name = "timestamp_last_tick";
+
 structSetAttr(rqtype, "Timestamp",
-              ["timestamp_last_tick", "most_recent_timestamp",
-               "tick_timestamp", "clock"])
+              ["clock", "most_recent_timestamp",
+               "timestamp_last_tick", "tick_timestamp"])
 structSetAttr(rqtype, "Active", ["active", "dflt_lrq.active"])
 structSetAttr(rqtype, "Expired", ["expired", "dflt_lrq.active"])
 
@@ -653,7 +646,6 @@ except:
 def tasksSummary():
     tt = TaskTable()
     threadcount = 0
-    basems = tt.basems
     counts = {}
     d_counts = {}
     acounts = [0, 0, 0]
@@ -672,7 +664,7 @@ def tasksSummary():
         comm = mt.comm
         counts[state] = counts.setdefault(state, 0) + 1
         d_counts[(comm, state)] = d_counts.setdefault((comm, state), 0) + 1
-        update_acounts((basems - mt.Last_ran)/1000)
+        update_acounts(mt.Ran_ago/1000)
         threadcount += 1
         # Check whether we are running in our own namespace
         if (init_nsproxy):
@@ -685,7 +677,7 @@ def tasksSummary():
             state = t.state
             counts[state] = counts.setdefault(state, 0) + 1
             d_counts[(comm, state)] = d_counts.setdefault((comm, state), 0)+1
-            update_acounts((basems - t.Last_ran)/1000)
+            update_acounts(t.Ran_ago/1000)
             threadcount += 1
     print ("Number of Threads That Ran Recently")
     print ("-----------------------------------")
@@ -977,7 +969,7 @@ def get_ipcs_m():
         #node = s_shk.shm_file.f_path.dentry.d_inode.i_ino
         #print(key, shmid, node, s_shk.shm_file)
         #tot_shm += int(bytes)*int(nattch)/1024 # in Kb
-        
+
     return d
 
 __shm_vm_ops = sym2addr("shm_vm_ops")
@@ -993,9 +985,9 @@ def vma2sysv(vma):
     shmid = i_ino = dentry.d_inode.i_ino
     name = get_dentry_name(dentry) # "SYSV09197ad4
     key = int(name[4:], 16)
-    return (key, shmid)        
+    return (key, shmid)
 
-#shm_d = get_ipcs_m()    
+#shm_d = get_ipcs_m()
 
 # Get SZ of SHM for given VMA
 @memoize_cond(CU_LIVE)
@@ -1005,7 +997,7 @@ def __get_vma_shm(vma):
     else:
         return 0
 
-    
+
 # Get task total SHM (SySV) usage
 #@memoize_cond(CU_LIVE)
 def get_task_shm_usage(task):
@@ -1063,20 +1055,20 @@ def print_memory_stats(ntop = 8):
             else:
                 print("   PID={:6d} CMD={:15s} RSS={:5.3f} Gb".\
                     format(task.pid, task.comm, rss/2**20))
-    
-            
-        
+
+
+
     plist = __scan_all_pids()
     #   0     1   2     3
     # (task, vsz, rss, shm)
     # First, sort on rss+shm
     def rss_shm(e):
         return e[2] + e[3]
-    rsslist = sorted(plist, 
+    rsslist = sorted(plist,
                      key = rss_shm, reverse=True)
     print_top_ten("Tasks reverse-sorted by RSS+SHM", rsslist)
-    
-    
+
+
     # Now processes sorted by RSS, nort caring about SHM
     rss1list = sorted([v for v in plist],
              key = operator.itemgetter(2), reverse=True)
@@ -1089,7 +1081,7 @@ def print_memory_stats(ntop = 8):
           .format(totrss/2**20))
 
     # Find and print total amount of memory in SHMs
-    
+
     totshm = 0
     for shmi in get_ipcs_m().values():
         totshm += shmi.bytes

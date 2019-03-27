@@ -3,7 +3,7 @@
 # module LinuxDump.Analysis
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2019 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -38,8 +38,7 @@ from LinuxDump.BTstack import (exec_bt, verifyFastSet)
 # Print processes waiting for UNIX sockets (usually syslog /dev/log)
 def print_wait_for_AF_UNIX(v=0):
     tt = TaskTable()
-    basems = tt.basems
-    
+
     # Part I - find all Unix sockets with peers
     peers_dict = defaultdict(list)              # peer-> (task, sock) list
     socks_dict = defaultdict(list)              # sock-> owners
@@ -50,7 +49,7 @@ def print_wait_for_AF_UNIX(v=0):
         except crash.error:
             # page excluded
             continue
-        last_ran = float(basems - t.Last_ran)/1000
+        last_ran = float(t.Ran_ago)/1000
         for fd, filep, dentry, inode in task_fds:
             socketaddr = proto.inode2socketaddr(inode)
             if (not socketaddr): continue
@@ -60,7 +59,7 @@ def print_wait_for_AF_UNIX(v=0):
             family, sktype, protoname, inet = proto.decodeSock(sock)
             if (family != proto.P_FAMILIES.PF_FILE):
                 continue
-    
+
             # AF_UNIX. on 2.4 we have just 'struct sock',
             # on 2.6 'struct unix_sock'
             if (not proto.sock_V1):
@@ -73,7 +72,7 @@ def print_wait_for_AF_UNIX(v=0):
             peer = sock.Peer
             if (peer):
                 peers_dict[peer].append((t, sock))
-            
+
     # Part II - look at all peers
     nonempty_tasklist = []
     for peer, lst in peers_dict.items():
@@ -125,11 +124,11 @@ def print_wait_for_AF_UNIX(v=0):
                 if (t.pid in pids):
                     msg += ("\n       Task pid={} CMD={} is waiting for"
                     " its own socket".format(t.pid, t.comm))
- 
+
                 pylog.warning(msg)
                 if (v < 0):
                     return
-                        
+
             print(" -- Socket we wait for: {} {}".format(peer, path))
             print("   Youngest process with this socket <{}> pid={}({}) ran "
                 "{:5.2f}s ago".format(t.comm, t.pid, t.state[5:7], last_ran))
@@ -143,7 +142,7 @@ def print_wait_for_AF_UNIX(v=0):
                     for task in sorted(tasklist, key=operator.attrgetter('pid')):
                         print("     pid=%7d   CMD=%s" % (task.pid, task.comm))
             else:
-                print("     cannot print tasks as socket wait queue is corrupted")                    
+                print("     cannot print tasks as socket wait queue is corrupted")
 
     #if (once):
     #    print("--pid={} comm={} ran {:5.2f}s ago".format(t.pid, t.comm, last_ran))
@@ -191,7 +190,7 @@ def print_pidlist(pids, title = '', verbose = False, maxpids = 10,
 
     print("    ... {} pids. Youngest,oldest: {}, {}  Ran ms ago:"
         " {}, {}".format(npids, pid_y, pid_o, ago_y, ago_o))
-    
+
     if (maxpids < 1):
         return
     if (npids > maxpids):
@@ -223,8 +222,8 @@ def print_pidlist(pids, title = '', verbose = False, maxpids = 10,
             print("        sorted by ran_ago, youngest first".format(npids))
             mlp_s = [pid for (ts, pid) in mlp]
             __print_pids(mlp_s, title)
-            
-                          
+
+
     else:
         # ............. sorted by pid .................................
         pids = sorted(pids)
@@ -303,11 +302,11 @@ def check_hanging_nfsd(_funcpids):
         return True
     else:
         return False
-    
+
 
 
 # SAP HANA specific things.
-  
+
 # Check whether this is SAP HANA
 # Return 0 - no
 #        1 - SAP, no HANA
@@ -329,7 +328,7 @@ __ARG_REG = ('RDI','RSI','RDX','RCX','R8','R9')
 def get_tentative_arg(pid, funcname, argN):
     foundarg = None
     s = exec_bt("foreach {} bt".format(pid), MEMOIZE=False)[0]
-    
+
     with DisasmFlavor('att'):
         search_for_registers(s)
         for f in s.frames:
@@ -389,4 +388,3 @@ def get_interesting_arguments(pid, re_funcnames, re_ctypes):
                         continue
                     sname = m.group(1)
                     yield (f.func, sname, addr)
-

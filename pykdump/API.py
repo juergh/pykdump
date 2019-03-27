@@ -567,7 +567,7 @@ def cleanup():
 
 
 # The following function is used to do some black magic - adding methods
-# to classes dynmaically after dump is open.
+# to classes dynamically after dump is open.
 # E.g. we cannot obtain struct size before we have access to dump
 
 def funcToMethod(func,clas,method_name=None):

@@ -20,14 +20,15 @@ from LinuxDump.inet import *
 from LinuxDump.inet import proto, netdevice
 
 from LinuxDump.inet.proto import (tcpState, sockTypes,
-     IP_sock,  P_FAMILIES, decodeSock, print_accept_queue,
-     print_skbuff_head,
-     decode_skbuf, decode_IP_header, decode_TCP_header,
-     skb_shinfo, walk_skb,
-     analyze_tcp_rcv_win)
+    IP_sock,  P_FAMILIES, decodeSock, print_accept_queue,
+    print_skbuff_head,
+    decode_skbuf, decode_IP_header, decode_TCP_header,
+    skb_shinfo, walk_skb, retrans_since,
+    analyze_tcp_rcv_win)
 
 from LinuxDump.Tasks import TaskTable
 from LinuxDump.inet import summary
+from LinuxDump.Time import j_delay
 
 import string, textwrap
 import itertools
@@ -167,7 +168,7 @@ def print_TCP_sock(o):
                 s_lsndtime = "{} ago".format(j_delay(lsndtime, jiffies))
             else:
                 s_lsndtime = "n/a"
-                  
+
             print ("\trcv_tstamp={}, lsndtime={},  RTO={} ms".format(
                                 s_rcv_tstamp, s_lsndtime,
                                 o.Rto*1000//HZ))
@@ -196,7 +197,7 @@ def print_TCP_sock(o):
                 print("       retransmits=%d, ca_state=%s,"
                       " %s since first retransmission" %\
                       (pstr.Retransmits, proto.TCP_CA_STATE[pstr.CA_state],
-                       j_delay(o.retrans_stamp, jiffies)))
+                       retrans_since(o.retrans_stamp)))
 
 
         elif (tcp_state == tcpState.TCP_LISTEN):
@@ -229,7 +230,7 @@ def print_TCP_sock(o):
         print("       retransmits=%d, ca_state=%s,"
                 " %s since first retransmission" %\
                 (pstr.Retransmits, proto.TCP_CA_STATE[pstr.CA_state],
-                j_delay(o.retrans_stamp, jiffies)))
+                retrans_since(o.retrans_stamp)))
 
 
 # Try to decode user_data
@@ -828,7 +829,7 @@ def print_Everything():
 # TCP code uses
 # #define tcp_time_stamp                ((__u32)(jiffies))
 
-def j_delay(ts, jiffies):
+def j_delay_x(ts, jiffies):
     v = (jiffies - ts) & INT_MASK
     if (v > INT_MAX):
         v = "n/a"

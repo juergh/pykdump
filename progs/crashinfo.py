@@ -32,9 +32,9 @@ from LinuxDump import percpu, sysctl, Dev
 from LinuxDump.KernLocks import (decode_mutex, spin_is_locked, decode_semaphore,
                                  decode_rwsemaphore)
 from LinuxDump.Dev import (print_dm_devices, print_gendisk,
-            get_blkreq_fromslab, print_request_slab, 
+            get_blkreq_fromslab, print_request_slab,
             print_request_queues, print_blk_cpu_done)
-    
+
 from LinuxDump import percpu
 from LinuxDump.Time import j_delay
 
@@ -73,7 +73,7 @@ def printHeader(format, *args, **kwargs):
         print (uh)
         print (' ' + ' ' * lpad + '| ' + text + ' |')
         print (uh)
-    else:       
+    else:
         uh = ' ' + ' '*lpad + '+' + '-'*(tlen+2) + '+'
         print (uh)
         print ('>' + '-' * lpad + '| ' + text + ' |' +  '-' * lpad + '<')
@@ -108,14 +108,14 @@ def print_basics():
             elif (ram > sz *10):
                 pylog.warning("DUMP with size(vmcore) < 10% size(RAM)")
 
-        
+
     if (quiet):
         return
 
     print (exec_crash_command("sys"))
     if (len(bta) > 0):
         printHeader("Per-cpu Stacks ('bt -a')")
-    
+
         for cpu, stack in enumerate(bta):
             print ("      -- CPU#%d --" % cpu, stack)
             print ("")
@@ -159,7 +159,7 @@ def kmemi_parser(data):
                     pass
                 else:
                     raise ValueError("Unknown suffix "+ l)
-            
+
         fname = fname.strip()
         if (percent):
             percent = int(percent[:-1])
@@ -183,20 +183,20 @@ def analyze_kmem(d):
     # If there is plenty of free memory, no need to do anything!
     if (freeper > 10):
         return
-    
+
     # Is committed > 100?
     if (committedper > 100):
         pylog.warning("Commited {}%".format(committedper))
-        
+
     # Did we reserve many huge pages but not really using them?
     if (tothuge > totmem/2 and hugefreeper > 30):
         pylog.warning("{:2.1f} GB of huge memory reserved but {}% of it is not used".\
             format(tothuge/1024, hugefreeper))
-        
+
     # IF swap reserved is at least 20% of RAM, check how much is used
     if (totswap > totmem/5 and swapusedper > 15):
         pylog.warning("Significant swapping")
-    
+
 def check_mem():
     if (not quiet):
         printHeader("Memory Usage (kmem -i)")
@@ -229,40 +229,40 @@ def check_mem():
             Normal = node[1]
         warn_8k = True
         warn_32k = True
-    
+
         # We issue a warning if there is less than 2 blocks available.
         # We are interested in blocks up to 32Kb mainly
         for area, size, f, blocks, pages in Normal[2:]:
             sizekb = int(size[:-1])
-    
+
             # 8-Kb chunks are needed for task_struct
             if (sizekb == 8 and blocks > 1):
                 warn_8k = False
             if (sizekb > 8 and blocks > 0):
                 warn_8k = False
-                
+
             # 32Kb chunks are needs for loopback as it has high MTU
             if (sizekb == 32 and blocks > 1):
                 warn_32k = False
             if (sizekb > 32 and blocks > 0):
                 warn_32k = False
-    
+
             #print ("%2d  %6d %6d" % (area, sizekb, blocks))
         if (warn_8k or warn_32k):
             printHeader("Memory Fragmentation (kmem -f)")
-    
+
         if (warn_8k):
             pylog.warning("fragmentation: 8Kb")
         elif (warn_32k):
             pylog.warning("fragmentation: 32Kb")
-    
+
         if (warn_8k or warn_32k):
             print_Zone(Normal)
         #pp.pprint(node)
     else:
         # Timeout
         pass
-        
+
     # Check whether NR_WRITEBACK is below vm_dirty_ratio
     try:
         kmemz = exec_crash_command_bg("kmem -V")
@@ -286,7 +286,7 @@ def check_mem():
                 (wr_ratio, vm_dirty_ratio))
     except (crash.error, TypeError):
         pass
-    
+
     # Check for kmem -s errors
     s  = memoize_cond(CU_LIVE | CU_TIMEOUT)(exec_crash_command_bg)("kmem -s")
     # Search for 'kmem: <slabname> ..."
@@ -295,14 +295,14 @@ def check_mem():
         pylog.error("SLAB corruption")
         for s in out:
             print("  ", s)
-    
+
     # Now check user-space memory. Print anything > 25% for thread group leaders
     tt = TaskTable()
     for pid, ppid, cpu, task, st, pmem, vsz, rss, comm in parse_ps():
         if (pmem > 25.0 and tt.getByPid(pid)):
             pylog.warning("PID=%d CMD=%s uses %5.1f%% of total memory" %\
                (pid, comm, pmem))
-    
+
 def dump_reason(dmesg):
     def search_dmesg(pattern):
         m = re.search(pattern,dmesg, re.M)
@@ -323,7 +323,7 @@ def dump_reason(dmesg):
     bt = exec_bt("bt")[0]
     if (not quiet):
         printHeader("How This Dump Has Been Created")
-    
+
     # Check for sysrq
     if (bt.hasfunc('sysrq_handle|handle_sysrq|netconsole')):
         print1("Dump has been initiated: with sysrq")
@@ -334,13 +334,13 @@ def dump_reason(dmesg):
         else:
             print2("???")
         return
-    
+
     # Check for Deadman timer
     if (bt.hasfunc("deadman_timer")):
        print1("Dump has been initiated: with SG Deadman Timer")
        DCache.tmp.SG_deadman_timer = True
        return
-   
+
     # A real panic? (E.g. kernel bug)
     kbug_re = r'^.*(Kernel BUG.*|BUG: .*)$'
     if (bt.hasfunc("die|do_page_fault|__bad_area_nosemaphore|general_protection")):
@@ -358,7 +358,7 @@ def dump_reason(dmesg):
         if (s):
             print2(s)
             return
-            
+
     if (bt.hasfunc("panic")):
         print1("Panic")
         # Now do tests, from more specific to less specific
@@ -391,12 +391,12 @@ def dump_reason(dmesg):
         if (s):
             print2(s)
             return
-        
-        
+
+
     print2("Cannot identify the specific condition that triggered vmcore")
 
 
-            
+
 
 def stackSummary():
     btsl = exec_bt("foreach bt")
@@ -404,7 +404,7 @@ def stackSummary():
     tt = TaskTable()
     #bt_summarize(btsl)
     bt_mergestacks(btsl, reverse=True, tt=tt, verbose=verbose)
-    
+
 # Check Load Averages
 def check_loadavg():
     avgf = []
@@ -414,7 +414,7 @@ def check_loadavg():
     avg1, avg5, avg15 = avgf
     if (avg1 > 29 or avg5 > 29):
         pylog.warning("High Load Averages:", avgstr)
-    
+
 def check_auditf():
     btsl = exec_bt("foreach bt")
     func1 = 'auditf'
@@ -446,16 +446,15 @@ def check_sysctl():
             dall = '(?)'
         print (n.ljust(20), dall)
 
- 
+
 # Check whether active (bt -a) tasks are looping
 def check_activetasks():
 
     tt = TaskTable()
-    basems = tt.basems
     for cpu, stack in enumerate(bta):
         pid = stack.pid
         mt = tt.getByTid(pid)
-        ran_ms_ago = basems - mt.Last_ran
+        ran_ms_ago = mt.Ran_ago
         if (ran_ms_ago > 10 * 1000):
             print ("")
             pylog.warning("possible looping, CPU=%d ran_ago=%d ms" \
@@ -469,17 +468,17 @@ re_locks = re.compile(r'^\w+\s+\(D\)\s+(\w+)\s*$')
 def check_spinlocks():
     sn = "spinlock_t"
     structSetAttr(sn, "slock", ["raw_lock.slock", "lock"])
-    
+
     # Locks we are do not care to print
     ignore_locks = ("die_lock", "oops_lock")
-    
+
     # BKL is implemented in a different way
     BKL = 1
     if (sym2addr("kernel_flag_cacheline") != 0):
         BKL = readSymbol("kernel_flag_cacheline").lock.slock
     if (BKL != 1):
         pylog.warning("BKL=%d" % BKL)
-   
+
     # Get a list of all global symbols (D) with the names like *_lock
     lock_list = []
     for l in exec_crash_command("sym -q _lock").splitlines():
@@ -490,7 +489,7 @@ def check_spinlocks():
             if (ln in ignore_locks):
                 continue
             lock_list.append(ln)
-            
+
     for ln in lock_list:
         # We cannot be sure that this is lock_t
         # (e.g.this can be rwlock_t)
@@ -518,18 +517,18 @@ def get_interesting_symbols():
                 pass
     # We are not really interested in funcs and integers types
     not_interested = ('(func)', '<data variable, no debug info>',
-                    '__u32', '__u8', '__u16', '__u64', 
+                    '__u32', '__u8', '__u16', '__u64',
                     'char', 'int', 'long int',
                     'long unsigned int', 'short int', 'short unsigned int'
                     )
-                    
+
     for k in list(results.keys())[:]:
         if (k in not_interested):
             del results[k]
     return results
 
 
-    
+
 def get_important():
     results = get_interesting_symbols()
 
@@ -581,14 +580,14 @@ def get_important():
 
         for aa in li:
             sem = readSU(srws, aa)
-        
+
             try:
                count = sem.count
             except KeyError:
                 count = sem.activity
             if (count <= 0):
                print ("    ", n, count)
-        
+
     print (' -- Non-empty wait_queue_head --')
     for n in results["wait_queue_head_t"]:
         # For some strange reasons, crash does not work properly for
@@ -601,9 +600,9 @@ def get_important():
             print ("    ", n)
             for l in text.splitlines():
                 print ("\t", l)
-            
+
         #print (n)
- 
+
     # Work queues (2.6) and task queues
     if ("struct work_struct" in results):
         off = member_offset("struct work_struct", "entry")
@@ -634,7 +633,7 @@ def get_important():
             if (nel):
                print ("\t", n, nel)
     return
-            
+
     keys = sorted(results.keys())
     for k in keys:
         print  ('-----------', k, '-----------')
@@ -703,7 +702,7 @@ def decode_cpus_allowed(cpus_allowed):
         if ((bits >> i) & 1):
             out.append(i)
     return out
-        
+
 
 def check_runqueues():
     if (sys_info.kernel < "2.6.0"):
@@ -713,7 +712,7 @@ def check_runqueues():
     rloffset = member_offset("struct task_struct", "run_list")
     # New kernels use CFS
     CFS = (member_offset("struct task_struct", "se") != -1)
-    # Whether all 
+    # Whether all
     RT_hang = True
     locked_rqs = []
     tt = TaskTable()
@@ -784,9 +783,9 @@ def check_runqueues():
         #pylog.warning("Runqueus on cpus {} are locked".format(s))
         print ('-' * 60)
         print(WARNING)
-            
+
         print("Runqueus on cpus {} are locked".format(s))
-        
+
 
 # Do some basic network subsystem check
 def check_network():
@@ -816,9 +815,9 @@ def decode_syscalls(arg):
                 return False
         bt = [s for s in bt if test(s, arg)]
     decode_Stacks(bt)
- 
+
     sys.exit(0)
-    
+
 
 # Get an array of CPU-workqueues
 def __get_cpu_wqs(_wq):
@@ -830,7 +829,7 @@ def __get_cpu_wqs(_wq):
     cpu_wq = _wq.cpu_wq
     # If cpu_wq is not an array, this is per_cpu_ptr
     per_cpu = not isinstance(cpu_wq, list)
-    # CPU-specific 
+    # CPU-specific
     out = []
     for cpu in range(0, sys_info.CPUS):
         if (per_cpu):
@@ -839,7 +838,7 @@ def __get_cpu_wqs(_wq):
             cwq = _wq.cpu_wq[cpu]
         out.append((cpu, cwq))
     return out
-    
+
 # 2.6.30:
 #struct cpu_workqueue_struct {
     #spinlock_t lock;
@@ -864,7 +863,7 @@ def __get_cpu_wqs(_wq):
 #}
 
 # Decode workqueue
-    
+
 def decode_wq(_wq):
     for cpu, cwq in __get_cpu_wqs(_wq):
         print (" ----- CPU ", cpu, cwq)
@@ -880,7 +879,7 @@ def decode_wq(_wq):
             #print(barr)
         if (verbose < 1):
             continue
-        
+
         # Checking which threads are waiting for this wq to be flushed
         # The only implemented test is for RHEL4,5. If we don't know how
         # to do this, just skip this test
@@ -908,7 +907,7 @@ def decode_wq(_wq):
             print("   .... tasks waiting for this workqueue to be flushed:")
             #print(exec_crash_command("waitq 0x%x" % long(lhead)))
             for task in tasklist:
-                print("     pid=%7d   CMD=%s" % (task.pid, task.comm))            
+                print("     pid=%7d   CMD=%s" % (task.pid, task.comm))
     return
 
 
@@ -917,21 +916,20 @@ def decode_wq(_wq):
 # here it goes...
 def check_event_workqueues():
     tt = TaskTable()
-    basems = tt.basems
     _wq = readSymbol("keventd_wq")
     warning = False
-    for cpu, cwq in __get_cpu_wqs(_wq):    
+    for cpu, cwq in __get_cpu_wqs(_wq):
         worklist = cwq.worklist
         # This works for RHEL4,5 only
         try:
             lhead = cwq.work_done
         except:
             break
-        tasklist = decode_waitq(lhead.task_list)            
+        tasklist = decode_waitq(lhead.task_list)
         # Check whether there are tasks waiting longer than 1s
         maxdelta = 1000         # in ms
         for task in tasklist:
-            if (basems - task.Last_ran > maxdelta):
+            if (task.Ran_ago > maxdelta):
                 warning = True
                 break
         if (warning): break
@@ -939,19 +937,17 @@ def check_event_workqueues():
         pylog.warning("there are tasks waiting for events workqueue flushed"
             "\n          +++ for longer than %d ms\n" % maxdelta,
             "          +++ Run 'crashinfo --kevent -v' to get more details")
-                    
-                
+
 # Print args of most recent processes
 def print_args5():
     printHeader("5 Most Recent Threads")
     print ("  PID  CMD                Age    ARGS")
     print ("-----  --------------   ------  ----------------------------")
     tt = TaskTable()
-    basems = tt.basems
     # Most recent first
     out = []
     for t in tt.allThreads():
-        out.append((basems - t.Last_ran, t.pid, t))
+        out.append((t.Ran_ago, t.pid, t))
         #print (t.pid, t.Last_ran)
     out.sort()
     for l, pid, t in out[:5]:
@@ -989,7 +985,6 @@ def print_args5():
 
 def check_UNINTERRUPTIBLE():
     tt = TaskTable()
-    basems = tt.basems
     bts = []
     count = 0
     for t in tt.allThreads():
@@ -1014,7 +1009,7 @@ def check_UNINTERRUPTIBLE():
     for bt in bts:
         pid = bt.pid
         mt = tt.getByTid(pid)
-        ran_ms_ago = basems - mt.Last_ran
+        ran_ms_ago = mt.Ran_ago
         ran_s_ago = ran_ms_ago/1000
         if (ran_s_ago > bigtime):
             oldbts.append((ran_s_ago, bt))
@@ -1027,15 +1022,15 @@ def check_UNINTERRUPTIBLE():
             nfscount += 1
         if (bt.hasfunc(re_journal)):
             jcount += 1
-            
-    
+
+
     # Print cummulative results
     if (nfscount):
         pylog.warning("%d NFS processes in UNINTERRUPTIBLE state" % nfscount)
     if (jcount):
         pylog.warning("%d processes in UNINTERRUPTIBLE state are committing journal" %\
                 jcount)
-                
+
     # Sort oldbts and print the last three stacks
     bts3 = sorted(oldbts)[-3:]
     if (bts3):
@@ -1090,17 +1085,17 @@ def check_frozen_fs():
                           subsequent_indent = 16 * ' ')
                     print(s)
 
-        
+
 # Print status of block requests ('struct request') found in different ways.
 # If v=0, print a summary only
 
 def print_blkreq(v=0):
     # Request Queues per block_device
     print_request_queues(v)
-    
+
     # Waiting for softirq processing on blk_cpu_done
     print_blk_cpu_done(v)
-    
+
     print_request_slab(v)
 
 
@@ -1143,7 +1138,7 @@ def parse_ps():
 
 def user_space_memory_report():
     # Get processes/thread group leaders only
-    
+
     tt = TaskTable()
     rss_tot = pmem_tot = 0
     # Get processes/thread group leaders only
@@ -1160,7 +1155,7 @@ __cpufreq_warn1 = '''
 The CPU frequency governor "pcc_cpufreq" is in use. This is known to not scale
 well beyond 4 CPUs and can have a deleterious effect on system performance,
 consider disabling it via BIOS "Collaborative_Power_Control" setting or switch
-the performance profile from "ondemand" to "performance" whilst online using 
+the performance profile from "ondemand" to "performance" whilst online using
 cpupower(1).  Check for high sys% cpu for kworker threads.
 
 For maximum performance also adjust BIOS "HP_Power_Regulator" to "
@@ -1185,8 +1180,8 @@ from running beyond the timeout threshold of the cssdmonitor.
 
 Recommendations:
     * change IO scheduler to noop or deadline
-    * tune the non-ratio writeback kernel tunables 
-    * consider altering the cssdmonitor timeout period 
+    * tune the non-ratio writeback kernel tunables
+    * consider altering the cssdmonitor timeout period
 
 '''
 
@@ -1206,14 +1201,14 @@ def check_cssdagent(_funcpids, v = 0):
             for p in exec_bt("bt {}".format(pidstr)):
                 print(p)
     pstack = exec_bt('bt')[0]
-    if (not pstack.hasfunc('write_sysrq_trigger') or not 
+    if (not pstack.hasfunc('write_sysrq_trigger') or not
         pstack.cmd in ('cssdagent, cssdmonitor')):
         return
     pylog.warning_onexit("Panic has been triggered explicitly by Oracle RAC {}".\
         format(pstack.cmd))
     if (not subpids):
         return
-    
+
     # Find the oldest blk request
     rqlist = get_blkreq_fromslab()
     if (len(rqlist) < 20):
@@ -1225,11 +1220,11 @@ def check_cssdagent(_funcpids, v = 0):
             " request\n    has been put on queue {:8.2f}s ago".format(oldest))
     else:
         pylog.warning_onexit(__cssd_warning)
-    
-                        
-            
 
-    
+
+
+
+
 
 
 # Check for long (>nmin) chains of processes. E.g. custom script is looping and
@@ -1267,7 +1262,7 @@ def longChainOfPids(tt, nmin):
         pid = l
         # If tables is corrupted, we might loop forever - do extra check
         knownpids = {l}
-        
+
         while(pid is not None):
             pid = pidparent.get(pid, None)
             if (pid in knownpids):
@@ -1284,7 +1279,7 @@ def longChainOfPids(tt, nmin):
         if (chainlength >= nmin):
             pylog.warning("a long chain of processes, N={}, last pid={}".\
                 format(chainlength, l))
-            
+
             if (chainlength <= ntoprint):
                 it_toprint = chain
             else:
@@ -1299,9 +1294,9 @@ def longChainOfPids(tt, nmin):
                     i += 1
                 print ('  ', ' ' * i, pid, comm)
                 i += 1
- 
-                    
-                    
+
+
+
 #  ==== Detect stack corruption ======
 _longsize = getSizeOf("long int")
 
@@ -1315,11 +1310,11 @@ def checkTaskStack(task):
     end_of_ti = ALIGN(long(thread_info) + sz, 16)
     #print(thread_info, "{} bytes".format(sz))
     #print("sp0={:#x} sp={:#x}".format(sp0, sp))
-    
+
     # Test 1 - check pointers
     if (not (sp <= sp0 and sp >= end_of_ti)):
         return("SP out of boundaries")
-        
+
     # Test 2 - check N long after thread_info
     N = 0
     for i in range(N):
@@ -1328,7 +1323,7 @@ def checkTaskStack(task):
         if (data):
             #print("i={} addr={:#x} data={:#x} ".format(i, addr, data))
             return ("Last {} bytes of stack are not empty".format(N * _longsize))
-    
+
     # Test 3 - check whatis(thread_info.restart_block.fn)
     sym = addr2sym(thread_info.restart_block.fn)
     if(not sym):
@@ -1336,7 +1331,7 @@ def checkTaskStack(task):
     wi = whatis(sym)
     if (wi.ti.stype != '(func)'):
         return "Bad threadinfo, stack.restart_block.fn does not point to a function"
-        
+
     return False
 
 # Check for stack corruption for all tasks
@@ -1356,7 +1351,7 @@ def check_SG():
         pylog.warning_onexit(__SG_retrans)
 
 __SG_retrans = '''
-The panic appears to have been caused by the deadman driver. There are also 
+The panic appears to have been caused by the deadman driver. There are also
 significant TCP retransmissions. This could potentially indicate a networking
 issue affecting cluster or package communications over one or more network
 interfaces. Review the TCP connections that were being retransmitted to
@@ -1379,7 +1374,7 @@ op.add_option("-v", dest="Verbose", default = 0,
 op.add_option("-q", dest="Quiet", default = 0,
                 action="store_true",
                 help="quiet mode - print warnings only")
-                
+
 op.add_option("--fast", dest="Fast", default = 0,
                 action="store_true",
                 help="Fast mode - do not run potentially slow tests")
@@ -1428,14 +1423,14 @@ op.add_option("--keventd_wq", dest="eventwq", default = "",
 op.add_option("--kblockd_wq", dest="kblockdwq", default = "",
                 action="store_true",
                 help="Decode kblockd_workqueue")
-                
+
 op.add_option("--lws", dest="Lws", default = "",
                 action="store_true",
-                help="Print Locks Waitqueues and Semaphores")           
+                help="Print Locks Waitqueues and Semaphores")
 
 op.add_option("--devmapper", dest="DM", default = "",
                 action="store_true",
-                help="Print DeviceMapper Tables")               
+                help="Print DeviceMapper Tables")
 
 op.add_option("--runq", dest="Runq", default = "",
                 action="store_true",
@@ -1447,7 +1442,7 @@ op.add_option("--semaphore", dest="Sema", default = 0,
 
 op.add_option("--rwsemaphore", dest="RWSema", default = 0,
                 type="long", action="store",
-                help="Print 'struct rw_semaphore' info")                
+                help="Print 'struct rw_semaphore' info")
 
 op.add_option("--mutex", dest="Mutex", default = 0,
                 type="long", action="store",
@@ -1456,7 +1451,7 @@ op.add_option("--mutex", dest="Mutex", default = 0,
 op.add_option("--umem", dest="umem", default = "",
               action="store_true",
               help="Print User-space Memory Usage")
-        
+
 op.add_option("--ls", dest="ls", default = "",
                 action="store",
                 help="Emulate 'ls'. You can specify either dentry"
@@ -1473,7 +1468,7 @@ op.add_option("--radix_tree_element", dest="RdElement", nargs=2,
 
 op.add_option("--pci", dest="Pci", default = "",
                 action="store_true",
-                help="Print PCI Info")               
+                help="Print PCI Info")
 
 
 op.add_option("--version", dest="Version", default = 0,
@@ -1526,7 +1521,7 @@ if (o.RdElement):
     else:
         print("  node={:#x}, slot={:#x}".format(node, slot))
     sys.exit(0)
-  
+
 if (o.Pci):
     from LinuxDump.pci import *
     print_PCI_devices(verbose)
@@ -1553,7 +1548,7 @@ if (o.eventwq):
     except TypeError:
         print("The command is not supported for this kernel")
     sys.exit(0)
-    
+
 if (o.kblockdwq):
     try:
         _wq = readSymbol("kblockd_workqueue")
@@ -1561,19 +1556,19 @@ if (o.kblockdwq):
     except TypeError:
         print("The command is not supported for this kernel")
     sys.exit(0)
-    
+
 if (o.Blkreq):
     if (verbose == 4):
         verbose = -1
     print_blkreq(verbose)
     sys.exit(0)
-    
+
 if (o.Blkdevs):
     Dev.print_blkdevs(verbose)
     sys.exit(0)
 
 
-    
+
 if (o.decodesyscalls):
     decode_syscalls(o.decodesyscalls)
     sys.exit(0)
@@ -1584,7 +1579,7 @@ if (o.Sema):
 
 if (o.RWSema):
     decode_rwsemaphore(o.RWSema)
-    sys.exit(0)    
+    sys.exit(0)
 
 if (o.Mutex):
     decode_mutex(o.Mutex)
@@ -1616,11 +1611,11 @@ if (o.ls):
 
     ls_pathname(o.ls, verbose)
     sys.exit(0)
-    
+
 if (o.stacksummary):
     stackSummary()
     sys.exit(0)
- 
+
 if (o.DM):
     print_dm_devices(verbose)
     sys.exit(0)
@@ -1690,7 +1685,7 @@ except crash.error:
     pylog.warning("cannot continue - the dump is probably incomplete", \
         "or corrupted")
 
-try:    
+try:
     check_network()
 except crash.error:
     pylog.warning("cannot continue - the dump is probably incomplete "

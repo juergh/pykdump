@@ -35,6 +35,7 @@ from stat import S_ISSOCK
 
 from pykdump.API import *
 from LinuxDump.inet import *
+from LinuxDump.Time import (sched_clock, j_delay)
 
 # Emulate sk_for_each - walk the hash-table of 'struct hlist_head' embedded in
 # socket. Returns a list of 'struct sock' addresses
@@ -87,7 +88,7 @@ def sk_nulls_for_each(first, hbucket):
     #if (first & 1):
     #    return []
     if (skc_nulls_node_off == -1):
-        sock_info = getStructInfo("struct sock")        
+        sock_info = getStructInfo("struct sock")
         sock_common_info = getStructInfo("struct sock_common")
         skc_nulls_node_off = sock_info["__sk_common"].offset + \
                        sock_common_info["skc_nulls_node"].offset
@@ -307,7 +308,7 @@ class IP_rqs(object):
         # Protocol-specific details
         if (not details):
             return
-        
+
     # Check namespace
     def wrongNameSpace(self):
         return (self.net and self.net != get_ns_net())
@@ -393,12 +394,12 @@ def format_sockaddr_in(sin):
     port = ntohs(sin.sin_port)
 
     addr = sin.sin_addr
-    
+
     if (family == P_FAMILIES.PF_INET):
         return "%s:%d" % (ntodots(addr.s_addr), port)
     else:
         raise TypeError("family=%d o=%s" % (family, str(sin)))
-        
+
 
 
 # Convert inode to socket
@@ -460,7 +461,7 @@ def check_inet_sock():
 
     aS = ArtStructInfo("struct inet_sock")
     aS.append("struct sock", "sk")
-    if (symbol_exists("tcpv6_protocol") or 
+    if (symbol_exists("tcpv6_protocol") or
         symbol_exists("secure_tcpv6_sequence_number")):
         if (debug):
             print ("Adding struct ipv6_pinfo *pinet6;")
@@ -532,7 +533,7 @@ def init_INET_Stuff():
 
         tcp_listening_hash = tcp_hashinfo.listening_hash
         tw_type = "struct tcp_timewait_sock"
-    
+
     if (struct_size("struct sock_common") == -1):
         # 2.4
         sockname = "struct sock"
@@ -547,7 +548,7 @@ def init_INET_Stuff():
     global inet_sk_for_each
     if (eb_info["chain"].ti.stype == "struct hlist_nulls_head"):
         inet_sk_for_each = sk_nulls_for_each
-    
+
     chain_off = eb_info["chain"].offset
     chain_sz = eb_info["chain"].size
 
@@ -560,7 +561,7 @@ def init_INET_Stuff():
         UNIX_HASH_SIZE = whatis("unix_socket_table") - 1
     except:
         UNIX_HASH_SIZE = 256
-        
+
     # Now copy locals to INET_Stuff
     INET_Stuff.__dict__.update(locals())
 
@@ -586,7 +587,7 @@ def init_PseudoAttrs():
     struct_sock.rcv_tstamp = "tp_pinfo.af_tcp.rcv_tstamp"
     struct_sock.lsndtime = "tp_pinfo.af_tcp.lsndtime"
     struct_sock.Socket = ["socket", "sk_socket"]
-    
+
     # Retrans for 2.4 kernels
     struct_sock.Retransmits = "tp_pinfo.af_tcp.retransmits"
     struct_sock.CA_state = "tp_pinfo.af_tcp.ca_state"
@@ -595,7 +596,7 @@ def init_PseudoAttrs():
     inet_sock = AttrSetter("struct inet_sock", "struct tcp_sock",
                            "struct udp_sock", "struct raw_sock",
                            "struct unix_sock")
-    
+
     inet_sock.family = "sk.__sk_common.skc_family"
     inet_sock.Net = ["SKC.skc_net.net", "SKC.skc_net"]
     inet_sock.protocol = "sk_protocol","sk.sk_protocol"
@@ -643,10 +644,10 @@ def init_PseudoAttrs():
                                 "inet_conn.icsk_inet.sk.sk_max_ack_backlog"]
     tcp_sock.accept_queue = ["inet_conn.icsk_accept_queue",
                              "tcp.accept_queue"]
-           
+
     # RTO
     tcp_sock.Rto = ["inet_conn.icsk_rto"]
-    
+
     # Retransmits
     tcp_sock.Retransmits = ["inet_conn.icsk_retransmits",
                             "tcp.retransmits"]
@@ -676,7 +677,7 @@ def init_PseudoAttrs():
     # inet_listen_hashbucket
     ilsh = AttrSetter("struct inet_listen_hashbucket")
     ilsh.first = "head.first"
-    
+
     # TIME_WAIT sockets
 
     # old-style
@@ -733,14 +734,14 @@ def init_PseudoAttrs():
                 "SKC.skc_v6_rcv_saddr.in6_u.u6_addr32", getSrc6]
     tws.Dst6 = ["tw_v6_daddr.in6_u.u6_addr32",
                 "SKC.skc_v6_daddr.in6_u.u6_addr32", getDst6]
-        
+
     # AF_UNIX
-    
+
     sn = "struct socket"
     u_24 = AttrSetter("struct socket")
     structSetAttr(sn, "Inode", "inode")     # For 2.4
     structSetAttr(sn, "Ino", "inode.i_ino")     # For 2.4
-    
+
     # At this moment "struct socket_alloc" is defined as
     # struct socket_alloc {
     #   struct socket socket;
@@ -751,26 +752,26 @@ def init_PseudoAttrs():
     extra = ["struct socket"]
     structSetAttr(sn, "Inode", "vfs_inode", extra)
     structSetAttr(sn, "Ino", "vfs_inode.i_ino", extra)
-    
+
     sn = "struct sock"
     structSetAttr(sn, "Uaddr", "protinfo.af_unix.addr")
 
     sn = "struct unix_sock"
     structSetAttr(sn, "socket", "sk.sk_socket")
     structSetAttr(sn, "Uaddr", "addr")
-    
+
     #Peer:
     #
     # #define unix_peer(sk) (unix_sk(sk)->peer)     2.6, unix_sock
     # #define unix_peer(sk) ((sk)->sk_pair)         2.6.5, unix_sock
-    # #define unix_peer(sk) ((sk)->pair)            2.4, sock 
-    
+    # #define unix_peer(sk) ((sk)->pair)            2.4, sock
+
     def getPeer26(s):
         return s.peer.castTo("struct unix_sock")
-    
+
     def getPeer26old(s):
-        return s.sk.sk_pair.castTo("struct unix_sock")    
-    
+        return s.sk.sk_pair.castTo("struct unix_sock")
+
     if (not structSetAttr("struct sock", "Peer", "pair")):
         # 2.6
         sn = "struct unix_sock"
@@ -816,7 +817,7 @@ init_PseudoAttrs()
 def get_TCP_LISTEN():
     t = INET_Stuff
     if (t.Kernel24):
-        # 2.4 
+        # 2.4
         # On 2.4 this list is of 'struct sock *' (2.4 kernels)
         for b in t.tcp_listening_hash:
             next = b
@@ -832,13 +833,13 @@ def get_TCP_LISTEN():
                 for a in  inet_sk_for_each(first, h):
                     s = readSU("struct tcp_sock", a)
                     yield s
- 
+
 
 def get_TCP_ESTABLISHED():
     # ESTABLISHED
     t = INET_Stuff
     if (t.Kernel24):
-        # 2.4 
+        # 2.4
         # On 2.4 'struct sock' are linked directly by 'next' pointer in them
         for b in getFullBuckets(t.ehash_addr, t.eb_size, t.ehash_size, t.chain_off):
             next = b
@@ -877,7 +878,7 @@ def get_TCP_ESTABLISHED():
 def get_TCP_TIMEWAIT_2():
     t = INET_Stuff
     if (t.Kernel24):
-        # 2.4 
+        # 2.4
         # On 2.4 we really have 'struct tcp_tw_bucket *' table
         ehash_tw = long(t.ehash_addr) + t.eb_size * t.ehash_size
         for b in getFullBuckets(ehash_tw, t.eb_size, t.ehash_size, t.chain_off):
@@ -919,7 +920,7 @@ def get_UDP():
                 s = readSU('struct sock', next)
                 next = s.next
                 yield s
-        
+
     else:
         # 2.6
         try:
@@ -965,7 +966,7 @@ def get_RAW():
                 s = readSU('struct sock', next)
                 next = s.next
                 yield s
-        
+
     else:
         # 2.6
         #
@@ -1025,10 +1026,10 @@ def get_RAW6():
                     # inet_sock similar layout for old 2.6
                     s = readSU("struct inet_sock", a)
                     yield s
-                    
+
 # ------------------- AF_UNIX ---------------------------------------
 
-# We pass 'struct unix_sock' for new kernels and just 
+# We pass 'struct unix_sock' for new kernels and just
 # 'struct sock' for old ones
 def unix_sock(s):
     state = s.state
@@ -1037,7 +1038,7 @@ def unix_sock(s):
     sk_socket = s.socket
     if (sk_socket):
         ino = sk_socket.Ino
-        
+
     uaddr = s.Uaddr
 
 
@@ -1151,7 +1152,7 @@ def print_accept_queue(pstr):
             else:
                 print ("Don't know how to print synq for this kernel")
             print ('\t  laddr=%-20s raddr=%-20s' % (ntodots(laddr), ntodots(raddr)))
-            
+
 
 #  Protocol families
 P_FAMILIES_c = '''
@@ -1268,7 +1269,7 @@ def print_skbuff_head(skb, v = 0):
         family = "n/a"
         if (sk):
             family = sk.family
-                
+
         if (family == P_FAMILIES.PF_INET):
             isock = IP_sock(sk)
             print ("\t", isock)
@@ -1288,7 +1289,7 @@ def print_skbuff_head(skb, v = 0):
         except KeyError:
             input_dev = None
         devs.append(input_dev)
-            
+
         try:
             real_dev =  skb.real_dev
         except KeyError:
@@ -1302,7 +1303,7 @@ def print_skbuff_head(skb, v = 0):
                 ndev = '0x0'
             print ("%s=%s " %(h, ndev), end='')
         print ('')
-        
+
 
 # Generate a 1-liner based on L3 header and L4 header.
 # Here protocol is ETH protocol, e.g.
@@ -1385,7 +1386,7 @@ def decode_skbuf(addr, v = 0):
         return skb
     if (v > 1):
         print (" ===== Decoding", skb, "====")
-    
+
     iph = decode_IP_header(nh, v)
     # Now check whether we can decode L4
     proto = iph.protocol
@@ -1414,7 +1415,7 @@ def decode_IP_header(addr, v = 0):
     print ("  tos=%d id=%d fl=%d frag=%d ttl=%d proto=%d saddr=%s daddr=%s" %\
         (iphdr.tos, id, flags, frag_off, iphdr.ttl, proto, saddr, daddr))
     return iphdr
-    
+
 # Decode and print TCP header as received from network
 def decode_TCP_header(addr, v = 0):
     tcphdr = readSU("struct tcphdr", addr)
@@ -1456,7 +1457,7 @@ def decode_TCP_flags(flags):
     fstr = ','.join(fstr)
     args = tuple([flags_copy, fstr] + bits)
     return __TCP_flags_template % args
-        
+
 
 
 # TCP ca states
@@ -1493,12 +1494,12 @@ def tcp_win_from_space(space):
     else:
         return (space - (space>>sysctl_tcp_adv_win_scale))
 
-#1038 /* Note: caller must be prepared to deal with negative returns */ 
+#1038 /* Note: caller must be prepared to deal with negative returns */
 #1039 static inline int tcp_space(const struct sock *sk)
 #1040 {
 #1041         return tcp_win_from_space(sk->sk_rcvbuf -
 #1042                                   atomic_read(&sk->sk_rmem_alloc));
-#1043 } 
+#1043 }
 
 def tcp_space(o):
     sk = IP_sock(o, True)
@@ -1506,7 +1507,7 @@ def tcp_space(o):
 
 #1045 static inline int tcp_full_space(const struct sock *sk)
 #1046 {
-#1047         return tcp_win_from_space(sk->sk_rcvbuf); 
+#1047         return tcp_win_from_space(sk->sk_rcvbuf);
 #1048 }
 
 def tcp_full_space(o):
@@ -1548,3 +1549,66 @@ def analyze_tcp_rcv_win(o, v=1):
         print("          mss == full_space and free_space > window + (full_space >> 1)")
     else:
         print("          window is not changed")
+
+        # TCP timestamps
+#
+# For retranmissions:
+#    tp->retrans_stamp = tcp_skb_timestamp(skb);
+#
+# On older kernels this is in jiffies:
+#     struct skb_mstamp skb_mstamp;
+#
+# static inline u32 tcp_skb_timestamp(const struct sk_buff *skb)
+# {
+#         return skb->skb_mstamp.stamp_jiffies;
+# }
+#
+# On newer kernels it is not:
+#
+#      u64 skb_mstamp;
+#
+# static inline u32 tcp_skb_timestamp(const struct sk_buff *skb)
+# {
+#        return div_u64(skb->skb_mstamp, USEC_PER_SEC / TCP_TS_HZ);
+# }
+#
+# * div_u64 - unsigned 64bit divide with 32bit divisor
+# * @dividend: unsigned 64bit dividend
+# * @divisor: unsigned 32bit divisor
+#
+# and skb_mstamp is in the following units:
+# static inline u64 tcp_clock_us(void)
+#{
+#	return div_u64(tcp_clock_ns(), NSEC_PER_USEC);
+#}
+#/*
+#* Deliver a 32bit value for TCP timestamp option (RFC 7323)
+#* It is no longer tied to jiffies, but to 1 ms clock.
+#* Note: double check if you want to use tcp_jiffies32 instead of this.
+#*/
+##define TCP_TS_HZ	1000
+#static inline u64 tcp_clock_ns(void)
+#{
+#	#return local_clock();
+#}
+
+# Find number of milliseconds since retrans_stamp
+#
+# Depending on kernel version, this can be jiffie-based or
+# sched_clock based
+def __retrans_since_sc(retrans_stamp):
+    ref =PYKD.last_jiffies_update/1000000 # ms
+    delay = "{:6.1f}s".format((ref - retrans_stamp)/1000)
+    return delay
+
+def __retrans_since_jf(retrans_stamp):
+    jiffies = PYKD.jiffies
+    return j_delay(retrans_stamp, jiffies)
+
+# It is unclear how good is the following test - need more vmcores
+# from different kernels to find something more reliable
+if (member_offset("struct sk_buff", "skb_mstamp") == -1 or
+    struct_exists("struct skb_mstamp")):
+    retrans_since = __retrans_since_jf
+else:
+    retrans_since = __retrans_since_sc
