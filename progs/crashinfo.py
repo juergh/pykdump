@@ -13,7 +13,7 @@
 
 
 # 1st-pass dumpanalysis
-__version__ = "1.3.5"
+__version__ = "1.3.6"
 
 from pykdump.API import *
 
@@ -729,7 +729,10 @@ def check_runqueues():
         except:
             pass
         if (CFS):
-            print_CFS_runqueue(rq)
+            try:
+                print_CFS_runqueue(rq)
+            except RecursionError:
+                pylog.error("CFQ runqueue on CPU #{} is corrupted".format(cpu))
             RT_count = print_RT_runqueue(rq)
         else:
             # Old scheduler
