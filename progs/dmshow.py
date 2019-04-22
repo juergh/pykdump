@@ -33,6 +33,11 @@ from pykdump.API import *
 
 from pykdump.wrapcrash import StructResult, tPtr
 
+from LinuxDump.Tasks import (TaskTable, Task, tasksSummary, ms2uptime,
+     decode_tflags, print_namespaces_info, print_memory_stats, TASK_STATE)
+
+from LinuxDump.BTstack import exec_bt, bt_summarize
+
 required_modules = ('dm_mod', 'dm_multipath', 'dm_log', 'dm_mirror',
                     'dm_queue_length', 'dm_round_robin', 'dm_service_time',
                     'dm_region_hash', 'dm_snapshot', 'dm_thin_pool', 'dm_raid')
@@ -424,55 +429,76 @@ def show_dmsetup_table(dev):
               dm_table_map.targets.type.name))
 
 def run_check_on_multipath():
+    tt = TaskTable()
+    bts = []
     errors = 0
+    task_cnt = 0
     multipathd_daemon = 0   # To verify if multipathd daemon is running
     multipath_blocked = 0   # To verify if multipathd daemon or command is blocked
-
     mpath_present = 0       # To verify if multipath device exists with or without
                             # multipathd daemon running
     wq_blocked = 0          # To verify if scsi_wq or fc_wq is blocked
-    print("\n\n")
-    for l in exec_crash_command_bg('ps -m').splitlines()[1:]:
-        spl = re.split("\s+", l[1:].strip())
-        try:
-            days, time, state, pid_disp, pid, task_disp, task_hex, cpu_disp, cpu = spl[:9]
-            comm = '   '.join(spl[9:])
-            if ('multipathd' in comm):
-                multipathd_daemon = 1
-            if ((state == '[UN]') and (('multipath' in comm) or ('scsi_wq' in comm) or ('fc_wq' in comm))):
-                if ('multipath' in comm):
-                    multipath_blocked = 1
-                if (('scsi_wq' in comm) or ('fc_wq' in comm)):
-                    wq_blocked = 1
-                print("[{} {} {} {} {}    \t{} {} {} {}\t{}".format(days, time, state,
-                    pid_disp, pid, task_disp, task_hex, cpu_disp, cpu, comm))
-        except:
-            pylog.warning("cannot parse:", l)
 
+    print("\nChecking for device-mapper issues...\n")
+
+    for t in tt.allThreads():
+        print("Getting a list of processes in UN state..."
+              "(Count: {:d})".format(task_cnt), end="\r")
+        if ('multipathd' in t.comm):
+            multipathd_daemon = 1
+        if (t.ts.state & TASK_STATE.TASK_UNINTERRUPTIBLE):
+            task_cnt += 1
+            # crash can miss some threads when there are pages missing
+            # and it will not do 'bt' in that case.
+            try:
+                bts.append(exec_bt("bt %d" % t.pid)[0])
+            except:
+                pass
+    print("Getting a list of processes in UN state...\t\t\t[Done]")
+
+    if (task_cnt):
+        print("\nProcessing the back trace of hung tasks...\t\t\t", end='')
+        for bt in bts:
+            if ('multipath' in bt.cmd):
+                multipath_blocked = 1
+
+            if (('scsi_wq' in bt.cmd) or ('fc_wq' in bt.cmd)):
+                wq_blocked = 1
+        print("[Done]")
+
+    # Checks for dm devices
     for dev in devlist:
         md, name = dev
         dm_table_map = StructResult("struct dm_table", md.map)
+        # Check if there is any multipath device present in device-mapper table
         if (dm_table_map.targets.type.name == "multipath"):
-            mpath_present = 1
-            break
+            mpath_present += 1
 
-    if (mpath_present == 1 and multipathd_daemon == 0):
+    # multipath devices are present but multipathd is not running
+    if (mpath_present != 0 and multipathd_daemon == 0):
         print("\n ** multipath device(s) are present, but multipathd service is"
               "\n    not running. IO failover/failback may not work.")
         errors += 1
 
+    # scsi or fc work queue and multipathd are blocked
     if (multipath_blocked == 1 and wq_blocked == 1):
         print("\n ** multipathd and scsi/fc work_queue processes are stuck in UN state,"
-            "\n    this could block IO failover on multipath devices")
+              "\n    this could block IO failover on multipath devices")
+        print("\n    Run 'hanginfo' for more information on processes in UN state.")
         errors += 1
+    # only multipathd process is stuck in UN state
     elif (multipath_blocked == 1):
         print("\n ** multipathd processes stuck in UN state,"
               "\n    this could block IO failover on multipath devices")
+        print("\n    Run 'hanginfo' for more information on processes in UN state.")
         errors += 1
 
-    if (errors == 0):
-        print("\n    No issues detected by utility.")
-
+    if (errors == 0 and task_cnt != 0):
+        print("\n    No device-mapper, multipath issues detected by utility,"
+              "\n    but found {} processes in UN state.".format(task_cnt))
+        print("\n    Run 'hanginfo' for more information on processes in UN state.")
+    elif (errors == 0 and task_cnt == 0):
+       print ("No issues detected by utility.")
 
 if ( __name__ == '__main__'):
 
