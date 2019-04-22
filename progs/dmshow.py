@@ -438,6 +438,8 @@ def run_check_on_multipath():
     mpath_present = 0       # To verify if multipath device exists with or without
                             # multipathd daemon running
     wq_blocked = 0          # To verify if scsi_wq or fc_wq is blocked
+    kworker_md_blocked = 0  # Counter for hung worker threads which are waiting for
+                            # IO requests on mdraid devices
 
     print("\nChecking for device-mapper issues...\n")
 
@@ -459,6 +461,10 @@ def run_check_on_multipath():
     if (task_cnt):
         print("\nProcessing the back trace of hung tasks...\t\t\t", end='')
         for bt in bts:
+            if ('kworker' in bt.cmd):
+                if (bt.hasfunc('md_flush_request') and bt.hasfunc('dio_aio_complete_work')):
+                    kworker_md_blocked += 1
+
             if ('multipath' in bt.cmd):
                 multipath_blocked = 1
 
@@ -473,6 +479,15 @@ def run_check_on_multipath():
         # Check if there is any multipath device present in device-mapper table
         if (dm_table_map.targets.type.name == "multipath"):
             mpath_present += 1
+
+    # Check if kworker threads are stuck waiting to flush IO on mdraid devices
+    if (kworker_md_blocked >= 5):
+        print("\n ** {} kworker threads are stuck in UN state waiting to flush the IO"
+              "\n    requests on mdraid devices. This could be a result of thundering"
+              "\n    herd problem. See reference: "
+              "\n    https://marc.info/?l=linux-raid&m=155364683109115&w=2".format(kworker_md_blocked))
+        print("\n    Run 'hanginfo' for more information on processes in UN state.")
+        errors += 1
 
     # multipath devices are present but multipathd is not running
     if (mpath_present != 0 and multipathd_daemon == 0):
