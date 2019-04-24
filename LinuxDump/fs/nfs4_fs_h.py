@@ -318,9 +318,14 @@ class nfs4_state():
                 print(flags[f], end=' ')
         print(" ");
 
+    def print_openmodes(self):
+        print("- n_rdonly: %u n_wronly: %u n_rdwr: %u" %
+              (self.state.n_rdonly, self.state.n_wronly, self.state.n_rdwr))
+
     def print_verbose(self):
         print("(struct nfs4_state *)0x%x" % Deref(self.state))
         self.print_flags()
+        self.print_openmodes()
 
 
 # thanks stackoverflow
