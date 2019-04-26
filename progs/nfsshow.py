@@ -554,7 +554,7 @@ def print_rpc_task(s, v = 0):
             print ("\t  protname=", tk_client.cl_protname)
         except KeyError:
             pass
-        
+
         try:
             pid_owner = s.tk_owner
             print("\tOwner pid={}".format(pid_owner))
@@ -682,7 +682,7 @@ def print_all_rpc_tasks(v=1, maxtoprint = 20):
             format(maxtoprint, flen))
     else:
         print ("  ------- %d RPC Tasks ---------" % flen)
-    
+
     tasks = get_all_rpc_tasks(maxtoprint)
     allc = get_all_rpc_clients()
     xprtset = set()
@@ -735,18 +735,43 @@ def print_rpc_status():
         rpct = readSU("struct rpc_task", ta)
         print_rpc_task(rpct)
 
+# Warning: on older kernels:
+# struct net_generic {
+#        unsigned int len;
+#
+# and on newer ones:
+# struct net_generic {
+#	union {
+#		struct {
+#			unsigned int len;
+#			struct rcu_head rcu;
+#		} s;
+
+# In the latter case, net_generic() returns ng->ptr[id] instead of
+# ng->ptr[id-1]
+
+def net_generic(net, net_id):
+    ng = net.gen
+    ptr = ng.ptr
+    try:
+        ng_len = ng.len
+        newstyle = False
+    except KeyError:
+        ng_len = ng.s.len
+        newstyle = True
+    #print(net_id, ng_len)
+    assert (not (net_id == 0 or net_id > ng_len))
+    addr = ptr[net_id] if newstyle else ptr[net_id - 1]
+    return addr
+
+
 # Get sunrpc_net
 def get_sunrpc_net():
     if (not symbol_exists("sunrpc_net_id")):
         return 0
     net_id = readSymbol("sunrpc_net_id")
     net = readSymbol("init_net")
-    ng = net.gen
-    ptr = ng.ptr
-    #print(net_id, ng.len)
-    assert (not (net_id == 0 or net_id > ng.len))
-    addr = ptr[net_id - 1]
-    return addr
+    return net_generic(net, net_id)
 
 # Getting all tasks.
 #
@@ -755,7 +780,6 @@ def get_sunrpc_net():
 # * All RPC clients are linked into this list
 # */
 #static LIST_HEAD(all_clients);
-
 
 # Get all RPC clients for kernels where they exist
 def get_all_rpc_clients():
