@@ -573,20 +573,15 @@ def show_nfss_stats(m):
 
     show_rpc_clnt_iostats(nfss.client)
 
-def call_foreach_argv(func):
-    for arg in sys.argv:
-        addr = arg_value(arg)
-        if addr != 0 and addr != -1:
-            func(addr)
-        if addr != 0 and addr == -1:
-            for vfsmount, superblk, fstype, devname, mnt in getMount():
-                if (fstype in ("nfs", "nfs4")):
-                    func(vfsmount)
 
 
 # vim: sw=4 ts=4 noexpandtab
 
-
+def process_one_arg(args, v):
+    if args.procmounts:
+        show_vfsmnt(v)
+    if args.procmountstats:
+        show_nfss_stats(v)
 
 
 if __name__ == '__main__':
@@ -601,7 +596,11 @@ if __name__ == '__main__':
     # TODO: decide how to specify mount points: fstype, vfsmount, "all", etc
     parser.add_argument('mount', help='- rhel7+ use mount, otherwise vfsmount, -1 == all', type=auto_int, nargs='+')
     args = parser.parse_args()
-    if args.procmounts:
-        call_foreach_argv(show_vfsmnt)
-    if args.procmountstats:
-        call_foreach_argv(show_nfss_stats)
+    for arg in sys.argv:
+        v = arg_value(arg)
+        if v != 0 and v != -1:
+            process_one_arg(args, v)
+        if v == -1:
+            for v, s, fstype, d, m in getMount():
+                if (fstype in ("nfs", "nfs4")):
+                    process_one_arg(args, v)
