@@ -576,8 +576,12 @@ def show_nfss_stats(m):
 def call_foreach_argv(func):
     for arg in sys.argv:
         addr = arg_value(arg)
-        if addr != 0:
+        if addr != 0 and addr != -1:
             func(addr)
+        if addr != 0 and addr == -1:
+            for vfsmount, superblk, fstype, devname, mnt in getMount():
+                if (fstype in ("nfs", "nfs4")):
+                    func(vfsmount)
 
 
 # vim: sw=4 ts=4 noexpandtab
@@ -595,7 +599,7 @@ if __name__ == '__main__':
                   action="store_true",
                   help="print equivalent of /proc/self/mountstats for specified mount(s)")
     # TODO: decide how to specify mount points: fstype, vfsmount, "all", etc
-    parser.add_argument('mount', help='- rhel7+ use mount, otherwise vfsmount', type=auto_int, nargs='+')
+    parser.add_argument('mount', help='- rhel7+ use mount, otherwise vfsmount, -1 == all', type=auto_int, nargs='+')
     args = parser.parse_args()
     if args.procmounts:
         call_foreach_argv(show_vfsmnt)
