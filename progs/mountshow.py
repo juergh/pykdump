@@ -271,6 +271,39 @@ def rpc_peeraddr2str(clnt, format):
     else:
         return "unprintable"
 
+# FIXME: put this into LinuxDump as a library to include
+def xprt_connected(xprt):
+    return xprt.state & 2
+
+# Is this even reachable via in-tree kernel code?
+def xs_local_print_stats(xprt):
+    idle_time = 0
+    if xprt_connected(xprt):
+        idle_time = (readSymbol("jiffies") - xprt.last_used) / sys_info.HZ
+
+    print("xprt:  local %lu %lu %lu %ld %lu %lu %lu %llu %llu %lu %llu %llu" % (xprt.stat.bind_count, xprt.stat.connect_count, xprt.stat.connect_time / sys_info.HZ, idle_time, xprt.stat.sends, xprt.stat.recvs, xprt.stat.bad_xids, xprt.stat.req_u, xprt.stat.bklog_u, xprt.stat.max_slots, xprt.stat.sending_u, xprt.stat.pending_u))
+
+def xs_tcp_print_stats(xprt):
+    transport = container_of(xprt, "struct sock_xprt", "xprt");
+    idle_time = 0
+    if xprt_connected(xprt):
+        idle_time = (readSymbol("jiffies") - xprt.last_used) / sys_info.HZ
+
+    print("xprt:  tcp %u %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu" % (transport.srcport, xprt.stat.bind_count, xprt.stat.connect_count, xprt.stat.connect_time / sys_info.HZ, idle_time, xprt.stat.sends, xprt.stat.recvs, xprt.stat.bad_xids, xprt.stat.req_u, xprt.stat.bklog_u, xprt.stat.max_slots, xprt.stat.sending_u, xprt.stat.pending_u) )
+
+def xs_udp_print_stats(xprt):
+    transport = container_of(xprt, "struct sock_xprt", "xprt");
+    print("xprt:  udp %u %lu %lu %lu %lu %lu %lu %lu %lu %lu" % (transport.srcport, xprt.stat.bind_count, xprt.stat.sends, xprt.stat.recvs, xprt.stat.bad_xids, xprt.stat.req_u, xprt.stat.bklog_u, xprt.stat.max_slots, xprt.stat.sending_u, xprt.stat.pending_u))
+
+def rpc_xprt_print_stats(clnt):
+    xprt = readSU("struct rpc_clnt", clnt).cl_xprt
+    if xprt.ops.print_stats == sym2addr("xs_udp_print_stats"):
+        xs_udp_print_stats(xprt)
+    if xprt.ops.print_stats == sym2addr("xs_local_print_stats"):
+        xs_local_print_stats(xprt)
+    if xprt.ops.print_stats == sym2addr("xs_tcp_print_stats"):
+        xs_tcp_print_stats(xprt)
+
 def nfs_pseudoflavor_to_name(flavor):
 # NB: lipkey and spkm3 omitted on purpose (nobody uses them)
     sec_flavors = {
@@ -515,9 +548,10 @@ def show_nfss_stats(m):
     HZ = sys_info.HZ
     print("age: {}".format((jiffies - nfss.mount_time)/HZ))
 
-    # TODO: caps, eg.:  caps: caps=0x3fcf,wtmult=4096,dtsize=4096,bsize=0,namlen=255
-    # TODO: /proc/self/mountstats nfsv4 output of: bm0, bm1, acl
-    # if nfss.nfs_client.rpc_ops.version == 4
+    # TODO: decode caps and other bitmaps
+    print("caps: caps=0x%x, wtmult=%u, dtsize=%u, bsize=%u, namelen=%u" % ( nfss.caps, nfss.wtmult, nfss.dtsize, nfss.bsize, nfss.namelen))
+    if nfss.nfs_client.rpc_ops.version == 4:
+        print("nfsv4: bm0=0x%x,bm1=0x%x,bm2=0x%x,acl=%x" % (nfss.attr_bitmask[0], nfss.attr_bitmask[1], nfss.attr_bitmask[2], nfss.acl_bitmask))
 
     auth = nfss.client.cl_auth
     print("sec: flavor={}".format(auth.au_ops.au_flavor), end=("" if auth.au_flavor else "\n"))
@@ -530,6 +564,8 @@ def show_nfss_stats(m):
     total_bytes_stats = get_enum_tag_value("__NFSIOS_BYTESMAX", "nfs_stat_bytecounters")
     totals_fscache = {}
     total_fscache_stats = get_enum_tag_value("__NFSIOS_FSCACHEMAX", "nfs_stat_fscachecounters")
+
+    rpc_xprt_print_stats(nfss.client)
 
     percpu = get_per_cpu()
     first_cpu = 1
