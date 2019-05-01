@@ -111,66 +111,66 @@ __NFS_MOUNT_FLAGS='''
 
 __RPC_DISPLAY_FORMAT='''
 enum rpc_display_format_t {
-        RPC_DISPLAY_ADDR = 0,
-        RPC_DISPLAY_PORT,
-        RPC_DISPLAY_PROTO,
-        RPC_DISPLAY_HEX_ADDR,
-        RPC_DISPLAY_HEX_PORT,
-        RPC_DISPLAY_NETID,
-        RPC_DISPLAY_MAX
+    RPC_DISPLAY_ADDR = 0,
+    RPC_DISPLAY_PORT,
+    RPC_DISPLAY_PROTO,
+    RPC_DISPLAY_HEX_ADDR,
+    RPC_DISPLAY_HEX_PORT,
+    RPC_DISPLAY_NETID,
+    RPC_DISPLAY_MAX
 };
 '''
 
 __RPC_AUTH_FLAVORS='''
 enum rpc_auth_flavors {
-        RPC_AUTH_NULL  = 0,
-        RPC_AUTH_UNIX  = 1,
-        RPC_AUTH_SHORT = 2,
-        RPC_AUTH_DES   = 3,
-        RPC_AUTH_KRB   = 4,
-        RPC_AUTH_GSS   = 6,
-        RPC_AUTH_MAXFLAVOR = 8,
-        /* pseudoflavors: */
-        RPC_AUTH_GSS_KRB5  = 390003,
-        RPC_AUTH_GSS_KRB5I = 390004,
-        RPC_AUTH_GSS_KRB5P = 390005,
-        RPC_AUTH_GSS_LKEY  = 390006,
-        RPC_AUTH_GSS_LKEYI = 390007,
-        RPC_AUTH_GSS_LKEYP = 390008,
-        RPC_AUTH_GSS_SPKM  = 390009,
-        RPC_AUTH_GSS_SPKMI = 390010,
-        RPC_AUTH_GSS_SPKMP = 390011
+    RPC_AUTH_NULL  = 0,
+    RPC_AUTH_UNIX  = 1,
+    RPC_AUTH_SHORT = 2,
+    RPC_AUTH_DES   = 3,
+    RPC_AUTH_KRB   = 4,
+    RPC_AUTH_GSS   = 6,
+    RPC_AUTH_MAXFLAVOR = 8,
+    /* pseudoflavors: */
+    RPC_AUTH_GSS_KRB5  = 390003,
+    RPC_AUTH_GSS_KRB5I = 390004,
+    RPC_AUTH_GSS_KRB5P = 390005,
+    RPC_AUTH_GSS_LKEY  = 390006,
+    RPC_AUTH_GSS_LKEYI = 390007,
+    RPC_AUTH_GSS_LKEYP = 390008,
+    RPC_AUTH_GSS_SPKM  = 390009,
+    RPC_AUTH_GSS_SPKMI = 390010,
+    RPC_AUTH_GSS_SPKMP = 390011
 };
 '''
 
 __IP_PROTOS='''
 enum {
-  IPPROTO_IP = 0,               /* Dummy protocol for TCP               */
-  IPPROTO_ICMP = 1,             /* Internet Control Message Protocol    */
-  IPPROTO_IGMP = 2,             /* Internet Group Management Protocol   */
-  IPPROTO_IPIP = 4,             /* IPIP tunnels (older KA9Q tunnels use 94) */
-  IPPROTO_TCP = 6,              /* Transmission Control Protocol        */
-  IPPROTO_EGP = 8,              /* Exterior Gateway Protocol            */
-  IPPROTO_PUP = 12,             /* PUP protocol                         */
-  IPPROTO_UDP = 17,             /* User Datagram Protocol               */
-  IPPROTO_IDP = 22,             /* XNS IDP protocol                     */
-  IPPROTO_DCCP = 33,            /* Datagram Congestion Control Protocol */
-  IPPROTO_RSVP = 46,            /* RSVP protocol                        */
-  IPPROTO_GRE = 47,             /* Cisco GRE tunnels (rfc 1701,1702)    */
+    IPPROTO_IP = 0,               /* Dummy protocol for TCP               */
+    IPPROTO_ICMP = 1,             /* Internet Control Message Protocol    */
+    IPPROTO_IGMP = 2,             /* Internet Group Management Protocol   */
+    IPPROTO_IPIP = 4,             /* IPIP tunnels (older KA9Q tunnels use 94) */
+    IPPROTO_TCP = 6,              /* Transmission Control Protocol        */
+    IPPROTO_EGP = 8,              /* Exterior Gateway Protocol            */
+    IPPROTO_PUP = 12,             /* PUP protocol                         */
+    IPPROTO_UDP = 17,             /* User Datagram Protocol               */
+    IPPROTO_IDP = 22,             /* XNS IDP protocol                     */
+    IPPROTO_DCCP = 33,            /* Datagram Congestion Control Protocol */
+    IPPROTO_RSVP = 46,            /* RSVP protocol                        */
+    IPPROTO_GRE = 47,             /* Cisco GRE tunnels (rfc 1701,1702)    */
 
-  IPPROTO_IPV6   = 41,          /* IPv6-in-IPv4 tunnelling              */
+    IPPROTO_IPV6   = 41,          /* IPv6-in-IPv4 tunnelling              */
 
-  IPPROTO_ESP = 50,            /* Encapsulation Security Payload protocol */
-  IPPROTO_AH = 51,             /* Authentication Header protocol       */
-  IPPROTO_BEETPH = 94,         /* IP option pseudo header for BEET */
-  IPPROTO_PIM    = 103,         /* Protocol Independent Multicast       */
+    IPPROTO_ESP = 50,            /* Encapsulation Security Payload protocol */
+    IPPROTO_AH = 51,             /* Authentication Header protocol       */
+    IPPROTO_BEETPH = 94,         /* IP option pseudo header for BEET */
+    IPPROTO_PIM    = 103,         /* Protocol Independent Multicast       */
 
-  IPPROTO_COMP   = 108,                /* Compression Header protocol */
-  IPPROTO_SCTP   = 132,         /* Stream Control Transport Protocol    */
-  IPPROTO_UDPLITE = 136,        /* UDP-Lite (RFC 3828)                  */
+    IPPROTO_COMP   = 108,                /* Compression Header protocol */
+    IPPROTO_SCTP   = 132,         /* Stream Control Transport Protocol    */
+    IPPROTO_UDPLITE = 136,        /* UDP-Lite (RFC 3828)                  */
 
-  IPPROTO_RAW    = 255,         /* Raw IP packets                       */
-  IPPROTO_MAX
+    IPPROTO_RAW    = 255,         /* Raw IP packets                       */
+    IPPROTO_MAX
 };
 '''
 
@@ -466,118 +466,118 @@ LOCAL_DEFINES_C = '''
 LOCAL_DEFINES = CDefine(LOCAL_DEFINES_C)
 
 def rpc_proc_name(op, procs):
-        if procs[op].p_name:
-                return "  {:20s}: ".format(procs[op].p_name)
-        if op == 0:
-                return "  {:20s}: ".format("NULL")
-        return "  {:20d}: ".format(op)
+    if procs[op].p_name:
+        return "  {:20s}: ".format(procs[op].p_name)
+    if op == 0:
+        return "  {:20s}: ".format("NULL")
+    return "  {:20d}: ".format(op)
 
 def show_rpc_clnt_iostats(addr):
-        cl = readSU("struct rpc_clnt", addr)
-        stats = cl.cl_metrics
-        xprt = cl.cl_xprt
-        maxproc = cl.cl_maxproc
+    cl = readSU("struct rpc_clnt", addr)
+    stats = cl.cl_metrics
+    xprt = cl.cl_xprt
+    maxproc = cl.cl_maxproc
 
-        if not stats:
-                print("sorry, stats are NULL")
-                return
+    if not stats:
+        print("sorry, stats are NULL")
+        return
 
-        rpc_procinfo = cl.cl_procinfo
+    rpc_procinfo = cl.cl_procinfo
 
-        print("  {:20}  {:>10s} {:>10} {:>7} {:>12} {:>12} {:>6} {:>6} {:>6}".format("", "ops", "trans", "tmout", "bytes sent", "bytes recv", "q/op", "rtt/op", "exe/op"))
-        for op in range(0, maxproc):
-                metrics = readSU("struct rpc_iostats", stats[op])
-                print("{}".format(rpc_proc_name(op, rpc_procinfo)), end='')
+    print("  {:20}  {:>10s} {:>10} {:>7} {:>12} {:>12} {:>6} {:>6} {:>6}".format("", "ops", "trans", "tmout", "bytes sent", "bytes recv", "q/op", "rtt/op", "exe/op"))
+    for op in range(0, maxproc):
+        metrics = readSU("struct rpc_iostats", stats[op])
+        print("{}".format(rpc_proc_name(op, rpc_procinfo)), end='')
 
-                if metrics.om_ops:
-                        queue = float(readS64(metrics.om_queue)) / float(metrics.om_ops) / 1000000.0
-                        rtt = float(readS64(metrics.om_rtt)) / float(metrics.om_ops) / 1000000.0
-                        execute = float(readS64(metrics.om_execute)) / float(metrics.om_ops) / 1000000.0
-                else:
-                        queue = 0; rtt = 0 ; execute = 0
+        if metrics.om_ops:
+            queue = float(readS64(metrics.om_queue)) / float(metrics.om_ops) / 1000000.0
+            rtt = float(readS64(metrics.om_rtt)) / float(metrics.om_ops) / 1000000.0
+            execute = float(readS64(metrics.om_execute)) / float(metrics.om_ops) / 1000000.0
+        else:
+            queue = 0; rtt = 0 ; execute = 0
 
-                print("{:10d} {:10d} {:7d} {:12d} {:12d} {:6.2f} {:6.2f} {:6.2f}".format(metrics.om_ops, metrics.om_ntrans, metrics.om_timeouts, metrics.om_bytes_sent, metrics.om_bytes_recv, queue, rtt, execute))
+        print("{:10d} {:10d} {:7d} {:12d} {:12d} {:6.2f} {:6.2f} {:6.2f}".format(metrics.om_ops, metrics.om_ntrans, metrics.om_timeouts, metrics.om_bytes_sent, metrics.om_bytes_recv, queue, rtt, execute))
 
 def show_nfss_stats(m):
-        # RHEL7 has a 'struct vfsmount' embedded in a 'struct mount'
-        if member_size("struct vfsmount", "mnt_devname") > 0:
-            mnt = readSU("struct vfsmount", m)
-            sb = readSU("struct super_block", mnt.mnt_sb)
-        else:
-            mnt = readSU("struct mount", m)
-            sb = readSU("struct super_block", mnt.mnt.mnt_sb)
-        nfss = readSU("struct nfs_server", sb.s_fs_info)
+    # RHEL7 has a 'struct vfsmount' embedded in a 'struct mount'
+    if member_size("struct vfsmount", "mnt_devname") > 0:
+        mnt = readSU("struct vfsmount", m)
+        sb = readSU("struct super_block", mnt.mnt_sb)
+    else:
+        mnt = readSU("struct mount", m)
+        sb = readSU("struct super_block", mnt.mnt.mnt_sb)
+    nfss = readSU("struct nfs_server", sb.s_fs_info)
 
-        # TODO: mount options, ala /proc/self/mountinfo
-        # i.e.: opts:        rw,vers=3,rsize=262144,wsize=262144,namlen=255,acregmin=3,acregmax=60,acdirmin=30,acdirmax=60,hard,proto=tcp,timeo=600,retrans=2,sec=sys,mountaddr=172.16.0.15,mountvers=3,mountport=683,mountproto=udp,local_lock=none
+    # TODO: mount options, ala /proc/self/mountinfo
+    # i.e.: opts:    rw,vers=3,rsize=262144,wsize=262144,namlen=255,acregmin=3,acregmax=60,acdirmin=30,acdirmax=60,hard,proto=tcp,timeo=600,retrans=2,sec=sys,mountaddr=172.16.0.15,mountvers=3,mountport=683,mountproto=udp,local_lock=none
 
-        jiffies = readSymbol("jiffies")
-        HZ = sys_info.HZ
-        print("age: {}".format((jiffies - nfss.mount_time)/HZ))
+    jiffies = readSymbol("jiffies")
+    HZ = sys_info.HZ
+    print("age: {}".format((jiffies - nfss.mount_time)/HZ))
 
-        # TODO: caps, eg.:  caps: caps=0x3fcf,wtmult=4096,dtsize=4096,bsize=0,namlen=255
-        # TODO: /proc/self/mountstats nfsv4 output of: bm0, bm1, acl
-        # if nfss.nfs_client.rpc_ops.version == 4
+    # TODO: caps, eg.:  caps: caps=0x3fcf,wtmult=4096,dtsize=4096,bsize=0,namlen=255
+    # TODO: /proc/self/mountstats nfsv4 output of: bm0, bm1, acl
+    # if nfss.nfs_client.rpc_ops.version == 4
 
-        auth = nfss.client.cl_auth
-        print("sec: flavor={}".format(auth.au_ops.au_flavor), end=("" if auth.au_flavor else "\n"))
-        if auth.au_flavor:
-                print(",pseudoflavor={}".format(auth.au_flavor))
+    auth = nfss.client.cl_auth
+    print("sec: flavor={}".format(auth.au_ops.au_flavor), end=("" if auth.au_flavor else "\n"))
+    if auth.au_flavor:
+        print(",pseudoflavor={}".format(auth.au_flavor))
 
-        totals_events = {}
-        total_events_stats = get_enum_tag_value("__NFSIOS_COUNTSMAX", "nfs_stat_eventcounters")
-        totals_bytes = {}
-        total_bytes_stats = get_enum_tag_value("__NFSIOS_BYTESMAX", "nfs_stat_bytecounters")
-        totals_fscache = {}
-        total_fscache_stats = get_enum_tag_value("__NFSIOS_FSCACHEMAX", "nfs_stat_fscachecounters")
+    totals_events = {}
+    total_events_stats = get_enum_tag_value("__NFSIOS_COUNTSMAX", "nfs_stat_eventcounters")
+    totals_bytes = {}
+    total_bytes_stats = get_enum_tag_value("__NFSIOS_BYTESMAX", "nfs_stat_bytecounters")
+    totals_fscache = {}
+    total_fscache_stats = get_enum_tag_value("__NFSIOS_FSCACHEMAX", "nfs_stat_fscachecounters")
 
-        percpu = get_per_cpu()
-        first_cpu = 1
-        for c in percpu.cpu.keys():
-                io_stats = percpu.per_cpu_struct(c, nfss.io_stats, "nfs_iostats")
+    percpu = get_per_cpu()
+    first_cpu = 1
+    for c in percpu.cpu.keys():
+        io_stats = percpu.per_cpu_struct(c, nfss.io_stats, "nfs_iostats")
 
-                for i in range(0, total_events_stats):
-                        if first_cpu:
-                                totals_events[i] = 0
-                        totals_events[i] += io_stats.events[i]
-
-                for i in range(0, total_bytes_stats):
-                        if first_cpu:
-                                totals_bytes[i] = 0
-                        totals_bytes[i] += io_stats.bytes[i]
-
-                if nfss.options & LOCAL_DEFINES["NFS_OPTION_FSCACHE"]:
-                        for i in range(0, total_fscache_stats):
-                                if first_cpu:
-                                        totals_fscache[i] = 0
-                                totals_fscache[i] += io_stats.fscache[i]
-                first_cpu = 0
-
-        print("events:")
         for i in range(0, total_events_stats):
-                count_name = get_enum_string(i, "nfs_stat_eventcounters")
-                print("\t{:12}: {}".format(count_name, totals_events[i]))
+            if first_cpu:
+                totals_events[i] = 0
+            totals_events[i] += io_stats.events[i]
 
-        print("bytes:")
         for i in range(0, total_bytes_stats):
-                count_name = get_enum_string(i, "nfs_stat_bytecounters")
-                print("\t{:12}: {}".format(count_name, totals_bytes[i]))
+            if first_cpu:
+                totals_bytes[i] = 0
+            totals_bytes[i] += io_stats.bytes[i]
 
         if nfss.options & LOCAL_DEFINES["NFS_OPTION_FSCACHE"]:
-                print("fscache:")
-                for i in range(0, total_fscache_stats):
-                        count_name = get_enum_string(i, "nfs_stat_fscachecounters")
-                        print("\t{:12}: {}".format(count_name, totals_fscache[i]))
+            for i in range(0, total_fscache_stats):
+                if first_cpu:
+                    totals_fscache[i] = 0
+                totals_fscache[i] += io_stats.fscache[i]
+        first_cpu = 0
 
-        # TODO: xprt counts, such as:  xprt: tcp 849 1 1 0 275 12 12 0 14 0 2 0 2
+    print("events:")
+    for i in range(0, total_events_stats):
+        count_name = get_enum_string(i, "nfs_stat_eventcounters")
+        print("\t{:12}: {}".format(count_name, totals_events[i]))
 
-        show_rpc_clnt_iostats(nfss.client)
+    print("bytes:")
+    for i in range(0, total_bytes_stats):
+        count_name = get_enum_string(i, "nfs_stat_bytecounters")
+        print("\t{:12}: {}".format(count_name, totals_bytes[i]))
+
+    if nfss.options & LOCAL_DEFINES["NFS_OPTION_FSCACHE"]:
+        print("fscache:")
+        for i in range(0, total_fscache_stats):
+            count_name = get_enum_string(i, "nfs_stat_fscachecounters")
+            print("\t{:12}: {}".format(count_name, totals_fscache[i]))
+
+    # TODO: xprt counts, such as:  xprt: tcp 849 1 1 0 275 12 12 0 14 0 2 0 2
+
+    show_rpc_clnt_iostats(nfss.client)
 
 def call_foreach_argv(func):
-        for arg in sys.argv:
-                addr = arg_value(arg)
-                if addr != 0:
-                        func(addr)
+    for arg in sys.argv:
+        addr = arg_value(arg)
+        if addr != 0:
+            func(addr)
 
 
 # vim: sw=4 ts=4 noexpandtab
