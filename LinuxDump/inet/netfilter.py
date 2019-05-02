@@ -1,7 +1,7 @@
 # module LinuxDump.inet.netfilter
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2016 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2019 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -17,7 +17,6 @@
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
 
-from __future__ import print_function
 
 __doc__ = '''
 This is a package providing useful tables and functions for NETFILTER
@@ -65,9 +64,11 @@ enum nf_ip_hook_priorities {
 };
 '''
 
+
 # Does not work with our current implementation of CEnum - it cannot
 # process INT_MAX and INT_MIN
 #NF_IP_HOOK_PRIORITIES = CEnum(_NF_IP_HOOK_PRIORITIES_c)
+
 
 def nf():
     if (symbol_exists("nf_hooks")):
@@ -77,8 +78,13 @@ def nf():
         nf_hooks = readSymbol("nf_hooks")
     else:
         net_ns = get_ns_net()
-        nf_hooks = net_ns.nf.hooks
-        NPROTO, NF_MAX_HOOKS = len(nf_hooks), len(nf_hooks[0])
+        try:
+            nf_hooks = net_ns.nf.hooks
+            NPROTO, NF_MAX_HOOKS = len(nf_hooks), len(nf_hooks[0])
+        except KeyError:
+            print("  Netfilter analysis not implemented for this kernel yet")
+            return
+
     offset = member_offset("struct nf_hook_ops", "list")
     print ("NPROTO=%d, NF_MAX_HOOKS=%d" % (NPROTO, NF_MAX_HOOKS))
     if (offset == -1):

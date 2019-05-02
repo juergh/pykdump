@@ -1093,13 +1093,17 @@ def check_frozen_fs():
 # If v=0, print a summary only
 
 def print_blkreq(v=0):
-    # Request Queues per block_device
-    print_request_queues(v)
+    _msg = "   print_blkreq is not supported on this kernel"
+    try:
+        # Request Queues per block_device
+        print_request_queues(v)
 
-    # Waiting for softirq processing on blk_cpu_done
-    print_blk_cpu_done(v)
+        # Waiting for softirq processing on blk_cpu_done
+        print_blk_cpu_done(v)
 
-    print_request_slab(v)
+        print_request_slab(v)
+    except:
+        print(_msg)
 
 
 # Find stacks with functions matching the specified pattern
