@@ -11,6 +11,7 @@ collections/__init__.py
 contextlib.py
 copy.py
 copyreg.py
+cProfile.py
 datetime.py
 encodings/aliases.py
 encodings/ascii.py
@@ -28,6 +29,9 @@ gettext.py
 gzip.py
 heapq.py
 importlib/__init__.py
+importlib/abc.py
+importlib/machinery.py
+importlib/util.py
 io.py
 keyword.py
 linecache.py
@@ -37,11 +41,15 @@ operator.py
 optparse.py
 os.py
 pathlib.py
+pkgutil.py
 posixpath.py
 pprint.py
+profile.py
+pstats.py
 random.py
 reprlib.py
 re.py
+runpy.py
 selectors.py
 signal.py
 socket.py
