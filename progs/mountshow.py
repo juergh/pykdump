@@ -524,9 +524,9 @@ def show_rpc_clnt_iostats(addr):
         print("{}".format(rpc_proc_name(op, rpc_procinfo)), end='')
 
         if metrics.om_ops:
-            queue = float(readS64(metrics.om_queue)) / float(metrics.om_ops) / 1000000.0
-            rtt = float(readS64(metrics.om_rtt)) / float(metrics.om_ops) / 1000000.0
-            execute = float(readS64(metrics.om_execute)) / float(metrics.om_ops) / 1000000.0
+            queue = readS64(metrics.om_queue) / metrics.om_ops / 1000000.0
+            rtt = readS64(metrics.om_rtt) / metrics.om_ops / 1000000.0
+            execute = readS64(metrics.om_execute) / metrics.om_ops / 1000000.0
         else:
             queue = 0; rtt = 0 ; execute = 0
 
