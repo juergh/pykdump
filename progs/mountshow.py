@@ -458,18 +458,19 @@ def nfs_show_mount_options(n):
 def show_vfsmnt(v):
     # RHEL7 has a 'struct vfsmount' embedded in a 'struct mount'
     if member_size("struct vfsmount", "mnt_devname") > 0:
-        mnt = readSU("struct vfsmount", v)
+        mnt = vfsmount = readSU("struct vfsmount", v)
         sb = readSU("struct super_block", mnt.mnt_sb)
     else:
         mnt = readSU("struct mount", v)
         sb = readSU("struct super_block", mnt.mnt.mnt_sb)
+        vfsmount = readSU("struct vfsmount", mnt.mnt)
 
     if mnt.mnt_devname:
         print(mnt.mnt_devname, end='')
     else:
         print("none", end='')
     print(" ", end='')
-    print(get_pathname(mnt.mnt_mountpoint, mnt), end='')
+    print(get_pathname(mnt.mnt_mountpoint, vfsmount), end='')
     print(" ", end='')
     print(sb.s_type.name, end="")
     if __mnt_is_readonly(v):
