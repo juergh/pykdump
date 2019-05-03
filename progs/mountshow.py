@@ -27,6 +27,7 @@ __version__ = "0.1"
 from pykdump.API import *
 
 from LinuxDump.fs import *
+from LinuxDump.Time import ktime_t
 
 import socket
 import struct
@@ -506,6 +507,21 @@ def rpc_proc_name(op, procs):
         return "  {:20s}: ".format("NULL")
     return "  {:20d}: ".format(op)
 
+def _add_rpc_iostats(a, b):
+    a.om_ops += b.om_ops
+    a.om_ntrans += b.om_ntrans
+    a.om_timeouts += b.om_timeouts
+    a.om_bytes_sent += b.om_bytes_sent
+    a.om_bytes_recv += b.om_bytes_recv
+    a.om_queue += b.om_queue
+    a.om_rtt += b.om_rtt
+    a.om_execute += b.om_execute
+
+def convert_rpc_iostats_ktime_metrics(metrics):
+    metrics.om_queue = ktime_t(metrics.om_queue)
+    metrics.om_rtt = ktime_t(metrics.om_rtt)
+    metrics.om_execute = ktime_t(metrics.om_execute)
+
 def show_rpc_clnt_iostats(addr):
     cl = readSU("struct rpc_clnt", addr)
     stats = cl.cl_metrics
@@ -516,17 +532,27 @@ def show_rpc_clnt_iostats(addr):
         print("sorry, stats are NULL")
         return
 
+    cl_start = cl
     rpc_procinfo = cl.cl_procinfo
 
     print("  {:20}  {:>10s} {:>10} {:>7} {:>12} {:>12} {:>6} {:>6} {:>6}".format("", "ops", "trans", "tmout", "bytes sent", "bytes recv", "q/op", "rtt/op", "exe/op"))
     for op in range(0, maxproc):
         metrics = readSU("struct rpc_iostats", stats[op])
+        convert_rpc_iostats_ktime_metrics(metrics)
         print("{}".format(rpc_proc_name(op, rpc_procinfo)), end='')
 
+        cl = cl_start
+        while (cl != cl.cl_parent):
+            parent_cl = readSU("struct rpc_clnt", cl.cl_parent)
+            parent_metrics = readSU("struct rpc_iostats", parent_cl.cl_metrics[op])
+            convert_rpc_iostats_ktime_metrics(parent_metrics)
+            _add_rpc_iostats(metrics, parent_metrics)
+            cl = cl.cl_parent
+
         if metrics.om_ops:
-            queue = readS64(metrics.om_queue) / metrics.om_ops / 1000000.0
-            rtt = readS64(metrics.om_rtt) / metrics.om_ops / 1000000.0
-            execute = readS64(metrics.om_execute) / metrics.om_ops / 1000000.0
+            queue = metrics.om_queue / metrics.om_ops / 1000000.0
+            rtt = metrics.om_rtt / metrics.om_ops / 1000000.0
+            execute = metrics.om_execute / metrics.om_ops / 1000000.0
         else:
             queue = 0; rtt = 0 ; execute = 0
 
