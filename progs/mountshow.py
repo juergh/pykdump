@@ -627,7 +627,7 @@ if __name__ == '__main__':
     parser.add_argument("--mounts", dest="procmounts", default = 1,
                   action="store_true",
                   help="print equivalent of /proc/mounts for specified mount(s)")
-    parser.add_argument("--mountstats", dest="procmountstats", default = 0,
+    parser.add_argument("--stats", dest="procmountstats", default = 0,
                   action="store_true",
                   help="print equivalent of /proc/self/mountstats for specified mount(s)")
     # TODO: decide how to specify mount points: fstype, vfsmount, "all", etc
