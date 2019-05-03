@@ -552,7 +552,10 @@ def show_nfss_stats(m):
     # TODO: decode caps and other bitmaps
     print("caps: caps=0x%x, wtmult=%u, dtsize=%u, bsize=%u, namelen=%u" % ( nfss.caps, nfss.wtmult, nfss.dtsize, nfss.bsize, nfss.namelen))
     if nfss.nfs_client.rpc_ops.version == 4:
-        print("nfsv4: bm0=0x%x,bm1=0x%x,bm2=0x%x,acl=%x" % (nfss.attr_bitmask[0], nfss.attr_bitmask[1], nfss.attr_bitmask[2], nfss.acl_bitmask))
+        if member_size("struct nfs_server", "attr_bitmask") == 12:
+            print("nfsv4: bm0=0x%x,bm1=0x%x,bm2=0x%x,acl=%x" % (nfss.attr_bitmask[0], nfss.attr_bitmask[1], nfss.attr_bitmask[2], nfss.acl_bitmask))
+        else:
+            print("nfsv4: bm0=0x%x,bm1=0x%x,acl=%x" % (nfss.attr_bitmask[0], nfss.attr_bitmask[1], nfss.acl_bitmask))
 
     auth = nfss.client.cl_auth
     print("sec: flavor={}".format(auth.au_ops.au_flavor), end=("" if auth.au_flavor else "\n"))
