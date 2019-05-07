@@ -478,6 +478,13 @@ def nfs_show_mount_options(n):
     else:
         print(",addr=%s" % nfss.nfs_client.cl_hostname, end='\n')
 
+def supported_fstype(s_type):
+    if s_type != sym2addr("nfs_fs_type") and\
+       s_type != sym2addr("nfs4_fs_type"):
+          print("Skipping unsupported super_block type %s" % s_type.name)
+          return False
+    return True
+
 def show_vfsmnt(v):
     # RHEL7 has a 'struct vfsmount' embedded in a 'struct mount'
     if member_size("struct vfsmount", "mnt_devname") > 0:
@@ -487,6 +494,9 @@ def show_vfsmnt(v):
         mnt = readSU("struct mount", v)
         sb = readSU("struct super_block", mnt.mnt.mnt_sb)
         vfsmount = readSU("struct vfsmount", mnt.mnt)
+
+    if not supported_fstype(sb.s_type):
+        return
 
     if mnt.mnt_devname:
         print(mnt.mnt_devname, end='')
@@ -591,6 +601,10 @@ def show_nfss_stats(m):
     else:
         mnt = readSU("struct mount", m)
         sb = readSU("struct super_block", mnt.mnt.mnt_sb)
+
+    if not supported_fstype(sb.s_type):
+        return
+
     nfss = readSU("struct nfs_server", sb.s_fs_info)
 
     # TODO: mount options, ala /proc/self/mountinfo
