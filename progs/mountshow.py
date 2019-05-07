@@ -749,5 +749,5 @@ if __name__ == '__main__':
             v = int(sv, 16)
         if (o.procmounts):
              show_vfsmnt(v)
-        elif (o.procmountstats):
+        if (o.procmountstats):
             show_nfss_stats(v)
