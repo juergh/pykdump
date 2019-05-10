@@ -44,7 +44,8 @@ def findTaskByPid(task_id):
     init_task = readSymbol("init_task")
     for task in readSUListFromHead(init_task.tasks,
                                    "tasks",
-                                   "struct task_struct"):
+                                   "struct task_struct",
+                                   maxel=1000000):
         if (task.pid == task_id or task.tgid == task_id):
             return task
 
@@ -139,7 +140,8 @@ def print_branch(depth, first):
 def get_thread_count(task):
     thread_list = readSUListFromHead(task.thread_group,
                                      'thread_group',
-                                     'struct task_struct');
+                                     'struct task_struct',
+                                     maxel=1000000);
     return len(thread_list)
 
 def print_task(task, depth, first, options):
@@ -197,7 +199,8 @@ def print_children(task, depth, options):
     first = True
     child_list = readSUListFromHead(task.children,
                                     'sibling',
-                                    'struct task_struct')
+                                    'struct task_struct',
+                                    maxel=1000000)
     for idx, child in enumerate(child_list):
         if (idx == len(child_list) - 1):
             branch_bar[depth - 1] = LineType.LINE_LAST
