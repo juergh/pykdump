@@ -7,6 +7,7 @@
 #
 # Contributors:
 # - Dave Wysochanski: Rename script and cleanup for upstream submit
+# - Alex Sidorenko: improving options parsing
 # --------------------------------------------------------------------
 #
 # This program is free software; you can redistribute it and/or modify
@@ -18,8 +19,6 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-
-from __future__ import print_function
 
 __author__ = "Scott Mayhew / Frank Sorenson"
 __version__ = "0.1"
@@ -282,7 +281,12 @@ def xs_local_print_stats(xprt):
     if xprt_connected(xprt):
         idle_time = (readSymbol("jiffies") - xprt.last_used) / sys_info.HZ
 
-    print("xprt:  local %lu %lu %lu %ld %lu %lu %lu %llu %llu %lu %llu %llu" % (xprt.stat.bind_count, xprt.stat.connect_count, xprt.stat.connect_time / sys_info.HZ, idle_time, xprt.stat.sends, xprt.stat.recvs, xprt.stat.bad_xids, xprt.stat.req_u, xprt.stat.bklog_u, xprt.stat.max_slots, xprt.stat.sending_u, xprt.stat.pending_u))
+    print("xprt:  local %lu %lu %lu %ld %lu %lu %lu %llu %llu %lu %llu %llu" % \
+          (xprt.stat.bind_count, xprt.stat.connect_count,
+           xprt.stat.connect_time / sys_info.HZ, idle_time, xprt.stat.sends,
+           xprt.stat.recvs, xprt.stat.bad_xids, xprt.stat.req_u,
+           xprt.stat.bklog_u, xprt.stat.max_slots, xprt.stat.sending_u,
+           xprt.stat.pending_u))
 
 def xs_tcp_print_stats(xprt):
     transport = container_of(xprt, "struct sock_xprt", "xprt");
@@ -290,11 +294,28 @@ def xs_tcp_print_stats(xprt):
     if xprt_connected(xprt):
         idle_time = (readSymbol("jiffies") - xprt.last_used) / sys_info.HZ
 
-    print("xprt:  tcp %u %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu" % (transport.srcport, xprt.stat.bind_count, xprt.stat.connect_count, xprt.stat.connect_time / sys_info.HZ, idle_time, xprt.stat.sends, xprt.stat.recvs, xprt.stat.bad_xids, xprt.stat.req_u, xprt.stat.bklog_u, xprt.stat.max_slots, xprt.stat.sending_u, xprt.stat.pending_u) )
+    try:
+        print("xprt:  tcp %u %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu" %\
+              (transport.srcport, xprt.stat.bind_count, xprt.stat.connect_count,
+               xprt.stat.connect_time / sys_info.HZ, idle_time, xprt.stat.sends,
+               xprt.stat.recvs, xprt.stat.bad_xids, xprt.stat.req_u,
+               xprt.stat.bklog_u, xprt.stat.max_slots, xprt.stat.sending_u,
+               xprt.stat.pending_u))
+    except KeyError:
+        print("xprt:  tcp %u %lu %lu %lu %lu %lu %lu %lu %lu %lu" %\
+              (transport.srcport, xprt.stat.bind_count, xprt.stat.connect_count,
+               xprt.stat.connect_time / sys_info.HZ, idle_time, xprt.stat.sends,
+               xprt.stat.recvs, xprt.stat.bad_xids, xprt.stat.req_u,
+               xprt.stat.bklog_u))
+
 
 def xs_udp_print_stats(xprt):
     transport = container_of(xprt, "struct sock_xprt", "xprt");
-    print("xprt:  udp %u %lu %lu %lu %lu %lu %lu %lu %lu %lu" % (transport.srcport, xprt.stat.bind_count, xprt.stat.sends, xprt.stat.recvs, xprt.stat.bad_xids, xprt.stat.req_u, xprt.stat.bklog_u, xprt.stat.max_slots, xprt.stat.sending_u, xprt.stat.pending_u))
+    print("xprt:  udp %u %lu %lu %lu %lu %lu %lu %lu %lu %lu" % \
+          (transport.srcport, xprt.stat.bind_count, xprt.stat.sends,
+           xprt.stat.recvs, xprt.stat.bad_xids, xprt.stat.req_u,
+           xprt.stat.bklog_u, xprt.stat.max_slots, xprt.stat.sending_u,
+           xprt.stat.pending_u))
 
 def rpc_xprt_print_stats(clnt):
     xprt = readSU("struct rpc_clnt", clnt).cl_xprt
@@ -449,12 +470,20 @@ def nfs_show_mount_options(n):
         print(",local_lock=flock", end='')
     else:
         print(",local_lock=posix")
-    # NB: in the kernel, this is done by nfs_show_options, which calls nfs_show_mount_options
+    # NB: in the kernel, this is done by nfs_show_options, which calls
+    # nfs_show_mount_options
     # RHEL5 does not have rpc_xprt.address_strings
     if member_size("struct rpc_xprt", "address_strings") > 0:
         print(",addr=%s" % rpc_peeraddr2str(nfss.client, RPC_DISPLAY_FORMAT.RPC_DISPLAY_ADDR), end='\n')
     else:
         print(",addr=%s" % nfss.nfs_client.cl_hostname, end='\n')
+
+def supported_fstype(s_type):
+    if s_type != sym2addr("nfs_fs_type") and\
+       s_type != sym2addr("nfs4_fs_type"):
+          print("Skipping unsupported super_block type %s" % s_type.name)
+          return False
+    return True
 
 def show_vfsmnt(v):
     # RHEL7 has a 'struct vfsmount' embedded in a 'struct mount'
@@ -465,6 +494,9 @@ def show_vfsmnt(v):
         mnt = readSU("struct mount", v)
         sb = readSU("struct super_block", mnt.mnt.mnt_sb)
         vfsmount = readSU("struct vfsmount", mnt.mnt)
+
+    if not supported_fstype(sb.s_type):
+        return
 
     if mnt.mnt_devname:
         print(mnt.mnt_devname, end='')
@@ -556,7 +588,10 @@ def show_rpc_clnt_iostats(addr):
         else:
             queue = 0; rtt = 0 ; execute = 0
 
-        print("{:10d} {:10d} {:7d} {:12d} {:12d} {:6.2f} {:6.2f} {:6.2f}".format(metrics.om_ops, metrics.om_ntrans, metrics.om_timeouts, metrics.om_bytes_sent, metrics.om_bytes_recv, queue, rtt, execute))
+        print("{:10d} {:10d} {:7d} {:12d} {:12d} {:6.2f} {:6.2f} {:6.2f}".\
+              format(metrics.om_ops, metrics.om_ntrans, metrics.om_timeouts,
+                     metrics.om_bytes_sent, metrics.om_bytes_recv, queue, rtt,
+                     execute))
 
 def show_nfss_stats(m):
     # RHEL7 has a 'struct vfsmount' embedded in a 'struct mount'
@@ -566,6 +601,10 @@ def show_nfss_stats(m):
     else:
         mnt = readSU("struct mount", m)
         sb = readSU("struct super_block", mnt.mnt.mnt_sb)
+
+    if not supported_fstype(sb.s_type):
+        return
+
     nfss = readSU("struct nfs_server", sb.s_fs_info)
 
     # TODO: mount options, ala /proc/self/mountinfo
@@ -576,12 +615,17 @@ def show_nfss_stats(m):
     print("age: {}".format((jiffies - nfss.mount_time)/HZ))
 
     # TODO: decode caps and other bitmaps
-    print("caps: caps=0x%x, wtmult=%u, dtsize=%u, bsize=%u, namelen=%u" % ( nfss.caps, nfss.wtmult, nfss.dtsize, nfss.bsize, nfss.namelen))
+    print("caps: caps=0x%x, wtmult=%u, dtsize=%u, bsize=%u, namelen=%u" %\
+          ( nfss.caps, nfss.wtmult, nfss.dtsize, nfss.bsize, nfss.namelen))
     if nfss.nfs_client.rpc_ops.version == 4:
         if member_size("struct nfs_server", "attr_bitmask") == 12:
-            print("nfsv4: bm0=0x%x,bm1=0x%x,bm2=0x%x,acl=%x" % (nfss.attr_bitmask[0], nfss.attr_bitmask[1], nfss.attr_bitmask[2], nfss.acl_bitmask))
+            print("nfsv4: bm0=0x%x,bm1=0x%x,bm2=0x%x,acl=%x" % \
+                  (nfss.attr_bitmask[0], nfss.attr_bitmask[1],
+                   nfss.attr_bitmask[2], nfss.acl_bitmask))
         else:
-            print("nfsv4: bm0=0x%x,bm1=0x%x,acl=%x" % (nfss.attr_bitmask[0], nfss.attr_bitmask[1], nfss.acl_bitmask))
+            print("nfsv4: bm0=0x%x,bm1=0x%x,acl=%x" % \
+                  (nfss.attr_bitmask[0], nfss.attr_bitmask[1],
+                   nfss.acl_bitmask))
 
     auth = nfss.client.cl_auth
     print("sec: flavor={}".format(auth.au_ops.au_flavor), end=("" if auth.au_flavor else "\n"))
@@ -653,20 +697,57 @@ def process_one_arg(args, v):
 if __name__ == '__main__':
     import argparse
     parser = argparse.ArgumentParser()
-    parser.add_argument("--mounts", dest="procmounts", default = 1,
+    parser.add_argument("--mounts", dest="procmounts",
                   action="store_true",
-                  help="print equivalent of /proc/mounts for specified mount(s)")
-    parser.add_argument("--stats", dest="procmountstats", default = 0,
+                  help="print equivalent of /proc/mounts for specified" \
+                        " mount(s). If there are no other options set," \
+                        " --mounts is optional")
+    parser.add_argument("--stats", dest="procmountstats",
                   action="store_true",
-                  help="print equivalent of /proc/self/mountstats for specified mount(s)")
+                  help="print equivalent of /proc/self/mountstats for "
+                        "specified mount(s)")
     # TODO: decide how to specify mount points: fstype, vfsmount, "all", etc
-    parser.add_argument('mount', help='- rhel7+ use mount, otherwise vfsmount, -1 == all', type=auto_int, nargs='+')
-    args = parser.parse_args()
-    for arg in sys.argv:
-        v = arg_value(arg)
-        if v != 0 and v != -1:
-            process_one_arg(args, v)
-        if v == -1:
-            for v, s, fstype, d, m in getMount():
-                if (fstype in ("nfs", "nfs4")):
-                    process_one_arg(args, v)
+    parser.add_argument('mount', help='- specify  mount/vfsmount addr '
+                        ' or mountpoint name. If there are no positional'
+                        ' arguments, print info for all NFS mounts', nargs='*')
+    o = parser.parse_args()
+
+    # If we do not have any options - just positional arguments - treat it
+    # as --mounts
+
+    if (o.procmountstats is False):
+        o.procmounts = True
+    mnts = o.mount
+
+    vfs_list = []
+    mnt2vfs = {}
+    for v, s, fstype, d, m in getMount():
+        if (fstype in ("nfs", "nfs4")):
+            vfs_list.append(v)
+            mnt2vfs[m] = v
+
+    if (not mnts):
+        mnts = vfs_list
+
+    for sv in mnts:
+        # If sv is an integer, this is vfs
+        # If arg starts from '/', intepret it as a mountpoint (string)
+        # Otherwise, try converting it to hex
+        if (isinstance(sv, int)):
+            v = sv
+        elif (sv.startswith("/")):
+            # Strip final '/' if any
+            if (sv.endswith('/')):
+                sv = sv[:-1]
+            # Search for it in mountpoints
+            if (sv in mnt2vfs):
+                v = mnt2vfs[sv]
+            else:
+                print("  Nothing is mounted at {}".format(sv))
+                continue
+        else:
+            v = int(sv, 16)
+        if (o.procmounts):
+             show_vfsmnt(v)
+        if (o.procmountstats):
+            show_nfss_stats(v)
