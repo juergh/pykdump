@@ -5,6 +5,8 @@ from LinuxDump.trees import *
 
 from LinuxDump.fs.fs_h import FILE_MODE_FLAGS
 
+import textwrap
+
 __NFS4_CLIENT_STATE='''
 enum nfs4_client_state {
         NFS4CLNT_MANAGER_RUNNING  = 0,
@@ -158,11 +160,18 @@ class nfs_server():
                          SERVER_CAPABILITIES.NFS_CAP_STATEID_NFSV41: "NFS_CAP_STATEID_NFSV41",
                          SERVER_CAPABILITIES.NFS_CAP_ATOMIC_OPEN_V1: "NFS_CAP_ATOMIC_OPEN_V1"
         }
-        print("- caps (capabilities) = 0x%x " % self.server.caps, end='')
+        # print("- caps (capabilities) = 0x%x " % self.server.caps, end='')
+        # for c in capabilities:
+        #     if self.server.caps & (1 << c):
+        #         print(capabilities[c], end=' ')
+        # print(" ");
+        out = ["- caps (capabilities) = 0x%x" % self.server.caps]
         for c in capabilities:
             if self.server.caps & (1 << c):
-                print(capabilities[c], end=' ')
-        print(" ");
+                out.append(capabilities[c])
+        cstr = ' '.join(out)
+        print(textwrap.fill(cstr, initial_indent='',
+               subsequent_indent='       '))
 
     def print_state_owners(self):
         print("nfs_server.state_owners list:")
@@ -185,9 +194,15 @@ class nfs_server():
         print("- acregmin = %d, acregmax = %d, acdirmin = %d, acdirmax = %d" %(self.server.acregmin, self.server.acregmax, self.server.acdirmin, self.server.acdirmax))
         self.print_capabilities()
         if with_open_owners:
-            self.print_state_owners()
+            try:
+                self.print_state_owners()
+            except KeyError:
+                print(" state owners analysis not implemented for this kernel")
         if with_delegations:
-            self.print_delegations()
+            try:
+                self.print_delegations()
+            except KeyError:
+                print(" delegations analysis not implemented for this kernel")
 
 
 __NFS4_STATE_OWNER_FLAGS='''

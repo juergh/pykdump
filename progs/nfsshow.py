@@ -9,7 +9,7 @@
 
 # Print info about NFS/RPC
 
-__version__ = "1.0.6"
+__version__ = "1.1.0"
 
 from collections import (Counter, OrderedDict, defaultdict)
 import itertools
@@ -44,8 +44,11 @@ from LinuxDump.BTstack import (exec_bt, bt_mergestacks, fastSubroutineStacks,
                                verifyFastSet)
 
 # Arguments analysis
-from LinuxDump.Analysis import (get_tentative_arg, 
+from LinuxDump.Analysis import (get_tentative_arg,
                                 get_interesting_arguments)
+
+# NFSv4-specific
+import LinuxDump.fs.nfs4_fs_h as Nfs4
 
 import string, struct
 from socket import ntohl, ntohs, htonl, htons
@@ -253,7 +256,7 @@ def getCache(cname):
     try:
         unsupported = not bool(table.hasField("next"))
     except AttributeError:
-        unsupported = False        
+        unsupported = False
     if (unsupported):
         print ("No support yet for NFS cache details, will be added later")
         return []
@@ -392,7 +395,7 @@ def print_svc_export(exp):
             out.append(s)
     if (flags & __NFSEXP_BITS.NFSEXP_FSID):
         out.append("fsid={}".format(exp.ex_fsid))
-            
+
     # UUID
     if (exp.ex_uuid):
         out1 = ["uuid="]
@@ -402,12 +405,12 @@ def print_svc_export(exp):
             out1.append("{:02x}".format(exp.ex_uuid[i]))
         uuid = ''.join(out1)
         out.append(uuid)
-        
+
     # show_secinfo part
-    
+
     # Now assemble options line and print it
     print(','.join(out))
-                
+
 
 # NFS Export Cache (as reported by /proc/net/rpc/nfsd.export/contents)
 def print_nfsd_export(v=0):
@@ -621,15 +624,15 @@ def print_xprt(xprt, v = 0):
         print ("        last_used %s s ago" % __j_delay(xprt.last_used, jiffies))
         if (v < 1):
             return
-        
+
         socket = sock_xprt.sock     # struct socket
         sk = socket.sk              # struct sock
         # IP
         ip_sock = IP_sock(sk)
-        # Compact str(ip_sock) 
+        # Compact str(ip_sock)
         s = ' '.join(str(ip_sock).split())
         print("       ", s)
-        
+
         for qn in ("binding", "sending","resend", "pending", "backlog"):
             try:
                 print ("        len(%s) queue is %d" % (qn,
@@ -645,7 +648,7 @@ def print_xprt(xprt, v = 0):
         # Null pointer and invalid addr
         return
     print("")
-    
+
 # decode/print svc_xprt
 def print_svc_xprt(xprt, v = 0, indent = 0):
     indent_str = ' ' * indent
@@ -825,7 +828,7 @@ class _NFS_Tables():
         self.nfs_cli_list = []
         # list of all structs refering to this struct rpc_clnt
         self.rpc_cl = defaultdict(list)
-        
+
         for hostname, srv, mnt in get_nfs_mounts():
             self.srv_list.append(srv)
             self.srv_mount[srv] = mnt
@@ -847,7 +850,7 @@ class _NFS_Tables():
     # get all know structures referring to a given rpc_clnt
     def get_rpc_cl_friends(self, addr):
         return self.rpc_cl.get(addr, [])
-    
+
 #@memoize_cond(CU_LIVE |CU_PYMOD)
 def NFS_Tables():
     return _NFS_Tables()
@@ -1026,46 +1029,56 @@ def print_remote_nfs_server(nfs, mntpath):
     # Stats for nfs_server (struct nfs_iostats *io_stats;) are not very
     # interesting (just events/bytes per cpu). So let us rather print
     # stats for nfs_client
+    #nfsv4_server = Nfs4.nfs_server(nfs)
+    #nfsv4_server.print_verbose(o.owner, o.lock, o.delegation)
+
 
 
 
 def print_nfsmount(v = 0):
     my_ipv4, my_ipv6 = netdevice.get_host_IPs()
-    if (v):
-        print (" Mounted NFS-shares ".center(70, '-'))
-    else:
-        # Object to be used for summary
-        count_all = 0
-        count_flag = Counter()
-        count_caps = Counter()
+    # First, prepare a summary
+    #    print (" Mounted NFS-shares ".center(70, '-'))
+
+    # Object to be used for summary
+    count_all = 0
+    count_flag = Counter()
+    count_caps = Counter()
+
     nfstable = NFS_Tables()
 
     for srv, mnt in nfstable.get_nfs_servers():
-        if(v):
-            print_remote_nfs_server(srv, mnt)
-        else:
-            # Prepare a summary
-            count_all += 1
-            count_flag[dbits2str(srv.flags, NFS_flags, 10)] += 1
-            count_caps[dbits2str(srv.caps, NFS_caps, 8)] += 1
-    if (v == 0 and count_all):
+        # Prepare a summary
+        count_all += 1
+        count_flag[dbits2str(srv.flags, NFS_flags, 10)] += 1
+        count_caps[dbits2str(srv.caps, NFS_caps, 8)] += 1
+    if (count_all):
         # Print a summary
-        print(" {} mounted shares, by flags/caps:".format(count_all))
+        print(" -- {} mounted shares, by flags/caps:".format(count_all))
         for k, val in count_flag.items():
             print ("  {:3d} shares with flags=<{}>".format(val, k))
         for k, val in count_caps.items():
             print ("  {:3d} shares with caps=<{}>".format(val, k))
-    nfs_clients = nfstable.get_nfs_clients()
-    if (nfs_clients):
-        print ("  ............. struct nfs_client .....................")
+
     # idmap with busy waitqueues, if any. At this moment it works for older
     # kernels only (e.g. RHEL6), on newer kernels there is no 'idmap_wq' field
     idmap_busy = {}
-    for nfs_cl in nfs_clients:
+    for srv, mnt in nfstable.get_nfs_servers():
+        print ("   ---%s %s:%s" % (str(srv), srv.Hostname, mnt))
+        print ("       flags=<%s>," % dbits2str(srv.flags, NFS_flags, 10), end='')
+        print (" caps=<%s>" % dbits2str(srv.caps, NFS_caps, 8), end='')
+        print (" rsize=%d, wsize=%d" % (srv.rsize, srv.wsize))
+
+        nfs_cl = srv.nfs_client
         # At this moment, only IPv4
         addr_in = nfs_cl.cl_addr.castTo("struct sockaddr_in")
         ip = ntodots(addr_in.sin_addr.s_addr)
-        print ("     ---", nfs_cl, nfs_cl.cl_hostname, ip)
+        # Version
+        nfs_major_vers = nfs_cl.rpc_ops.version
+        nfsvers = "{}.{}".format(nfs_major_vers, nfs_cl.cl_minorversion)
+        print("       NFS version: {}".format(nfsvers))
+
+        print ("    ---", nfs_cl, nfs_cl.cl_hostname, ip)
         if (ip in my_ipv4):
             pylog.warning("NFS loopback mount -> {}".format(ip))
 
@@ -1073,7 +1086,8 @@ def print_nfsmount(v = 0):
             # Print owner_id if available
             try:
                 cl_owner_id = nfs_cl.cl_owner_id
-                print("     ", cl_owner_id)
+                if (cl_owner_id):
+                    print("     ", cl_owner_id)
             except:
                 pass
         # Check idmap queues
@@ -1099,6 +1113,14 @@ def print_nfsmount(v = 0):
         xprt = rpc_clnt.cl_xprt
         print_xprt(xprt, detail)
         #print rpc_clnt, rpc_clnt.cl_metrics
+
+        # NFSv4 specific
+        if (nfs_major_vers == 4 and v > 1):
+            nfsv4_client = Nfs4.nfs_client(nfs_cl)
+            nfsv4_client.print_verbose()
+            nfsv4_server = Nfs4.nfs_server(srv)
+            nfsv4_server.print_verbose(1, 1, 1)
+
 
     if (idmap_busy):
         print ("\n  ............. idmap with busy workqueues .................")
@@ -1225,7 +1247,7 @@ def find_all_NFS(v = 0):
     pids = _funcpids(re.compile("nfs|rpc"))
     for pid in pids:
         print_pid_NFS_stuff(pid, v)
- 
+
 # --- look at this PID to see whether we can find anything interesting
 # related to NFS/RPC
 
@@ -1265,7 +1287,7 @@ def __nfs_default_decoder(obj, funcname):
 def __nfs_decode_path(path, func):
     pathname = get_pathname(path.dentry, path.mnt)
     print("     ⮡{}".format(pathname))
-    
+
 def __nfs_decode_inode(inode, func):
     nfs_server = NFS_SERVER(inode)
     print("    ⮡", nfs_server)
@@ -1446,7 +1468,7 @@ if ( __name__ == '__main__'):
     parser.add_argument("--maxrpctasks", dest="Maxrpctasks", default = 20,
                   type=int, action="store",
                   help="Maximum number of RPC tasks tp print")
-    
+
     parser.add_argument("--locks", dest="Locks", default = 0,
                     action="store_true",
                     help="print NLM locks")
@@ -1510,7 +1532,8 @@ if ( __name__ == '__main__'):
         print_deferred(detail)
 
     # If no options have been provided, print just a summary
-    if (len(sys.argv) > 1 and not detail):
+    rargs = len(sys.argv) - 1
+    if (not (rargs == 0 or rargs == 1 and detail)):
         sys.exit(0)
 
     if (get_nfs_mounts()):
@@ -1522,6 +1545,3 @@ if ( __name__ == '__main__'):
     # RPC tasks
     print(" RPC ".center(70, '='))
     print_all_rpc_tasks(-1)
-
-
-
