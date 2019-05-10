@@ -24,7 +24,7 @@ from pykdump.API import *
 from LinuxDump import Tasks
 from LinuxDump import crashcolor
 import sys
-import crashhelper
+from LinuxDump import crashhelper
 
 module_list = []
 def load_module_details():
