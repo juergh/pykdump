@@ -245,8 +245,8 @@ def __mnt_is_readonly(v):
     return False
 
 def show_sb_opts(s):
-    fs_info = { MS_FLAGS.MS_SYNCHRONOUS: ",sync",\
-        MS_FLAGS.MS_DIRSYNC: ",dirsync",\
+    fs_info = { MS_FLAGS.MS_SYNCHRONOUS: ",sync",
+        MS_FLAGS.MS_DIRSYNC: ",dirsync",
         MS_FLAGS.MS_MANDLOCK: ",mand"
     }
     sb = readSU("struct super_block", s)
@@ -255,12 +255,12 @@ def show_sb_opts(s):
             print(fs_info[flag], end='')
 
 def show_mnt_opts(v):
-    mnt_info = { MNT_FLAGS.MNT_NOSUID: ",nosuid",\
-        MNT_FLAGS.MNT_NODEV: ",nodev",\
-        MNT_FLAGS.MNT_NOEXEC: ",noexec",\
-        MNT_FLAGS.MNT_NOATIME: ",noatime",\
-        MNT_FLAGS.MNT_NODIRATIME: ",nodiratime",\
-        MNT_FLAGS.MNT_RELATIME: ",relatime",\
+    mnt_info = { MNT_FLAGS.MNT_NOSUID: ",nosuid",
+        MNT_FLAGS.MNT_NODEV: ",nodev",
+        MNT_FLAGS.MNT_NOEXEC: ",noexec",
+        MNT_FLAGS.MNT_NOATIME: ",noatime",
+        MNT_FLAGS.MNT_NODIRATIME: ",nodiratime",
+        MNT_FLAGS.MNT_RELATIME: ",relatime",
         MNT_FLAGS.MNT_STRICTATIME: ",strictatime"
     }
     mnt = readSU("struct vfsmount", v)
@@ -285,7 +285,7 @@ def xs_local_print_stats(xprt):
     if xprt_connected(xprt):
         idle_time = (readSymbol("jiffies") - xprt.last_used) / sys_info.HZ
 
-    print("xprt:  local %lu %lu %lu %ld %lu %lu %lu %llu %llu %lu %llu %llu" % \
+    print("xprt:  local %lu %lu %lu %ld %lu %lu %lu %llu %llu %lu %llu %llu" %
           (xprt.stat.bind_count, xprt.stat.connect_count,
            xprt.stat.connect_time / sys_info.HZ, idle_time, xprt.stat.sends,
            xprt.stat.recvs, xprt.stat.bad_xids, xprt.stat.req_u,
@@ -299,14 +299,14 @@ def xs_tcp_print_stats(xprt):
         idle_time = (readSymbol("jiffies") - xprt.last_used) / sys_info.HZ
 
     try:
-        print("xprt:  tcp %u %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu" %\
+        print("xprt:  tcp %u %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu" %
               (transport.srcport, xprt.stat.bind_count, xprt.stat.connect_count,
                xprt.stat.connect_time / sys_info.HZ, idle_time, xprt.stat.sends,
                xprt.stat.recvs, xprt.stat.bad_xids, xprt.stat.req_u,
                xprt.stat.bklog_u, xprt.stat.max_slots, xprt.stat.sending_u,
                xprt.stat.pending_u))
     except KeyError:
-        print("xprt:  tcp %u %lu %lu %lu %lu %lu %lu %lu %lu %lu" %\
+        print("xprt:  tcp %u %lu %lu %lu %lu %lu %lu %lu %lu %lu" %
               (transport.srcport, xprt.stat.bind_count, xprt.stat.connect_count,
                xprt.stat.connect_time / sys_info.HZ, idle_time, xprt.stat.sends,
                xprt.stat.recvs, xprt.stat.bad_xids, xprt.stat.req_u,
@@ -315,7 +315,7 @@ def xs_tcp_print_stats(xprt):
 
 def xs_udp_print_stats(xprt):
     transport = container_of(xprt, "struct sock_xprt", "xprt");
-    print("xprt:  udp %u %lu %lu %lu %lu %lu %lu %lu %lu %lu" % \
+    print("xprt:  udp %u %lu %lu %lu %lu %lu %lu %lu %lu %lu" %
           (transport.srcport, xprt.stat.bind_count, xprt.stat.sends,
            xprt.stat.recvs, xprt.stat.bad_xids, xprt.stat.req_u,
            xprt.stat.bklog_u, xprt.stat.max_slots, xprt.stat.sending_u,
@@ -425,7 +425,7 @@ def nfs_show_mount_options(n):
             print(nfs_info[flag][1], end='')
     # RHEL5 does not have rpc_xprt.address_strings
     if member_size("struct rpc_xprt", "address_strings") > 0:
-        print(",proto=%s" % rpc_peeraddr2str(nfss.client,\
+        print(",proto=%s" % rpc_peeraddr2str(nfss.client,
               RPC_DISPLAY_FORMAT.RPC_DISPLAY_NETID), end='')
     else:
         if nfss.client.cl_xprt.prot == 6:
@@ -446,13 +446,13 @@ def nfs_show_mount_options(n):
     if member_size("struct nfs_client", "retrans_timeo") > 0:
         print(",timeo=%lu" % (10 * clp.retrans_timeo / HZ), end='')
     else:
-        print(",timeo=%lu" %\
+        print(",timeo=%lu" %
               (10 * nfss.client.cl_timeout.to_initval / HZ), end='')
     if member_size("struct nfs_client", "retrans_count") > 0:
         print(",retrans=%u" % clp.retrans_count, end='')
     else:
         print(",retrans=%u" % nfss.client.cl_timeout.to_retries, end='')
-    print(",sec=%s" %\
+    print(",sec=%s" %
           nfs_pseudoflavor_to_name(nfss.client.cl_auth.au_flavor), end='')
     if version != 4:
         nfs_show_mountd_options(nfss)
@@ -481,7 +481,7 @@ def nfs_show_mount_options(n):
     # nfs_show_mount_options
     # RHEL5 does not have rpc_xprt.address_strings
     if member_size("struct rpc_xprt", "address_strings") > 0:
-        print(",addr=%s" % rpc_peeraddr2str(nfss.client,\
+        print(",addr=%s" % rpc_peeraddr2str(nfss.client,
               RPC_DISPLAY_FORMAT.RPC_DISPLAY_ADDR), end='\n')
     else:
         print(",addr=%s" % nfss.nfs_client.cl_hostname, end='\n')
@@ -532,8 +532,8 @@ def auto_int(x):
 
 # emulate /proc/self/mountstats
 
-from LinuxDump.libmisc import get_enum_tag_value, get_enum_string,\
-                              arg_value, get_per_cpu
+from LinuxDump.libmisc import (get_enum_tag_value, get_enum_string,
+                              arg_value, get_per_cpu)
 
 
 LOCAL_DEFINES_C = '''
@@ -576,9 +576,9 @@ def show_rpc_clnt_iostats(addr):
     cl_start = cl
     rpc_procinfo = cl.cl_procinfo
 
-    print("  {:20}  {:>10s} {:>10} {:>7} "\
-          "{:>12} {:>12} {:>6} {:>6} {:>6}".format(\
-          "", "ops", "trans", "tmout",\
+    print("  {:20}  {:>10s} {:>10} {:>7} "
+          "{:>12} {:>12} {:>6} {:>6} {:>6}"
+          .format("", "ops", "trans", "tmout",
           "bytes sent", "bytes recv", "q/op", "rtt/op", "exe/op"))
     for op in range(0, maxproc):
         metrics = readSU("struct rpc_iostats", stats[op])
@@ -601,10 +601,12 @@ def show_rpc_clnt_iostats(addr):
         else:
             queue = 0; rtt = 0 ; execute = 0
 
-        print("{:10d} {:10d} {:7d} {:12d} {:12d} {:6.2f} {:6.2f} {:6.2f}".\
-              format(metrics.om_ops, metrics.om_ntrans, metrics.om_timeouts,
-                     metrics.om_bytes_sent, metrics.om_bytes_recv, queue, rtt,
-                     execute))
+        print("{:10d} {:10d} {:7d} "
+              "{:12d} {:12d} {:6.2f} "
+              "{:6.2f} {:6.2f}"
+              .format(metrics.om_ops, metrics.om_ntrans, metrics.om_timeouts,
+                      metrics.om_bytes_sent, metrics.om_bytes_recv, queue,
+                      rtt, execute))
 
 def show_nfss_stats(m):
     # RHEL7 has a 'struct vfsmount' embedded in a 'struct mount'
@@ -628,32 +630,32 @@ def show_nfss_stats(m):
     print("age: {}".format((jiffies - nfss.mount_time)/HZ))
 
     # TODO: decode caps and other bitmaps
-    print("caps: caps=0x%x, wtmult=%u, dtsize=%u, bsize=%u, namelen=%u" %\
+    print("caps: caps=0x%x, wtmult=%u, dtsize=%u, bsize=%u, namelen=%u" %
           ( nfss.caps, nfss.wtmult, nfss.dtsize, nfss.bsize, nfss.namelen))
     if nfss.nfs_client.rpc_ops.version == 4:
         if member_size("struct nfs_server", "attr_bitmask") == 12:
-            print("nfsv4: bm0=0x%x,bm1=0x%x,bm2=0x%x,acl=%x" % \
+            print("nfsv4: bm0=0x%x,bm1=0x%x,bm2=0x%x,acl=%x" %
                   (nfss.attr_bitmask[0], nfss.attr_bitmask[1],
                    nfss.attr_bitmask[2], nfss.acl_bitmask))
         else:
-            print("nfsv4: bm0=0x%x,bm1=0x%x,acl=%x" % \
+            print("nfsv4: bm0=0x%x,bm1=0x%x,acl=%x" %
                   (nfss.attr_bitmask[0], nfss.attr_bitmask[1],
                    nfss.acl_bitmask))
 
     auth = nfss.client.cl_auth
-    print("sec: flavor={}".format(auth.au_ops.au_flavor),\
+    print("sec: flavor={}".format(auth.au_ops.au_flavor),
           end=("" if auth.au_flavor else "\n"))
     if auth.au_flavor:
         print(",pseudoflavor={}".format(auth.au_flavor))
 
     totals_events = {}
-    total_events_stats = get_enum_tag_value("__NFSIOS_COUNTSMAX",\
+    total_events_stats = get_enum_tag_value("__NFSIOS_COUNTSMAX",
                                             "nfs_stat_eventcounters")
     totals_bytes = {}
-    total_bytes_stats = get_enum_tag_value("__NFSIOS_BYTESMAX",\
+    total_bytes_stats = get_enum_tag_value("__NFSIOS_BYTESMAX",
                                            "nfs_stat_bytecounters")
     totals_fscache = {}
-    total_fscache_stats = get_enum_tag_value("__NFSIOS_FSCACHEMAX",\
+    total_fscache_stats = get_enum_tag_value("__NFSIOS_FSCACHEMAX",
                                              "nfs_stat_fscachecounters")
 
     rpc_xprt_print_stats(nfss.client)
@@ -716,8 +718,8 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument("--mounts", dest="procmounts",
                   action="store_true",
-                  help="print equivalent of /proc/mounts for specified" \
-                        " mount(s). If there are no other options set," \
+                  help="print equivalent of /proc/mounts for specified"
+                        " mount(s). If there are no other options set,"
                         " --mounts is optional")
     parser.add_argument("--stats", dest="procmountstats",
                   action="store_true",

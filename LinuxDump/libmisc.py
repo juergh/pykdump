@@ -58,10 +58,10 @@ def val_to_units_string(val, base, custom_strings=None):
             base = 1000
             unit_strings = [ "", "K", "M", "G", "T", "P", "E", "Z", "Y" ]
         elif base == 1000:
-            unit_strings = [ " Bytes", "KB", "MB", "GB", "TB", "PB", "EB",\
+            unit_strings = [ " Bytes", "KB", "MB", "GB", "TB", "PB", "EB"\
                              "ZB", "YB" ]
         elif base == 1024:
-            unit_strings = [ " Bytes", "KiB", "MiB", "GiB", "TiB", "PiB",\
+            unit_strings = [ " Bytes", "KiB", "MiB", "GiB", "TiB", "PiB",
                              "EiB", "ZiB", "YiB" ]
         else:
             base = 1
@@ -195,7 +195,7 @@ class get_per_cpu():
     def per_cpu_ptr(self, cpu, pointer):
         return int(self.cpu[cpu], 16) + pointer
     def per_cpu_struct(self, cpu, pointer, structtype):
-        return readSU("struct " + structtype,\
+        return readSU("struct " + structtype,
                       (int(self.cpu[cpu], 16) + int(pointer)))
     def sum_values(self, struct):
         sum = 0
@@ -205,7 +205,7 @@ class get_per_cpu():
     def __repr__(self):
         retstr = "per-cpu:"
         for selectedcpu in self.cpu.keys():
-            retstr = "%s\n%s%3s: %s" %(retstr, SPACER, selectedcpu,\
+            retstr = "%s\n%s%3s: %s" %(retstr, SPACER, selectedcpu,
                                        self.cpu[selectedcpu])
         return retstr
 
