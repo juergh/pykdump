@@ -240,7 +240,7 @@ def xs_local_print_stats(xprt):
     if xprt_connected(xprt):
         idle_time = (readSymbol("jiffies") - xprt.last_used) / sys_info.HZ
 
-    print("xprt:  local %lu %lu %lu %ld %lu %lu %lu %llu %llu %lu %llu %llu" %
+    print("  xprt:  local %lu %lu %lu %ld %lu %lu %lu %llu %llu %lu %llu %llu" %
           (xprt.stat.bind_count, xprt.stat.connect_count,
            xprt.stat.connect_time / sys_info.HZ, idle_time, xprt.stat.sends,
            xprt.stat.recvs, xprt.stat.bad_xids, xprt.stat.req_u,
@@ -254,14 +254,14 @@ def xs_tcp_print_stats(xprt):
         idle_time = (readSymbol("jiffies") - xprt.last_used) / sys_info.HZ
 
     try:
-        print("xprt:  tcp %u %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu" %
+        print("  xprt:  tcp %u %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu %lu" %
               (transport.srcport, xprt.stat.bind_count, xprt.stat.connect_count,
                xprt.stat.connect_time / sys_info.HZ, idle_time, xprt.stat.sends,
                xprt.stat.recvs, xprt.stat.bad_xids, xprt.stat.req_u,
                xprt.stat.bklog_u, xprt.stat.max_slots, xprt.stat.sending_u,
                xprt.stat.pending_u))
     except KeyError:
-        print("xprt:  tcp %u %lu %lu %lu %lu %lu %lu %lu %lu %lu" %
+        print("  xprt:  tcp %u %lu %lu %lu %lu %lu %lu %lu %lu %lu" %
               (transport.srcport, xprt.stat.bind_count, xprt.stat.connect_count,
                xprt.stat.connect_time / sys_info.HZ, idle_time, xprt.stat.sends,
                xprt.stat.recvs, xprt.stat.bad_xids, xprt.stat.req_u,
@@ -483,7 +483,7 @@ def show_vfsmnt(v):
     options += mnt_opts(v)
     nfss = readSU("struct nfs_server", sb.s_fs_info)
     options += nfs_mount_options(nfss)
-    print(textwrap.fill(options, width=100, initial_indent='',
+    print(textwrap.fill(options, width=80, initial_indent='  ',
                         subsequent_indent='      '))
 
 # thanks stackoverflow
@@ -589,23 +589,24 @@ def show_nfss_stats(m):
 
     jiffies = readSymbol("jiffies")
     HZ = sys_info.HZ
-    print("age: {}".format((jiffies - nfss.mount_time)/HZ))
+    show_vfsmnt(m)
+    print("  age: {}".format((jiffies - nfss.mount_time)/HZ))
 
     # TODO: decode caps and other bitmaps
-    print("caps: caps=0x%x, wtmult=%u, dtsize=%u, bsize=%u, namelen=%u" %
+    print("  caps: caps=0x%x, wtmult=%u, dtsize=%u, bsize=%u, namelen=%u" %
           ( nfss.caps, nfss.wtmult, nfss.dtsize, nfss.bsize, nfss.namelen))
     if nfss.nfs_client.rpc_ops.version == 4:
         if member_size("struct nfs_server", "attr_bitmask") == 12:
-            print("nfsv4: bm0=0x%x,bm1=0x%x,bm2=0x%x,acl=%x" %
+            print("  nfsv4: bm0=0x%x,bm1=0x%x,bm2=0x%x,acl=%x" %
                   (nfss.attr_bitmask[0], nfss.attr_bitmask[1],
                    nfss.attr_bitmask[2], nfss.acl_bitmask))
         else:
-            print("nfsv4: bm0=0x%x,bm1=0x%x,acl=%x" %
+            print("  nfsv4: bm0=0x%x,bm1=0x%x,acl=%x" %
                   (nfss.attr_bitmask[0], nfss.attr_bitmask[1],
                    nfss.acl_bitmask))
 
     auth = nfss.client.cl_auth
-    print("sec: flavor={}".format(auth.au_ops.au_flavor),
+    print("  sec: flavor={}".format(auth.au_ops.au_flavor),
           end=("" if auth.au_flavor else "\n"))
     if auth.au_flavor:
         print(", pseudoflavor={}".format(auth.au_flavor))
@@ -644,18 +645,18 @@ def show_nfss_stats(m):
                 totals_fscache[i] += io_stats.fscache[i]
         first_cpu = 0
 
-    print("events:")
+    print("  events:")
     for i in range(0, total_events_stats):
         count_name = get_enum_string(i, "nfs_stat_eventcounters")
         print("\t{:12}: {}".format(count_name, totals_events[i]))
 
-    print("bytes:")
+    print("  bytes:")
     for i in range(0, total_bytes_stats):
         count_name = get_enum_string(i, "nfs_stat_bytecounters")
         print("\t{:12}: {}".format(count_name, totals_bytes[i]))
 
     if nfss.options & LOCAL_DEFINES["NFS_OPTION_FSCACHE"]:
-        print("fscache:")
+        print("  fscache:")
         for i in range(0, total_fscache_stats):
             count_name = get_enum_string(i, "nfs_stat_fscachecounters")
             print("\t{:12}: {}".format(count_name, totals_fscache[i]))
