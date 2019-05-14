@@ -27,6 +27,8 @@ from pykdump.API import *
 
 from LinuxDump.fs import *
 from LinuxDump.Time import ktime_t
+import textwrap
+from textwrap import TextWrapper
 
 import socket
 import struct
@@ -244,29 +246,33 @@ def __mnt_is_readonly(v):
         return True
     return False
 
-def show_sb_opts(s):
-    fs_info = { MS_FLAGS.MS_SYNCHRONOUS: ",sync",
-        MS_FLAGS.MS_DIRSYNC: ",dirsync",
-        MS_FLAGS.MS_MANDLOCK: ",mand"
+def sb_opts(s):
+    fs_info = { MS_FLAGS.MS_SYNCHRONOUS: ", sync",
+        MS_FLAGS.MS_DIRSYNC: ", dirsync",
+        MS_FLAGS.MS_MANDLOCK: ", mand"
     }
+    options = ""
     sb = readSU("struct super_block", s)
     for flag in fs_info:
         if sb.s_flags & flag:
-            print(fs_info[flag], end='')
+            options += fs_info[flag]
+    return options
 
-def show_mnt_opts(v):
-    mnt_info = { MNT_FLAGS.MNT_NOSUID: ",nosuid",
-        MNT_FLAGS.MNT_NODEV: ",nodev",
-        MNT_FLAGS.MNT_NOEXEC: ",noexec",
-        MNT_FLAGS.MNT_NOATIME: ",noatime",
-        MNT_FLAGS.MNT_NODIRATIME: ",nodiratime",
-        MNT_FLAGS.MNT_RELATIME: ",relatime",
-        MNT_FLAGS.MNT_STRICTATIME: ",strictatime"
+def mnt_opts(v):
+    mnt_info = { MNT_FLAGS.MNT_NOSUID: ", nosuid",
+        MNT_FLAGS.MNT_NODEV: ", nodev",
+        MNT_FLAGS.MNT_NOEXEC: ", noexec",
+        MNT_FLAGS.MNT_NOATIME: ", noatime",
+        MNT_FLAGS.MNT_NODIRATIME: ", nodiratime",
+        MNT_FLAGS.MNT_RELATIME: ", relatime",
+        MNT_FLAGS.MNT_STRICTATIME: ", strictatime"
     }
+    options = ""
     mnt = readSU("struct vfsmount", v)
     for flag in mnt_info:
         if mnt.mnt_flags & flag:
-            print(mnt_info[flag], end='')
+            options += mnt_info[flag]
+    return options
 
 def rpc_peeraddr2str(clnt, format):
     xprt = readSU("struct rpc_clnt", clnt).cl_xprt
@@ -345,146 +351,151 @@ def nfs_pseudoflavor_to_name(flavor):
             break
     return sec_flavors[flav]
 
-def nfs_show_mountd_netid(n):
+def nfs_mountd_netid_to_str(n):
     nfss = readSU("struct nfs_server", n)
     sap = readSU("struct sockaddr", nfss.mountd_address)
-    print(",mountproto=", end='')
+    options = ""
+    options += ", mountproto="
     if sap.sa_family == ADDRESS_FAMILIES.AF_INET:
         if nfss.mountd_protocol == IP_PROTOS.IPPROTO_UDP:
-            print(RPCBIND_NETID_UDP, end='')
+            options += RPCBIND_NETID_UDP
         elif nfss.mountd_protocol == IP_PROTOS.IPPROTO_TCP:
-            print(RPCBIND_NETID_TCP, end='')
+            options += RPCBIND_NETID_TCP
         else:
-            print("auto", end='')
+            options += "auto"
     elif sap.sa_family == ADDRESS_FAMILIES.AF_INET6:
         if nfss.mountd_protocol == IP_PROTOS.IPPROTO_UDP:
-            print(RPCBIND_NETID_UDP6, end='')
+            options += RPCBIND_NETID_UDP6
         elif nfss.mountd_protocol == IP_PROTOS.IPPROTO_TCP:
-            print(RPCBIND_NETID_TCP6, end='')
+            options += RPCBIND_NETID_TCP6
         else:
-            print("auto", end='')
+            options += "auto"
     else:
-        print("auto")
+        options += "auto"
+    return options
 
-def nfs_show_mountd_options(n):
+def nfs_mountd_options(n):
     # RHEL5 does not have nfs_server.mountd_address
     if member_size("struct nfs_server", "mountd_address") <= 0:
         return ""
+    options = ""
     nfss = readSU("struct nfs_server", n)
     sap = readSU("struct sockaddr", nfss.mountd_address)
     if sap.sa_family == ADDRESS_FAMILIES.AF_INET:
         sin = readSU("struct sockaddr_in", sap)
-        print(",mountaddr=%s" % socket.inet_ntoa(struct.pack("!I",
-            socket.ntohl(sin.sin_addr.s_addr))), end='')
+        options += ", mountaddr=%s" % socket.inet_ntoa(struct.pack("!I",
+            socket.ntohl(sin.sin_addr.s_addr)))
     elif sap.sa_family == ADDRESS_FAMILIES.AF_INET6:
         sin6 = readSU("struct sockaddr_in6", sap)
-        print(",mountaddr=%s" % socket.inet_ntop(socket.AF_INET6,
-            struct.pack("!I", socket.ntohl(sin6.sin_addr.s_addr))), end='')
+        options += ", mountaddr=%s" % socket.inet_ntop(socket.AF_INET6,
+            struct.pack("!I", socket.ntohl(sin6.sin_addr.s_addr)))
     else:
-        print(",mountaddr=unspecified", end='')
+        options += ", mountaddr=unspecified"
     if nfss.mountd_version:
-        print(",mountvers=%u" % nfss.mountd_version, end='')
+        options += ", mountvers=%u" % nfss.mountd_version
     if nfss.mountd_port:
-        print(",mountport=%u" % nfss.mountd_port, end='')
-    nfs_show_mountd_netid(nfss)
+        options += ", mountport=%u" % nfss.mountd_port
+    return options + nfs_mountd_netid_to_str(nfss)
 
-def nfs_show_nfsv4_options(n):
+def nfs_nfsv4_options(n):
     nfss = readSU("struct nfs_server", n)
     clp = readSU("struct nfs_client", nfss.nfs_client)
-    print(",clientaddr=%s" % clp.cl_ipaddr, end='')
-    print(",minorversion=%u" % clp.cl_minorversion, end='')
+    return ", clientaddr=%s" % clp.cl_ipaddr +\
+           ", minorversion=%u" % clp.cl_minorversion
 
 # XXX: add showdefaults?
-def nfs_show_mount_options(n):
-    nfs_info = { NFS_MOUNT_FLAGS.NFS_MOUNT_SOFT: (",soft", ",hard"),
-        NFS_MOUNT_FLAGS.NFS_MOUNT_POSIX: (",posix", ""),
-        NFS_MOUNT_FLAGS.NFS_MOUNT_NOCTO: (",nocto", ""),
-        NFS_MOUNT_FLAGS.NFS_MOUNT_NOAC: (",noac", ""),
-        NFS_MOUNT_FLAGS.NFS_MOUNT_NONLM: (",nolock", ""),
-        NFS_MOUNT_FLAGS.NFS_MOUNT_NOACL: (",noacl", ""),
-        NFS_MOUNT_FLAGS.NFS_MOUNT_NORDIRPLUS: (",nordirplus", ""),
-        NFS_MOUNT_FLAGS.NFS_MOUNT_UNSHARED: (",nosharecache", ""),
-        NFS_MOUNT_FLAGS.NFS_MOUNT_NORESVPORT: (",noresvport", "")
+def nfs_mount_options(n):
+    nfs_info = { NFS_MOUNT_FLAGS.NFS_MOUNT_SOFT: (", soft", ", hard"),
+        NFS_MOUNT_FLAGS.NFS_MOUNT_POSIX: (", posix", ""),
+        NFS_MOUNT_FLAGS.NFS_MOUNT_NOCTO: (", nocto", ""),
+        NFS_MOUNT_FLAGS.NFS_MOUNT_NOAC: (", noac", ""),
+        NFS_MOUNT_FLAGS.NFS_MOUNT_NONLM: (", nolock", ""),
+        NFS_MOUNT_FLAGS.NFS_MOUNT_NOACL: (", noacl", ""),
+        NFS_MOUNT_FLAGS.NFS_MOUNT_NORDIRPLUS: (", nordirplus", ""),
+        NFS_MOUNT_FLAGS.NFS_MOUNT_UNSHARED: (", nosharecache", ""),
+        NFS_MOUNT_FLAGS.NFS_MOUNT_NORESVPORT: (", noresvport", "")
     }
     nfss = readSU("struct nfs_server", n)
     clp = readSU("struct nfs_client", nfss.nfs_client)
+    options = ""
     version = clp.rpc_ops.version
-    print(",vers=%u" % version, end='')
-    print(",rsize=%u" % nfss.rsize, end='')
-    print(",wsize=%u" % nfss.wsize, end='')
+    options += ", vers=%u" % version
+    options += ", rsize=%u" % nfss.rsize
+    options += ", wsize=%u" % nfss.wsize
     if nfss.bsize != 0:
-        print(",bsize=%u" % nfss.bsize, end='')
-    print(",acregmin=%u" % (nfss.acregmin/HZ), end='')
-    print(",acregmax=%u" % (nfss.acregmax/HZ), end='')
-    print(",acdirmin=%u" % (nfss.acdirmin/HZ), end='')
-    print(",acdirmax=%u" % (nfss.acdirmax/HZ), end='')
+        options += ", bsize=%u" % nfss.bsize
+    options += ", acregmin=%u" % (nfss.acregmin/HZ)
+    options += ", acregmax=%u" % (nfss.acregmax/HZ)
+    options += ", acdirmin=%u" % (nfss.acdirmin/HZ)
+    options += ", acdirmax=%u" % (nfss.acdirmax/HZ)
     for flag in nfs_info:
         if nfss.flags & flag:
-            print(nfs_info[flag][0], end='')
+            options += nfs_info[flag][0]
         else:
-            print(nfs_info[flag][1], end='')
+            options += nfs_info[flag][1]
     # RHEL5 does not have rpc_xprt.address_strings
     if member_size("struct rpc_xprt", "address_strings") > 0:
-        print(",proto=%s" % rpc_peeraddr2str(nfss.client,
-              RPC_DISPLAY_FORMAT.RPC_DISPLAY_NETID), end='')
+        options += ", proto=%s" % rpc_peeraddr2str(nfss.client,
+                         RPC_DISPLAY_FORMAT.RPC_DISPLAY_NETID)
     else:
         if nfss.client.cl_xprt.prot == 6:
-            print(",proto=tcp")
+            options += ", proto=tcp"
         elif nfss.client.cl_xprt.prot == 17:
-            print(",proto=udp")
+            options += ", proto=udp"
         else:
-            print(",proto=%s" % nfss.client.cl_xprt.prot, end='')
+            options += ", proto=%s" % nfss.client.cl_xprt.prot
     # RHEL5 does not have nfs_server.port
     if member_size("struct nfs_server", "port") > 0:
         if version == 4:
             if nfss.port != NFS_PORT:
-                print(",port=%u" % nfss.port, end='')
+                options += ", port=%u" % nfss.port
         else:
             if nfss.port:
-                print(",port=%u" % nfss.port, end='')
+                options += ",port=%u" % nfss.port
     # RHEL5 has nfs_client.retrans_timeo and retrans_count
     if member_size("struct nfs_client", "retrans_timeo") > 0:
-        print(",timeo=%lu" % (10 * clp.retrans_timeo / HZ), end='')
+        options += ", timeo=%lu" % (10 * clp.retrans_timeo / HZ)
     else:
-        print(",timeo=%lu" %
-              (10 * nfss.client.cl_timeout.to_initval / HZ), end='')
+        options += ", timeo=%lu" %\
+                   (10 * nfss.client.cl_timeout.to_initval / HZ)
     if member_size("struct nfs_client", "retrans_count") > 0:
-        print(",retrans=%u" % clp.retrans_count, end='')
+        options += ", retrans=%u" % clp.retrans_count
     else:
-        print(",retrans=%u" % nfss.client.cl_timeout.to_retries, end='')
-    print(",sec=%s" %
-          nfs_pseudoflavor_to_name(nfss.client.cl_auth.au_flavor), end='')
+        options += ",retrans=%u" % nfss.client.cl_timeout.to_retries
+    options += ", sec=%s" %\
+               nfs_pseudoflavor_to_name(nfss.client.cl_auth.au_flavor)
     if version != 4:
-        nfs_show_mountd_options(nfss)
+        options += nfs_mountd_options(nfss)
     else:
-        nfs_show_nfsv4_options(nfss)
+        options += nfs_nfsv4_options(nfss)
     # RHEL5 does not have nfs_server.options
     if member_size("struct nfs_server", "options") > 0:
         if nfss.options & NFS_OPTION_FSCACHE:
-           print(",fsc", end='')
+           options += ", sc"
     if nfss.flags & NFS_MOUNT_FLAGS.NFS_MOUNT_LOOKUP_CACHE_NONEG:
         if nfss.flags & NFS_MOUNT_FLAGS.NFS_MOUNT_LOOKUP_CACHE_NONE:
-            print(",lookupcache=none", end='')
+            options += ", lookupcache=none"
         else:
-            print(",lookupcache=pos", end='')
+            options += ", lookupcache=pos"
     local_flock = nfss.flags & NFS_MOUNT_FLAGS.NFS_MOUNT_LOCAL_FLOCK
     local_fcntl = nfss.flags & NFS_MOUNT_FLAGS.NFS_MOUNT_LOCAL_FCNTL
     if not local_flock and not local_fcntl:
-        print(",local_lock=none", end='')
+        options += ", local_lock=none"
     elif local_flock and local_fcntl:
-        print(",local_lock=all", end='')
+        options += ", local_lock=all"
     elif local_flock:
-        print(",local_lock=flock", end='')
+        options += ", local_lock=flock"
     else:
-        print(",local_lock=posix")
+        options += ", local_lock=posix"
     # NB: in the kernel, this is done by nfs_show_options, which calls
     # nfs_show_mount_options
     # RHEL5 does not have rpc_xprt.address_strings
     if member_size("struct rpc_xprt", "address_strings") > 0:
-        print(",addr=%s" % rpc_peeraddr2str(nfss.client,
-              RPC_DISPLAY_FORMAT.RPC_DISPLAY_ADDR), end='\n')
+        options += ", addr=%s" % rpc_peeraddr2str(nfss.client,
+                           RPC_DISPLAY_FORMAT.RPC_DISPLAY_ADDR)
     else:
-        print(",addr=%s" % nfss.nfs_client.cl_hostname, end='\n')
+        options += ", addr=%s" % nfss.nfs_client.cl_hostname
+    return options
 
 def supported_fstype(s_type):
     if s_type != sym2addr("nfs_fs_type") and\
@@ -505,24 +516,26 @@ def show_vfsmnt(v):
 
     if not supported_fstype(sb.s_type):
         return
-
     if mnt.mnt_devname:
-        print(mnt.mnt_devname, end='')
+        options = mnt.mnt_devname
     else:
-        print("none", end='')
-    print(" ", end='')
-    print(get_pathname(mnt.mnt_mountpoint, vfsmount), end='')
-    print(" ", end='')
-    print(sb.s_type.name, end="")
+        options = "none"
+    options += " "
+    options += get_pathname(mnt.mnt_mountpoint, vfsmount)
+    options += " "
+    options += sb.s_type.name
+    print(options)
     if __mnt_is_readonly(v):
-        print(" ro", end='')
+        options = "opts: ro"
     else:
-        print(" rw", end="")
-    show_sb_opts(sb)
+        options = "opts: rw"
+    options += sb_opts(sb)
     # TODO: security_sb_show_options
-    show_mnt_opts(v)
+    options += mnt_opts(v)
     nfss = readSU("struct nfs_server", sb.s_fs_info)
-    nfs_show_mount_options(nfss)
+    options += nfs_mount_options(nfss)
+    print(textwrap.fill(options, width=100, initial_indent='',
+                        subsequent_indent='      '))
 
 # thanks stackoverflow
 def auto_int(x):
@@ -646,7 +659,7 @@ def show_nfss_stats(m):
     print("sec: flavor={}".format(auth.au_ops.au_flavor),
           end=("" if auth.au_flavor else "\n"))
     if auth.au_flavor:
-        print(",pseudoflavor={}".format(auth.au_flavor))
+        print(", pseudoflavor={}".format(auth.au_flavor))
 
     totals_events = {}
     total_events_stats = get_enum_tag_value("__NFSIOS_COUNTSMAX",
