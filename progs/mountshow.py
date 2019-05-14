@@ -484,7 +484,7 @@ def show_vfsmnt(v):
     nfss = readSU("struct nfs_server", sb.s_fs_info)
     options += nfs_mount_options(nfss)
     print(textwrap.fill(options, width=80, initial_indent='  ',
-                        subsequent_indent='      '))
+                        subsequent_indent='        '))
 
 # thanks stackoverflow
 def auto_int(x):
