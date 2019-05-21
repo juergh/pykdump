@@ -1430,9 +1430,12 @@ def print_sunrpc_net(v):
     sn = readSU("struct sunrpc_net", get_sunrpc_net())
     print("   --- {} ---".format(sn))
     for cname in ("ip_map_cache", "unix_gid_cache"):
-        cd = getattr(sn, cname)
-        cname = "{}/{}".format(cname, cd.name)
-        print("  {:30s} {}".format(cname, cd))
+        try:
+            cd = getattr(sn, cname)
+            cname = "{}/{}".format(cname, cd.name)
+            print("  {:30s} {}".format(cname, cd))
+        except KeyError:
+            pass
 
 
 detail = 0
