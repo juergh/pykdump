@@ -127,7 +127,7 @@ def load_Structures():
     # Do not try to load modules if they are not in use - maybe
     # this host does not use NFS at all!
 
-    if(not ("nfs" in lsModules() or "nfsd" is lsModules())):
+    if(not ("nfs" in lsModules() or "nfsd" in lsModules())):
         print("This host is not using NFS!")
         sys.exit(0)
 
