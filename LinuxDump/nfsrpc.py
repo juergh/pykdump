@@ -2,7 +2,7 @@
 # -*- coding: latin-1 -*-
 #
 # --------------------------------------------------------------------
-# (C) Copyright 2012-2017 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2012-2019 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -127,7 +127,7 @@ def load_Structures():
     # Do not try to load modules if they are not in use - maybe
     # this host does not use NFS at all!
 
-    if(not "nfs" in lsModules()):
+    if(not ("nfs" in lsModules() or "nfsd" is lsModules())):
         print("This host is not using NFS!")
         sys.exit(0)
 
