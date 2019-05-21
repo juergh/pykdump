@@ -1,7 +1,7 @@
 # -*- coding: utf-8 -*-
 
 # --------------------------------------------------------------------
-# (C) Copyright 2006-2018 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2019 Hewlett Packard Enterprise Development LP
 #
 # Author: Alex Sidorenko <asid@hpe.com>
 #
@@ -9,7 +9,7 @@
 
 # Print info about NFS/RPC
 
-__version__ = "1.1.0"
+__version__ = "1.1.1"
 
 from collections import (Counter, OrderedDict, defaultdict)
 import itertools
@@ -1429,6 +1429,10 @@ def host_as_server(v = 0):
 def print_sunrpc_net(v):
     sn = readSU("struct sunrpc_net", get_sunrpc_net())
     print("   --- {} ---".format(sn))
+    for cname in ("ip_map_cache", "unix_gid_cache"):
+        cd = getattr(sn, cname)
+        cname = "{}/{}".format(cname, cd.name)
+        print("  {:30s} {}".format(cname, cd))
 
 
 detail = 0
