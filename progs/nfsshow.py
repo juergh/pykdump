@@ -244,7 +244,6 @@ def getCache(cname):
         if (c.name == cname):
             details = c
             break
-
     if (not details):
         return
 
@@ -259,6 +258,7 @@ def getCache(cname):
         unsupported = False
     if (unsupported):
         print ("No support yet for NFS cache details, will be added later")
+        print("      {} {}".format(c.name, c))
         return []
     size = details.hash_size
     for i in range(size):
@@ -1426,6 +1426,10 @@ def host_as_server(v = 0):
                     saddr = "n/a"
                 print ("   ", hc, prot, saddr, secago, hc.c_state)
 
+def print_sunrpc_net(v):
+    sn = readSU("struct sunrpc_net", get_sunrpc_net())
+    print("   --- {} ---".format(sn))
+
 
 detail = 0
 
@@ -1503,6 +1507,9 @@ if ( __name__ == '__main__'):
         if (get_nfs_mounts()):
             host_as_client(detail)
 
+    if (detail):
+        print_sunrpc_net(detail)
+    
     if (o.Server or o.All):
         host_as_server(detail)
 
@@ -1530,6 +1537,7 @@ if ( __name__ == '__main__'):
 
     if (o.deferred):
         print_deferred(detail)
+    
 
     # If no options have been provided, print just a summary
     rargs = len(sys.argv) - 1
