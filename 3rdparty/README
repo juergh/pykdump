@@ -1,0 +1,6 @@
+This directory contains 3rd party Python libraries that we need.
+They are all licensed under GPLv2 or later, or MIT, or other GPL-compatible
+license. You should not put proprietary modules here.
+
+We either include complete sources or provide
+URL pointing to these sources.
