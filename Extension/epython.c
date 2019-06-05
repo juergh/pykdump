@@ -247,7 +247,7 @@ void _init(void)  {
             fprintf(fp, "     *** Initializing Embedded Python %s ***\n",
                     crashmod_version);
 
-            extrapath = getenv("PYKDUMPPATH");
+        extrapath = getenv("PYKDUMPPATH");
         // To be able debug sources, we need real FS to be searched
         // before ZIP. So if PYKDUMPPATH is set, we insert it _before_ our
         // ZIP-archive
@@ -258,10 +258,14 @@ void _init(void)  {
             strncat(stdpath, ":", BUFLEN-1);
         }
         strncat(stdpath, ext_filename, BUFLEN-1);
-        strncat(stdpath, ":", BUFLEN);
+        strncat(stdpath, ":", BUFLEN-1);
         strncat(stdpath, ext_filename, BUFLEN-1);
         strncat(stdpath, "/", BUFLEN-1);
         strncat(stdpath, PYSTDLIBDIR, BUFLEN-1);
+        strncat(stdpath, ":", BUFLEN);
+        strncat(stdpath, ext_filename, BUFLEN-1);
+        strncat(stdpath, "/", BUFLEN-1);
+        strncat(stdpath, PYEXTRADIR, BUFLEN-1);
         mbstowcs(wstdpath, stdpath, BUFLEN-1);
 
         PyImport_AppendInittab("crash", PyInit_crash);

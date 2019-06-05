@@ -69,7 +69,7 @@ EXT_FULLAPI = API.so
 # Finally, the complete file suitable for production and distribution
 EXT_FULL = mpykdump.so
 
-.PHONY: clean distclean $(README) subdirs
+.PHONY: clean distclean $(README) subdirs $(MAKE3RD)
 .DELETE_ON_ERROR:
 
 # We don't want this to get changed when we 'cd'
@@ -88,9 +88,16 @@ testenv:
 # be added to sys.path in epython
 PYSTDLIBDIR = pylib
 
+# This is an analog of dist-packages, to be used for non-standard
+# 3rd party Python modules
+PYEXTRADIR = dist-packages
+MAKE3RD = .make3rd
+
 INCLUDES := -I$(CRASHDIR) $(PYINCLUDE)
 DEFINES := -D$(TARGET) -DCRASHVERS=\"$(CRASHVERS)\" \
-	-DPYSTDLIBDIR=\"$(PYSTDLIBDIR)\"
+	-DPYSTDLIBDIR=\"$(PYSTDLIBDIR)\" \
+	-DPYEXTRADIR=\"$(PYEXTRADIR)\" \
+
 DEBUG =  -g
 
 PYCOMPILE = pycompile
@@ -127,7 +134,11 @@ $(PYLIB): $(MIN_PYLIST) $(PYPA_C) $(PYTHON) $(MK)
 	zip $@ $(PYPA_C)
 	rm -rf $(PYSTDLIBDIR)
 
-FIND = find $(1) -name \*.pyc -o -type d -not \( -name .svn\* -prune \)
+$(MAKE3RD): $(PYTHON)
+	$(PYTHON) -m compileall -b $(TOPDIR)/3rdparty
+	touch $(MAKE3RD)
+
+FIND = find -L $(1) -name \*.pyc -o -type d -not \( -name .svn\* -prune \)
 
 
 # For testing of crash module only - our API + Python stdlib
@@ -142,14 +153,16 @@ $(EXT_FULLAPI):  $(EXT_C_PY) $(TOPDIR)/pykdump/API.py
 	cp $(EXT_C_PY) $(EXT_FULLAPI)
 	cd $(TOPDIR); $(call FIND, pykdump)  |  zip  $(CPWD)/$(EXT_FULLAPI) -@
 
+
 EXT_FULL_PATH = $(CPWD)/$(EXT_FULL) 
 
-$(EXT_FULL): $(EXT_FULLAPI) $(README)
+$(EXT_FULL): $(EXT_FULLAPI) $(README) $(MAKE3RD)
 	find $(TOPDIR)/LinuxDump -name \*.pyc | xargs rm -f
 	$(PYTHON) $(COMPALL) -f $(TOPDIR)/LinuxDump
 	cp $(EXT_FULLAPI) $(EXT_FULL)
 	zip $(EXT_FULL) $(README)
 	cd $(TOPDIR); $(call FIND, LinuxDump)  |  zip  $(EXT_FULL_PATH) -@
+	cd $(TOPDIR); $(call FIND, $(PYEXTRADIR))  |  zip  $(EXT_FULL_PATH) -@
 	cd $(TOPDIR); zip  $(EXT_FULL_PATH) $(ZIPPROGS)
 	cd $(TOPDIR)/progs;  zip  $(EXT_FULL_PATH) $(INITPROG)
 
@@ -164,7 +177,7 @@ $(README):
 
 clean:
 	rm -f $(OBJS) $(EXT_C) $(EXT_C_PY) $(EXT_FULLAPI) $(EXT_FULL) \
-		$(PYLIB) $(PYPA_C) $(PYLIB) $(README)
+		$(PYLIB) $(PYPA_C) $(PYLIB) $(README) $(MAKE3RD)
 
 distclean: clean
 	rm -rf  $(PYPA_C) *~ *.mk X86 X86_64 $(README)
