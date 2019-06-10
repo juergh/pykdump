@@ -186,8 +186,14 @@ def getCurrentModule(depth = 1):
     cframe = inspect.currentframe()
     m = inspect.getmodule(cframe)
     f = inspect.getouterframes(cframe)[depth]
-    m = inspect.getmodule(f.frame)
-    return m
+
+    # The following does not work when called from ZIP (Why?)
+    #m = inspect.getmodule(f.frame)
+    #return m
+
+    # An alternative approach:
+    mname = f.frame.f_globals["__name__"]
+    return sys.modules[mname]
 
 # Register object handler to change its attribute externally
 def registerObjAttrHandler(o, attrname, pyctlname=None, default=None):
@@ -212,10 +218,10 @@ def registerModuleAttr(attrname, pyctlname=None, default=None):
     cmod = getCurrentModule(2)
     registerObjAttrHandler(cmod, attrname, pyctlname, default)
 
-debugMemoize = 0
+# We need the next line as it is used in registerObjAttrHandler
 _debugDCache = 0
-#registerModuleAttr('debugMemoize', default=0)
-#registerModuleAttr('_debugDCache', 'debugDCache')
+registerModuleAttr('debugMemoize', default=0)
+registerModuleAttr('_debugDCache', 'debugDCache')
 
 # Produce an object that will return True a predefined number of times.
 # For example:
