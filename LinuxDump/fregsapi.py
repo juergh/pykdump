@@ -716,7 +716,10 @@ def search_for_registers(s, filter=''):
                 start = f.frame + LONG_SIZE
 
             end = nf.frame
-            arrsize = (end-start)//LONG_SIZE + 1
+            try:
+                arrsize = (end-start)//LONG_SIZE + 1
+            except:
+                arrsize = 0
 
             if (arrsize > 0 and arrsize < 8192):
                 #print("===reading {} longwords at level {}".format(arrsize,nf.level))
