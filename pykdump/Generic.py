@@ -212,9 +212,10 @@ def registerModuleAttr(attrname, pyctlname=None, default=None):
     cmod = getCurrentModule(2)
     registerObjAttrHandler(cmod, attrname, pyctlname, default)
 
+debugMemoize = 0
 _debugDCache = 0
-registerModuleAttr('debugMemoize', default=0)
-registerModuleAttr('_debugDCache', 'debugDCache')
+#registerModuleAttr('debugMemoize', default=0)
+#registerModuleAttr('_debugDCache', 'debugDCache')
 
 # Produce an object that will return True a predefined number of times.
 # For example:

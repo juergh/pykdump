@@ -57,7 +57,8 @@ hexl = Gen.hexl
 # GLobals used my this module
 
 # Deref debugging
-registerModuleAttr("debugDeref", default=0)
+debugDeref = 0
+#registerModuleAttr("debugDeref", default=0)
 
 # the default max number of elements returned from list traversal
 

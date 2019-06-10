@@ -167,7 +167,8 @@ API_options = Bunch()
 #              Global and Debugging options                       =
 # =                                                               =
 
-registerModuleAttr("debugReload", default=0)
+debugReload = 0
+#registerModuleAttr("debugReload", default=0)
 
 # Timeout used on a previous run
 global __timeout_exec
