@@ -44,7 +44,10 @@ long = int
 from .Generic import (Bunch, TypeInfo, VarInfo, PseudoVarInfo,
      SUInfo, ArtStructInfo, EnumInfo,
      memoize_cond, CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT,
-     memoize_typeinfo, purge_typeinfo)
+     memoize_typeinfo, purge_typeinfo,
+     DCache,
+     getCurrentModule, registerObjAttrHandler, registerModuleAttr)
+
 def b2str(s):
     return  str(s, 'ascii', errors='backslashreplace')
 _bjoin = b''
@@ -53,7 +56,8 @@ hexl = Gen.hexl
 
 # GLobals used my this module
 
-
+# Deref debugging
+registerModuleAttr("debugDeref", default=0)
 
 # the default max number of elements returned from list traversal
 
@@ -404,14 +408,14 @@ def parseDerefString(sname, teststring):
     si = getStructInfo(sname)
     out =[]
     codetype = -1
-    if (debug):
+    if (debugDeref):
         print ('-------sname=%s, test=%s' % (sname, teststring))
     for f in teststring.split('.'):
         f = f.strip()
         if (si and f in si):
             fi = si[f]
             offset = fi.offset
-            if (debug):
+            if (debugDeref):
                 print (f, "offset=%d" % offset)
             ti = fi.ti
             codetype = ti.codetype
@@ -426,21 +430,21 @@ def parseDerefString(sname, teststring):
                     tcodetype = ti.getTargetCodeType()
                 if (tcodetype in TYPE_CODE_SU):
                     si = getStructInfo(tti.stype)
-                    if (debug):
+                    if (debugDeref):
                         print("   pointer:", tti.stype)
                     isptr = True
             elif (codetype in TYPE_CODE_SU):
                 # Struct/Union
-                if (debug):
+                if (debugDeref):
                     print ("    SU:", ti.stype)
                 si = getStructInfo(ti.stype)
             else:
                 si = None
-                if (debug):
+                if (debugDeref):
                     print ("    codetype=%d" % codetype)
             out.append((isptr, offset))
         else:
-            if (debug):
+            if (debugDeref):
                 print ("Cannot continue f=<%s>, codetype=%d" % (f, codetype))
             return False
 
@@ -614,7 +618,6 @@ class StructResult(long):
 
     def hasField(self, fname):
         return fname in self.PYT_sinfo
-        #return (self.PYT_sinfo.chainOK(fname) != False)
 
     def isNamed(self, sname):
         return sname == self.PYT_symbol
@@ -1804,7 +1807,6 @@ getListSize = crash.getListSize
 readmem = crash.readmem
 set_readmem_task = crash.set_readmem_task
 nc_member_offset = crash.member_offset
-Gen.parseDerefString = parseDerefString
 
 
 def print_stats():
