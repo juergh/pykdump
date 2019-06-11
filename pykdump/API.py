@@ -538,12 +538,15 @@ def enter_epython():
     # Insert directory of the file to sys.path
     pdir = os.path.dirname(sys.argv[0])
     #print ("pdir=", pdir)
+    # We need to remove it in exit_epython
     sys.path.insert(0, pdir)
     #raise Exception("enter_epython")
 
 
 # We call this when exiting epython
 def exit_epython():
+    # Remove prog directory that we have inserted
+    sys.path.pop(0)
     if API_options.dumpcache:
         #BaseStructInfo.printCache()
         #wrapcrash.BaseTypeinfo.printCache()
