@@ -2,7 +2,7 @@
 # This script is run once when pykdump extension is loaded
 #
 # This can be used to register extra commands or anything else
-# (C) Copyright 2006-2017 Hewlett Packard Enterprise Development LP
+# (C) Copyright 2006-2019 Hewlett Packard Enterprise Development LP
 
 
 from crash import register_epython_prog as rprog
@@ -24,7 +24,7 @@ options:
 --everything
     prints most things, useful for sending the output to someone with
     networking expertise
-'''    
+'''
 
 rprog("xportshow",
       "Networking stuff",
@@ -44,11 +44,11 @@ options:
 
 --stacksummary
     print a categorized stack summary
-     
+
 --sysctl
     emulates 'sysctl -a' output
 '''
- 
+
 rprog("crashinfo", "1st-pass analysis",
       "-h   - list available options",
       help)
@@ -99,7 +99,7 @@ rprog("hanginfo", "Information about hanging threads",
 
 help = '''
 Decode and print information about subroutines registers and arguments,
-as available from stack frames. 
+as available from stack frames.
 
 This is very useful when you are trying to find arguments of subroutines.
 '''
@@ -109,9 +109,9 @@ rprog("fregs", "Decode and print stack frame registers",
       help)
 
 help = '''
-If there are timestamps in dmesg buffer ('log' command output), 
+If there are timestamps in dmesg buffer ('log' command output),
 convert these timestams to date/time according to current TZ
-and display result prepending this data to each line. 
+and display result prepending this data to each line.
 '''
 
 rprog("tslog", "The same thing as 'log', but with real date/time",
@@ -125,7 +125,7 @@ with its own options
 '''
 
 rprog("scsi", "Print information about SCSI subsystem",
-      "-h   - list available options", 
+      "-h   - list available options",
       help)
 
 help = '''
@@ -159,5 +159,24 @@ Print process list in tree format.
 '''
 
 rprog("pstree", "Print process list in tree format",
+        "-h   - list available options",
+        help)
+
+help = '''
+Print information about DLKMs
+
+  -h, --help            show this help message and exit
+  --disasm=DISASM_MODULE
+                        Disassemble a module functions
+  --details=MODULE_DETAIL
+                        Show details
+  -t                    Shows tainted modules only
+  -g                    Shows gaps between modules as well as phyiscally
+                        allocated sizes
+  -a                    Shows address range for the module
+  -u                    Shows unloaded module data if possible
+'''
+
+rprog("modinfo", "Print information about DLKMs",
         "-h   - list available options",
         help)
