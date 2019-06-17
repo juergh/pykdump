@@ -44,6 +44,7 @@ import time, select
 import stat
 import traceback
 import atexit
+import importlib
 from collections import defaultdict
 import pprint
 pp = pprint.PrettyPrinter(indent=4)
@@ -87,7 +88,7 @@ require_cmod_version(pykdump.minimal_cmod_version)
 # visible to API
 
 from . import Generic as gen
-from .Generic import (Bunch, DataCache, TrueOnce, 
+from .Generic import (Bunch, DCache, TrueOnce,
         ArtStructInfo, EnumInfo, iterN,
         memoize_cond, purge_memoize_cache, PY_select_purge,
         CU_LIVE, CU_LOAD, CU_PYMOD, CU_TIMEOUT,
@@ -111,6 +112,8 @@ PAGESIZE = crash.PAGESIZE
 PAGE_CACHE_SHIFT = crash.PAGE_CACHE_SHIFT
 
 crash.WARNING = WARNING                 # To be used from C-code
+
+
 
 import pprint
 
@@ -140,7 +143,8 @@ from .wrapcrash import (readU8, readU16, readU32, readS32,
      getSizeOf, container_of, whatis, funcargs, printObject,
      exec_gdb_command, exec_crash_command, exec_crash_command_bg,
      exec_crash_command_bg2, exec_command,
-     structSetAttr, structSetProcAttr, sdef2ArtSU, AttrSetter)
+     structSetAttr, structSetProcAttr, sdef2ArtSU, AttrSetter,
+     getCurrentModule, registerObjAttrHandler, registerModuleAttr)
 
 gen.d = wrapcrash
 # Add all GDB-registered types as Generic and wrapcrash variables
@@ -157,6 +161,13 @@ from .tparser import CEnum, CDefine
 # API module globals
 sys_info = Bunch()
 API_options = Bunch()
+
+# =================================================================
+# =                                                               =
+#              Global and Debugging options                       =
+# =                                                               =
+
+registerModuleAttr("debugReload", default=0)
 
 # Timeout used on a previous run
 global __timeout_exec
@@ -261,7 +272,6 @@ class PyLog:
 pylog = PyLog()
 setattr(wrapcrash, 'pylog', pylog)
 
-DCache = DataCache()
 
 class MsgExtra(object):
     _msgstack = [None]
@@ -377,15 +387,9 @@ def __epythonOptions():
     # thisdir <module 'thisdir' from './thisdir.pyc'>
     # subdir.otherdir <module 'subdir.otherdir' from './subdir/otherdir.pyc'>
 
-    # Last two entries in sys.path are mpydkump location + pylib, e.g.
-    # /usr/local/lib/mpykdump64.so
-    # /usr/local/lib/mpykdump64.so/pylib
-    __stdlib = sys.path[-2:]
-    __pylib = __stdlib[1]
-
-    # We don't reload:
-    # - anythng from mpydkump.so as found from __stdlib
-    # - anything from pylib module
+    # Do not reload from /pykdump/ - this is dangerous
+    # Do not reload from mpydump.so - it makes no sense as it is
+    # immutable
     # We do not reload __main__
     if (o.reload):
         purge_memoize_cache(CU_PYMOD)
@@ -393,18 +397,23 @@ def __epythonOptions():
         for k, m in list(sys.modules.items())[:]:
             if (hasattr(m, '__file__')):
                 mod1 = k.split('.')[0]
-                fdir = os.path.dirname(m.__file__)
-                # Skip standard library
-                if (fdir in __stdlib):
+                fpath = m.__file__
+                # Do not reload if there is no such file
+                if (not os.path.isfile(fpath)):
                     continue
                 # Don't reload pykdump/
-                if (fdir.startswith(__pylib) or
-                        mod1 in ('pykdump', '__main__')):
+                if ( mod1 in ('pykdump', '__main__')):
                     continue
-                #print(k, fdir, m.__file__)
+                if (debugReload > 1):
+                    print(k, fpath)
 
-                del sys.modules[k]
-                print ("--reloading", k)
+                #del sys.modules[k]
+                # Befor reloading, delete DCache objects related
+                # to this module
+                DCache.perm._delmodentries(m)
+                importlib.reload(m)
+                if (debugReload):
+                    print ("--reloading", k)
 
     if  (o.timeout):
         set_default_timeout(o.timeout)
@@ -529,12 +538,15 @@ def enter_epython():
     # Insert directory of the file to sys.path
     pdir = os.path.dirname(sys.argv[0])
     #print ("pdir=", pdir)
+    # We need to remove it in exit_epython
     sys.path.insert(0, pdir)
     #raise Exception("enter_epython")
 
 
 # We call this when exiting epython
 def exit_epython():
+    # Remove prog directory that we have inserted
+    sys.path.pop(0)
     if API_options.dumpcache:
         #BaseStructInfo.printCache()
         #wrapcrash.BaseTypeinfo.printCache()
@@ -700,7 +712,7 @@ def lsModules():
 # Execute 'sys' command and put its split output into a dictionary
 # Some names contain space and should be accessed using a dict method, e.g.
 # sys_info["LOAD AVERAGE"]
-# 
+#
 # A special case:
    #DUMPFILES: vmcore1 [PARTIAL DUMP]
               #vmcore2 [PARTIAL DUMP]
@@ -859,18 +871,18 @@ if (symbol_exists("__per_cpu_start") and symbol_exists("__per_cpu_end")):
 else:
     def is_percpu_symbol(addr):
         return False
-    
+
 # A special object to be used instead of readSymbol, e.g.
 # readSymbol("xtime") -> PYKD.xtime
 # we do not try to workaround Python mangling of attrs starting with
-# __, as  presumably using names that begin with double underscores 
-# in C is "undefined behavior", which is the technical term for 
+# __, as  presumably using names that begin with double underscores
+# in C is "undefined behavior", which is the technical term for
 # "don't do it."
 
 class __PYKD_reader(object):
     def __getattr__(self, attrname):
         return readSymbol(attrname)
-    
+
 PYKD = __PYKD_reader()
 
 enter_epython()

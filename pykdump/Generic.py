@@ -25,9 +25,8 @@ import pprint
 
 import os, sys
 import copy
-import types
-from types import *
-
+import inspect
+from collections import defaultdict
 
 
 from io import StringIO
@@ -43,6 +42,7 @@ d = None
 # These options can be reset from API.py
 debug = 0
 livedump = False
+
 
 # GLobals used my this module
 
@@ -100,13 +100,57 @@ class Bunch(dict):
         return rc
 
 # A special subclass of Bunch to be used for 'DataCache' class
+# In particular, we can register handlerk subroutines that will
+# be called when we change iterm value
 class _Bunch(Bunch):
+    def __init__(self, d = {}):
+        super().__init__(d)
+        # Used for regiestered handlers
+        object.__setattr__(self, '_registered', defaultdict(list))
     def clear(self):
         for name in self.keys():
             object.__delattr__(self, name)
         dict.clear(self)
+    def __setitem__(self, name, value):
+        super().__setitem__(name,value)
+        if (name in self._registered):
+            for func, o, ownermod in self._registered[name]:
+                func(value)
+                if (_debugDCache):
+                    print(" Setting {}={} for {}".format(name, value, o))
     def __getattr__(self, name):
         return None
+    def _register(self, pyctlname, func, o, ownermod):
+        self._registered[pyctlname].append((func, o, ownermod))
+        if (_debugDCache):
+            print(" <{}> {} option registered".format(pyctlname, o))
+
+    # Delete all entries related to a specific module - this is needed
+    # during reload
+    def _delmodentries(self, mod):
+        _reg = self._registered
+        for k in _reg:
+            # _reg[k][2] is ownermoddule
+            lst = _reg[k]
+            lst[:] = [e for e in lst if e[2] is not mod]
+            _reg[k] = lst
+    def Dump(self):
+        _reg = self._registered
+        out = []
+        if (_reg):
+            out.append(" -- Listing registered options --")
+            for k in _reg:
+                v = self[k]
+                for func, o, ownermod in _reg[k]:
+                    if (inspect.ismodule(o)):
+                        descr = " in {}".format(o.__name__)
+                    else:
+                        nowner = ownermod.__name__
+                        descr = "{} in {}".format(type(o).__name__, nowner)
+                    out.append("     <{}={}>  {}".\
+                               format(k, v, descr))
+            s = "\n".join(out)
+            print(s)
 
 class DataCache(object):
     def __init__(self):
@@ -134,6 +178,50 @@ class DataCache(object):
             print("   ** DCache.perm **")
             print(self.perm)
 
+DCache = DataCache()
+
+# Get module object from whete we call this subroutine
+
+def getCurrentModule(depth = 1):
+    cframe = inspect.currentframe()
+    m = inspect.getmodule(cframe)
+    f = inspect.getouterframes(cframe)[depth]
+
+    # The following does not work when called from ZIP (Why?)
+    #m = inspect.getmodule(f.frame)
+    #return m
+
+    # An alternative approach:
+    mname = f.frame.f_globals["__name__"]
+    return sys.modules[mname]
+
+# Register object handler to change its attribute externally
+def registerObjAttrHandler(o, attrname, pyctlname=None, default=None):
+    __D = DCache.perm
+    if (pyctlname is None):
+        pyctlname = attrname
+    def __func(value):
+        setattr(o, attrname, value)
+        return value
+    # If it is not set yet, set it to default
+    if (default is None and hasattr(o, attrname)):
+        default = getattr(o, attrname)
+
+    if (not pyctlname in __D):
+        __D[pyctlname] = default
+    __func(default)             # Create it if needed
+    __D._register(pyctlname, __func, o, getCurrentModule(2))
+
+# Register a handler for a module attribute, where module is the one
+# where we call this subroutine from
+def registerModuleAttr(attrname, pyctlname=None, default=None):
+    cmod = getCurrentModule(2)
+    registerObjAttrHandler(cmod, attrname, pyctlname, default)
+
+# We need the next line as it is used in registerObjAttrHandler
+_debugDCache = 0
+registerModuleAttr('debugMemoize', default=0)
+registerModuleAttr('_debugDCache', 'debugDCache')
 
 # Produce an object that will return True a predefined number of times.
 # For example:
@@ -232,13 +320,13 @@ def memoize_cond(condition):
             # If CU_LIVE is set and we are on live kernel, do not
             # memoize
             if (condition & CU_LIVE and livedump):
-                if (debug > 2):
+                if (debugMemoize > 2):
                     print ("do not memoize: live kernel", key)
                 return fn(*args)
             try:
                 return __memoize_cache[key]
             except KeyError:
-                if (debug > 1):
+                if (debugMemoize > 1):
                     print ("Memoizing", key)
                 val =  fn(*args)
                 __memoize_cache[key] = val
@@ -264,7 +352,7 @@ def purge_memoize_cache(flags):
     for k in keys:
         ce_flags = k[0]
         if (ce_flags & flags):
-            if (debug > 1):
+            if (debugMemoize > 1):
                 print ("Purging cache entry", k)
             del __memoize_cache[k]
 
@@ -423,12 +511,11 @@ class TypeInfo(object):
     # For debugging purposes
     def dump(self):
         print (" -------Dumping all attrs of TypeInfo %s" % self.stype)
-        for n in dir(self):
-            if (n in ('__doc__', '__module__', '__weakref__')):
-                continue
-            a = getattr(self, n)
-            if (type(a) in (StringType, IntType, NoneType, ListType)):
-               print ("  fn=%-12s " % n, a)
+        for na in ('stype', 'size', 'dims', 'ptrlev', 'typedef', 'details'):
+            a = getattr(self, na)
+            # if (type(a) in (StringType, IntType, NoneType, ListType)):
+            #    print ("  fn=%-12s " % n, a)
+            print("  {}, {} ".format(na, a))
         print (" -----------------------------------------------")
     elements = LazyEval("elements", getElements)
     tcodetype = LazyEval("tcodetype", getTargetCodeType)
@@ -671,16 +758,6 @@ class SUInfo(dict):
     def getFnames(self):
         return [e[0] for e in self.PYT_body]
 
-    # Is the derefence chain OK?
-#     def chainOK(self, dstr):
-#         try:
-#             return self.PYT_dchains[dstr]
-#         except KeyError:
-#             pass
-#         res = parseDerefString(self.PYT_sname, dstr)
-
-#         self.PYT_dchains[dstr] = res
-#         return res
 
 SUInfo = MemoizeSU('SUInfo', (SUInfo,), {})
 
@@ -773,3 +850,4 @@ class KernelRev(str):
             a[i] = long(v)
         return a[0] * 100000 + a[1] * 1000 + a[2]
     conv = staticmethod(conv)
+

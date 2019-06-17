@@ -1,0 +1,15 @@
+README.rst
+setup.py
+crccheck/__init__.py
+crccheck/base.py
+crccheck/checksum.py
+crccheck/crc.py
+crccheck.egg-info/PKG-INFO
+crccheck.egg-info/SOURCES.txt
+crccheck.egg-info/dependency_links.txt
+crccheck.egg-info/top_level.txt
+tests/__init__.py
+tests/test_base.py
+tests/test_checksum.py
+tests/test_crc.py
+tests/test_reflectbitorder.py
