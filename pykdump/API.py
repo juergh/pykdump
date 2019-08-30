@@ -507,7 +507,11 @@ def enter_epython():
 
     # We might redefine stdout every time we execute a command...
     # We expect stdout supporting utf-8
-    sys.stdout.reconfigure(encoding='utf-8')
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except AttributeError:
+        # Current Python version doesn't support the 'reconfigure' attribute
+        pass
 
     pp = pprint.PrettyPrinter(indent=4)
 
