@@ -445,6 +445,11 @@ run_fromzip(const char *progname, const char *zipfilename) {
         return 0;
     }
     importer = PyObject_CallMethod(m, "zipimporter", "s", zipfilename);
+    if (!importer) {
+        if (debug)
+		printf("Failed to import zipfile %s\n", zipfilename);
+        return 0;
+    }
     Py_DECREF(m);
 
     code = (evalPyObject *) PyObject_CallMethod(importer, "get_code", "s",
