@@ -1,0 +1,93 @@
+#! -*- makefile -*-
+#
+# Copyright (c) 2019 Canonical Ltd.
+#
+# This program is free software; you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation; either version 2 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful, but
+# WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU
+# General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA
+# 02110-1301, USA.
+
+HOST_CPU := $(shell dpkg-architecture -q DEB_HOST_GNU_CPU)
+CWD := $(CURDIR)
+CC := gcc
+
+# -----------------------------------------------------------------------------
+# crash specific settings
+
+ifneq ($(wildcard $(CRASH_DIR)/Makefile),)
+CRASH_TARGET := $(shell awk -F= '$$1 == "TARGET" { print $$2 }' \
+	$(CRASH_DIR)/Makefile)
+CRASH_TARGET_CFLAGS := $(shell awk -F= '$$1 == "TARGET_CFLAGS" { print $$2 }' \
+	$(CRASH_DIR)/Makefile)
+endif
+
+ifneq ($(wildcard $(CRASH_DIR)/crash),)
+CRASH_VERSION := $(shell $(CRASH_DIR)/crash --version | \
+	awk '$$1 == "crash" { print $$2 }')
+endif
+
+CRASH_INCLUDES := -I$(CRASH_DIR)
+
+# -----------------------------------------------------------------------------
+# gdb specific settings
+
+GDB_DIR := $(CRASH_DIR)/gdb-7.6/gdb
+
+GDB_INCLUDES := -I$(GDB_DIR) -I$(GDB_DIR)/config -I$(GDB_DIR)/../bfd \
+	  -I$(GDB_DIR)/../include -I$(GDB_DIR)/../intl -I$(GDB_DIR)/common
+
+GDB_DEFINES := -DGDB7 -DGDB76
+
+# -----------------------------------------------------------------------------
+# python specific settings
+
+PYTHON_CFLAGS := $(shell python3-config --cflags)
+PYTHON_LDFLAGS := $(shell python3-config --ldflags)
+PYTHON_PATH := $(shell python3 -c "import sys; print(':'.join(sys.path))")
+
+# -----------------------------------------------------------------------------
+# pykdump specific settings
+
+PYKDUMP_DEFINES := -D$(CRASH_TARGET) -DCRASHVERS=\"$(CRASH_VERSION)\" \
+	-DPYSTDLIBDIR=\"$(PYTHON_PATH)\" \
+	-DPYEXTRADIR=\"\"
+
+# -----------------------------------------------------------------------------
+# build objects and output path
+
+OBJS := epython.o functions.o gdbspec.o
+
+O_DIR ?= build/$(HOST_CPU)
+O_OBJS := $(addprefix $(O_DIR)/,$(OBJS))
+
+# -----------------------------------------------------------------------------
+# targets
+
+all: $(O_DIR)/pykdump.so
+
+$(O_DIR):
+	mkdir -p $@
+
+$(O_DIR)/%.o: %.c pykdump.h
+	$(CC) -fPIC -c $< -o $@ $(PYTHON_CFLAGS) $(CRASH_INCLUDES) \
+		$(PYKDUMP_DEFINES)
+
+$(O_DIR)/gdbspec.o: gdbspec.c
+	$(CC) -fPIC -c $< -o $@ $(PYTHON_CFLAGS) $(GDB_INCLUDES) $(GDB_DEFINES)
+
+$(O_DIR)/pykdump.so: $(O_DIR) $(O_OBJS)
+	gcc -fPIC -Wall -g -nostartfiles -shared -rdynamic $(O_OBJS) -o $@ \
+		$(CRASH_TARGET_CFLAGS) $(PYTHON_LDFLAGS) -D$(CRASH_TARGET)
+
+clean:
+	rm -rf $(O_DIR)
