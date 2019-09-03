@@ -590,10 +590,18 @@ static void ep_usage(void) {
     "\n");
 }
 
+/*
+ * Run an interactive Python console
+ */
+int ep_console(void)
+{
+	const char *cmd = ""
+		"import code, site;"
+		"site.setquit();"
+		"code.interact(local=locals());";
 
-
-    
-
+	return PyRun_SimpleString(cmd);
+}
 
 void
 epython_execute_prog(int argc, char *argv[], int quiet) {
@@ -672,8 +680,7 @@ epython_execute_prog(int argc, char *argv[], int quiet) {
         // Unprocessed arguments now start from optind
         if (optind == argc) {
             if (need_prog)
-                fprintf(fp, " You need to specify a program file or options\n"
-                "Check 'epython -h' for details\n");
+                ep_console();
             // No arguments passed
             use_crash_sigint();
             return;
